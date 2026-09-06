@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
 import PostList from '../components/posts/PostList';
@@ -12,6 +13,7 @@ const SORT_OPTIONS = [
 
 const Feed = () => {
   const { user, fetchMe } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [posts, setPosts]       = useState([]);
   const [sort, setSort]         = useState('latest');
   const [feedMode, setFeedMode] = useState('global'); // 'global' | 'following'
@@ -21,6 +23,16 @@ const Feed = () => {
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(true);
   const LIMIT = 15;
+
+  // Auto-open form if navigated with ?create=1
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setShowForm(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // clean up query param
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const fetchPosts = useCallback(async (sortVal = sort, pageVal = 1, mode = feedMode) => {
     setLoading(true);

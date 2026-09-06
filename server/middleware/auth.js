@@ -11,7 +11,7 @@ const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId)
-      .select('_id username email following favoriteChannels savedPosts');
+      .select('_id username email following favoriteChannels savedPosts role');
 
     if (!user) {
       return res.status(401).json({ message: 'User no longer exists' });
@@ -31,7 +31,7 @@ const optionalProtect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId)
-      .select('_id username email following favoriteChannels savedPosts');
+      .select('_id username email following favoriteChannels savedPosts role');
     if (user) req.user = user;
   } catch {}
   next();

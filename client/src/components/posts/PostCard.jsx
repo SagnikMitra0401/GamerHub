@@ -22,7 +22,9 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
   // Normalise both sides to plain hex strings before comparing
   const normalId = v => (v?._id ?? v)?.toString?.() ?? '';
   const isOwner = !!user && normalId(post.userId) === normalId(user);
+  const isStaff = user?.role === 'admin' || user?.role === 'moderator';
   const canEdit = isOwner && (Date.now() - new Date(post.createdAt).getTime()) < 5 * 60 * 1000;
+  const canDelete = isOwner || isStaff;
 
   const handleLike = async e => {
     e.stopPropagation();
@@ -98,6 +100,14 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         >
           {post.userId?.username || 'Unknown'}
         </span>
+
+        {/* Level & Role Badges */}
+        <span className="level-badge" title={`Player Level ${post.userId?.level || 1}`}>
+          Lv{post.userId?.level || 1}
+        </span>
+        {post.userId?.role === 'admin' && <span className="role-badge admin">👑 Admin</span>}
+        {post.userId?.role === 'moderator' && <span className="role-badge mod">🛡️ Mod</span>}
+
         <span>·</span>
         <span>{timeAgo(post.createdAt)}</span>
       </div>
@@ -233,9 +243,9 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
           {saved ? '🔖' : '📑'}
         </button>
 
-        {isOwner && (
+        {(canDelete || (isOwner && canEdit)) && (
           <div className="post-card-owner-actions" onClick={e => e.stopPropagation()}>
-            {canEdit && (
+            {isOwner && canEdit && (
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={e => { e.stopPropagation(); navigate(`/posts/${post._id}?edit=1`); }}
@@ -244,9 +254,15 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
                 ✏️ Edit
               </button>
             )}
-            <button className="btn btn-ghost btn-sm btn-danger" onClick={handleDelete}>
-              🗑️ Delete
-            </button>
+            {canDelete && (
+              <button 
+                className="btn btn-ghost btn-sm btn-danger" 
+                onClick={handleDelete}
+                title={isOwner ? 'Delete your post' : 'Moderate/Delete this post'}
+              >
+                🗑️ Delete
+              </button>
+            )}
           </div>
         )}
       </div>

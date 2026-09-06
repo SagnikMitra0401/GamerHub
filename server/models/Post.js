@@ -55,6 +55,7 @@ const PostSchema = new Schema({
 
 PostSchema.index({ tags: 1 });
 PostSchema.index({ createdAt: -1 });
+PostSchema.index({ title: 'text', content: 'text', tags: 'text' }); // full-text search
 
 PostSchema.virtual('likeCount').get(function () {
   return this.likes.length;

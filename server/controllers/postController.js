@@ -4,6 +4,7 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const scrapePreview = require('../utils/scrapePreview');
+const { awardXp } = require('../utils/gamification');
 
 const ALLOWED_FIELDS = ['title', 'content', 'tags'];
 
@@ -59,8 +60,16 @@ const createPost = async (req, res, next) => {
 
     const post = await Post.create({ ...data, userId: req.user._id });
     
+    // Gamification: award XP based on post type (non-blocking)
+    const isMediaPost = !!(data.mediaUrl);
+    awardXp(
+      req.user._id,
+      isMediaPost ? 10 : 5,
+      isMediaPost ? 'highlight_poster' : null
+    );
+
     // Return populated post
-    const populatedPost = await Post.findById(post._id).populate('userId', 'username');
+    const populatedPost = await Post.findById(post._id).populate('userId', 'username level role');
     res.status(201).json(populatedPost);
   } catch (err) {
     if (tempFilePath) {
@@ -132,7 +141,12 @@ const getPosts = async (req, res, next) => {
       { $unwind: '$userId' },
       {
         $set: {
-          'userId': { _id: '$userId._id', username: '$userId.username' }
+          userId: {
+            _id:      '$userId._id',
+            username: '$userId.username',
+            level:    '$userId.level',
+            role:     '$userId.role'
+          }
         }
       }
     ]);
@@ -236,6 +250,11 @@ const toggleLike = async (req, res, next) => {
 
     const post = await Post.findByIdAndUpdate(id, update, { new: true });
     if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    // Gamification: award Viral Gamer medal when post hits exactly 10 likes
+    if (!alreadyLiked && post.likes.length === 10) {
+      awardXp(post.userId, 50, 'viral_gamer');
+    }
 
     res.status(200).json({ likeCount: post.likes.length, liked: !alreadyLiked });
   } catch (err) {

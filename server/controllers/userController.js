@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const { awardXp } = require('../utils/gamification');
 
 // GET /api/users/:username — public profile
 const getProfile = async (req, res, next) => {
@@ -71,6 +72,12 @@ const toggleFollow = async (req, res, next) => {
       // Follow
       await User.findByIdAndUpdate(req.user._id,  { $addToSet: { following: target._id } });
       await User.findByIdAndUpdate(target._id, { $addToSet: { followers: req.user._id } });
+
+      // Gamification: Community Builder medal when following count hits 5 (non-blocking)
+      const updatedCaller = await User.findById(req.user._id).select('following').lean();
+      if (updatedCaller?.following?.length === 5) {
+        awardXp(req.user._id, 20, 'community_builder');
+      }
     }
 
     const updated = await User.findById(target._id)
@@ -153,11 +160,128 @@ const getSavedPosts = async (req, res, next) => {
   }
 };
 
+// GET /api/search?q=... — unified full-text search for posts, users, and tags
+const searchAll = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({ message: 'Query must be at least 2 characters' });
+    }
+    const query = q.trim();
+
+    const [posts, users, tags] = await Promise.all([
+      // Full-text search on posts using MongoDB text index
+      Post.find(
+        { $text: { $search: query } },
+        { score: { $meta: 'textScore' } }
+      )
+        .sort({ score: { $meta: 'textScore' } })
+        .limit(10)
+        .populate('userId', 'username level role')
+        .lean(),
+
+      // Regex username search
+      User.find({ username: { $regex: query, $options: 'i' } })
+        .select('username level role medals')
+        .limit(8)
+        .lean(),
+
+      // Distinct tag search
+      Post.distinct('tags', { tags: { $regex: query, $options: 'i' } })
+        .then(t => t.slice(0, 10))
+    ]);
+
+    res.status(200).json({ posts, users, tags });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /api/users/me/passport — update authenticated user's gamer passport
+const updateGamerPassport = async (req, res, next) => {
+  try {
+    const { customQuote, gameIds, activeGames, hardwareRigs } = req.body;
+
+    const passportData = {};
+
+    // 1. Custom quote
+    if (typeof customQuote === 'string') {
+      passportData.customQuote = customQuote.trim().slice(0, 120);
+    }
+
+    // 2. Game IDs
+    if (gameIds && typeof gameIds === 'object') {
+      passportData.gameIds = {
+        riotId:     typeof gameIds.riotId === 'string' ? gameIds.riotId.trim().slice(0, 40) : '',
+        steamId:    typeof gameIds.steamId === 'string' ? gameIds.steamId.trim().slice(0, 40) : '',
+        psnTag:     typeof gameIds.psnTag === 'string' ? gameIds.psnTag.trim().slice(0, 40) : '',
+        xboxTag:    typeof gameIds.xboxTag === 'string' ? gameIds.xboxTag.trim().slice(0, 40) : '',
+        discordTag: typeof gameIds.discordTag === 'string' ? gameIds.discordTag.trim().slice(0, 40) : ''
+      };
+    }
+
+    // 3. Active Games (Cap at 10)
+    if (Array.isArray(activeGames)) {
+      passportData.activeGames = activeGames
+        .filter(g => g && typeof g.gameName === 'string' && g.gameName.trim())
+        .slice(0, 10)
+        .map(g => ({
+          gameName:    g.gameName.trim().slice(0, 40),
+          platform:    ['PC', 'PlayStation', 'Xbox', 'Switch', 'Mobile', 'Other'].includes(g.platform) ? g.platform : 'PC',
+          rankOrLevel: typeof g.rankOrLevel === 'string' ? g.rankOrLevel.trim().slice(0, 40) : ''
+        }));
+    }
+
+    // 4. Multi-Rig Hardware Setups (Cap at 5)
+    if (Array.isArray(hardwareRigs)) {
+      let foundPrimary = false;
+      passportData.hardwareRigs = hardwareRigs
+        .filter(r => r && typeof r.rigName === 'string' && r.rigName.trim())
+        .slice(0, 5)
+        .map(r => {
+          // Guarantee only one primary device
+          const isPrimary = !foundPrimary && !!r.isPrimary;
+          if (isPrimary) foundPrimary = true;
+
+          return {
+            rigName:    r.rigName.trim().slice(0, 40),
+            deviceType: ['PC', 'Laptop', 'Mobile', 'Console', 'Handheld'].includes(r.deviceType) ? r.deviceType : 'PC',
+            isPrimary,
+            specs: {
+              cpu:         typeof r.specs?.cpu === 'string' ? r.specs.cpu.trim().slice(0, 60) : '',
+              gpu:         typeof r.specs?.gpu === 'string' ? r.specs.gpu.trim().slice(0, 60) : '',
+              ram:         typeof r.specs?.ram === 'string' ? r.specs.ram.trim().slice(0, 40) : '',
+              monitor:     typeof r.specs?.monitor === 'string' ? r.specs.monitor.trim().slice(0, 60) : '',
+              peripherals: typeof r.specs?.peripherals === 'string' ? r.specs.peripherals.trim().slice(0, 120) : ''
+            }
+          };
+        });
+
+      // If rigs exist but none marked primary, make first one primary
+      if (passportData.hardwareRigs.length > 0 && !foundPrimary) {
+        passportData.hardwareRigs[0].isPrimary = true;
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { gamerPassport: passportData } },
+      { new: true }
+    ).select('gamerPassport');
+
+    res.status(200).json(updatedUser.gamerPassport);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getProfile,
   getUserPosts,
   toggleFollow,
   toggleSavePost,
   toggleFavouriteChannel,
-  getSavedPosts
+  getSavedPosts,
+  searchAll,
+  updateGamerPassport
 };

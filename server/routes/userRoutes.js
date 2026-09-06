@@ -7,8 +7,15 @@ const {
   toggleFollow,
   toggleSavePost,
   toggleFavouriteChannel,
-  getSavedPosts
+  getSavedPosts,
+  searchAll,
+  updateGamerPassport
 } = require('../controllers/userController');
+
+// Search & Passport (must be before /:username to avoid route collision)
+router.get('/search',      optionalProtect, searchAll);
+router.put('/me/passport', protect,         updateGamerPassport);
+router.get('/me/saved',    protect,         getSavedPosts);
 
 // Public routes (with optional auth for isFollowing flag)
 router.get('/:username',       optionalProtect, getProfile);
@@ -18,6 +25,5 @@ router.get('/:username/posts', optionalProtect, getUserPosts);
 router.post('/:username/follow',   protect, toggleFollow);
 router.post('/saved/:postId',      protect, toggleSavePost);
 router.post('/channels/favourite', protect, toggleFavouriteChannel);
-router.get('/me/saved',            protect, getSavedPosts);
 
 module.exports = router;

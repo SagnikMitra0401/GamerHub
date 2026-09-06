@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
+const { awardXp } = require('../utils/gamification');
 
 const createComment = async (req, res, next) => {
   try {
@@ -20,7 +21,10 @@ const createComment = async (req, res, next) => {
     const comment = await Comment.create({ postId, userId: req.user._id, text });
     await Post.findByIdAndUpdate(postId, { $inc: { commentCount: 1 } });
 
-    const populated = await comment.populate('userId', 'username');
+    // Gamification: award +5 XP and Gamer Critic medal for commenting (non-blocking)
+    awardXp(req.user._id, 5, 'gamer_critic');
+
+    const populated = await comment.populate('userId', 'username level role');
     res.status(201).json(populated);
   } catch (err) {
     next(err);

@@ -617,9 +617,10 @@ img { max-width: 100%; }
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(4px);
-  z-index: 200;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -731,4 +732,679 @@ img { max-width: 100%; }
   pointer-events: none;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* ============ PAGE BOTTOM PADDING (FOR FLOATING TOOLBAR) ============ */
+.page {
+  padding-bottom: 6.5rem;
+}
+
+/* ============ FLOATING TRANSLUCENT TOOLBAR ============ */
+.floating-toolbar {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(14, 14, 26, 0.78);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(124, 58, 237, 0.18);
+  max-width: 92vw;
+  animation: toolbarFloatIn 0.35s ease-out;
+}
+
+@keyframes toolbarFloatIn {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.floating-toolbar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  min-width: 52px;
+}
+
+.floating-toolbar-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+.floating-toolbar-btn.active {
+  color: var(--primary-light);
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.toolbar-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.toolbar-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.3px;
+}
+
+/* Central glowing create button */
+.floating-toolbar-btn.primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 0 16px rgba(124, 58, 237, 0.45);
+  padding: 0.45rem 1rem;
+}
+
+.floating-toolbar-btn.primary:hover {
+  box-shadow: 0 0 22px rgba(6, 182, 212, 0.55);
+  transform: translateY(-3px) scale(1.04);
+}
+
+/* Avatar + Mini Level Badge in toolbar */
+.toolbar-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.toolbar-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.7rem;
+  border: 1.5px solid var(--primary-light);
+}
+
+.toolbar-level-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -6px;
+  background: var(--accent);
+  color: #07070f;
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 0 3px;
+  border-radius: 4px;
+  line-height: 1.1;
+}
+
+/* ============ SEARCH MODAL ============ */
+.search-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4rem 1rem 2rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.search-modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px var(--primary-glow);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 580px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: scaleUp 0.2s ease;
+}
+
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+}
+
+.search-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+}
+
+.search-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.3rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.search-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.search-results-container {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.search-placeholder, .search-empty, .search-loading {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-section-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 0.75rem 0 0.4rem;
+}
+
+.search-section-title:first-child {
+  margin-top: 0;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-result-item:hover {
+  background: var(--bg-elevated);
+}
+
+.search-result-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.search-result-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-result-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.search-result-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.search-tags-wrap {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.25rem 0;
+}
+
+/* ============ LEVEL & ROLE BADGES ============ */
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(124, 58, 237, 0.18);
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  color: var(--primary-light);
+  margin-left: 0.25rem;
+  user-select: none;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.role-badge.admin {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: var(--warning);
+}
+
+.role-badge.mod {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.45);
+  color: var(--accent);
+}
+
+.role-badge.user {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+}
+
+/* ============ XP PROGRESS BAR & MEDALS GRID ============ */
+.profile-xp-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.xp-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 99px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.medals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.6rem;
+}
+
+.medal-badge-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+}
+
+.medal-badge-card.unlocked {
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+}
+
+.medal-badge-card.unlocked:hover {
+  background: rgba(124, 58, 237, 0.22);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px var(--primary-glow);
+}
+
+.medal-badge-card.locked {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
+.medal-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.medal-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.medal-name {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+
+.medal-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* ============ GAMER PASSPORT & 2-COLUMN PROFILE LAYOUT ============ */
+.profile-container {
+  max-width: 1080px;
+}
+
+.profile-layout-grid {
+  display: grid;
+  grid-template-columns: 310px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .profile-layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.passport-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  position: sticky;
+  top: 75px;
+}
+
+.passport-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.85rem;
+}
+
+.passport-quote-box {
+  background: rgba(124, 58, 237, 0.08);
+  border-left: 3px solid var(--primary-light);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-bottom: 0.85rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.quote-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--primary-light);
+  font-family: Georgia, serif;
+}
+
+.quote-text {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--text-primary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.passport-section {
+  padding-bottom: 0.85rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.passport-section-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem 0;
+}
+
+.self-report-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* In-game IDs list */
+.game-ids-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.id-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.id-badge-label {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  min-width: 65px;
+}
+
+.id-badge-val {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-align: center;
+  padding: 0 0.35rem;
+}
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+  color: var(--primary-light);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.copy-btn.copied {
+  color: var(--success);
+}
+
+/* Active games */
+.active-games-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.active-game-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+.game-item-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.game-rank-badge {
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Multi-rig tabs & spec card */
+.rig-tabs {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.2rem;
+}
+
+.rig-tab {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.rig-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.rig-spec-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+}
+
+.rig-spec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.primary-rig-badge {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--warning);
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.rig-specs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.spec-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+}
+
+.spec-key {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.7rem;
+  min-width: 50px;
+}
+
+.spec-val {
+  color: var(--text-primary);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.passport-modal {
+  max-width: 560px;
+}
+
+
 
