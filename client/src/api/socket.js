@@ -1,7 +1,7 @@
 import { io } from 'socket.io-client';
 
-const RENDER_BACKEND_URL = 'https://gamer-hub-bb4t.onrender.com';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
+const RENDER_BACKEND_URL = 'https://gamerhub-backend-3108.onrender.com';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
   (import.meta.env.PROD ? RENDER_BACKEND_URL : 'http://localhost:5000');
 
 let socket = null;
