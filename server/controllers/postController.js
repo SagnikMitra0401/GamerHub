@@ -3,7 +3,7 @@ const fs = require('fs');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
-const scrapePreview = require('../utils/scrapePreview');
+const { scrapePreview } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
 
 const ALLOWED_FIELDS = ['title', 'content', 'tags'];
@@ -52,10 +52,22 @@ const createPost = async (req, res, next) => {
       tempFilePath = null;
     }
 
-    // Scrape link preview if a link exists in content or title
-    const preview = await scrapePreview(data.content || data.title);
-    if (preview) {
-      data.linkPreview = preview;
+    // Link preview: prefer the client-fetched preview (already scraped live in the form)
+    // so we never block post creation on a slow network scrape.
+    // Fall back to server-side scrape only when none was sent.
+    if (req.body.linkPreview) {
+      try {
+        const clientPreview = JSON.parse(req.body.linkPreview);
+        if (clientPreview && clientPreview.url) {
+          data.linkPreview = clientPreview;
+        }
+      } catch { /* malformed JSON — ignore */ }
+    }
+    if (!data.linkPreview) {
+      // Search both title AND content for a URL
+      const searchText = [data.title, data.content].filter(Boolean).join(' ');
+      const preview = await scrapePreview(searchText, 6000);
+      if (preview) data.linkPreview = preview;
     }
 
     const post = await Post.create({ ...data, userId: req.user._id });
@@ -195,12 +207,13 @@ const updatePost = async (req, res, next) => {
       }
     }
 
-    // Scrape/update link preview if text changes
+    // Scrape/update link preview if text changes (search title + content together)
     if (data.content !== undefined || data.title !== undefined) {
-      const textToScrape = (data.content !== undefined ? data.content : req.resource.content) || 
-                           (data.title !== undefined ? data.title : req.resource.title);
-      const preview = await scrapePreview(textToScrape);
-      data.linkPreview = preview || { url: null, title: null, description: null, image: null };
+      const title   = data.title   !== undefined ? data.title   : req.resource.title;
+      const content = data.content !== undefined ? data.content : req.resource.content;
+      const searchText = [title, content].filter(Boolean).join(' ');
+      const preview = await scrapePreview(searchText, 6000);
+      data.linkPreview = preview || { url: null, title: null, description: null, image: null, siteName: null };
     }
 
     Object.assign(req.resource, data);
@@ -262,4 +275,36 @@ const toggleLike = async (req, res, next) => {
   }
 };
 
-module.exports = { createPost, getPosts, getPostById, updatePost, deletePost, toggleLike };
+
+/**
+ * GET /api/posts/preview?url=<any-url>
+ * Scrapes Open Graph metadata from the given URL and returns a preview object.
+ * Used by the PostForm to show a live preview card before publishing.
+ * No authentication required — publicly callable.
+ */
+const { normaliseUrl } = require('../utils/scrapePreview');
+
+const previewLink = async (req, res) => {
+  const raw = (req.query.url || '').trim();
+  if (!raw) {
+    return res.status(400).json({ message: 'url query parameter is required' });
+  }
+
+  const url = normaliseUrl(raw);
+  if (!url) {
+    return res.status(400).json({ message: 'Invalid URL' });
+  }
+
+  try {
+    const preview = await scrapePreview(url, 8000);
+    if (!preview) {
+      return res.status(422).json({ message: 'No preview data found for this URL' });
+    }
+    return res.status(200).json(preview);
+  } catch {
+    return res.status(502).json({ message: 'Failed to fetch preview' });
+  }
+};
+
+module.exports = { createPost, getPosts, getPostById, updatePost, deletePost, toggleLike, previewLink };
+

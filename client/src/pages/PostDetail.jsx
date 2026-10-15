@@ -6,6 +6,7 @@ import PostForm from '../components/posts/PostForm';
 import CommentForm from '../components/comments/CommentForm';
 import CommentThread from '../components/comments/CommentThread';
 import ConfirmModal from '../components/common/ConfirmModal';
+import LinkPreviewCard from '../components/posts/LinkPreviewCard';
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -186,58 +187,9 @@ const PostDetail = () => {
 
             {/* Link Preview Rendering */}
             {post.linkPreview && post.linkPreview.url && (
-              <a
-                href={post.linkPreview.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'flex',
-                  margin: '1.5rem 0',
-                  borderRadius: 'var(--radius-md)',
-                  overflow: 'hidden',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-surface)',
-                  color: 'inherit',
-                  transition: 'background var(--transition), border-color var(--transition)'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'var(--bg-elevated)';
-                  e.currentTarget.style.borderColor = 'var(--border-hover)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'var(--bg-surface)';
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                }}
-              >
-                {post.linkPreview.image && (
-                  <div style={{ width: '150px', minWidth: '150px', height: '150px', overflow: 'hidden', background: '#000' }}>
-                    <img 
-                      src={post.linkPreview.image} 
-                      alt={post.linkPreview.title} 
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                    />
-                  </div>
-                )}
-                <div style={{ padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflow: 'hidden' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 0.35rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {post.linkPreview.title || 'Link Preview'}
-                  </h4>
-                  {post.linkPreview.description && (
-                    <p className="text-muted" style={{ fontSize: '0.85rem', margin: '0 0 0.5rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.5' }}>
-                      {post.linkPreview.description}
-                    </p>
-                  )}
-                  <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary-light)', textTransform: 'lowercase' }}>
-                    🔗 {(() => {
-                      try {
-                        return new URL(post.linkPreview.url).hostname;
-                      } catch {
-                        return 'link';
-                      }
-                    })()}
-                  </span>
-                </div>
-              </a>
+              <div style={{ margin: '1.5rem 0' }}>
+                <LinkPreviewCard preview={post.linkPreview} clickable={true} />
+              </div>
             )}
 
             {/* Actions */}
