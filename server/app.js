@@ -4,11 +4,12 @@ const helmet = require('helmet');
 const cors = require('cors');
 const mongoSanitize = require('express-mongo-sanitize');
 
-const authRoutes    = require('./routes/authRoutes');
-const postRoutes    = require('./routes/postRoutes');
-const commentRoutes = require('./routes/commentRoutes');
-const userRoutes    = require('./routes/userRoutes');
-const errorHandler = require('./middleware/errorHandler');
+const authRoutes      = require('./routes/authRoutes');
+const postRoutes      = require('./routes/postRoutes');
+const commentRoutes   = require('./routes/commentRoutes');
+const userRoutes      = require('./routes/userRoutes');
+const communityRoutes = require('./routes/communityRoutes');
+const errorHandler    = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -38,10 +39,11 @@ app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 app.use(mongoSanitize());
 
-app.use('/api/auth',  authRoutes);
-app.use('/api/posts', postRoutes);
+app.use('/api/auth',        authRoutes);
+app.use('/api/posts',       postRoutes);
 app.use('/api/posts/:postId/comments', commentRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/users',       userRoutes);
+app.use('/api/communities', communityRoutes);
 
 app.use(errorHandler);
 

@@ -40,6 +40,17 @@ const FloatingToolbar = ({ onSearchOpen, onCreateOpen }) => {
         <span className="toolbar-label">Search</span>
       </button>
 
+      {/* Communities / Squads */}
+      <button
+        className={`floating-toolbar-btn${isActive('/communities') || location.pathname.startsWith('/communities/') ? ' active' : ''}`}
+        onClick={() => navigate('/communities')}
+        title="Squads & Communities"
+        aria-label="Communities"
+      >
+        <span className="toolbar-icon">🏰</span>
+        <span className="toolbar-label">Squads</span>
+      </button>
+
       {/* Quick Create — central glowing button */}
       <button
         className="floating-toolbar-btn primary"

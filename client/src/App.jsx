@@ -10,6 +10,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ProfilePage from './pages/ProfilePage';
 import ChannelPage from './pages/ChannelPage';
+import CommunitiesHome from './pages/CommunitiesHome';
+import CommunityPage from './pages/CommunityPage';
 import './index.css';
 
 function App() {
@@ -26,13 +28,15 @@ function App() {
         <div className="hero-glow" />
         <Navbar />
         <Routes>
-          <Route path="/"            element={<Feed />} />
-          <Route path="/posts/:id"   element={<PostDetail />} />
-          <Route path="/login"       element={<Login />} />
-          <Route path="/register"    element={<Register />} />
-          <Route path="/u/:username" element={<ProfilePage />} />
-          <Route path="/c/:tag"      element={<ChannelPage />} />
-          <Route path="*"            element={<Navigate to="/" replace />} />
+          <Route path="/"                       element={<Feed />} />
+          <Route path="/posts/:id"              element={<PostDetail />} />
+          <Route path="/login"                  element={<Login />} />
+          <Route path="/register"               element={<Register />} />
+          <Route path="/u/:username"            element={<ProfilePage />} />
+          <Route path="/c/:tag"                 element={<ChannelPage />} />
+          <Route path="/communities"            element={<CommunitiesHome />} />
+          <Route path="/communities/:slug"      element={<CommunityPage />} />
+          <Route path="*"                       element={<Navigate to="/" replace />} />
         </Routes>
         <FloatingToolbar
           onSearchOpen={() => setSearchOpen(true)}
