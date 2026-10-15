@@ -14,19 +14,22 @@ const {
   deleteCommunity
 } = require('../controllers/communityController');
 
-// Communities
+// ⚠️ Static/specific routes MUST come before wildcard /:slug or /:id routes
+
+// Channel Messages — declared first to avoid being matched as /:slug = 'channels'
+router.get   ('/channels/:channelId/messages',     optionalProtect, getChannelMessages);
+
+// Communities CRUD
 router.post  ('/',                                 protect,         createCommunity);
 router.get   ('/',                                 optionalProtect, getCommunities);
-router.get   ('/:slug',                            optionalProtect, getCommunityBySlug);
-router.delete('/:id',                              protect,         deleteCommunity);
+// Channels scoped to a community
+router.post  ('/:id/channels',                     protect,         createChannel);
+// Member management
 router.post  ('/:id/join',                         protect,         joinCommunity);
 router.post  ('/:id/leave',                        protect,         leaveCommunity);
 router.patch ('/:id/members/:userId/role',         protect,         updateMemberRole);
-
-// Channels (scoped to a community)
-router.post  ('/:id/channels',                     protect,         createChannel);
-
-// Channel Messages (separate channel-level path)
-router.get   ('/channels/:channelId/messages',     optionalProtect, getChannelMessages);
+router.delete('/:id',                              protect,         deleteCommunity);
+// Wildcard slug/id routes — MUST be last
+router.get   ('/:slug',                            optionalProtect, getCommunityBySlug);
 
 module.exports = router;
