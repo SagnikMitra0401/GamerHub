@@ -28,7 +28,16 @@ const MessageSchema = new mongoose.Schema({
     maxlength: 1000
   },
 
-  pinned: { type: Boolean, default: false }
+  pinned: { type: Boolean, default: false },
+
+  // GDPR Right to Erasure & Tombstone support
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date, default: null },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+  // Edit tracking
+  isEdited: { type: Boolean, default: false },
+  editedAt: { type: Date, default: null }
 
 }, { timestamps: true });
 

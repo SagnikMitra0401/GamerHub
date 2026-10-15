@@ -1699,3 +1699,42 @@ img { max-width: 100%; }
   .community-sidebar { width: 200px; }
   .community-layout  { top: 56px; }
 }
+
+/* ── Chat Actions & Security Additions ────────────────────── */
+.chat-msg-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  padding: 0 4px;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.chat-message:hover .chat-msg-delete-btn {
+  opacity: 0.7;
+}
+
+.chat-msg-delete-btn:hover {
+  opacity: 1 !important;
+  transform: scale(1.15);
+}
+
+.text-tombstone {
+  font-style: italic;
+  color: var(--text-muted) !important;
+  opacity: 0.8;
+}
+
+/* Telegram pattern: Content-Protected Channels */
+.protected-chat {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.protected-chat img,
+.protected-chat video {
+  pointer-events: none !important;
+}
+

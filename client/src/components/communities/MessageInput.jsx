@@ -3,11 +3,26 @@ import { getSocket } from '../../api/socket';
 
 const ROLE_LABELS = { owner: '👑', admin: '🛡️', moderator: '⚔️', member: '' };
 
-const MessageInput = ({ channelId, canWrite, placeholder }) => {
+const MessageInput = ({ channelId, communityId, canWrite, slowModeSeconds = 0, placeholder }) => {
   const [text, setText]           = useState('');
   const [sending, setSending]     = useState(false);
+  const [cooldown, setCooldown]   = useState(0);
   const typingTimeoutRef          = useRef(null);
   const socket                    = getSocket();
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown(c => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  // Reset cooldown on channel change
+  useEffect(() => {
+    setCooldown(0);
+  }, [channelId]);
 
   // Typing indicator: emit start, then stop after 2s idle
   const handleChange = (e) => {
@@ -21,10 +36,16 @@ const MessageInput = ({ channelId, canWrite, placeholder }) => {
   };
 
   const handleSend = () => {
-    if (!text.trim() || !socket || !channelId || sending) return;
+    if (!text.trim() || !socket || !channelId || sending || cooldown > 0) return;
     setSending(true);
-    socket.emit('send_message', { channelId, text: text.trim() });
+    socket.emit('send_message', { channelId, communityId, text: text.trim() });
     setText('');
+
+    // Trigger slowmode cooldown if configured
+    if (slowModeSeconds > 0) {
+      setCooldown(slowModeSeconds);
+    }
+
     // Stop typing indicator immediately on send
     clearTimeout(typingTimeoutRef.current);
     socket.emit('typing_stop', { channelId });
@@ -44,20 +65,20 @@ const MessageInput = ({ channelId, canWrite, placeholder }) => {
         <input
           className="form-input"
           style={{ flex: 1, borderRadius: '12px', background: 'var(--bg-elevated)', fontSize: '0.92rem' }}
-          placeholder={canWrite ? (placeholder || 'Send a message...') : '🔒 You don\'t have permission to send messages here.'}
+          placeholder={!canWrite ? '🔒 You don\'t have permission to send messages here.' : cooldown > 0 ? `⏱️ Slowmode active (${cooldown}s)...` : (placeholder || 'Send a message...')}
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          disabled={!canWrite}
+          disabled={!canWrite || cooldown > 0}
           maxLength={1000}
         />
         <button
           className="btn btn-primary btn-sm"
           onClick={handleSend}
-          disabled={!canWrite || !text.trim() || sending}
+          disabled={!canWrite || !text.trim() || sending || cooldown > 0}
           style={{ borderRadius: '10px', padding: '0.5rem 0.85rem' }}
         >
-          Send
+          {cooldown > 0 ? `⏱️ ${cooldown}s` : 'Send'}
         </button>
       </div>
     </div>

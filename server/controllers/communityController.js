@@ -1,6 +1,7 @@
 const Community = require('../models/Community');
 const Channel   = require('../models/Channel');
 const Message   = require('../models/Message');
+const AuditLog  = require('../models/AuditLog');
 
 // ─── Utility ────────────────────────────────────────────────────────────────
 function makeSlug(name) {
@@ -195,6 +196,16 @@ const updateMemberRole = async (req, res, next) => {
     targetEntry.role = newRole;
     await community.save();
 
+    // Record immutable audit log
+    await AuditLog.create({
+      communityId: community._id,
+      actorId:     req.user._id,
+      actionType:  'ROLE_UPDATE',
+      targetId:    req.params.userId,
+      targetModel: 'User',
+      metadata:    { newRole }
+    }).catch(err => console.error('[AuditLog Error]', err.message));
+
     res.status(200).json({ message: `Role updated to ${newRole}.`, userId: req.params.userId, newRole });
   } catch (err) {
     next(err);
@@ -205,7 +216,7 @@ const updateMemberRole = async (req, res, next) => {
 // Admin+ can create channels
 const createChannel = async (req, res, next) => {
   try {
-    const { name, topic, type, minRoleToRead, minRoleToWrite } = req.body;
+    const { name, topic, type, minRoleToRead, minRoleToWrite, slowModeSeconds, retentionDays, isProtected } = req.body;
     const ROLE_LEVELS = { member: 0, moderator: 1, admin: 2, owner: 3 };
 
     const community = await Community.findById(req.params.id);
@@ -223,13 +234,26 @@ const createChannel = async (req, res, next) => {
     }
 
     const channel = await Channel.create({
-      communityId:    community._id,
-      name:           name.trim().toLowerCase().slice(0, 40),
-      topic:          (topic || '').trim().slice(0, 100),
-      type:           ['text', 'announcement'].includes(type) ? type : 'text',
-      minRoleToRead:  ['member', 'moderator', 'admin', 'owner'].includes(minRoleToRead) ? minRoleToRead : 'member',
-      minRoleToWrite: ['member', 'moderator', 'admin', 'owner'].includes(minRoleToWrite) ? minRoleToWrite : 'member'
+      communityId:     community._id,
+      name:            name.trim().toLowerCase().slice(0, 40),
+      topic:           (topic || '').trim().slice(0, 100),
+      type:            ['text', 'announcement'].includes(type) ? type : 'text',
+      minRoleToRead:   ['member', 'moderator', 'admin', 'owner'].includes(minRoleToRead) ? minRoleToRead : 'member',
+      minRoleToWrite:  ['member', 'moderator', 'admin', 'owner'].includes(minRoleToWrite) ? minRoleToWrite : 'member',
+      slowModeSeconds: Number(slowModeSeconds) || 0,
+      retentionDays:   Number(retentionDays) || 0,
+      isProtected:     !!isProtected
     });
+
+    // Record audit log
+    await AuditLog.create({
+      communityId: community._id,
+      actorId:     req.user._id,
+      actionType:  'CHANNEL_CREATE',
+      targetId:    channel._id,
+      targetModel: 'Channel',
+      metadata:    { name: channel.name, type: channel.type }
+    }).catch(err => console.error('[AuditLog Error]', err.message));
 
     res.status(201).json(channel);
   } catch (err) {
@@ -241,7 +265,7 @@ const createChannel = async (req, res, next) => {
 };
 
 // ─── GET /api/channels/:channelId/messages ───────────────────────────────────
-// Paginated message history for a channel (50 per page, newest first reversed client-side)
+// Anti-scraping, cursor-supported message history
 const getChannelMessages = async (req, res, next) => {
   try {
     const ROLE_LEVELS = { member: 0, moderator: 1, admin: 2, owner: 3 };
@@ -261,12 +285,16 @@ const getChannelMessages = async (req, res, next) => {
       return res.status(403).json({ message: 'You do not have permission to read this channel.' });
     }
 
-    const page  = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, parseInt(req.query.limit) || 50);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 50));
+    const query = { channelId: channel._id };
 
-    const messages = await Message.find({ channelId: channel._id })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+    // Anti-scraping cursor: if `before` ID provided, query messages older than that ID
+    if (req.query.before) {
+      query._id = { $lt: req.query.before };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ _id: -1 })
       .limit(limit)
       .populate('senderId', 'username level role medals')
       .lean();

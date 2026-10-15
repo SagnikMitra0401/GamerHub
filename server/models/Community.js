@@ -34,7 +34,13 @@ const CommunitySchema = new mongoose.Schema({
 
   ownerId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   members:  { type: [memberSchema], default: [] },
-  isPrivate:{ type: Boolean, default: false }
+  isPrivate:{ type: Boolean, default: false },
+
+  // Telegram pattern: Community-wide content protection
+  contentProtection: {
+    restrictCopy: { type: Boolean, default: false },
+    restrictMedia: { type: Boolean, default: false }
+  }
 
 }, { timestamps: true });
 

@@ -34,6 +34,28 @@ const ChannelSchema = new mongoose.Schema({
     type: String,
     enum: ['member', 'moderator', 'admin', 'owner'],
     default: 'member'
+  },
+
+  // Discord pattern: Slowmode cooldown in seconds (0 = disabled, 5, 15, 30, 60s)
+  slowModeSeconds: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 120
+  },
+
+  // Telegram pattern: Auto-retention days (0 = keep forever, 30, 60, 90 days)
+  retentionDays: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 365
+  },
+
+  // Content protection flag (disable copy, text-select, drag-drop in client)
+  isProtected: {
+    type: Boolean,
+    default: false
   }
 
 }, { timestamps: true });

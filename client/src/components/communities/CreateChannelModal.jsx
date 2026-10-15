@@ -8,8 +8,10 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
   const [type, setType]                   = useState('text');
   const [minRoleToRead, setMinRoleToRead]   = useState('member');
   const [minRoleToWrite, setMinRoleToWrite] = useState('member');
-  const [saving, setSaving]               = useState(false);
-  const [error, setError]                 = useState('');
+  const [slowModeSeconds, setSlowModeSeconds] = useState(0);
+  const [isProtected, setIsProtected]       = useState(false);
+  const [saving, setSaving]                 = useState(false);
+  const [error, setError]                   = useState('');
 
   const ROLES = ['member', 'moderator', 'admin', 'owner'];
   const ROLE_LABELS = { member: '🎮 Member+', moderator: '⚔️ Moderator+', admin: '🛡️ Admin+', owner: '👑 Owner Only' };
@@ -29,12 +31,15 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
         topic: topic.trim(),
         type,
         minRoleToRead,
-        minRoleToWrite
+        minRoleToWrite,
+        slowModeSeconds: Number(slowModeSeconds) || 0,
+        isProtected
       });
       onCreated(data);
       onClose();
       setName(''); setTopic(''); setType('text');
       setMinRoleToRead('member'); setMinRoleToWrite('member');
+      setSlowModeSeconds(0); setIsProtected(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create channel.');
     } finally {
@@ -109,6 +114,30 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
             <select className="form-input" value={minRoleToWrite} onChange={e => setMinRoleToWrite(e.target.value)}>
               {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">⏱️ Slowmode Cooldown</label>
+            <select className="form-input" value={slowModeSeconds} onChange={e => setSlowModeSeconds(Number(e.target.value))}>
+              <option value={0}>Disabled (Off)</option>
+              <option value={5}>5 seconds</option>
+              <option value={15}>15 seconds</option>
+              <option value={30}>30 seconds</option>
+              <option value={60}>60 seconds</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+            <input
+              type="checkbox"
+              id="protectContent"
+              checked={isProtected}
+              onChange={e => setIsProtected(e.target.checked)}
+              style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+            />
+            <label htmlFor="protectContent" style={{ cursor: 'pointer', fontSize: '0.85rem' }}>
+              🛡️ Restrict Saving/Copying <span className="text-muted" style={{ fontSize: '0.75rem' }}>(Telegram pattern)</span>
+            </label>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>

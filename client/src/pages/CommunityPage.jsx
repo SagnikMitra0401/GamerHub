@@ -70,6 +70,10 @@ const CommunityPage = () => {
       setMessages(prev => [...prev, msg]);
     });
 
+    sock.on('message_deleted', ({ messageId }) => {
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isDeleted: true, text: 'This message was deleted' } : m));
+    });
+
     sock.on('user_typing', ({ username }) => {
       setTypingUsers(prev => prev.includes(username) ? prev : [...prev, username]);
     });
@@ -84,6 +88,7 @@ const CommunityPage = () => {
 
     return () => {
       sock.off('new_message');
+      sock.off('message_deleted');
       sock.off('user_typing');
       sock.off('user_stopped_typing');
       sock.off('error_msg');
@@ -254,7 +259,7 @@ const CommunityPage = () => {
             </div>
 
             {/* Messages */}
-            <div className="chat-messages">
+            <div className={`chat-messages ${activeChannel.isProtected ? 'protected-chat' : ''}`}>
               {messages.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
                   <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👋</p>
@@ -268,8 +273,11 @@ const CommunityPage = () => {
                     (typeof m.userId === 'object' ? m.userId._id : m.userId)?.toString() === sender?._id?.toString()
                   )?.role;
 
+                  const isAuthor = user && sender?._id?.toString() === user._id?.toString();
+                  const canDelete = isAuthor || (callerRole && ['owner', 'admin', 'moderator'].includes(callerRole));
+
                   return (
-                    <div key={msg._id || i} className="chat-message">
+                    <div key={msg._id || i} className={`chat-message ${msg.isDeleted ? 'deleted' : ''}`}>
                       <div className="chat-avatar">{sender?.username?.[0]?.toUpperCase() || '?'}</div>
                       <div className="chat-message-body">
                         <div className="chat-message-header">
@@ -283,8 +291,28 @@ const CommunityPage = () => {
                             <span style={{ fontSize: '0.68rem', color: ROLE_COLORS[senderRole] }}>{ROLE_LABELS[senderRole]}</span>
                           )}
                           <span className="chat-timestamp">{timeAgo(msg.createdAt)}</span>
+
+                          {canDelete && !msg.isDeleted && (
+                            <button
+                              type="button"
+                              className="chat-msg-delete-btn"
+                              title="Delete message"
+                              onClick={() => {
+                                if (window.confirm('Delete this message?')) {
+                                  socketRef.current?.emit('delete_message', {
+                                    messageId: msg._id,
+                                    channelId: activeChannel._id
+                                  });
+                                }
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          )}
                         </div>
-                        <p className="chat-message-text">{msg.text}</p>
+                        <p className={`chat-message-text ${msg.isDeleted ? 'text-tombstone' : ''}`}>
+                          {msg.isDeleted ? '🚫 This message was deleted' : msg.text}
+                        </p>
                       </div>
                     </div>
                   );
@@ -312,6 +340,7 @@ const CommunityPage = () => {
               channelId={activeChannel._id}
               communityId={community._id}
               canWrite={canWrite}
+              slowModeSeconds={activeChannel.slowModeSeconds || 0}
               placeholder={`Message #${activeChannel.name}`}
             />
           </>
