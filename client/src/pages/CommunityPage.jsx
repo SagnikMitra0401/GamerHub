@@ -215,27 +215,47 @@ const CommunityPage = () => {
         {/* Members List */}
         <div className="community-section-label" style={{ marginTop: '1rem' }}>MEMBERS — {memberCount}</div>
         <div className="member-list">
-          {(community.members || []).map((m, i) => (
-            <Link
-              key={i}
-              to={`/u/${typeof m.userId === 'object' ? m.userId.username : m.userId}`}
-              className="member-item"
-            >
-              <div className="member-avatar">
-                {typeof m.userId === 'object' ? m.userId.username?.[0]?.toUpperCase() : '?'}
-              </div>
-              <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {typeof m.userId === 'object' ? m.userId.username : 'Member'}
-                </div>
-                {ROLE_LABELS[m.role] && (
-                  <div style={{ fontSize: '0.68rem', color: ROLE_COLORS[m.role] }}>
-                    {ROLE_LABELS[m.role]}
+          {(community.members || []).map((m, i) => {
+            const memberUser = typeof m.userId === 'object' && m.userId !== null ? m.userId : null;
+            const uname = memberUser?.username;
+            const initial = uname ? uname[0].toUpperCase() : '?';
+
+            if (!uname) {
+              return (
+                <div key={i} className="member-item">
+                  <div className="member-avatar">{initial}</div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>Member</div>
+                    {ROLE_LABELS[m.role] && (
+                      <div style={{ fontSize: '0.68rem', color: ROLE_COLORS[m.role] }}>
+                        {ROLE_LABELS[m.role]}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </Link>
-          ))}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={i}
+                to={`/u/${uname}`}
+                className="member-item"
+              >
+                <div className="member-avatar">{initial}</div>
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {uname}
+                  </div>
+                  {ROLE_LABELS[m.role] && (
+                    <div style={{ fontSize: '0.68rem', color: ROLE_COLORS[m.role] }}>
+                      {ROLE_LABELS[m.role]}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </aside>
 

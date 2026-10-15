@@ -80,6 +80,7 @@ const getCommunityBySlug = async (req, res, next) => {
   try {
     const community = await Community.findOne({ slug: req.params.slug })
       .populate('ownerId', 'username level role')
+      .populate('members.userId', 'username level role')
       .lean();
 
     if (!community) return res.status(404).json({ message: 'Community not found.' });
@@ -97,7 +98,10 @@ const getCommunityBySlug = async (req, res, next) => {
 
     // Determine caller's community role
     const memberEntry = req.user
-      ? community.members.find(m => m.userId.toString() === req.user._id.toString())
+      ? community.members.find(m => {
+          const mUid = typeof m.userId === 'object' && m.userId._id ? m.userId._id : m.userId;
+          return mUid?.toString() === req.user._id?.toString();
+        })
       : null;
     const callerRole = memberEntry?.role || null;
 
