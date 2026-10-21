@@ -16,14 +16,21 @@ const stripTrailingSlash = (value) => value.trim().replace(/\/+$/, '');
 
 let cached = null;
 
+const DEFAULT_PRODUCTION_ORIGINS = [
+  'https://gamer-hub-alpha.vercel.app',
+  'https://gamerhub.vercel.app'
+];
+
 function configuredOrigins() {
   if (cached) return cached;
-  cached = [process.env.CLIENT_URL, process.env.EXTRA_ALLOWED_ORIGINS]
+  const envOrigins = [process.env.CLIENT_URL, process.env.EXTRA_ALLOWED_ORIGINS]
     .filter(Boolean)
     .join(',')
     .split(',')
     .map(stripTrailingSlash)
     .filter(Boolean);
+
+  cached = Array.from(new Set([...envOrigins, ...DEFAULT_PRODUCTION_ORIGINS]));
   return cached;
 }
 
