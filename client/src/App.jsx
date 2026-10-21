@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import FloatingToolbar from './components/common/FloatingToolbar';
@@ -13,6 +13,16 @@ import ChannelPage from './pages/ChannelPage';
 import CommunitiesHome from './pages/CommunitiesHome';
 import CommunityPage from './pages/CommunityPage';
 import './index.css';
+
+/**
+ * The floating toolbar belongs to the social feed. Inside a server the chat
+ * composer owns the bottom of the screen, so the toolbar would sit on top of it.
+ */
+const GlobalToolbar = ({ onSearchOpen, onCreateOpen }) => {
+  const { pathname } = useLocation();
+  if (/^\/communities\/[^/]+/.test(pathname)) return null;
+  return <FloatingToolbar onSearchOpen={onSearchOpen} onCreateOpen={onCreateOpen} />;
+};
 
 function App() {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -38,7 +48,7 @@ function App() {
           <Route path="/communities/:slug"      element={<CommunityPage />} />
           <Route path="*"                       element={<Navigate to="/" replace />} />
         </Routes>
-        <FloatingToolbar
+        <GlobalToolbar
           onSearchOpen={() => setSearchOpen(true)}
           onCreateOpen={handleCreateOpen}
         />

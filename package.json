@@ -7,7 +7,8 @@
     "start": "node server/server.js",
     "server": "nodemon server/server.js",
     "client": "npm run dev --prefix client",
-    "dev": "concurrently \"npm run server\" \"npm run client\""
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "test": "node --test server/tests/permissions.test.js server/tests/sanitize.test.js server/tests/ssrf.test.js server/tests/origins.test.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

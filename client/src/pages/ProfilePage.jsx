@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
 import PostList from '../components/posts/PostList';
 import FollowButton from '../components/common/FollowButton';
 import GamerPassportCard from '../components/profile/GamerPassportCard';
 import EditPassportModal from '../components/profile/EditPassportModal';
+import { ROLE_LABELS } from '../utils/permissions';
 
 const PLATFORM_ICONS = { PC: '🖥', PlayStation: '🎮', Xbox: '🟢', Switch: '🔴' };
 
@@ -185,6 +186,31 @@ const ProfilePage = () => {
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                       {profile.bio}
                     </p>
+                  )}
+
+                  {/* Server memberships + the role held in each */}
+                  {profile.communities?.length > 0 && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '0.45rem' }}>
+                        🏰 Servers
+                      </h4>
+                      <div className="server-chip-row">
+                        {profile.communities.map(server => (
+                          <Link
+                            key={server._id}
+                            to={`/communities/${server.slug}`}
+                            className="server-chip"
+                            title={`${server.name} — ${ROLE_LABELS[server.role] || server.role}`}
+                          >
+                            <span>{server.icon}</span>
+                            <span>{server.name}</span>
+                            {server.role !== 'member' && (
+                              <span className="server-role">{ROLE_LABELS[server.role]?.replace(/^\S+\s/, '')}</span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {/* Stats */}

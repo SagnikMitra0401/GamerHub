@@ -2,26 +2,27 @@ const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const { awardXp } = require('../utils/gamification');
+const { sanitizeText } = require('../utils/sanitize');
+const { parsePagination } = require('../utils/pagination');
+const { badRequest, notFound } = require('../utils/httpError');
+
+const MAX_COMMENT = 2000;
 
 const createComment = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    const { text } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
-      return res.status(400).json({ message: 'Invalid post id' });
-    }
-    if (!text || !text.trim()) {
-      return res.status(400).json({ message: 'Comment text required' });
-    }
+    if (!mongoose.Types.ObjectId.isValid(postId)) throw badRequest('Invalid post id');
+
+    const text = sanitizeText(req.body.text, MAX_COMMENT);
+    if (!text) throw badRequest('Comment text required');
 
     const postExists = await Post.exists({ _id: postId });
-    if (!postExists) return res.status(404).json({ message: 'Post not found' });
+    if (!postExists) throw notFound('Post not found');
 
     const comment = await Comment.create({ postId, userId: req.user._id, text });
     await Post.findByIdAndUpdate(postId, { $inc: { commentCount: 1 } });
 
-    // Gamification: award +5 XP and Gamer Critic medal for commenting (non-blocking)
     awardXp(req.user._id, 5, 'gamer_critic');
 
     const populated = await comment.populate('userId', 'username level role');
@@ -34,16 +35,14 @@ const createComment = async (req, res, next) => {
 const getCommentsForPost = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    const { page = 1, limit = 30 } = req.query;
+    if (!mongoose.Types.ObjectId.isValid(postId)) throw badRequest('Invalid post id');
 
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
-      return res.status(400).json({ message: 'Invalid post id' });
-    }
+    const { skip, limit } = parsePagination(req.query, { defaultLimit: 30, maxLimit: 100 });
 
     const comments = await Comment.find({ postId })
       .sort({ createdAt: 1 })
-      .skip((Number(page) - 1) * Number(limit))
-      .limit(Math.min(Number(limit), 100))
+      .skip(skip)
+      .limit(limit)
       .populate('userId', 'username')
       .lean();
 
@@ -55,10 +54,9 @@ const getCommentsForPost = async (req, res, next) => {
 
 const updateComment = async (req, res, next) => {
   try {
-    const { text } = req.body;
-    if (!text || !text.trim()) {
-      return res.status(400).json({ message: 'Comment text required' });
-    }
+    const text = sanitizeText(req.body.text, MAX_COMMENT);
+    if (!text) throw badRequest('Comment text required');
+
     req.resource.text = text;
     await req.resource.save();
     res.status(200).json(req.resource);
@@ -69,7 +67,11 @@ const updateComment = async (req, res, next) => {
 
 const deleteComment = async (req, res, next) => {
   try {
-    await Post.findByIdAndUpdate(req.resource.postId, { $inc: { commentCount: -1 } });
+    // Only decrement when the counter is positive, so it can never go negative.
+    await Post.updateOne(
+      { _id: req.resource.postId, commentCount: { $gt: 0 } },
+      { $inc: { commentCount: -1 } }
+    );
     await req.resource.deleteOne();
     res.status(200).json({ message: 'Comment deleted' });
   } catch (err) {

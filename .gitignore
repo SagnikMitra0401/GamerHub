@@ -18,3 +18,10 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local analysis, testing artifacts & screenshots
+.freebuff/
+PROJECT_ANALYSIS.md
+analysis-feed.png
+screenshots/
+

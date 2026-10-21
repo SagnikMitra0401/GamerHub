@@ -49,7 +49,8 @@ const PostSchema = new Schema({
     url:         { type: String, default: null },
     title:       { type: String, default: null },
     description: { type: String, default: null },
-    image:       { type: String, default: null }
+    image:       { type: String, default: null },
+    siteName:    { type: String, default: null }
   }
 }, { timestamps: true });
 

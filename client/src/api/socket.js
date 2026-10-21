@@ -5,19 +5,35 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
   (import.meta.env.PROD ? RENDER_BACKEND_URL : 'http://localhost:5000');
 
 let socket = null;
+let socketToken = null;
 
 /**
- * Connect to Socket.io server.
- * @param {string} token - JWT token from auth context
+ * Connect (or re-use) the Socket.io client.
+ * A live socket whose token no longer matches the current session is replaced,
+ * otherwise logging in as another user would keep chatting as the previous one.
+ *
+ * @param {string|null} token - JWT from the auth context (cross-site fallback;
+ *                              the httpOnly cookie is used when available)
  */
 export function connectSocket(token) {
-  if (socket?.connected) return socket;
+  const nextToken = token || null;
 
+  if (socket && socketToken !== nextToken) {
+    socket.disconnect();
+    socket = null;
+  }
+
+  if (socket) {
+    if (!socket.connected) socket.connect();
+    return socket;
+  }
+
+  socketToken = nextToken;
   socket = io(SOCKET_URL, {
-    auth: { token },
+    auth: nextToken ? { token: nextToken } : {},
     withCredentials: true,
     transports: ['websocket', 'polling'],
-    reconnectionAttempts: 5,
+    reconnectionAttempts: 8,
     reconnectionDelay: 1500
   });
 
@@ -44,5 +60,6 @@ export function disconnectSocket() {
   if (socket) {
     socket.disconnect();
     socket = null;
+    socketToken = null;
   }
 }

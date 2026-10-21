@@ -2,33 +2,35 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
+const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
-const { scrapePreview } = require('../utils/scrapePreview');
+const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
+const { sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags } = require('../utils/sanitize');
+const { parsePagination } = require('../utils/pagination');
+const { badRequest, forbidden, notFound } = require('../utils/httpError');
 
-const ALLOWED_FIELDS = ['title', 'content', 'tags'];
+const EDIT_LIMIT_MS = 5 * 60 * 1000;
+const MAX_TITLE = 150;
+const MAX_CONTENT = 10_000;
 
-const sanitizeBody = (body) => {
-  const clean = {};
-  for (const key of ALLOWED_FIELDS) {
-    if (body[key] !== undefined) clean[key] = body[key];
-  }
-  return clean;
+const cleanupTempFile = (path) => {
+  if (path) fs.unlink(path, () => {});
 };
 
 const createPost = async (req, res, next) => {
   let tempFilePath = null;
   try {
-    const data = sanitizeBody(req.body);
+    const title = sanitizeLine(req.body.title, MAX_TITLE);
+    const content = sanitizeText(req.body.content, MAX_CONTENT);
+    const tags = normalizeTags(req.body.tags);
 
-    // Handle tag parsing if tags are sent as a string (common with multipart/form-data)
-    if (typeof req.body.tags === 'string') {
-      try {
-        data.tags = JSON.parse(req.body.tags);
-      } catch (e) {
-        data.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
-      }
-    }
+    // Media fields are server-derived only — never read them from the body.
+    let mediaUrl = null;
+    let mediaType = 'none';
+    let mediaPublicId = null;
+
+    if (!title) throw badRequest('A title is required.');
 
     if (req.file) {
       tempFilePath = req.file.path;
@@ -36,95 +38,85 @@ const createPost = async (req, res, next) => {
       const maxAllowedSize = isVideo ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
 
       if (req.file.size > maxAllowedSize) {
-        return res.status(400).json({
-          message: isVideo ? 'Videos must be 10MB or less.' : 'Images must be 5MB or less.'
-        });
+        // Multer accepted it (10MB cap) but the type-specific limit is smaller:
+        // remove the temp file before bailing out.
+        cleanupTempFile(tempFilePath);
+        tempFilePath = null;
+        throw badRequest(isVideo ? 'Videos must be 10MB or less.' : 'Images must be 5MB or less.');
       }
 
-      // Upload to Cloudinary
       const cloudinaryResult = await uploadToCloudinary(tempFilePath);
-      data.mediaUrl = cloudinaryResult.secure_url;
-      data.mediaType = isVideo ? 'video' : 'image';
-      data.mediaPublicId = cloudinaryResult.public_id;
+      mediaUrl = cloudinaryResult.secure_url;
+      mediaType = isVideo ? 'video' : 'image';
+      mediaPublicId = cloudinaryResult.public_id;
 
-      // Clean up temp file
-      fs.unlink(tempFilePath, () => {});
+      cleanupTempFile(tempFilePath);
       tempFilePath = null;
     }
 
-    // Link preview: prefer the client-fetched preview (already scraped live in the form)
-    // so we never block post creation on a slow network scrape.
-    // Fall back to server-side scrape only when none was sent.
+    // Link preview: only accept a well-formed http(s) payload from the client,
+    // otherwise scrape server-side.
+    let linkPreview = null;
     if (req.body.linkPreview) {
       try {
-        const clientPreview = JSON.parse(req.body.linkPreview);
-        if (clientPreview && clientPreview.url) {
-          data.linkPreview = clientPreview;
-        }
-      } catch { /* malformed JSON — ignore */ }
+        linkPreview = sanitizeLinkPreview(JSON.parse(req.body.linkPreview));
+      } catch {
+        linkPreview = null;
+      }
     }
-    if (!data.linkPreview) {
-      // Search both title AND content for a URL
-      const searchText = [data.title, data.content].filter(Boolean).join(' ');
-      const preview = await scrapePreview(searchText, 6000);
-      if (preview) data.linkPreview = preview;
+    if (!linkPreview) {
+      const searchText = [title, content].filter(Boolean).join(' ');
+      linkPreview = sanitizeLinkPreview(await scrapePreview(searchText, 5000));
     }
 
-    const post = await Post.create({ ...data, userId: req.user._id });
-    
-    // Gamification: award XP based on post type (non-blocking)
-    const isMediaPost = !!(data.mediaUrl);
-    awardXp(
-      req.user._id,
-      isMediaPost ? 10 : 5,
-      isMediaPost ? 'highlight_poster' : null
-    );
+    const post = await Post.create({
+      userId: req.user._id,
+      title,
+      content,
+      tags,
+      mediaUrl,
+      mediaType,
+      mediaPublicId,
+      linkPreview: linkPreview || {}
+    });
 
-    // Return populated post
+    const isMediaPost = !!post.mediaUrl;
+    awardXp(req.user._id, isMediaPost ? 10 : 5, isMediaPost ? 'highlight_poster' : null);
+
     const populatedPost = await Post.findById(post._id).populate('userId', 'username level role');
     res.status(201).json(populatedPost);
   } catch (err) {
-    if (tempFilePath) {
-      fs.unlink(tempFilePath, () => {});
-    }
+    cleanupTempFile(tempFilePath);
     next(err);
   }
 };
 
+/** Feed aggregation — the author projection is explicit, never a full user doc. */
 const getPosts = async (req, res, next) => {
   try {
-    const { channel, page = 1, limit = 15, sort = 'latest', feed } = req.query;
-
-    const pageNum  = Math.max(1, Number(page));
-    const limitNum = Math.min(Math.max(1, Number(limit)), 50);
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 15, maxLimit: 50 });
 
     const matchStage = {};
 
-    // Channel filter — posts tagged with a specific tag
-    if (channel) matchStage.tags = channel.toLowerCase();
+    const tag = sanitizeLine(req.query.channel, 24).toLowerCase();
+    if (tag) matchStage.tags = tag;
 
-    // Following feed — posts only from users the caller follows
-    if (feed === 'following' && req.user?.following?.length) {
-      matchStage.userId = { $in: req.user.following };
-    } else if (feed === 'following') {
-      // User follows nobody — return empty
-      return res.status(200).json([]);
+    if (req.query.feed === 'following') {
+      const following = req.user?.following ?? [];
+      if (!following.length) return res.status(200).json([]);
+      matchStage.userId = { $in: following };
     }
 
-    // Favourite channels boost: posts with overlapping tags get +1000 to sort score
-    const favChannels = req.user?.favoriteChannels ?? [];
+    const favChannels = (req.user?.favoriteChannels ?? [])
+      .filter((t) => typeof t === 'string' && t.length <= 24)
+      .slice(0, 50);
 
     const addFieldsStage = {
       likeCount: { $size: '$likes' },
       boostScore: favChannels.length
         ? {
             $cond: {
-              if: {
-                $gt: [
-                  { $size: { $setIntersection: ['$tags', favChannels] } },
-                  0
-                ]
-              },
+              if: { $gt: [{ $size: { $setIntersection: ['$tags', favChannels] } }, 0] },
               then: 1000,
               else: 0
             }
@@ -132,7 +124,7 @@ const getPosts = async (req, res, next) => {
         : { $literal: 0 }
     };
 
-    const sortStage = sort === 'most_liked'
+    const sortStage = req.query.sort === 'most_liked'
       ? { boostScore: -1, likeCount: -1, createdAt: -1 }
       : { boostScore: -1, createdAt: -1 };
 
@@ -140,25 +132,36 @@ const getPosts = async (req, res, next) => {
       { $match: matchStage },
       { $addFields: addFieldsStage },
       { $sort: sortStage },
-      { $skip: (pageNum - 1) * limitNum },
-      { $limit: limitNum },
+      { $skip: skip },
+      { $limit: limit },
       {
         $lookup: {
           from: 'users',
-          localField: 'userId',
-          foreignField: '_id',
-          as: 'userId'
+          let: { authorId: '$userId' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$authorId'] } } },
+            // ⚠️ Never widen this projection: emails and password hashes must
+            // never be reachable from an unauthenticated feed request.
+            { $project: { _id: 1, username: 1, level: 1, role: 1 } }
+          ],
+          as: 'author'
         }
       },
-      { $unwind: '$userId' },
+      { $unwind: '$author' },
       {
-        $set: {
-          userId: {
-            _id:      '$userId._id',
-            username: '$userId.username',
-            level:    '$userId.level',
-            role:     '$userId.role'
-          }
+        $project: {
+          userId: '$author',
+          title: 1,
+          content: 1,
+          tags: 1,
+          likes: 1,
+          commentCount: 1,
+          mediaUrl: 1,
+          mediaType: 1,
+          linkPreview: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          likeCount: 1
         }
       }
     ]);
@@ -169,15 +172,16 @@ const getPosts = async (req, res, next) => {
   }
 };
 
-
 const getPostById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid post id' });
-    }
-    const post = await Post.findById(id).populate('userId', 'username').lean({ virtuals: true });
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
+
+    const post = await Post.findById(id)
+      .populate('userId', 'username level role')
+      .lean({ virtuals: true });
+    if (!post) throw notFound('Post not found');
+
     res.status(200).json(post);
   } catch (err) {
     next(err);
@@ -187,36 +191,34 @@ const getPostById = async (req, res, next) => {
 // req.resource attached by checkOwnership middleware
 const updatePost = async (req, res, next) => {
   try {
-    // Editing rule: only allowed up to 5 minutes (300,000 ms) after creation
-    const EDIT_LIMIT_MS = 5 * 60 * 1000;
     const timeElapsed = Date.now() - new Date(req.resource.createdAt).getTime();
     if (timeElapsed > EDIT_LIMIT_MS) {
-      return res.status(403).json({
-        message: 'Editing is only allowed up to 5 minutes after posting.'
-      });
+      throw forbidden('Editing is only allowed up to 5 minutes after posting.');
     }
 
-    const data = sanitizeBody(req.body);
-
-    // If tags are stringified (coming from frontend updates)
-    if (typeof req.body.tags === 'string') {
-      try {
-        data.tags = JSON.parse(req.body.tags);
-      } catch (e) {
-        data.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
-      }
+    const updates = {};
+    if (req.body.title !== undefined) {
+      const title = sanitizeLine(req.body.title, MAX_TITLE);
+      if (!title) throw badRequest('A title is required.');
+      updates.title = title;
+    }
+    if (req.body.content !== undefined) {
+      updates.content = sanitizeText(req.body.content, MAX_CONTENT);
+    }
+    if (req.body.tags !== undefined) {
+      updates.tags = normalizeTags(req.body.tags);
     }
 
-    // Scrape/update link preview if text changes (search title + content together)
-    if (data.content !== undefined || data.title !== undefined) {
-      const title   = data.title   !== undefined ? data.title   : req.resource.title;
-      const content = data.content !== undefined ? data.content : req.resource.content;
-      const searchText = [title, content].filter(Boolean).join(' ');
-      const preview = await scrapePreview(searchText, 6000);
-      data.linkPreview = preview || { url: null, title: null, description: null, image: null, siteName: null };
+    if (!Object.keys(updates).length) throw badRequest('No updatable fields provided.');
+
+    if (updates.title !== undefined || updates.content !== undefined) {
+      const title = updates.title ?? req.resource.title;
+      const content = updates.content ?? req.resource.content;
+      const preview = sanitizeLinkPreview(await scrapePreview([title, content].join(' '), 4000));
+      updates.linkPreview = preview || { url: null, title: null, description: null, image: null, siteName: null };
     }
 
-    Object.assign(req.resource, data);
+    Object.assign(req.resource, updates);
     await req.resource.save();
     res.status(200).json(req.resource);
   } catch (err) {
@@ -226,19 +228,22 @@ const updatePost = async (req, res, next) => {
 
 const deletePost = async (req, res, next) => {
   try {
-    // Delete file from Cloudinary if media exists
     if (req.resource.mediaPublicId) {
       await deleteFromCloudinary(
-        req.resource.mediaPublicId, 
+        req.resource.mediaPublicId,
         req.resource.mediaType === 'video' ? 'video' : 'image'
-      ).catch(err => {
-        // Log error but don't block DB deletion if Cloudinary fails (e.g. file already deleted manually)
+      ).catch((err) => {
         console.error('Failed to delete asset from Cloudinary:', err.message);
       });
     }
 
     await Comment.deleteMany({ postId: req.resource._id });
+    await User.updateMany(
+      { savedPosts: req.resource._id },
+      { $pull: { savedPosts: req.resource._id } }
+    );
     await req.resource.deleteOne();
+
     res.status(200).json({ message: 'Post deleted' });
   } catch (err) {
     next(err);
@@ -251,9 +256,7 @@ const toggleLike = async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user._id;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid post id' });
-    }
+    if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
 
     const alreadyLiked = await Post.exists({ _id: id, likes: userId });
 
@@ -262,9 +265,8 @@ const toggleLike = async (req, res, next) => {
       : { $addToSet: { likes: userId } };
 
     const post = await Post.findByIdAndUpdate(id, update, { new: true });
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) throw notFound('Post not found');
 
-    // Gamification: award Viral Gamer medal when post hits exactly 10 likes
     if (!alreadyLiked && post.likes.length === 10) {
       awardXp(post.userId, 50, 'viral_gamer');
     }
@@ -275,36 +277,28 @@ const toggleLike = async (req, res, next) => {
   }
 };
 
-
 /**
  * GET /api/posts/preview?url=<any-url>
- * Scrapes Open Graph metadata from the given URL and returns a preview object.
- * Used by the PostForm to show a live preview card before publishing.
- * No authentication required — publicly callable.
+ * Authenticated + rate limited; outbound fetches are SSRF-guarded.
  */
-const { normaliseUrl } = require('../utils/scrapePreview');
-
-const previewLink = async (req, res) => {
-  const raw = (req.query.url || '').trim();
-  if (!raw) {
-    return res.status(400).json({ message: 'url query parameter is required' });
-  }
-
-  const url = normaliseUrl(raw);
-  if (!url) {
-    return res.status(400).json({ message: 'Invalid URL' });
-  }
-
+const previewLink = async (req, res, next) => {
   try {
-    const preview = await scrapePreview(url, 8000);
+    const raw = String(req.query.url || '').trim();
+    if (!raw) throw badRequest('url query parameter is required');
+    if (raw.length > 2048) throw badRequest('URL is too long');
+
+    const url = normaliseUrl(raw);
+    if (!url) throw badRequest('Invalid URL');
+
+    const preview = await scrapePreview(url, 5000);
     if (!preview) {
       return res.status(422).json({ message: 'No preview data found for this URL' });
     }
     return res.status(200).json(preview);
-  } catch {
-    return res.status(502).json({ message: 'Failed to fetch preview' });
+  } catch (err) {
+    if (err.statusCode) return next(err);
+    return next(badRequest('Failed to fetch preview'));
   }
 };
 
 module.exports = { createPost, getPosts, getPostById, updatePost, deletePost, toggleLike, previewLink };
-

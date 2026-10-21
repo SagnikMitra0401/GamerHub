@@ -44,6 +44,9 @@ const CommunitySchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
+// Member lookups ("which servers am I in", member lists) hit this index.
+CommunitySchema.index({ 'members.userId': 1 });
+
 // Helper: get a member's role (returns null if not a member)
 CommunitySchema.methods.getMemberRole = function(userId) {
   const member = this.members.find(m => m.userId.toString() === userId.toString());

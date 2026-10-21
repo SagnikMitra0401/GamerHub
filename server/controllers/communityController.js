@@ -1,61 +1,132 @@
+const mongoose = require('mongoose');
+
 const Community = require('../models/Community');
 const Channel   = require('../models/Channel');
 const Message   = require('../models/Message');
 const AuditLog  = require('../models/AuditLog');
+const User      = require('../models/User');
 
-// ─── Utility ────────────────────────────────────────────────────────────────
+const { CHAT_POLICY } = require('../config/chatPolicy');
+const {
+  CAP,
+  COMMUNITY_ROLES,
+  roleLevel,
+  roleAtLeast,
+  resolveCommunityRole,
+  communityPermissions,
+  canAssignCommunityRole,
+  canKickCommunityMember
+} = require('../utils/permissions');
+const { sanitizeLine } = require('../utils/sanitize');
+const { parsePagination } = require('../utils/pagination');
+const { recordAudit } = require('../utils/audit');
+const { badRequest, forbidden, notFound, conflict } = require('../utils/httpError');
+const { emitToCommunity, emitToChannel, evictUserFromCommunity } = require('../config/socket');
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
 function makeSlug(name) {
   return name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
     .slice(0, 50);
 }
 
-// ─── POST /api/communities ───────────────────────────────────────────────────
+async function loadCommunity(id) {
+  if (!id || !mongoose.Types.ObjectId.isValid(String(id))) {
+    throw badRequest('Invalid community id');
+  }
+  const community = await Community.findById(id);
+  if (!community) throw notFound('Community not found.');
+  return community;
+}
+
+/** Throws unless the caller holds `capability` in the community. */
+function requireCapability(community, userId, capability, message) {
+  const { role, permissions } = communityPermissions(community, userId);
+  if (!permissions.includes(capability)) {
+    throw forbidden(message || 'You do not have permission to do that.');
+  }
+  return { role, permissions };
+}
+
+const channelName = (raw) =>
+  sanitizeLine(String(raw || ''), CHAT_POLICY.channels.maxNameLength)
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const sortMembers = (members = []) =>
+  [...members].sort((a, b) => {
+    const byRole = roleLevel(b.role) - roleLevel(a.role);
+    if (byRole !== 0) return byRole;
+    const aName = String(a.userId?.username || '');
+    const bName = String(b.userId?.username || '');
+    return aName.localeCompare(bName);
+  });
+
+const memberSummary = (entry) => ({
+  userId: entry.userId?._id || entry.userId,
+  username: entry.userId?.username || 'Unknown',
+  level: entry.userId?.level ?? 1,
+  role: entry.role,
+  joinedAt: entry.joinedAt
+});
+
+// ─── POST /api/communities ──────────────────────────────────────────────────
 // Create a community + auto-generate #general channel
 const createCommunity = async (req, res, next) => {
   try {
-    const { name, description, icon, isPrivate } = req.body;
+    const name = sanitizeLine(req.body.name, CHAT_POLICY.community.maxNameLength);
+    const description = sanitizeLine(req.body.description, CHAT_POLICY.community.maxDescriptionLength);
+    const icon = sanitizeLine(req.body.icon, 100) || '🎮';
+    const isPrivate = !!req.body.isPrivate;
 
-    if (!name || name.trim().length < 3) {
-      return res.status(400).json({ message: 'Community name must be at least 3 characters.' });
+    if (name.length < CHAT_POLICY.community.minNameLength) {
+      throw badRequest(`Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`);
     }
 
-    const rawSlug = makeSlug(name.trim());
-    // Ensure slug uniqueness by appending a short random suffix if needed
-    let slug = rawSlug;
-    const exists = await Community.findOne({ slug });
-    if (exists) slug = `${rawSlug}-${Math.random().toString(36).slice(2, 6)}`;
+    const baseSlug = makeSlug(name) || 'community';
+    let slug = baseSlug;
+    for (let attempt = 0; attempt < 5 && (await Community.exists({ slug })); attempt += 1) {
+      slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+    }
 
     const community = await Community.create({
-      name:        name.trim().slice(0, 40),
+      name,
       slug,
-      description: (description || '').trim().slice(0, 200),
-      icon:        (icon || '🎮').trim().slice(0, 100),
-      isPrivate:   !!isPrivate,
-      ownerId:     req.user._id,
-      members:     [{ userId: req.user._id, role: 'owner' }]
+      description,
+      icon,
+      isPrivate,
+      ownerId: req.user._id,
+      members: [{ userId: req.user._id, role: 'owner' }]
     });
 
-    // Auto-create a #general text channel
     await Channel.create({
       communityId: community._id,
-      name:        'general',
-      topic:       'General chat for everyone',
-      type:        'text',
-      position:    0
+      name: 'general',
+      topic: 'General chat for everyone',
+      type: 'text',
+      position: 0
     });
 
-    res.status(201).json(community);
+    res.status(201).json({
+      ...community.toObject(),
+      memberCount: 1,
+      callerRole: 'owner',
+      callerPermissions: communityPermissions(community, req.user._id).permissions
+    });
   } catch (err) {
     next(err);
   }
 };
 
-// ─── GET /api/communities ────────────────────────────────────────────────────
-// List all public communities + communities the caller is a member of
+// ─── GET /api/communities ───────────────────────────────────────────────────
 const getCommunities = async (req, res, next) => {
   try {
     const filter = req.user
@@ -68,51 +139,94 @@ const getCommunities = async (req, res, next) => {
       .limit(50)
       .lean();
 
-    res.status(200).json(communities);
+    // Never expose the full member list here (member ids are not public data).
+    const payload = communities.map((c) => {
+      const role = resolveCommunityRole(c, req.user?._id);
+      const { members, ...rest } = c;
+      return {
+        ...rest,
+        memberCount: (members || []).length,
+        callerRole: role,
+        isMember: !!role
+      };
+    });
+
+    res.status(200).json(payload);
   } catch (err) {
     next(err);
   }
 };
 
-// ─── GET /api/communities/:slug ──────────────────────────────────────────────
-// Get single community with its channels + caller's role
+// ─── GET /api/communities/:slug ─────────────────────────────────────────────
 const getCommunityBySlug = async (req, res, next) => {
   try {
-    const community = await Community.findOne({ slug: req.params.slug })
+    const community = await Community.findOne({ slug: String(req.params.slug).toLowerCase() })
       .populate('ownerId', 'username level role')
-      .populate('members.userId', 'username level role')
+      .populate('members.userId', 'username level role medals')
       .lean();
 
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
+    if (!community) throw notFound('Community not found.');
 
-    // Private community: non-members cannot view it
-    if (community.isPrivate) {
-      const isMember = community.members.some(
-        m => req.user && m.userId.toString() === req.user._id.toString()
-      );
-      if (!isMember) return res.status(403).json({ message: 'This is a private community.' });
+    const callerId = req.user?._id;
+    const { role, permissions } = communityPermissions(community, callerId);
+
+    // Private servers are invisible to non-members — including their owner
+    // detection, which works on populated docs because resolveCommunityRole
+    // unwraps `_id`.
+    if (community.isPrivate && !role) {
+      throw forbidden('This is a private community.');
     }
 
-    // Fetch channels the caller is allowed to read
-    const allChannels = await Channel.find({ communityId: community._id }).sort({ position: 1 }).lean();
+    const allChannels = await Channel.find({ communityId: community._id })
+      .sort({ position: 1, name: 1 })
+      .lean();
 
-    // Determine caller's community role
-    const memberEntry = req.user
-      ? community.members.find(m => {
-          const mUid = typeof m.userId === 'object' && m.userId._id ? m.userId._id : m.userId;
-          return mUid?.toString() === req.user._id?.toString();
-        })
-      : null;
-    const callerRole = memberEntry?.role || null;
+    const visibleChannels = allChannels.filter((ch) =>
+      role ? roleAtLeast(role, ch.minRoleToRead) : ch.minRoleToRead === 'member'
+    );
 
-    // Filter channels by minRoleToRead
-    const ROLE_LEVELS = { member: 0, moderator: 1, admin: 2, owner: 3 };
-    const visibleChannels = allChannels.filter(ch => {
-      if (!callerRole) return ch.minRoleToRead === 'member'; // public
-      return (ROLE_LEVELS[callerRole] ?? -1) >= (ROLE_LEVELS[ch.minRoleToRead] ?? 0);
+    const memberCount = (community.members || []).length;
+    const members = sortMembers(community.members).slice(0, 100);
+
+    res.status(200).json({
+      community: { ...community, members, memberCount },
+      channels: visibleChannels,
+      callerRole: role,
+      callerPermissions: permissions,
+      memberCount
     });
+  } catch (err) {
+    next(err);
+  }
+};
 
-    res.status(200).json({ community, channels: visibleChannels, callerRole });
+// ─── GET /api/communities/:id/members ───────────────────────────────────────
+const getCommunityMembers = async (req, res, next) => {
+  try {
+    const community = await loadCommunity(req.params.id);
+    if (!resolveCommunityRole(community, req.user._id)) {
+      throw forbidden('Join this server to see its members.');
+    }
+
+    const { page, limit } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
+    const q = sanitizeLine(req.query.q, 40).toLowerCase();
+
+    const populated = await community.populate('members.userId', 'username level role');
+    let members = sortMembers(populated.members);
+
+    if (q) {
+      members = members.filter((m) => String(m.userId?.username || '').toLowerCase().includes(q));
+    }
+
+    const total = members.length;
+    const start = (page - 1) * limit;
+
+    res.status(200).json({
+      members: members.slice(start, start + limit).map(memberSummary),
+      total,
+      page,
+      hasMore: start + limit < total
+    });
   } catch (err) {
     next(err);
   }
@@ -121,16 +235,25 @@ const getCommunityBySlug = async (req, res, next) => {
 // ─── POST /api/communities/:id/join ─────────────────────────────────────────
 const joinCommunity = async (req, res, next) => {
   try {
-    const community = await Community.findById(req.params.id);
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
+    const community = await loadCommunity(req.params.id);
 
-    const alreadyMember = community.members.some(
-      m => m.userId.toString() === req.user._id.toString()
-    );
-    if (alreadyMember) return res.status(400).json({ message: 'Already a member.' });
+    if (resolveCommunityRole(community, req.user._id)) {
+      throw badRequest('You are already a member.');
+    }
+    if (community.isPrivate) {
+      throw forbidden('This server is invite-only. Ask an admin to add you.');
+    }
+    if ((community.members || []).length >= CHAT_POLICY.community.maxMembers) {
+      throw conflict('This server has reached its member limit.');
+    }
 
     community.members.push({ userId: req.user._id, role: 'member' });
     await community.save();
+
+    emitToCommunity(community._id, 'community_updated', {
+      communityId: String(community._id),
+      memberCount: community.members.length
+    });
 
     res.status(200).json({ message: 'Joined successfully.', role: 'member' });
   } catch (err) {
@@ -141,159 +264,480 @@ const joinCommunity = async (req, res, next) => {
 // ─── POST /api/communities/:id/leave ────────────────────────────────────────
 const leaveCommunity = async (req, res, next) => {
   try {
-    const community = await Community.findById(req.params.id);
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
+    const community = await loadCommunity(req.params.id);
+    const role = resolveCommunityRole(community, req.user._id);
 
-    // Owner cannot leave — must transfer ownership or delete
-    if (community.ownerId.toString() === req.user._id.toString()) {
-      return res.status(400).json({ message: 'Community owner cannot leave. Transfer ownership or delete the community.' });
+    if (!role) throw badRequest('You are not a member of this server.');
+    if (role === 'owner') {
+      throw badRequest('The owner cannot leave. Transfer ownership or delete the server.');
     }
 
     community.members = community.members.filter(
-      m => m.userId.toString() !== req.user._id.toString()
+      (m) => String(m.userId?._id ?? m.userId) !== String(req.user._id)
     );
     await community.save();
 
-    res.status(200).json({ message: 'Left community.' });
+    evictUserFromCommunity(req.user._id, community._id);
+    emitToCommunity(community._id, 'member_left', {
+      communityId: String(community._id),
+      userId: String(req.user._id),
+      memberCount: community.members.length
+    });
+
+    res.status(200).json({ message: 'Left server.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── POST /api/communities/:id/members ──────────────────────────────────────
+// Server admins can add a user directly (this is how private servers grow).
+const addMember = async (req, res, next) => {
+  try {
+    const community = await loadCommunity(req.params.id);
+    const { role: actorRole } = requireCapability(
+      community, req.user._id, CAP.ADD_MEMBERS,
+      'You need the Admin or Owner role to add members.'
+    );
+
+    const username = sanitizeLine(req.body.username, 20);
+    const newRole = sanitizeLine(req.body.role, 20) || 'member';
+    if (!username) throw badRequest('Username is required.');
+
+    const target = await User.findOne({ username }).select('_id username level').lean();
+    if (!target) throw notFound('User not found.');
+    if (resolveCommunityRole(community, target._id)) throw conflict('That user is already a member.');
+
+    const assignment = canAssignCommunityRole(actorRole, 'member', newRole);
+    if (!assignment.ok) throw forbidden(assignment.reason);
+
+    if ((community.members || []).length >= CHAT_POLICY.community.maxMembers) {
+      throw conflict('This server has reached its member limit.');
+    }
+
+    community.members.push({ userId: target._id, role: newRole });
+    await community.save();
+
+    recordAudit({
+      communityId: community._id,
+      actorId: req.user._id,
+      actionType: 'MEMBER_ADD',
+      targetId: target._id,
+      targetModel: 'User',
+      metadata: { username: target.username, role: newRole }
+    });
+
+    emitToCommunity(community._id, 'member_added', {
+      communityId: String(community._id),
+      userId: String(target._id),
+      role: newRole,
+      memberCount: community.members.length
+    });
+
+    res.status(201).json({
+      member: { userId: target._id, username: target.username, level: target.level, role: newRole }
+    });
   } catch (err) {
     next(err);
   }
 };
 
 // ─── PATCH /api/communities/:id/members/:userId/role ────────────────────────
-// Admins/Owners can update member roles (cannot exceed their own level)
 const updateMemberRole = async (req, res, next) => {
   try {
-    const { newRole } = req.body;
-    const VALID_ROLES  = ['member', 'moderator', 'admin'];
-    const ROLE_LEVELS  = { member: 0, moderator: 1, admin: 2, owner: 3 };
-
-    if (!VALID_ROLES.includes(newRole)) {
-      return res.status(400).json({ message: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
+    const newRole = sanitizeLine(req.body.newRole, 20).toLowerCase();
+    if (!COMMUNITY_ROLES.includes(newRole)) {
+      throw badRequest(`Invalid role. Must be one of: member, moderator, admin.`);
     }
 
-    const community = await Community.findById(req.params.id);
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
+    const community = await loadCommunity(req.params.id);
+    const { role: actorRole } = requireCapability(
+      community, req.user._id, CAP.MANAGE_ROLES,
+      'You need the Admin or Owner role to manage roles.'
+    );
 
-    const callerEntry = community.members.find(m => m.userId.toString() === req.user._id.toString());
-    if (!callerEntry) return res.status(403).json({ message: 'You are not a member of this community.' });
+    const targetEntry = community.members.find(
+      (m) => String(m.userId?._id ?? m.userId) === String(req.params.userId)
+    );
+    if (!targetEntry) throw notFound('Target user is not a member of this server.');
 
-    const callerLevel = ROLE_LEVELS[callerEntry.role] ?? -1;
-    // Must be at least admin to manage roles
-    if (callerLevel < ROLE_LEVELS.admin) {
-      return res.status(403).json({ message: 'You need Admin or Owner role to manage member roles.' });
-    }
+    const assignment = canAssignCommunityRole(actorRole, targetEntry.role, newRole);
+    if (!assignment.ok) throw forbidden(assignment.reason);
 
-    // Cannot assign a role equal to or above your own (non-owners can't assign admin)
-    if (ROLE_LEVELS[newRole] >= callerLevel && callerEntry.role !== 'owner') {
-      return res.status(403).json({ message: 'You cannot assign a role equal to or higher than your own.' });
-    }
-
-    const targetEntry = community.members.find(m => m.userId.toString() === req.params.userId);
-    if (!targetEntry) return res.status(404).json({ message: 'Target user is not a member of this community.' });
-
-    // Cannot demote the owner
-    if (targetEntry.role === 'owner') {
-      return res.status(403).json({ message: 'Cannot change the owner\'s role.' });
-    }
-
+    const previousRole = targetEntry.role;
     targetEntry.role = newRole;
     await community.save();
 
-    // Record immutable audit log
-    await AuditLog.create({
+    recordAudit({
       communityId: community._id,
-      actorId:     req.user._id,
-      actionType:  'ROLE_UPDATE',
-      targetId:    req.params.userId,
+      actorId: req.user._id,
+      actionType: 'ROLE_UPDATE',
+      targetId: targetEntry.userId,
       targetModel: 'User',
-      metadata:    { newRole }
-    }).catch(err => console.error('[AuditLog Error]', err.message));
+      metadata: { newRole, previousRole }
+    });
 
-    res.status(200).json({ message: `Role updated to ${newRole}.`, userId: req.params.userId, newRole });
+    emitToCommunity(community._id, 'member_role_updated', {
+      communityId: String(community._id),
+      userId: String(targetEntry.userId?._id ?? targetEntry.userId),
+      role: newRole
+    });
+
+    res.status(200).json({
+      message: `Role updated to ${newRole}.`,
+      userId: String(targetEntry.userId?._id ?? targetEntry.userId),
+      newRole
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── DELETE /api/communities/:id/members/:userId ────────────────────────────
+const kickMember = async (req, res, next) => {
+  try {
+    const community = await loadCommunity(req.params.id);
+    const { role: actorRole } = requireCapability(
+      community, req.user._id, CAP.KICK_MEMBERS,
+      'You need the Admin or Owner role to kick members.'
+    );
+
+    const targetId = String(req.params.userId);
+    const targetEntry = community.members.find(
+      (m) => String(m.userId?._id ?? m.userId) === targetId
+    );
+    if (!targetEntry) throw notFound('Target user is not a member of this server.');
+
+    const permission = canKickCommunityMember(actorRole, targetEntry.role, {
+      self: targetId === String(req.user._id)
+    });
+    if (!permission.ok) throw forbidden(permission.reason);
+
+    community.members = community.members.filter(
+      (m) => String(m.userId?._id ?? m.userId) !== targetId
+    );
+    await community.save();
+
+    recordAudit({
+      communityId: community._id,
+      actorId: req.user._id,
+      actionType: 'MEMBER_KICK',
+      targetId: targetEntry.userId,
+      targetModel: 'User',
+      metadata: { role: targetEntry.role }
+    });
+
+    evictUserFromCommunity(targetId, community._id);
+    emitToCommunity(community._id, 'member_kicked', {
+      communityId: String(community._id),
+      userId: targetId,
+      memberCount: community.members.length
+    });
+
+    res.status(200).json({ message: 'Member removed.', userId: targetId });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── PATCH /api/communities/:id ─────────────────────────────────────────────
+// Server settings (owner only — "minimum set of maintenance roles")
+const updateCommunity = async (req, res, next) => {
+  try {
+    const community = await loadCommunity(req.params.id);
+    requireCapability(
+      community, req.user._id, CAP.MANAGE_SERVER,
+      'Only the owner can change server settings.'
+    );
+
+    const changes = {};
+
+    if (req.body.name !== undefined) {
+      const name = sanitizeLine(req.body.name, CHAT_POLICY.community.maxNameLength);
+      if (name.length < CHAT_POLICY.community.minNameLength) {
+        throw badRequest(`Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`);
+      }
+      changes.name = name;
+    }
+    if (req.body.description !== undefined) {
+      changes.description = sanitizeLine(req.body.description, CHAT_POLICY.community.maxDescriptionLength);
+    }
+    if (req.body.icon !== undefined) {
+      changes.icon = sanitizeLine(req.body.icon, 100) || '🎮';
+    }
+    if (req.body.isPrivate !== undefined) {
+      changes.isPrivate = !!req.body.isPrivate;
+    }
+
+    if (!Object.keys(changes).length) throw badRequest('No updatable fields provided.');
+
+    Object.assign(community, changes);
+    await community.save();
+
+    recordAudit({
+      communityId: community._id,
+      actorId: req.user._id,
+      actionType: 'SETTINGS_UPDATE',
+      targetId: community._id,
+      targetModel: 'Community',
+      metadata: { changes: Object.keys(changes) }
+    });
+
+    emitToCommunity(community._id, 'community_updated', {
+      communityId: String(community._id),
+      settingsChanged: true
+    });
+
+    res.status(200).json(community);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── DELETE /api/communities/:id ────────────────────────────────────────────
+const deleteCommunity = async (req, res, next) => {
+  try {
+    const community = await loadCommunity(req.params.id);
+    if (String(community.ownerId) !== String(req.user._id)) {
+      throw forbidden('Only the server owner can delete this server.');
+    }
+
+    emitToCommunity(community._id, 'community_deleted', {
+      communityId: String(community._id)
+    });
+
+    await Message.deleteMany({ communityId: community._id });
+    await Channel.deleteMany({ communityId: community._id });
+    await AuditLog.deleteMany({ communityId: community._id });
+    await community.deleteOne();
+
+    res.status(200).json({ message: 'Community deleted.' });
   } catch (err) {
     next(err);
   }
 };
 
 // ─── POST /api/communities/:id/channels ─────────────────────────────────────
-// Admin+ can create channels
 const createChannel = async (req, res, next) => {
   try {
-    const { name, topic, type, minRoleToRead, minRoleToWrite, slowModeSeconds, retentionDays, isProtected } = req.body;
-    const ROLE_LEVELS = { member: 0, moderator: 1, admin: 2, owner: 3 };
+    const community = await loadCommunity(req.params.id);
+    requireCapability(
+      community, req.user._id, CAP.MANAGE_CHANNELS,
+      'Only Admins and Owners can create channels.'
+    );
 
-    const community = await Community.findById(req.params.id);
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
-
-    const callerEntry = community.members.find(m => m.userId.toString() === req.user._id.toString());
-    const callerLevel = ROLE_LEVELS[callerEntry?.role] ?? -1;
-
-    if (callerLevel < ROLE_LEVELS.admin) {
-      return res.status(403).json({ message: 'Only Admins and Owners can create channels.' });
+    const name = channelName(req.body.name);
+    if (!name || !CHAT_POLICY.channels.namePattern.test(name)) {
+      throw badRequest('Channel name must use lowercase letters, numbers, and hyphens only.');
     }
 
-    if (!name || !/^[a-z0-9-]+$/.test(name.trim().toLowerCase())) {
-      return res.status(400).json({ message: 'Channel name must use lowercase letters, numbers, and hyphens only.' });
+    const channelCount = await Channel.countDocuments({ communityId: community._id });
+    if (channelCount >= CHAT_POLICY.channels.maxPerCommunity) {
+      throw conflict(`A server can have at most ${CHAT_POLICY.channels.maxPerCommunity} channels.`);
     }
+
+    const rawRead = sanitizeLine(req.body.minRoleToRead, 20) || 'member';
+    const rawWrite = sanitizeLine(req.body.minRoleToWrite, 20) || 'member';
+    if (!COMMUNITY_ROLES.includes(rawRead) || !COMMUNITY_ROLES.includes(rawWrite)) {
+      throw badRequest('Channel role gates must be member, moderator, admin or owner.');
+    }
+    // A channel you cannot read must never be writable.
+    const minRoleToRead = rawRead;
+    const minRoleToWrite = roleLevel(rawWrite) < roleLevel(rawRead) ? rawRead : rawWrite;
 
     const channel = await Channel.create({
-      communityId:     community._id,
-      name:            name.trim().toLowerCase().slice(0, 40),
-      topic:           (topic || '').trim().slice(0, 100),
-      type:            ['text', 'announcement'].includes(type) ? type : 'text',
-      minRoleToRead:   ['member', 'moderator', 'admin', 'owner'].includes(minRoleToRead) ? minRoleToRead : 'member',
-      minRoleToWrite:  ['member', 'moderator', 'admin', 'owner'].includes(minRoleToWrite) ? minRoleToWrite : 'member',
-      slowModeSeconds: Number(slowModeSeconds) || 0,
-      retentionDays:   Number(retentionDays) || 0,
-      isProtected:     !!isProtected
+      communityId: community._id,
+      name,
+      topic: sanitizeLine(req.body.topic, CHAT_POLICY.channels.maxTopicLength),
+      type: ['text', 'announcement'].includes(req.body.type) ? req.body.type : 'text',
+      position: Number.isFinite(Number(req.body.position)) ? Number(req.body.position) : channelCount,
+      minRoleToRead: minRoleToRead,
+      minRoleToWrite: minRoleToWrite,
+      slowModeSeconds: Math.min(
+        Math.max(Number(req.body.slowModeSeconds) || 0, CHAT_POLICY.slowmode.minSeconds),
+        CHAT_POLICY.slowmode.maxSeconds
+      ),
+      retentionDays: Math.min(
+        Math.max(Number(req.body.retentionDays) || 0, CHAT_POLICY.retention.minDays),
+        CHAT_POLICY.retention.maxDays
+      ),
+      isProtected: !!req.body.isProtected
     });
 
-    // Record audit log
-    await AuditLog.create({
+    recordAudit({
       communityId: community._id,
-      actorId:     req.user._id,
-      actionType:  'CHANNEL_CREATE',
-      targetId:    channel._id,
+      actorId: req.user._id,
+      actionType: 'CHANNEL_CREATE',
+      targetId: channel._id,
       targetModel: 'Channel',
-      metadata:    { name: channel.name, type: channel.type }
-    }).catch(err => console.error('[AuditLog Error]', err.message));
+      metadata: { name: channel.name, type: channel.type }
+    });
+
+    emitToCommunity(community._id, 'channel_created', channel.toObject());
 
     res.status(201).json(channel);
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: 'A channel with that name already exists in this community.' });
+      return next(conflict('A channel with that name already exists in this server.'));
     }
     next(err);
   }
 };
 
-// ─── GET /api/channels/:channelId/messages ───────────────────────────────────
-// Anti-scraping, cursor-supported message history
-const getChannelMessages = async (req, res, next) => {
+// ─── PATCH /api/communities/:id/channels/:channelId ─────────────────────────
+const updateChannel = async (req, res, next) => {
   try {
-    const ROLE_LEVELS = { member: 0, moderator: 1, admin: 2, owner: 3 };
-    const channel = await Channel.findById(req.params.channelId);
-    if (!channel) return res.status(404).json({ message: 'Channel not found.' });
+    const community = await loadCommunity(req.params.id);
+    requireCapability(
+      community, req.user._id, CAP.MANAGE_CHANNELS,
+      'Only Admins and Owners can change channels.'
+    );
 
-    const community = await Community.findById(channel.communityId);
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.channelId))) {
+      throw badRequest('Invalid channel id');
+    }
+    const channel = await Channel.findOne({
+      _id: req.params.channelId,
+      communityId: community._id
+    });
+    if (!channel) throw notFound('Channel not found.');
 
-    const callerEntry = req.user
-      ? community.members.find(m => m.userId.toString() === req.user._id.toString())
-      : null;
-    const callerLevel = ROLE_LEVELS[callerEntry?.role] ?? -1;
-    const minReadLevel = ROLE_LEVELS[channel.minRoleToRead] ?? 0;
+    const updates = {};
 
-    if (callerLevel < minReadLevel) {
-      return res.status(403).json({ message: 'You do not have permission to read this channel.' });
+    if (req.body.topic !== undefined) {
+      updates.topic = sanitizeLine(req.body.topic, CHAT_POLICY.channels.maxTopicLength);
+    }
+    if (req.body.type !== undefined) {
+      if (!['text', 'announcement'].includes(req.body.type)) throw badRequest('Invalid channel type.');
+      updates.type = req.body.type;
+    }
+    if (req.body.minRoleToRead !== undefined) {
+      if (!COMMUNITY_ROLES.includes(req.body.minRoleToRead)) throw badRequest('Invalid read role gate.');
+      updates.minRoleToRead = req.body.minRoleToRead;
+    }
+    if (req.body.minRoleToWrite !== undefined) {
+      if (!COMMUNITY_ROLES.includes(req.body.minRoleToWrite)) throw badRequest('Invalid write role gate.');
+      updates.minRoleToWrite = req.body.minRoleToWrite;
+    }
+    if (req.body.slowModeSeconds !== undefined) {
+      const value = Number(req.body.slowModeSeconds);
+      if (!Number.isFinite(value) || value < CHAT_POLICY.slowmode.minSeconds || value > CHAT_POLICY.slowmode.maxSeconds) {
+        throw badRequest(`Slowmode must be between ${CHAT_POLICY.slowmode.minSeconds} and ${CHAT_POLICY.slowmode.maxSeconds} seconds.`);
+      }
+      updates.slowModeSeconds = Math.trunc(value);
+    }
+    if (req.body.retentionDays !== undefined) {
+      const value = Number(req.body.retentionDays);
+      if (!Number.isFinite(value) || value < CHAT_POLICY.retention.minDays || value > CHAT_POLICY.retention.maxDays) {
+        throw badRequest(`Retention must be between ${CHAT_POLICY.retention.minDays} and ${CHAT_POLICY.retention.maxDays} days.`);
+      }
+      updates.retentionDays = Math.trunc(value);
+    }
+    if (req.body.isProtected !== undefined) updates.isProtected = !!req.body.isProtected;
+
+    // Keep the read/write gates coherent.
+    const readRole = updates.minRoleToRead ?? channel.minRoleToRead;
+    const writeRole = updates.minRoleToWrite ?? channel.minRoleToWrite;
+    if (roleLevel(writeRole) < roleLevel(readRole)) {
+      updates.minRoleToWrite = readRole;
     }
 
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 50));
-    const query = { channelId: channel._id };
+    if (!Object.keys(updates).length) throw badRequest('No updatable fields provided.');
 
-    // Anti-scraping cursor: if `before` ID provided, query messages older than that ID
+    Object.assign(channel, updates);
+    await channel.save();
+
+    recordAudit({
+      communityId: community._id,
+      actorId: req.user._id,
+      actionType: 'CHANNEL_UPDATE',
+      targetId: channel._id,
+      targetModel: 'Channel',
+      metadata: { fields: Object.keys(updates) }
+    });
+
+    emitToCommunity(community._id, 'channel_updated', channel.toObject());
+    emitToChannel(channel._id, 'channel_updated', channel.toObject());
+
+    res.status(200).json(channel);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── DELETE /api/communities/:id/channels/:channelId ────────────────────────
+const deleteChannel = async (req, res, next) => {
+  try {
+    const community = await loadCommunity(req.params.id);
+    requireCapability(
+      community, req.user._id, CAP.MANAGE_CHANNELS,
+      'Only Admins and Owners can delete channels.'
+    );
+
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.channelId))) {
+      throw badRequest('Invalid channel id');
+    }
+    const channel = await Channel.findOne({
+      _id: req.params.channelId,
+      communityId: community._id
+    });
+    if (!channel) throw notFound('Channel not found.');
+
+    const channelCount = await Channel.countDocuments({ communityId: community._id });
+    if (channelCount <= 1) {
+      throw badRequest('A server must keep at least one channel.');
+    }
+
+    await Message.deleteMany({ channelId: channel._id });
+    await channel.deleteOne();
+
+    recordAudit({
+      communityId: community._id,
+      actorId: req.user._id,
+      actionType: 'CHANNEL_DELETE',
+      targetId: channel._id,
+      targetModel: 'Channel',
+      metadata: { name: channel.name }
+    });
+
+    emitToCommunity(community._id, 'channel_deleted', {
+      communityId: String(community._id),
+      channelId: String(channel._id)
+    });
+
+    res.status(200).json({ message: 'Channel deleted.', channelId: String(channel._id) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─── GET /api/communities/channels/:channelId/messages ──────────────────────
+const getChannelMessages = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.channelId))) {
+      throw badRequest('Invalid channel id');
+    }
+    const channel = await Channel.findById(req.params.channelId).lean();
+    if (!channel) throw notFound('Channel not found.');
+
+    const community = await Community.findById(channel.communityId).lean();
+    if (!community) throw notFound('Community not found.');
+
+    const { role, permissions } = communityPermissions(community, req.user?._id);
+    if (!permissions.includes(CAP.VIEW_CHANNEL) || !roleAtLeast(role, channel.minRoleToRead)) {
+      throw forbidden('You do not have permission to read this channel.');
+    }
+
+    const { limit } = parsePagination(req.query, {
+      defaultLimit: CHAT_POLICY.history.defaultLimit,
+      maxLimit: CHAT_POLICY.history.maxLimit
+    });
+
+    const query = { channelId: channel._id };
     if (req.query.before) {
+      if (!mongoose.Types.ObjectId.isValid(String(req.query.before))) {
+        throw badRequest('Invalid cursor');
+      }
       query._id = { $lt: req.query.before };
     }
 
@@ -303,33 +747,52 @@ const getChannelMessages = async (req, res, next) => {
       .populate('senderId', 'username level role medals')
       .lean();
 
-    // Return in chronological order
-    res.status(200).json(messages.reverse());
+    const hasMore = messages.length === limit;
+
+    // Attach each sender's server role (platform role stays on senderId.role).
+    const roleByUser = new Map(
+      (community.members || []).map((m) => [String(m.userId?._id ?? m.userId), m.role])
+    );
+    const decorated = messages.reverse().map((message) => ({
+      ...message,
+      communityRole: roleByUser.get(String(message.senderId?._id ?? message.senderId)) || null
+    }));
+
+    res.status(200).json({ messages: decorated, hasMore });
   } catch (err) {
     next(err);
   }
 };
 
-// ─── DELETE /api/communities/:id ────────────────────────────────────────────
-// Only owner can delete community
-const deleteCommunity = async (req, res, next) => {
+// ─── GET /api/communities/:id/audit ─────────────────────────────────────────
+const getAuditLog = async (req, res, next) => {
   try {
-    const community = await Community.findById(req.params.id);
-    if (!community) return res.status(404).json({ message: 'Community not found.' });
+    const community = await loadCommunity(req.params.id);
+    requireCapability(
+      community, req.user._id, CAP.VIEW_AUDIT_LOG,
+      'Only Admins and Owners can view the audit log.'
+    );
 
-    if (community.ownerId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Only the community owner can delete this community.' });
+    const { limit } = parsePagination(req.query, {
+      defaultLimit: CHAT_POLICY.audit.defaultLimit,
+      maxLimit: CHAT_POLICY.audit.maxLimit
+    });
+
+    const query = { communityId: community._id };
+    if (req.query.before) {
+      if (!mongoose.Types.ObjectId.isValid(String(req.query.before))) {
+        throw badRequest('Invalid cursor');
+      }
+      query._id = { $lt: req.query.before };
     }
 
-    const channels = await Channel.find({ communityId: community._id }).select('_id').lean();
-    const channelIds = channels.map(c => c._id);
+    const entries = await AuditLog.find(query)
+      .sort({ _id: -1 })
+      .limit(limit)
+      .populate('actorId', 'username role')
+      .lean();
 
-    // Clean up channels and all messages in those channels
-    await Message.deleteMany({ channelId: { $in: channelIds } });
-    await Channel.deleteMany({ communityId: community._id });
-    await community.deleteOne();
-
-    res.status(200).json({ message: 'Community deleted.' });
+    res.status(200).json({ entries, hasMore: entries.length === limit });
   } catch (err) {
     next(err);
   }
@@ -339,10 +802,17 @@ module.exports = {
   createCommunity,
   getCommunities,
   getCommunityBySlug,
+  getCommunityMembers,
   joinCommunity,
   leaveCommunity,
+  addMember,
   updateMemberRole,
+  kickMember,
+  updateCommunity,
+  deleteCommunity,
   createChannel,
+  updateChannel,
+  deleteChannel,
   getChannelMessages,
-  deleteCommunity
+  getAuditLog
 };

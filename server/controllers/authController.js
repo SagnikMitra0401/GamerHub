@@ -1,18 +1,26 @@
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
+const { sanitizeLine, sanitizeText } = require('../utils/sanitize');
 
 const SALT_ROUNDS = 10;
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD = 128; // bcrypt silently truncates past 72 bytes
+const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 
 const register = async (req, res, next) => {
   try {
-    const { username, email, password } = req.body;
+    const username = sanitizeLine(req.body.username, 20);
+    const email = sanitizeLine(req.body.email, 254).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
 
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
+      return res.status(400).json({
+        message: `Password must be between ${MIN_PASSWORD} and ${MAX_PASSWORD} characters`
+      });
     }
 
     const existing = await User.findOne({ $or: [{ email }, { username }] });
@@ -20,8 +28,12 @@ const register = async (req, res, next) => {
       return res.status(409).json({ message: 'Username or email already in use' });
     }
 
+    const preferredPlatforms = Array.isArray(req.body.preferredPlatforms)
+      ? [...new Set(req.body.preferredPlatforms.filter((p) => PLATFORMS.includes(p)))]
+      : [];
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await User.create({ username, email, passwordHash });
+    const user = await User.create({ username, email, passwordHash, preferredPlatforms });
 
     const token = generateToken(res, user._id);
 
@@ -36,7 +48,8 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const email = sanitizeLine(req.body.email, 254).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Missing credentials' });
@@ -98,7 +111,7 @@ const updateProfile = async (req, res, next) => {
       if (typeof bio !== 'string') {
         return res.status(400).json({ message: 'Bio must be a string' });
       }
-      updates.bio = bio.trim().slice(0, 300);
+      updates.bio = sanitizeText(bio, 300);
     }
 
     if (preferredPlatforms !== undefined) {

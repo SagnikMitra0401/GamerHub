@@ -22,7 +22,7 @@ const RegisterForm = () => {
     setError('');
     setLoading(true);
     try {
-      await register(form.username, form.email, form.password);
+      await register(form.username, form.email, form.password, platforms);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.');

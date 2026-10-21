@@ -51,7 +51,7 @@ const PostDetail = () => {
       }
     };
     load();
-  }, [id]);
+  }, [id, user?._id]);
 
   const handleLike = async () => {
     if (!user) return navigate('/login');

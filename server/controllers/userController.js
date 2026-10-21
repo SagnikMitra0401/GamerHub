@@ -1,7 +1,12 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const Community = require('../models/Community');
 const { awardXp } = require('../utils/gamification');
+const { resolveCommunityRole, roleLevel } = require('../utils/permissions');
+const { sanitizeLine, escapeRegex } = require('../utils/sanitize');
+const { parsePagination } = require('../utils/pagination');
+const { badRequest, notFound } = require('../utils/httpError');
 
 // GET /api/users/:username — public profile
 const getProfile = async (req, res, next) => {
@@ -11,37 +16,69 @@ const getProfile = async (req, res, next) => {
       .populate('followers', 'username')
       .populate('following', 'username')
       .lean();
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) throw notFound('User not found');
 
-    // Count posts
     const postCount = await Post.countDocuments({ userId: user._id });
 
-    // Is the caller following this user?
     const isFollowing = req.user
-      ? req.user.following.some(id => id.toString() === user._id.toString())
+      ? req.user.following.some((id) => id.toString() === user._id.toString())
       : false;
 
-    res.status(200).json({ ...user, postCount, isFollowing });
+    const isSelf = req.user && String(req.user._id) === String(user._id);
+
+    // Server memberships + the role held in each (role badge integration).
+    const rows = await Community.find({ 'members.userId': user._id })
+      .select('name slug icon isPrivate members')
+      .limit(30)
+      .lean();
+
+    const communities = rows
+      .map((c) => {
+        const role = resolveCommunityRole(c, user._id);
+        if (!role) return null;
+        // Both the server's existence and this user's membership are private
+        // data: only the user themselves, or a fellow member, may see them.
+        if (c.isPrivate && !isSelf && !resolveCommunityRole(c, req.user?._id)) return null;
+        return {
+          _id: c._id,
+          name: c.name,
+          slug: c.slug,
+          icon: c.icon,
+          isPrivate: c.isPrivate,
+          role
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => roleLevel(b.role) - roleLevel(a.role))
+      .slice(0, 20);
+
+    const profile = { ...user, postCount, isFollowing, communities };
+
+    // Bookmarks and followed channels are private account data.
+    if (!isSelf) {
+      delete profile.savedPosts;
+      delete profile.favoriteChannels;
+    }
+
+    res.status(200).json(profile);
   } catch (err) {
     next(err);
   }
 };
 
-// GET /api/users/:username/posts — posts by a specific user
+// GET /api/users/:username/posts
 const getUserPosts = async (req, res, next) => {
   try {
     const target = await User.findOne({ username: req.params.username }).select('_id').lean();
-    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (!target) throw notFound('User not found');
 
-    const { page = 1, limit = 15 } = req.query;
-    const pageNum  = Math.max(1, Number(page));
-    const limitNum = Math.min(Math.max(1, Number(limit)), 50);
+    const { skip, limit } = parsePagination(req.query, { defaultLimit: 15, maxLimit: 50 });
 
     const posts = await Post.find({ userId: target._id })
       .sort({ createdAt: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .populate('userId', 'username')
+      .skip(skip)
+      .limit(limit)
+      .populate('userId', 'username level role')
       .lean();
 
     res.status(200).json(posts);
@@ -54,26 +91,23 @@ const getUserPosts = async (req, res, next) => {
 const toggleFollow = async (req, res, next) => {
   try {
     const target = await User.findOne({ username: req.params.username }).select('_id username');
-    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (!target) throw notFound('User not found');
 
     if (target._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ message: 'You cannot follow yourself' });
+      throw badRequest('You cannot follow yourself');
     }
 
     const alreadyFollowing = req.user.following.some(
-      id => id.toString() === target._id.toString()
+      (id) => id.toString() === target._id.toString()
     );
 
     if (alreadyFollowing) {
-      // Unfollow
       await User.findByIdAndUpdate(req.user._id,  { $pull: { following: target._id } });
       await User.findByIdAndUpdate(target._id, { $pull: { followers: req.user._id } });
     } else {
-      // Follow
       await User.findByIdAndUpdate(req.user._id,  { $addToSet: { following: target._id } });
       await User.findByIdAndUpdate(target._id, { $addToSet: { followers: req.user._id } });
 
-      // Gamification: Community Builder medal when following count hits 5 (non-blocking)
       const updatedCaller = await User.findById(req.user._id).select('following').lean();
       if (updatedCaller?.following?.length === 5) {
         awardXp(req.user._id, 20, 'community_builder');
@@ -84,6 +118,7 @@ const toggleFollow = async (req, res, next) => {
       .select('followers')
       .populate('followers', 'username')
       .lean();
+
     res.status(200).json({
       following: !alreadyFollowing,
       followers: updated.followers
@@ -97,13 +132,9 @@ const toggleFollow = async (req, res, next) => {
 const toggleSavePost = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
-      return res.status(400).json({ message: 'Invalid post id' });
-    }
+    if (!mongoose.Types.ObjectId.isValid(postId)) throw badRequest('Invalid post id');
 
-    const alreadySaved = req.user.savedPosts.some(
-      id => id.toString() === postId
-    );
+    const alreadySaved = req.user.savedPosts.some((id) => id.toString() === postId);
 
     const update = alreadySaved
       ? { $pull:     { savedPosts: postId } }
@@ -119,17 +150,14 @@ const toggleSavePost = async (req, res, next) => {
 // POST /api/users/channels/favourite — toggle favourite channel (tag)
 const toggleFavouriteChannel = async (req, res, next) => {
   try {
-    const { channel } = req.body;
-    if (!channel || typeof channel !== 'string') {
-      return res.status(400).json({ message: 'channel is required' });
-    }
+    const channel = sanitizeLine(req.body.channel, 24).toLowerCase();
+    if (!channel) throw badRequest('channel is required');
 
-    const tag = channel.toLowerCase().trim();
-    const alreadyFav = req.user.favoriteChannels.includes(tag);
+    const alreadyFav = req.user.favoriteChannels.includes(channel);
 
     const update = alreadyFav
-      ? { $pull:     { favoriteChannels: tag } }
-      : { $addToSet: { favoriteChannels: tag } };
+      ? { $pull:     { favoriteChannels: channel } }
+      : { $addToSet: { favoriteChannels: channel } };
 
     const updated = await User.findByIdAndUpdate(req.user._id, update, { new: true })
       .select('favoriteChannels');
@@ -143,36 +171,36 @@ const toggleFavouriteChannel = async (req, res, next) => {
   }
 };
 
-// GET /api/users/me/saved — get saved posts for the logged-in user
+// GET /api/users/me/saved — saved posts for the logged-in user
 const getSavedPosts = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id)
       .select('savedPosts')
       .populate({
         path: 'savedPosts',
-        populate: { path: 'userId', select: 'username' }
+        populate: { path: 'userId', select: 'username level role' }
       })
       .lean();
 
-    res.status(200).json(user.savedPosts.reverse()); // most recently saved first
+    // Deleted posts must not appear as nulls.
+    const posts = (user?.savedPosts || []).filter(Boolean).reverse();
+    res.status(200).json(posts);
   } catch (err) {
     next(err);
   }
 };
 
-// GET /api/search?q=... — unified full-text search for posts, users, and tags
+// GET /api/users/search — unified search for posts, users, and tags
 const searchAll = async (req, res, next) => {
   try {
-    const { q } = req.query;
-    if (!q || q.trim().length < 2) {
-      return res.status(400).json({ message: 'Query must be at least 2 characters' });
-    }
-    const query = q.trim();
+    const q = sanitizeLine(req.query.q, 50);
+    if (q.length < 2) throw badRequest('Query must be at least 2 characters');
+
+    const safe = escapeRegex(q);
 
     const [posts, users, tags] = await Promise.all([
-      // Full-text search on posts using MongoDB text index
       Post.find(
-        { $text: { $search: query } },
+        { $text: { $search: q } },
         { score: { $meta: 'textScore' } }
       )
         .sort({ score: { $meta: 'textScore' } })
@@ -180,15 +208,13 @@ const searchAll = async (req, res, next) => {
         .populate('userId', 'username level role')
         .lean(),
 
-      // Regex username search
-      User.find({ username: { $regex: query, $options: 'i' } })
+      User.find({ username: { $regex: safe, $options: 'i' } })
         .select('username level role medals')
         .limit(8)
         .lean(),
 
-      // Distinct tag search
-      Post.distinct('tags', { tags: { $regex: query, $options: 'i' } })
-        .then(t => t.slice(0, 10))
+      Post.distinct('tags', { tags: { $regex: safe, $options: 'i' } })
+        .then((t) => t.slice(0, 10))
     ]);
 
     res.status(200).json({ posts, users, tags });
@@ -201,63 +227,56 @@ const searchAll = async (req, res, next) => {
 const updateGamerPassport = async (req, res, next) => {
   try {
     const { customQuote, gameIds, activeGames, hardwareRigs } = req.body;
-
     const passportData = {};
 
-    // 1. Custom quote
     if (typeof customQuote === 'string') {
-      passportData.customQuote = customQuote.trim().slice(0, 120);
+      passportData.customQuote = sanitizeLine(customQuote, 120);
     }
 
-    // 2. Game IDs
     if (gameIds && typeof gameIds === 'object') {
       passportData.gameIds = {
-        riotId:     typeof gameIds.riotId === 'string' ? gameIds.riotId.trim().slice(0, 40) : '',
-        steamId:    typeof gameIds.steamId === 'string' ? gameIds.steamId.trim().slice(0, 40) : '',
-        psnTag:     typeof gameIds.psnTag === 'string' ? gameIds.psnTag.trim().slice(0, 40) : '',
-        xboxTag:    typeof gameIds.xboxTag === 'string' ? gameIds.xboxTag.trim().slice(0, 40) : '',
-        discordTag: typeof gameIds.discordTag === 'string' ? gameIds.discordTag.trim().slice(0, 40) : ''
+        riotId:     sanitizeLine(gameIds.riotId, 40),
+        steamId:    sanitizeLine(gameIds.steamId, 40),
+        psnTag:     sanitizeLine(gameIds.psnTag, 40),
+        xboxTag:    sanitizeLine(gameIds.xboxTag, 40),
+        discordTag: sanitizeLine(gameIds.discordTag, 40)
       };
     }
 
-    // 3. Active Games (Cap at 10)
     if (Array.isArray(activeGames)) {
       passportData.activeGames = activeGames
-        .filter(g => g && typeof g.gameName === 'string' && g.gameName.trim())
+        .filter((g) => g && typeof g.gameName === 'string' && g.gameName.trim())
         .slice(0, 10)
-        .map(g => ({
-          gameName:    g.gameName.trim().slice(0, 40),
+        .map((g) => ({
+          gameName:    sanitizeLine(g.gameName, 40),
           platform:    ['PC', 'PlayStation', 'Xbox', 'Switch', 'Mobile', 'Other'].includes(g.platform) ? g.platform : 'PC',
-          rankOrLevel: typeof g.rankOrLevel === 'string' ? g.rankOrLevel.trim().slice(0, 40) : ''
+          rankOrLevel: sanitizeLine(g.rankOrLevel, 40)
         }));
     }
 
-    // 4. Multi-Rig Hardware Setups (Cap at 5)
     if (Array.isArray(hardwareRigs)) {
       let foundPrimary = false;
       passportData.hardwareRigs = hardwareRigs
-        .filter(r => r && typeof r.rigName === 'string' && r.rigName.trim())
+        .filter((r) => r && typeof r.rigName === 'string' && r.rigName.trim())
         .slice(0, 5)
-        .map(r => {
-          // Guarantee only one primary device
+        .map((r) => {
           const isPrimary = !foundPrimary && !!r.isPrimary;
           if (isPrimary) foundPrimary = true;
 
           return {
-            rigName:    r.rigName.trim().slice(0, 40),
+            rigName:    sanitizeLine(r.rigName, 40),
             deviceType: ['PC', 'Laptop', 'Mobile', 'Console', 'Handheld'].includes(r.deviceType) ? r.deviceType : 'PC',
             isPrimary,
             specs: {
-              cpu:         typeof r.specs?.cpu === 'string' ? r.specs.cpu.trim().slice(0, 60) : '',
-              gpu:         typeof r.specs?.gpu === 'string' ? r.specs.gpu.trim().slice(0, 60) : '',
-              ram:         typeof r.specs?.ram === 'string' ? r.specs.ram.trim().slice(0, 40) : '',
-              monitor:     typeof r.specs?.monitor === 'string' ? r.specs.monitor.trim().slice(0, 60) : '',
-              peripherals: typeof r.specs?.peripherals === 'string' ? r.specs.peripherals.trim().slice(0, 120) : ''
+              cpu:         sanitizeLine(r.specs?.cpu, 60),
+              gpu:         sanitizeLine(r.specs?.gpu, 60),
+              ram:         sanitizeLine(r.specs?.ram, 40),
+              monitor:     sanitizeLine(r.specs?.monitor, 60),
+              peripherals: sanitizeLine(r.specs?.peripherals, 120)
             }
           };
         });
 
-      // If rigs exist but none marked primary, make first one primary
       if (passportData.hardwareRigs.length > 0 && !foundPrimary) {
         passportData.hardwareRigs[0].isPrimary = true;
       }

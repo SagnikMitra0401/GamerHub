@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axiosInstance from '../api/axiosInstance';
+import { disconnectSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
 
@@ -13,9 +14,11 @@ export const AuthProvider = ({ children }) => {
       const { data } = await axiosInstance.get('/auth/me');
       setUser(data.user);
       if (data.token) setToken(data.token);
+      return data.user;
     } catch {
       setUser(null);
       setToken(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -26,27 +29,36 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const { data } = await axiosInstance.post('/auth/login', { email, password });
     if (data.token) setToken(data.token);
-    await fetchMe(); // re-fetch full profile so savedPosts/favoriteChannels are included
+    await fetchMe(); // full profile (savedPosts/favoriteChannels)
   };
 
-  const register = async (username, email, password) => {
-    const { data } = await axiosInstance.post('/auth/register', { username, email, password });
+  const register = async (username, email, password, preferredPlatforms = []) => {
+    const { data } = await axiosInstance.post('/auth/register', {
+      username,
+      email,
+      password,
+      preferredPlatforms
+    });
     if (data.token) setToken(data.token);
     await fetchMe();
   };
 
   const logout = async () => {
-    await axiosInstance.post('/auth/logout');
-    setUser(null);
-    setToken(null);
+    try {
+      await axiosInstance.post('/auth/logout');
+    } catch {
+      // Clearing local state is what matters; ignore network failures.
+    } finally {
+      disconnectSocket();
+      setUser(null);
+      setToken(null);
+    }
   };
 
-  // Locally update user's favoriteChannels after a toggle (avoids re-fetch)
   const updateFavouriteChannels = (channels) => {
     setUser(prev => prev ? { ...prev, favoriteChannels: channels } : prev);
   };
 
-  // Locally update savedPosts after a bookmark toggle
   const updateSavedPosts = (postId, saved) => {
     setUser(prev => {
       if (!prev) return prev;

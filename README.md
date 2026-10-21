@@ -44,11 +44,33 @@
 ## Core System Modules
 
 ### 1. Discord-Style Real-Time Communities ("Squads")
-* **Hierarchical RBAC:** Guild-scoped governance (`Owner` &rarr; `Admin` &rarr; `Moderator` &rarr; `Member`).
+* **Hierarchical RBAC:** Server-scoped governance (`Owner` &rarr; `Admin` &rarr; `Moderator` &rarr; `Member`).
 * **Channel Permissions:** Granular `minRoleToRead` and `minRoleToWrite` gates per channel.
 * **WebSocket Engine:** Room-based real-time messaging, typing broadcasts, and live tombstone message deletion.
-* **Slowmode & Flood Control:** Sliding-window rate limiter (max 5 msgs / 5 sec) and configurable channel cooldown timers (5s to 60s).
+* **Slowmode & Flood Control:** Sliding-window rate limiter (max 5 msgs / 5 sec) and configurable channel cooldown timers (0&ndash;120s).
 * **Content Protection:** Optional restriction flag preventing unauthorized copying, selecting, or asset saving.
+* **Accountability:** Every administrative action is appended to an immutable per-server audit log.
+
+#### Server roles are maintenance-only
+
+A server role grants power **inside that server** and nowhere else. Application
+roles (`user` / `moderator` / `admin` on the account) are a separate system and
+never leak into somebody else's server.
+
+| Capability | Member | Moderator | Admin | Owner |
+| :--- | :-: | :-: | :-: | :-: |
+| View server &amp; channels | ✅ | ✅ | ✅ | ✅ |
+| Send messages, delete own | ✅ | ✅ | ✅ | ✅ |
+| Delete any message, bypass slowmode | — | ✅ | ✅ | ✅ |
+| Add &amp; kick members, manage roles, channels, audit log | — | — | ✅ | ✅ |
+| Rename / delete server, toggle private | — | — | — | ✅ |
+
+Safety rails: the owner's role is immutable and cannot be granted; admins cannot
+kick or demote other admins; a channel's write gate is always raised to at least
+its read gate; the last channel of a server cannot be deleted. Every check lives
+in [`server/utils/permissions.js`](server/utils/permissions.js) &mdash; the client
+mirror ([`client/src/utils/permissions.js`](client/src/utils/permissions.js))
+only decides which controls render.
 
 ### 2. Gamer Passport & Hardware Showcase
 * **Battle Station Discovery:** WebGL device telemetry capturing unmasked GPU vendor/renderer strings, CPU concurrency, device memory, and display resolutions.
@@ -98,9 +120,33 @@
 | **Cross-Site Scripting (XSS)** | Server-side HTML entity escaping, React DOM encoding, and protocol whitelisting (`http://` and `https://` only). |
 | **NoSQL Query Injection** | Request payload sanitization via `express-mongo-sanitize` stripping `$` and `.` operators. |
 | **Token Theft & Session Hijacking** | HttpOnly, `SameSite=None`, `Secure` JWT cookies coupled with token-based WebSocket handshake verification. |
-| **Bulk Scraping & Exfiltration** | Opaque cursor-based pagination (`before_id`), strict route rate limits, and removal of bulk export endpoints. |
+| **Bulk Scraping & Exfiltration** | Capped page sizes (messages use a `before` cursor, feeds a clamped `page`/`limit`), strict route rate limits, member/channel caps, and no bulk export endpoints. |
 | **Audit & Compliance** | Immutable `AuditLog` collection tracking all administrative actions (role updates, channel deletions, message purges). |
-| **GDPR Right to Erasure** | Soft-delete tombstone protocol (`isDeleted: true`, `"This message was deleted"`). |
+| **GDPR Right to Erasure** | Soft-delete tombstone protocol (`isDeleted: true`, `"This message was deleted"`) plus per-channel retention (`retentionDays`), purged by a background worker. |
+
+### Chat security parameters
+
+One frozen policy object ([`server/config/chatPolicy.js`](server/config/chatPolicy.js))
+owns every limit. Change it there and both REST and the socket engine follow.
+
+| Parameter | Value | Why |
+| :--- | :--- | :--- |
+| `message.maxLength` / `maxLines` | 1,000 chars / 40 lines | Bounds storage, socket buffers and DOM work per message |
+| `message.maxBlankLineRun` | 2 | Stops layout-inflation via newline floods |
+| `flood.windowMs` / `maxMessages` | 5s / 5 per user | Per-account sliding window shared by every open tab |
+| `slowmode.minSeconds` / `maxSeconds` | 0 / 120 | Channel cooldown; moderators bypass it |
+| `typing.throttleMs` | 2,000ms | One typing event per user per channel per 2s |
+| `history.defaultLimit` / `maxLimit` | 50 / 50 | Hard cap on any history page |
+| `channels.maxPerCommunity` | 50 | Room and fan-out cap |
+| `community.maxMembers` | 5,000 | Join-time cap |
+| `retention.minDays` / `maxDays` | 0 / 365 | Auto-delete horizon per channel |
+| Socket `maxHttpBufferSize` | 100 kB | Rejects oversized frames before parsing |
+| REST body limit | 100 kB | Same, for HTTP |
+| Preview fetch timeout / max bytes | 6s / 512 kB | SSRF-safe scraper cannot be used to exhaust memory |
+
+Text is stored raw (React escapes on render) after stripping control characters,
+bidi overrides and zero-width characters &mdash; see
+[`server/utils/sanitize.js`](server/utils/sanitize.js).
 
 ---
 

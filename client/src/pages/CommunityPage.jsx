@@ -1,337 +1,515 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
-import { connectSocket, getSocket } from '../api/socket';
-import CreateChannelModal from '../components/communities/CreateChannelModal';
+import { connectSocket } from '../api/socket';
+
 import MessageInput from '../components/communities/MessageInput';
+import CreateChannelModal from '../components/communities/CreateChannelModal';
+import RoleManagerModal from '../components/communities/RoleManagerModal';
+import ChannelSettingsModal from '../components/communities/ChannelSettingsModal';
+import AuditLogModal from '../components/communities/AuditLogModal';
+import CommunitySettingsModal from '../components/communities/CommunitySettingsModal';
+import ConfirmModal from '../components/common/ConfirmModal';
 
-const ROLE_LEVELS  = { member: 0, moderator: 1, admin: 2, owner: 3 };
-const ROLE_LABELS  = { owner: '👑 Owner', admin: '🛡️ Admin', moderator: '⚔️ Mod', member: '' };
-const ROLE_COLORS  = { owner: '#ffd700', admin: '#a855f7', moderator: '#3b82f6', member: 'var(--text-secondary)' };
+import {
+  CAP,
+  ROLE_LABELS,
+  ROLE_COLORS,
+  hasCapability,
+  roleAtLeast
+} from '../utils/permissions';
 
-function roleAtLeast(userRole, minRole) {
-  return (ROLE_LEVELS[userRole] ?? -1) >= (ROLE_LEVELS[minRole] ?? 99);
-}
-
-function timeAgo(date) {
-  const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
+const timeAgo = (date) => {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return new Date(date).toLocaleDateString();
-}
+};
 
 const CommunityPage = () => {
-  const { slug }      = useParams();
-  const navigate      = useNavigate();
+  const { slug } = useParams();
+  const navigate = useNavigate();
   const { user, token } = useAuth();
 
-  const [community, setCommunity]       = useState(null);
-  const [channels, setChannels]         = useState([]);
-  const [callerRole, setCallerRole]     = useState(null);
-  const [activeChannel, setActiveChannel] = useState(null);
-  const [messages, setMessages]         = useState([]);
-  const [typingUsers, setTypingUsers]   = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState('');
-  const [joining, setJoining]           = useState(false);
-  const [showChannelModal, setShowChannelModal] = useState(false);
+  const [community, setCommunity] = useState(null);
+  const [channels, setChannels] = useState([]);
+  const [memberCount, setMemberCount] = useState(0);
+  const [callerRole, setCallerRole] = useState(null);
+  const [permissions, setPermissions] = useState([]);
 
-  const messagesEndRef = useRef(null);
-  const socketRef      = useRef(null);
+  const [activeChannelId, setActiveChannelId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [typingUsers, setTypingUsers] = useState({});
 
-  // ── Fetch community data ──────────────────────────────────────────────────
-  useEffect(() => {
-    const fetchCommunity = async () => {
-      setLoading(true);
-      try {
-        const { data } = await axiosInstance.get(`/communities/${slug}`);
-        setCommunity(data.community);
-        setChannels(data.channels || []);
-        setCallerRole(data.callerRole);
-        if (data.channels?.length > 0) setActiveChannel(data.channels[0]);
-      } catch (err) {
-        setError(err.response?.data?.message || 'Community not found.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCommunity();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+
+  const [modal, setModal] = useState(null); // 'roles' | 'audit' | 'settings' | 'channel'
+  const [channelToEdit, setChannelToEdit] = useState(null);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [socketReady, setSocketReady] = useState(false);
+
+  const socketRef = useRef(null);
+  const endRef = useRef(null);
+
+  const activeChannel = channels.find(c => c._id === activeChannelId) || null;
+
+  // ── Data loading ───────────────────────────────────────────────────────────
+  const loadCommunity = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data } = await axiosInstance.get(`/communities/${slug}`);
+      setCommunity(data.community);
+      setChannels(data.channels || []);
+      setMemberCount(data.memberCount ?? data.community?.members?.length ?? 0);
+      setCallerRole(data.callerRole || null);
+      setPermissions(data.callerPermissions || []);
+      setError(null);
+      setActiveChannelId(prev => {
+        if (prev && (data.channels || []).some(c => c._id === prev)) return prev;
+        return data.channels?.[0]?._id || null;
+      });
+    } catch (err) {
+      setError({
+        status: err.response?.status,
+        message: err.response?.data?.message || 'Server not found.'
+      });
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [slug]);
 
-  // ── Socket setup ──────────────────────────────────────────────────────────
+  useEffect(() => { loadCommunity(); }, [loadCommunity]);
+
+  // ── Socket wiring ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!community || !user) return;
+    if (!community || !user) return undefined;
+
     const sock = connectSocket(token);
     socketRef.current = sock;
 
-    sock.on('new_message', (msg) => {
-      setMessages(prev => [...prev, msg]);
-    });
+    const handleConnect = () => setSocketReady(true);
+    if (sock.connected) setSocketReady(true);
 
-    sock.on('message_deleted', ({ messageId }) => {
-      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, isDeleted: true, text: 'This message was deleted' } : m));
-    });
+    const onNewMessage = (msg) => {
+      setMessages(prev => (prev.some(m => m._id === msg._id) ? prev : [...prev, msg]));
+    };
+    const onMessageDeleted = ({ messageId }) => {
+      setMessages(prev => prev.map(m => (
+        m._id === messageId ? { ...m, isDeleted: true, text: 'This message was deleted' } : m
+      )));
+    };
+    const onTyping = ({ username }) => {
+      setTypingUsers(prev => ({ ...prev, [username]: Date.now() }));
+    };
+    const onStopTyping = ({ username }) => {
+      setTypingUsers(prev => {
+        const next = { ...prev };
+        delete next[username];
+        return next;
+      });
+    };
+    const onErrorMsg = ({ message }) => setNotice(message);
+    const onJoined = () => setNotice('');
 
-    sock.on('user_typing', ({ username }) => {
-      setTypingUsers(prev => prev.includes(username) ? prev : [...prev, username]);
-    });
+    const onChannelCreated = (channel) => {
+      setChannels(prev => (prev.some(c => c._id === channel._id) ? prev : [...prev, channel]));
+    };
+    const onChannelUpdated = (channel) => {
+      setChannels(prev => prev.map(c => (c._id === channel._id ? { ...c, ...channel } : c)));
+    };
+    const onChannelDeleted = ({ channelId }) => {
+      setChannels(prev => prev.filter(c => c._id !== channelId));
+      setActiveChannelId(prev => (prev === channelId ? null : prev));
+    };
+    const onMembershipRevoked = () => loadCommunity({ silent: true });
+    const onCommunityUpdated = () => loadCommunity({ silent: true });
+    const onMemberEvent = () => loadCommunity({ silent: true });
+    const onCommunityDeleted = () => navigate('/communities');
 
-    sock.on('user_stopped_typing', ({ username }) => {
-      setTypingUsers(prev => prev.filter(u => u !== username));
-    });
-
-    sock.on('error_msg', ({ message }) => {
-      alert(message);
-    });
+    sock.on('connect', handleConnect);
+    sock.on('joined_channel', onJoined);
+    sock.on('new_message', onNewMessage);
+    sock.on('message_deleted', onMessageDeleted);
+    sock.on('user_typing', onTyping);
+    sock.on('user_stopped_typing', onStopTyping);
+    sock.on('error_msg', onErrorMsg);
+    sock.on('channel_created', onChannelCreated);
+    sock.on('channel_updated', onChannelUpdated);
+    sock.on('channel_deleted', onChannelDeleted);
+    sock.on('community_updated', onCommunityUpdated);
+    sock.on('membership_revoked', onMembershipRevoked);
+    sock.on('member_added', onMemberEvent);
+    sock.on('member_left', onMemberEvent);
+    sock.on('member_kicked', onMemberEvent);
+    sock.on('member_role_updated', onMemberEvent);
+    sock.on('community_deleted', onCommunityDeleted);
 
     return () => {
-      sock.off('new_message');
-      sock.off('message_deleted');
-      sock.off('user_typing');
-      sock.off('user_stopped_typing');
-      sock.off('error_msg');
+      sock.off('connect', handleConnect);
+      sock.off('joined_channel', onJoined);
+      sock.off('new_message', onNewMessage);
+      sock.off('message_deleted', onMessageDeleted);
+      sock.off('user_typing', onTyping);
+      sock.off('user_stopped_typing', onStopTyping);
+      sock.off('error_msg', onErrorMsg);
+      sock.off('channel_created', onChannelCreated);
+      sock.off('channel_updated', onChannelUpdated);
+      sock.off('channel_deleted', onChannelDeleted);
+      sock.off('community_updated', onCommunityUpdated);
+      sock.off('membership_revoked', onMembershipRevoked);
+      sock.off('member_added', onMemberEvent);
+      sock.off('member_left', onMemberEvent);
+      sock.off('member_kicked', onMemberEvent);
+      sock.off('member_role_updated', onMemberEvent);
+      sock.off('community_deleted', onCommunityDeleted);
     };
-  }, [community, user, token]);
+  }, [community?._id, user?._id, token, loadCommunity, navigate]);
 
-  // ── Join channel room when active channel changes ─────────────────────────
+  // Keep a valid active channel after deletes/reloads
   useEffect(() => {
-    if (!activeChannel || !community || !socketRef.current) return;
+    if (!channels.length) return;
+    if (!activeChannelId || !channels.some(c => c._id === activeChannelId)) {
+      setActiveChannelId(channels[0]._id);
+    }
+  }, [channels, activeChannelId]);
 
-    // Fetch history
-    const fetchMessages = async () => {
-      try {
-        const { data } = await axiosInstance.get(`/communities/channels/${activeChannel._id}/messages`);
-        setMessages(data);
-      } catch {
-        setMessages([]);
-      }
-    };
-    fetchMessages();
-
-    socketRef.current.emit('join_channel', {
-      channelId:   activeChannel._id,
-      communityId: community._id
-    });
-    setTypingUsers([]);
-  }, [activeChannel, community]);
-
-  // ── Auto-scroll to bottom on new messages ────────────────────────────────
+  // ── Channel history ────────────────────────────────────────────────────────
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!activeChannel || !callerRole) {
+      setMessages([]);
+      return undefined;
+    }
+    let cancelled = false;
+    setMessagesLoading(true);
+    setTypingUsers({});
 
-  // ── Join community ────────────────────────────────────────────────────────
-  const handleJoin = async () => {
+    axiosInstance.get(`/communities/channels/${activeChannel._id}/messages`)
+      .then(({ data }) => { if (!cancelled) setMessages(data.messages || []); })
+      .catch(() => { if (!cancelled) setMessages([]); })
+      .finally(() => { if (!cancelled) setMessagesLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [activeChannel?._id, callerRole]);
+
+  // Join the socket room once we are connected and allowed to read
+  useEffect(() => {
+    if (!socketReady || !activeChannel || !callerRole) return;
+    socketRef.current?.emit('join_channel', { channelId: activeChannel._id });
+  }, [socketReady, activeChannel?._id, callerRole]);
+
+  // Expire typing indicators
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTypingUsers(prev => {
+        const now = Date.now();
+        const next = {};
+        for (const [name, ts] of Object.entries(prev)) {
+          if (now - ts < 6000) next[name] = ts;
+        }
+        return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+      });
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Auto-scroll
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const joinServer = async () => {
     setJoining(true);
+    setNotice('');
     try {
       await axiosInstance.post(`/communities/${community._id}/join`);
-      setCallerRole('member');
-      setCommunity(prev => ({
-        ...prev,
-        members: [...(prev.members || []), { userId: user._id, role: 'member' }]
-      }));
+      await loadCommunity({ silent: true });
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to join.');
+      setNotice(err.response?.data?.message || 'Could not join this server.');
     } finally {
       setJoining(false);
     }
   };
 
-  // ── Channel created callback ──────────────────────────────────────────────
-  const handleChannelCreated = (newChannel) => {
-    setChannels(prev => [...prev, newChannel]);
-    setActiveChannel(newChannel);
+  const leaveServer = async () => {
+    try {
+      await axiosInstance.post(`/communities/${community._id}/leave`);
+      setConfirmLeave(false);
+      await loadCommunity({ silent: true });
+    } catch (err) {
+      setNotice(err.response?.data?.message || 'Could not leave this server.');
+      setConfirmLeave(false);
+    }
   };
 
-  const isMember = !!callerRole;
-  const canWrite = isMember && activeChannel && roleAtLeast(callerRole, activeChannel.minRoleToWrite);
-  const canCreateChannel = callerRole && roleAtLeast(callerRole, 'admin');
-  const memberCount = community?.members?.length || 0;
+  const deleteMessage = (messageId) => {
+    socketRef.current?.emit('delete_message', { messageId });
+  };
 
+  // ── Render guards ──────────────────────────────────────────────────────────
   if (loading) return <div className="page"><div className="spinner" /></div>;
-  if (error)   return (
-    <div className="page" style={{ textAlign: 'center', paddingTop: '4rem' }}>
-      <p style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>😕</p>
-      <h2>{error}</h2>
-      <button className="btn btn-primary" onClick={() => navigate('/communities')}>Browse Communities</button>
-    </div>
-  );
+
+  if (error) {
+    return (
+      <div className="page" style={{ textAlign: 'center', paddingTop: '4rem' }}>
+        <p style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>{error.status === 403 ? '🔒' : '😕'}</p>
+        <h2>{error.message}</h2>
+        <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => navigate('/communities')}>
+          Browse servers
+        </button>
+      </div>
+    );
+  }
+
+  if (!community) return null;
+
+  const canManageChannel = hasCapability(permissions, CAP.MANAGE_CHANNELS);
+  const canManageRoles = hasCapability(permissions, CAP.MANAGE_ROLES);
+  const canKick = hasCapability(permissions, CAP.KICK_MEMBERS);
+  const canViewAudit = hasCapability(permissions, CAP.VIEW_AUDIT_LOG);
+  const canManageServer = hasCapability(permissions, CAP.MANAGE_SERVER);
+  const isMember = !!callerRole;
+
+  const canWrite = isMember && activeChannel
+    && hasCapability(permissions, CAP.SEND_MESSAGES)
+    && roleAtLeast(callerRole, activeChannel.minRoleToWrite)
+    && (activeChannel.type !== 'announcement' || roleAtLeast(callerRole, 'moderator'));
+
+  const visibleMembers = community.members || [];
+  const typingNames = Object.keys(typingUsers);
 
   return (
     <div className="community-layout">
-      {/* ── Left: Channels + Members Sidebar ─────────────────────────────── */}
+      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <aside className="community-sidebar">
-        {/* Community Header */}
         <div className="community-sidebar-header">
           <span style={{ fontSize: '1.6rem' }}>{community.icon}</span>
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontWeight: 800, fontSize: '0.92rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {community.name}
-            </div>
-            <div className="text-muted" style={{ fontSize: '0.72rem' }}>
-              {memberCount} member{memberCount !== 1 ? 's' : ''}
+          <div style={{ overflow: 'hidden', flex: 1 }}>
+            <div className="community-title" title={community.name}>{community.name}</div>
+            <div className="community-subtitle">
+              {memberCount} member{memberCount === 1 ? '' : 's'}
               {community.isPrivate ? ' • 🔒 Private' : ''}
             </div>
           </div>
+          <div className="community-header-actions">
+            {canViewAudit && (
+              <button className="icon-btn" title="Audit log" aria-label="Audit log" onClick={() => setModal('audit')}>📜</button>
+            )}
+            {canManageServer && (
+              <button className="icon-btn" title="Server settings" aria-label="Server settings" onClick={() => setModal('settings')}>⚙️</button>
+            )}
+          </div>
         </div>
 
-        {/* Join / Leave Button */}
-        {user && !isMember && (
-          <button className="btn btn-primary btn-sm" style={{ margin: '0.5rem 0.75rem', width: 'calc(100% - 1.5rem)' }} onClick={handleJoin} disabled={joining}>
-            {joining ? 'Joining...' : '➕ Join Community'}
+        {!isMember && (
+          community.isPrivate ? (
+            <div className="invite-only">
+              🔒 Invite-only server. Ask an admin to add you.
+            </div>
+          ) : user ? (
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ margin: '0.5rem 0.75rem', width: 'calc(100% - 1.5rem)' }}
+              onClick={joinServer}
+              disabled={joining}
+            >
+              {joining ? 'Joining…' : '➕ Join server'}
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="btn btn-primary btn-sm"
+              style={{ margin: '0.5rem 0.75rem', width: 'calc(100% - 1.5rem)', textAlign: 'center' }}
+            >
+              Sign in to join
+            </Link>
+          )
+        )}
+
+        {isMember && callerRole !== 'owner' && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ margin: '0.5rem 0.75rem', width: 'calc(100% - 1.5rem)' }}
+            onClick={() => setConfirmLeave(true)}
+          >
+            Leave server
           </button>
         )}
 
-        {/* Channels */}
         <div className="community-section-label">
           <span>TEXT CHANNELS</span>
-          {canCreateChannel && (
+          {canManageChannel && (
             <button
               className="channel-add-btn"
-              onClick={() => setShowChannelModal(true)}
-              title="Create Channel"
+              onClick={() => setShowCreateChannel(true)}
+              title="Create channel"
+              aria-label="Create channel"
             >＋</button>
           )}
         </div>
 
         <nav className="channel-list">
-          {channels.map(ch => (
-            <button
-              key={ch._id}
-              className={`channel-item${activeChannel?._id === ch._id ? ' active' : ''}`}
-              onClick={() => setActiveChannel(ch)}
-            >
-              <span className="channel-hash">{ch.type === 'announcement' ? '📢' : '#'}</span>
-              <span className="channel-name">{ch.name}</span>
-              {ch.minRoleToWrite !== 'member' && (
-                <span className="text-muted" style={{ fontSize: '0.65rem', marginLeft: 'auto' }}>🔒</span>
+          {channels.map(channel => (
+            <div key={channel._id} className={`channel-row${channel._id === activeChannelId ? ' active' : ''}`}>
+              <button
+                className="channel-item"
+                onClick={() => setActiveChannelId(channel._id)}
+                title={channel.topic || `#${channel.name}`}
+              >
+                <span className="channel-hash">{channel.type === 'announcement' ? '📢' : '#'}</span>
+                <span className="channel-name">{channel.name}</span>
+                {channel.slowModeSeconds > 0 && <span className="channel-flag" title={`Slowmode ${channel.slowModeSeconds}s`}>⏱</span>}
+                {channel.minRoleToWrite !== 'member' && <span className="channel-flag" title={`Only ${channel.minRoleToWrite}s can post`}>🔒</span>}
+              </button>
+              {canManageChannel && (
+                <button
+                  className="channel-settings-btn"
+                  title={`Settings for #${channel.name}`}
+                  aria-label={`Settings for ${channel.name}`}
+                  onClick={() => { setChannelToEdit(channel); setModal('channel'); }}
+                >⚙️</button>
               )}
-            </button>
+            </div>
           ))}
+          {channels.length === 0 && (
+            <p className="text-muted" style={{ fontSize: '0.78rem', padding: '0 0.9rem' }}>
+              No channels visible to your role.
+            </p>
+          )}
         </nav>
 
-        {/* Members List */}
-        <div className="community-section-label" style={{ marginTop: '1rem' }}>MEMBERS — {memberCount}</div>
+        <div className="community-section-label">
+          <span>MEMBERS — {memberCount}</span>
+          {(canManageRoles || canKick) && (
+            <button
+              className="channel-add-btn"
+              onClick={() => setModal('roles')}
+              title="Manage members and roles"
+              aria-label="Manage members and roles"
+            >⚙</button>
+          )}
+        </div>
+
         <div className="member-list">
-          {(community.members || []).map((m, i) => {
-            const memberUser = typeof m.userId === 'object' && m.userId !== null ? m.userId : null;
-            const uname = memberUser?.username;
-            const initial = uname ? uname[0].toUpperCase() : '?';
-
-            if (!uname) {
-              return (
-                <div key={i} className="member-item">
-                  <div className="member-avatar">{initial}</div>
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>Member</div>
-                    {ROLE_LABELS[m.role] && (
-                      <div style={{ fontSize: '0.68rem', color: ROLE_COLORS[m.role] }}>
-                        {ROLE_LABELS[m.role]}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-
+          {visibleMembers.map((member, index) => {
+            const name = member.userId?.username;
+            if (!name) return null;
             return (
-              <Link
-                key={i}
-                to={`/u/${uname}`}
-                className="member-item"
-              >
-                <div className="member-avatar">{initial}</div>
+              <Link key={member.userId?._id || index} to={`/u/${name}`} className="member-item">
+                <div className="member-avatar">{name[0].toUpperCase()}</div>
                 <div style={{ overflow: 'hidden' }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {uname}
-                  </div>
-                  {ROLE_LABELS[m.role] && (
-                    <div style={{ fontSize: '0.68rem', color: ROLE_COLORS[m.role] }}>
-                      {ROLE_LABELS[m.role]}
+                  <div className="member-name">{name}</div>
+                  {member.role !== 'member' && (
+                    <div className="member-role" style={{ color: ROLE_COLORS[member.role] }}>
+                      {ROLE_LABELS[member.role]}
                     </div>
                   )}
                 </div>
               </Link>
             );
           })}
+          {memberCount > visibleMembers.length && (
+            <p className="text-muted" style={{ fontSize: '0.72rem', padding: '0.35rem 0.6rem' }}>
+              +{memberCount - visibleMembers.length} more
+            </p>
+          )}
         </div>
       </aside>
 
-      {/* ── Right: Chat Area ─────────────────────────────────────────────── */}
+      {/* ── Chat ──────────────────────────────────────────────────────────── */}
       <main className="community-chat">
-        {/* Channel Header */}
-        {activeChannel ? (
+        {notice && (
+          <div className="chat-notice" role="status">
+            <span>{notice}</span>
+            <button onClick={() => setNotice('')} aria-label="Dismiss">✕</button>
+          </div>
+        )}
+
+        {!isMember ? (
+          <div className="chat-locked">
+            <p style={{ fontSize: '2rem', margin: 0 }}>👋</p>
+            <h3>Join {community.name} to read and send messages</h3>
+            <p className="text-muted" style={{ maxWidth: '360px' }}>
+              {community.description || 'Members of this server can chat in its channels.'}
+            </p>
+            {!community.isPrivate && user && (
+              <button className="btn btn-primary" onClick={joinServer} disabled={joining}>
+                {joining ? 'Joining…' : 'Join server'}
+              </button>
+            )}
+            {!user && <Link to="/login" className="btn btn-primary">Sign in to join</Link>}
+          </div>
+        ) : activeChannel ? (
           <>
             <div className="chat-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
                   {activeChannel.type === 'announcement' ? '📢' : '#'}
                 </span>
                 <span style={{ fontWeight: 800, fontSize: '1rem' }}>{activeChannel.name}</span>
                 {activeChannel.topic && (
-                  <span className="text-muted" style={{ fontSize: '0.8rem', borderLeft: '1px solid var(--border)', paddingLeft: '0.6rem' }}>
-                    {activeChannel.topic}
-                  </span>
+                  <span className="chat-topic">{activeChannel.topic}</span>
+                )}
+                {activeChannel.slowModeSeconds > 0 && (
+                  <span className="chat-badge" title="Slowmode">⏱ {activeChannel.slowModeSeconds}s</span>
+                )}
+                {activeChannel.retentionDays > 0 && (
+                  <span className="chat-badge" title="Messages auto-delete">🗓 {activeChannel.retentionDays}d</span>
                 )}
               </div>
             </div>
 
-            {/* Messages */}
             <div className={`chat-messages ${activeChannel.isProtected ? 'protected-chat' : ''}`}>
-              {messages.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-                  <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👋</p>
+              {messagesLoading ? (
+                <div className="spinner" />
+              ) : messages.length === 0 ? (
+                <div className="chat-empty">
+                  <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>#{activeChannel.name}</p>
                   <p>This is the beginning of <strong>#{activeChannel.name}</strong>.</p>
-                  {!isMember && <p style={{ fontSize: '0.85rem' }}>Join this community to start chatting!</p>}
                 </div>
               ) : (
-                messages.map((msg, i) => {
-                  const sender = msg.senderId;
-                  const senderRole = community.members?.find(m =>
-                    (typeof m.userId === 'object' ? m.userId._id : m.userId)?.toString() === sender?._id?.toString()
-                  )?.role;
-
-                  const isAuthor = user && sender?._id?.toString() === user._id?.toString();
-                  const canDelete = isAuthor || (callerRole && ['owner', 'admin', 'moderator'].includes(callerRole));
+                messages.map((message, index) => {
+                  const sender = message.senderId || {};
+                  const role = message.communityRole
+                    || community.members?.find(m => String(m.userId?._id || m.userId) === String(sender._id))?.role;
+                  const isAuthor = user && String(sender._id) === String(user._id);
+                  const canDelete = !message.isDeleted
+                    && (isAuthor || hasCapability(permissions, CAP.MANAGE_MESSAGES));
 
                   return (
-                    <div key={msg._id || i} className={`chat-message ${msg.isDeleted ? 'deleted' : ''}`}>
-                      <div className="chat-avatar">{sender?.username?.[0]?.toUpperCase() || '?'}</div>
+                    <div key={message._id || index} className={`chat-message${message.isDeleted ? ' deleted' : ''}`}>
+                      <div className="chat-avatar">{sender.username?.[0]?.toUpperCase() || '?'}</div>
                       <div className="chat-message-body">
                         <div className="chat-message-header">
-                          <Link to={`/u/${sender?.username}`} className="chat-sender-name">
-                            {sender?.username || 'Unknown'}
+                          <Link to={`/u/${sender.username || ''}`} className="chat-sender-name">
+                            {sender.username || 'Unknown'}
                           </Link>
-                          {sender?.level && (
+                          {sender.level && (
                             <span className="level-badge" style={{ fontSize: '0.65rem' }}>Lv{sender.level}</span>
                           )}
-                          {senderRole && ROLE_LABELS[senderRole] && (
-                            <span style={{ fontSize: '0.68rem', color: ROLE_COLORS[senderRole] }}>{ROLE_LABELS[senderRole]}</span>
+                          {role && role !== 'member' && (
+                            <span style={{ fontSize: '0.68rem', color: ROLE_COLORS[role] }}>{ROLE_LABELS[role]}</span>
                           )}
-                          <span className="chat-timestamp">{timeAgo(msg.createdAt)}</span>
-
-                          {canDelete && !msg.isDeleted && (
+                          <span className="chat-timestamp">{timeAgo(message.createdAt)}</span>
+                          {canDelete && (
                             <button
                               type="button"
                               className="chat-msg-delete-btn"
                               title="Delete message"
-                              onClick={() => {
-                                if (window.confirm('Delete this message?')) {
-                                  socketRef.current?.emit('delete_message', {
-                                    messageId: msg._id,
-                                    channelId: activeChannel._id
-                                  });
-                                }
-                              }}
-                            >
-                              🗑️
-                            </button>
+                              aria-label="Delete message"
+                              onClick={() => deleteMessage(message._id)}
+                            >🗑️</button>
                           )}
                         </div>
-                        <p className={`chat-message-text ${msg.isDeleted ? 'text-tombstone' : ''}`}>
-                          {msg.isDeleted ? '🚫 This message was deleted' : msg.text}
+                        <p className={`chat-message-text${message.isDeleted ? ' text-tombstone' : ''}`}>
+                          {message.isDeleted ? '🚫 This message was deleted' : message.text}
                         </p>
                       </div>
                     </div>
@@ -339,44 +517,90 @@ const CommunityPage = () => {
                 })
               )}
 
-              {/* Typing Indicator */}
-              {typingUsers.length > 0 && (
+              {typingNames.length > 0 && (
                 <div className="typing-indicator">
-                  <span className="typing-dots">
-                    <span /><span /><span />
-                  </span>
+                  <span className="typing-dots"><span /><span /><span /></span>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
-                    {typingUsers.length === 1
-                      ? `${typingUsers[0]} is typing...`
-                      : `${typingUsers.slice(0, 2).join(', ')} are typing...`}
+                    {typingNames.length === 1
+                      ? `${typingNames[0]} is typing…`
+                      : `${typingNames.slice(0, 2).join(', ')} are typing…`}
                   </span>
                 </div>
               )}
-              <div ref={messagesEndRef} />
+              <div ref={endRef} />
             </div>
 
-            {/* Message Input */}
             <MessageInput
               channelId={activeChannel._id}
               communityId={community._id}
               canWrite={canWrite}
               slowModeSeconds={activeChannel.slowModeSeconds || 0}
+              permissions={permissions}
+              onNotice={setNotice}
               placeholder={`Message #${activeChannel.name}`}
             />
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+          <div className="chat-locked">
             <p>Select a channel to start chatting.</p>
           </div>
         )}
       </main>
 
-      {/* Modals */}
-      <CreateChannelModal
-        isOpen={showChannelModal}
-        onClose={() => setShowChannelModal(false)}
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
+      <RoleManagerModal
+        isOpen={modal === 'roles'}
+        onClose={() => setModal(null)}
+        community={community}
+        callerRole={callerRole}
+        permissions={permissions}
+        onChanged={() => loadCommunity({ silent: true })}
+      />
+
+      <AuditLogModal
+        isOpen={modal === 'audit'}
+        onClose={() => setModal(null)}
         communityId={community._id}
-        onCreated={handleChannelCreated}
+      />
+
+      <CommunitySettingsModal
+        isOpen={modal === 'settings'}
+        onClose={() => setModal(null)}
+        community={community}
+        onSaved={() => loadCommunity({ silent: true })}
+        onDeleted={() => navigate('/communities')}
+      />
+
+      <ChannelSettingsModal
+        isOpen={modal === 'channel'}
+        onClose={() => { setModal(null); setChannelToEdit(null); }}
+        communityId={community._id}
+        channel={channels.find(c => c._id === channelToEdit?._id) || channelToEdit}
+        onSaved={(updated) => setChannels(prev => prev.map(c => (c._id === updated._id ? { ...c, ...updated } : c)))}
+        onDeleted={(channelId) => {
+          setChannels(prev => prev.filter(c => c._id !== channelId));
+          setActiveChannelId(prev => (prev === channelId ? null : prev));
+        }}
+      />
+
+      <CreateChannelModal
+        isOpen={showCreateChannel}
+        onClose={() => setShowCreateChannel(false)}
+        communityId={community._id}
+        onCreated={(channel) => {
+          setChannels(prev => [...prev, channel]);
+          setActiveChannelId(channel._id);
+        }}
+      />
+
+      <ConfirmModal
+        isOpen={confirmLeave}
+        title="Leave server"
+        message={`Leave “${community.name}”? You will lose access to its channels until you join again.`}
+        confirmText="Leave"
+        isDanger
+        onConfirm={leaveServer}
+        onCancel={() => setConfirmLeave(false)}
       />
     </div>
   );

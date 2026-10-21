@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../api/axiosInstance';
@@ -19,6 +19,12 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
     user?.savedPosts?.some(id => id === post._id || id?.toString?.() === post._id?.toString?.())
   );
   const [saveLoading, setSaveLoading] = useState(false);
+
+  // Re-sync reaction state once the async session (`fetchMe`) hydrates.
+  useEffect(() => {
+    setLiked(post.likes?.some(id => id?.toString?.() === user?._id?.toString?.()) ?? false);
+    setSaved(user?.savedPosts?.some(id => id?.toString?.() === post._id?.toString?.()) ?? false);
+  }, [user?._id, user?.savedPosts, post._id, post.likes]);
 
   // Normalise both sides to plain hex strings before comparing
   const normalId = v => (v?._id ?? v)?.toString?.() ?? '';

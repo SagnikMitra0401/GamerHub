@@ -82,9 +82,10 @@ const CommunitiesHome = () => {
         ) : (
           <div className="communities-grid">
             {filtered.map(c => {
-              const isMember = user && c.members?.some(m =>
-                (typeof m.userId === 'string' ? m.userId : m.userId?._id?.toString()) === user._id?.toString()
-              );
+              // The list endpoint returns callerRole/isMember/memberCount and no
+              // member-id array (member ids are not public data).
+              const isMember = !!(c.isMember || c.callerRole);
+              const members = c.memberCount ?? c.members?.length ?? 0;
               return (
                 <Link key={c._id} to={`/communities/${c.slug}`} className="community-card" style={{ textDecoration: 'none' }}>
                   <div className="community-card-icon">{c.icon}</div>
@@ -98,7 +99,8 @@ const CommunitiesHome = () => {
                       {c.description || 'No description provided.'}
                     </p>
                     <div className="text-muted" style={{ fontSize: '0.76rem' }}>
-                      👥 {c.members?.length || 0} member{(c.members?.length || 0) !== 1 ? 's' : ''}
+                      👥 {members} member{members !== 1 ? 's' : ''}
+                      {c.callerRole && c.callerRole !== 'member' ? ` • ${c.callerRole}` : ''}
                     </div>
                   </div>
                 </Link>
