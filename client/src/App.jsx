@@ -12,6 +12,9 @@ import ProfilePage from './pages/ProfilePage';
 import ChannelPage from './pages/ChannelPage';
 import CommunitiesHome from './pages/CommunitiesHome';
 import CommunityPage from './pages/CommunityPage';
+import LfgPage from './pages/LfgPage';
+import GameCatalog from './pages/GameCatalog';
+import AdminDashboard from './pages/AdminDashboard';
 import './index.css';
 
 /**
@@ -46,6 +49,9 @@ function App() {
           <Route path="/c/:tag"                 element={<ChannelPage />} />
           <Route path="/communities"            element={<CommunitiesHome />} />
           <Route path="/communities/:slug"      element={<CommunityPage />} />
+          <Route path="/lfg"                    element={<LfgPage />} />
+          <Route path="/games"                  element={<GameCatalog />} />
+          <Route path="/admin"                  element={<AdminDashboard />} />
           <Route path="*"                       element={<Navigate to="/" replace />} />
         </Routes>
         <GlobalToolbar

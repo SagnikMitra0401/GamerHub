@@ -72,6 +72,30 @@ function sanitizeLine(value, maxLength) {
     .slice(0, maxLength);
 }
 
+const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+/**
+ * Decode HTML entities in third-party metadata (YouTube titles, game
+ * descriptions). Single pass, so `&amp;lt;` becomes `&lt;` and never `<`.
+ */
+function decodeHtmlEntities(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code) => {
+    if (code[0] === '#') {
+      const num = code[1].toLowerCase() === 'x'
+        ? parseInt(code.slice(2), 16)
+        : parseInt(code.slice(1), 10);
+      if (!Number.isFinite(num) || num <= 0 || num > 0x10ffff) return match;
+      try {
+        return String.fromCodePoint(num);
+      } catch {
+        return match;
+      }
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+}
+
 /** Is this a safe http(s) URL (no javascript:, data:, etc.)? */
 function isHttpUrl(value) {
   if (typeof value !== 'string' || !value) return false;
@@ -126,6 +150,7 @@ function normalizeTags(input) {
 module.exports = {
   normalizeMessageText,
   sanitizeLine,
+  decodeHtmlEntities,
   sanitizeText,
   escapeRegex,
   isHttpUrl,

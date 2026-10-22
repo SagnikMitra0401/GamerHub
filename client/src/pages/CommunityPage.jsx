@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
-import { connectSocket } from '../api/socket';
+import { connectSocket, getSocket } from '../api/socket';
 
 import MessageInput from '../components/communities/MessageInput';
 import CreateChannelModal from '../components/communities/CreateChannelModal';
@@ -54,6 +54,8 @@ const CommunityPage = () => {
   const [channelToEdit, setChannelToEdit] = useState(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [socketReady, setSocketReady] = useState(false);
+  // userId -> { status, activeGame } from live presence events
+  const [presenceMap, setPresenceMap] = useState({});
 
   const socketRef = useRef(null);
   const endRef = useRef(null);
@@ -86,6 +88,23 @@ const CommunityPage = () => {
   }, [slug]);
 
   useEffect(() => { loadCommunity(); }, [loadCommunity]);
+
+  // Live presence badges in the member sidebar (works even before you join).
+  useEffect(() => {
+    const sock = getSocket();
+    if (!sock) return undefined;
+
+    const onPresence = (payload) => {
+      if (!payload?.userId) return;
+      setPresenceMap(prev => ({
+        ...prev,
+        [payload.userId]: { status: payload.status, activeGame: payload.activeGame }
+      }));
+    };
+
+    sock.on('presence_change', onPresence);
+    return () => { sock.off('presence_change', onPresence); };
+  }, [user?._id]);
 
   // ── Socket wiring ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -401,11 +420,22 @@ const CommunityPage = () => {
           {visibleMembers.map((member, index) => {
             const name = member.userId?.username;
             if (!name) return null;
+
+            const memberId = String(member.userId?._id || '');
+            const presence = presenceMap[memberId] || member.userId?.presence;
+
             return (
               <Link key={member.userId?._id || index} to={`/u/${name}`} className="member-item">
                 <div className="member-avatar">{name[0].toUpperCase()}</div>
                 <div style={{ overflow: 'hidden' }}>
                   <div className="member-name">{name}</div>
+                  {presence?.status === 'in_game' && presence.activeGame ? (
+                    <div className="member-presence playing" title={`Playing ${presence.activeGame}`}>
+                      🟣 {presence.activeGame}
+                    </div>
+                  ) : presence?.status === 'online' ? (
+                    <div className="member-presence online">🟢 Online</div>
+                  ) : null}
                   {member.role !== 'member' && (
                     <div className="member-role" style={{ color: ROLE_COLORS[member.role] }}>
                       {ROLE_LABELS[member.role]}

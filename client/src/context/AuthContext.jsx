@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axiosInstance from '../api/axiosInstance';
-import { disconnectSocket } from '../api/socket';
+import { connectSocket, disconnectSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
 
@@ -25,6 +25,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => { fetchMe(); }, [fetchMe]);
+
+  // One authenticated socket for the whole app: notifications, LFG pushes and
+  // presence all arrive without visiting a chat page first.
+  useEffect(() => {
+    if (user && token) connectSocket(token);
+  }, [user?._id, token]);
 
   const login = async (email, password) => {
     const { data } = await axiosInstance.post('/auth/login', { email, password });
@@ -59,6 +65,11 @@ export const AuthProvider = ({ children }) => {
     setUser(prev => prev ? { ...prev, favoriteChannels: channels } : prev);
   };
 
+  /** Merge a server-returned fragment (presence/preferences) into the session user. */
+  const updateUser = (patch) => {
+    setUser(prev => (prev ? { ...prev, ...patch } : prev));
+  };
+
   const updateSavedPosts = (postId, saved) => {
     setUser(prev => {
       if (!prev) return prev;
@@ -71,7 +82,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{
-      user, token, loading, login, register, logout, fetchMe,
+      user, token, loading, login, register, logout, fetchMe, updateUser,
       updateFavouriteChannels, updateSavedPosts
     }}>
       {children}

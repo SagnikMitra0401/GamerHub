@@ -10,8 +10,14 @@ const postRoutes      = require('./routes/postRoutes');
 const commentRoutes   = require('./routes/commentRoutes');
 const userRoutes      = require('./routes/userRoutes');
 const communityRoutes = require('./routes/communityRoutes');
+const lfgRoutes       = require('./routes/lfgRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const gameRoutes      = require('./routes/gameRoutes');
+const adminRoutes     = require('./routes/adminRoutes');
+const botRoutes       = require('./routes/botRoutes');
 const errorHandler    = require('./middleware/errorHandler');
 const { corsOrigin }  = require('./utils/origins');
+const { metricsMiddleware } = require('./utils/metrics');
 
 const app = express();
 
@@ -34,6 +40,9 @@ app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 app.use(mongoSanitize());
 
+// Traffic/latency counters for the admin dashboard (no request bodies, no PII).
+app.use(metricsMiddleware);
+
 // Coarse global limiter. Route-specific limits (auth, previews) are stricter.
 const globalLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
@@ -53,6 +62,11 @@ app.use('/api/posts',       postRoutes);
 app.use('/api/posts/:postId/comments', commentRoutes);
 app.use('/api/users',       userRoutes);
 app.use('/api/communities', communityRoutes);
+app.use('/api/lfg',         lfgRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/games',       gameRoutes);
+app.use('/api/admin',       adminRoutes);
+app.use('/api/bot',         botRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'Endpoint not found' });

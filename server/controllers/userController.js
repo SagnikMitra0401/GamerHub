@@ -7,6 +7,30 @@ const { resolveCommunityRole, roleLevel } = require('../utils/permissions');
 const { sanitizeLine, escapeRegex } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, notFound } = require('../utils/httpError');
+const { getIO } = require('../config/socket');
+const { publicPresence } = require('../utils/presence');
+
+const USER_PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
+const PRESENCE_STATUSES = ['online', 'in_game', 'offline', 'invisible'];
+const MAX_FAVORITES = 20;
+
+/** Trim, cap and de-duplicate a user-supplied string list (null when not an array). */
+function cleanStringList(input, { maxLength = 40, limit = MAX_FAVORITES } = {}) {
+  if (!Array.isArray(input)) return null;
+  const seen = new Set();
+  const out = [];
+  for (const raw of input.slice(0, 100)) {
+    const value = sanitizeLine(String(raw ?? ''), maxLength);
+    const key = value.toLowerCase();
+    if (!value || seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+
 
 // GET /api/users/:username — public profile
 const getProfile = async (req, res, next) => {
@@ -52,12 +76,19 @@ const getProfile = async (req, res, next) => {
       .sort((a, b) => roleLevel(b.role) - roleLevel(a.role))
       .slice(0, 20);
 
-    const profile = { ...user, postCount, isFollowing, communities };
+    const profile = {
+      ...user,
+      presence: publicPresence(user.presence),
+      postCount,
+      isFollowing,
+      communities
+    };
 
-    // Bookmarks and followed channels are private account data.
+    // Bookmarks, followed channels and discovery preferences are private.
     if (!isSelf) {
       delete profile.savedPosts;
       delete profile.favoriteChannels;
+      delete profile.preferences;
     }
 
     res.status(200).json(profile);
@@ -294,6 +325,84 @@ const updateGamerPassport = async (req, res, next) => {
   }
 };
 
+// PATCH /api/users/me/preferences — favourite games/genres/platforms
+const updatePreferences = async (req, res, next) => {
+  try {
+    const { favoriteGames, favoriteGenres, platforms } = req.body || {};
+    if (!req.body || typeof req.body !== 'object') throw badRequest('Invalid payload');
+
+    const updates = {};
+
+    if (favoriteGames !== undefined) {
+      const games = cleanStringList(favoriteGames, { maxLength: 60 });
+      if (!games) throw badRequest('favoriteGames must be an array of game titles.');
+      updates['preferences.favoriteGames'] = games;
+    }
+
+    if (favoriteGenres !== undefined) {
+      const genres = cleanStringList(favoriteGenres, { maxLength: 40 });
+      if (!genres) throw badRequest('favoriteGenres must be an array of genres.');
+      updates['preferences.favoriteGenres'] = genres;
+    }
+
+    if (platforms !== undefined) {
+      if (!Array.isArray(platforms)) throw badRequest('platforms must be an array.');
+      const invalid = platforms.filter((p) => !USER_PLATFORMS.includes(p));
+      if (invalid.length) {
+        throw badRequest(`Invalid platform(s): ${invalid.join(', ')}. Allowed: ${USER_PLATFORMS.join(', ')}`);
+      }
+      updates['preferences.platforms'] = [...new Set(platforms)];
+    }
+
+    if (!Object.keys(updates).length) throw badRequest('No preferences provided.');
+
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('preferences');
+
+    res.status(200).json({ preferences: updated.preferences });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/users/presence — set online / in_game / offline / invisible
+const updatePresence = async (req, res, next) => {
+  try {
+    const status = String(req.body?.status || '');
+    if (!PRESENCE_STATUSES.includes(status)) {
+      throw badRequest('status must be one of: online, in_game, offline, invisible.');
+    }
+
+    const activeGame = status === 'in_game'
+      ? sanitizeLine(req.body?.activeGame, 60)
+      : '';
+    if (status === 'in_game' && !activeGame) {
+      throw badRequest('Pick a game to show as your active game.');
+    }
+
+    const presence = { status, activeGame, lastActive: new Date() };
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { presence } },
+      { new: true, runValidators: true }
+    ).select('presence');
+
+    // Everyone else sees the public projection (invisible -> offline).
+    getIO()?.emit('presence_change', {
+      userId: String(req.user._id),
+      username: req.user.username,
+      ...publicPresence(updated.presence)
+    });
+
+    res.status(200).json({ presence: updated.presence });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getProfile,
   getUserPosts,
@@ -302,5 +411,9 @@ module.exports = {
   toggleFavouriteChannel,
   getSavedPosts,
   searchAll,
-  updateGamerPassport
+  updateGamerPassport,
+  updatePreferences,
+  updatePresence,
+  publicPresence,
+  cleanStringList
 };

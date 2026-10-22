@@ -83,6 +83,27 @@ only decides which controls render.
 * **Link Scraper:** Automatic OpenGraph preview scraper for YouTube, Twitch, Instagram, and web resources.
 * **Engagement Engine:** XP leveling formula ($Level = \lfloor XP / 25 \rfloor + 1$), dynamic progress bars, and verifiable achievement medals.
 
+### 4. LFG Squads, Presence & Discovery
+* **LFG Board:** Create a squad in seconds (game, activity, 2&ndash;6 slots, rank and mic requirements). Join requests go to the leader, who accepts or declines them; an accepted player takes a slot and a full squad leaves the board. Squads self-destruct after 6 hours via a MongoDB TTL index.
+* **Live Sync:** `lfg_slot_updated` re-renders every open board; `lfg_join_request` and `notification` reach the leader instantly through a per-user socket room.
+* **Presence:** `online` / `in_game` / `invisible` with an active-game badge. `invisible` is stored but broadcast (and shown on public profiles) as `offline`; presence is counted per user, not per tab, so closing one tab does not make you look offline.
+* **Game Catalog:** The FreeToGame catalog is fetched at most once per 10 minutes and searched in memory, so filtering never hammers the provider. Degrades to the last good snapshot (flagged `stale`) when the provider is down.
+* **For You Feed:** Transparent ranking over a bounded pool of recent posts &mdash; favourite game/genre tags +50 each, followed channels +30, engagement capped at +60, minus 0.5 per hour of age. No hidden signals; see [`server/utils/feedRanking.js`](server/utils/feedRanking.js).
+* **Gaming Bot:** Queries YouTube Data API v3 server-side for the player's favourite games and turns the newest video into a notification with a thumbnail. Results are cached for 30 minutes (a search costs 100 of 10,000 daily quota units), pings are de-duplicated per video, and the endpoint returns a clean `503` when no key is configured rather than failing silently.
+* **Admin Monitor:** `/admin` reports secret isolation (present, strength bucket, never the value), scans the production bundle for leaked keys, shows traffic/latency/error counters, DB collection counts, provider status and the latest audit entries.
+
+#### New API surface
+
+| Method & path | Purpose |
+| :--- | :--- |
+| `GET/POST /api/lfg`, `GET /api/lfg/mine` | Browse open squads, create one, see your own |
+| `POST /api/lfg/:id/request`, `PATCH /api/lfg/:id/respond`, `DELETE /api/lfg/:id` | Ask to join, leader accepts/declines, close |
+| `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `POST /api/notifications/read-all` | Inbox and badge |
+| `GET /api/games`, `GET /api/games/:id` | Catalog search and detail (screenshots, system requirements) |
+| `PATCH /api/users/me/preferences`, `PATCH /api/users/presence` | Favourite games/genres/platforms, live status |
+| `POST /api/bot/sync-youtube`, `GET /api/bot/status` | Gaming-bot sync and configuration status |
+| `GET /api/admin/system-health`, `GET /api/admin/metrics` | Platform administration (application `admin` role only) |
+
 ---
 
 ## Data & Security Flow
@@ -180,12 +201,16 @@ GamerHub/
 │   └── vite.config.js       # Vite configuration
 │
 ├── server/
-│   ├── config/              # MongoDB connection and Socket.io initialization
-│   ├── controllers/         # Endpoint business logic
-│   ├── middleware/          # JWT auth, error handlers, and ownership checks
-│   ├── models/              # Mongoose schemas (User, Post, Community, Channel, Message, AuditLog)
+│   ├── config/              # MongoDB connection, Socket.io initialization, chat policy
+│   ├── controllers/         # Endpoint business logic (incl. LFG, games, admin, bot)
+│   ├── middleware/          # JWT auth, platform-role gates, error handlers, ownership
+│   ├── models/              # Mongoose schemas (User, Post, Community, Channel, Message, AuditLog, Party, Notification)
 │   ├── routes/              # Express API route declarations
-│   └── utils/               # Gamification math and token generation
+│   ├── tests/               # node:test unit suites (permissions, sanitisation, LFG, ranking…)
+│   └── utils/               # Permissions, sanitisation, cache, metrics, YouTube bot, catalog, ranking
+├── scripts/
+│   ├── e2e.js               # Permission/chat end-to-end suite (throwaway DB)
+│   └── e2e-phase4.js        # LFG/presence/bot/admin end-to-end suite (throwaway DB)
 │
 └── README.md
 ```
@@ -218,7 +243,13 @@ JWT_SECRET=your_super_secret_jwt_key
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+# Optional: enables the gaming bot. Server-side only — never a VITE_ variable.
+YOUTUBE_API_KEY=your_youtube_data_api_v3_key
 ```
+
+The bot is the only feature that needs a third-party key. Without it the rest of
+the app works normally: `/api/bot/sync-youtube` answers `503 BOT_NOT_CONFIGURED`
+and the admin dashboard shows the key as `not set`.
 
 #### Frontend Configuration (`client/.env`)
 ```env
@@ -229,18 +260,18 @@ VITE_SOCKET_URL=http://localhost:5000
 ### 3. Install Dependencies & Launch
 
 ```bash
-# Terminal 1: Backend
-cd server
+# From the repository root
 npm install
-npm run dev
+npm install --prefix client
+npm run dev          # Express on :5000, Vite on :3000
 
-# Terminal 2: Frontend
-cd client
-npm install
-npm run dev
+# Unit tests and end-to-end suites
+npm test
+node scripts/e2e-phase4.js
 ```
 
-The application will be accessible at `http://localhost:5173`.
+The application will be accessible at `http://localhost:3000`. Both e2e scripts
+create a throwaway database on the configured cluster and drop it afterwards.
 
 ---
 

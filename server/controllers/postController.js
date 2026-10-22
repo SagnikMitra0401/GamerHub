@@ -9,6 +9,10 @@ const { awardXp } = require('../utils/gamification');
 const { sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
+const { rankPostsForUser } = require('../utils/feedRanking');
+
+// "For You" ranks this many recent posts in memory, then paginates the ranking.
+const FOR_YOU_POOL = 100;
 
 const EDIT_LIMIT_MS = 5 * 60 * 1000;
 const MAX_TITLE = 150;
@@ -96,6 +100,9 @@ const getPosts = async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 15, maxLimit: 50 });
 
+    // Personalized ranking needs a signed-in viewer; anonymous falls back to latest.
+    const forYou = req.query.sort === 'foryou' && !!req.user;
+
     const matchStage = {};
 
     const tag = sanitizeLine(req.query.channel, 24).toLowerCase();
@@ -124,16 +131,17 @@ const getPosts = async (req, res, next) => {
         : { $literal: 0 }
     };
 
-    const sortStage = req.query.sort === 'most_liked'
-      ? { boostScore: -1, likeCount: -1, createdAt: -1 }
-      : { boostScore: -1, createdAt: -1 };
+    const sortStage = forYou
+      ? { createdAt: -1 }
+      : req.query.sort === 'most_liked'
+        ? { boostScore: -1, likeCount: -1, createdAt: -1 }
+        : { boostScore: -1, createdAt: -1 };
 
     const posts = await Post.aggregate([
       { $match: matchStage },
       { $addFields: addFieldsStage },
       { $sort: sortStage },
-      { $skip: skip },
-      { $limit: limit },
+      ...(forYou ? [{ $limit: FOR_YOU_POOL }] : [{ $skip: skip }, { $limit: limit }]),
       {
         $lookup: {
           from: 'users',
@@ -165,6 +173,20 @@ const getPosts = async (req, res, next) => {
         }
       }
     ]);
+
+    if (forYou) {
+      const prefs = await User.findById(req.user._id)
+        .select('preferences favoriteChannels')
+        .lean();
+
+      const ranked = rankPostsForUser(posts, {
+        favoriteGames: prefs?.preferences?.favoriteGames || [],
+        favoriteGenres: prefs?.preferences?.favoriteGenres || [],
+        favoriteChannels: prefs?.favoriteChannels || []
+      });
+
+      return res.status(200).json(ranked.slice(skip, skip + limit));
+    }
 
     res.status(200).json(posts);
   } catch (err) {

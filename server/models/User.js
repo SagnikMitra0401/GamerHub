@@ -79,6 +79,33 @@ const UserSchema = new mongoose.Schema({
         peripherals: { type: String, default: '', trim: true, maxlength: 120 }
       }
     }]
+  },
+
+  // Discovery preferences — drive the personalized feed and the gaming bot.
+  preferences: {
+    favoriteGames:  {
+      type: [String],
+      default: [],
+      set: (arr) => (Array.isArray(arr) ? arr.map((g) => String(g).trim()).filter(Boolean).slice(0, 20) : [])
+    },
+    favoriteGenres: {
+      type: [String],
+      default: [],
+      set: (arr) => (Array.isArray(arr) ? arr.map((g) => String(g).trim()).filter(Boolean).slice(0, 20) : [])
+    },
+    platforms: {
+      type: [String],
+      enum: ['PC', 'PlayStation', 'Xbox', 'Switch'],
+      default: []
+    }
+  },
+
+  // Live presence — mirrored to other clients over Socket.io.
+  presence: {
+    // 'invisible' is stored, but broadcast to others as offline.
+    status:      { type: String, enum: ['online', 'in_game', 'offline', 'invisible'], default: 'offline' },
+    activeGame:  { type: String, default: '', trim: true, maxlength: 60 },
+    lastActive:  { type: Date, default: null }
   }
 }, { timestamps: true });
 

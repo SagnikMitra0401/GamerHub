@@ -5,11 +5,14 @@ import axiosInstance from '../api/axiosInstance';
 import PostList from '../components/posts/PostList';
 import PostForm from '../components/posts/PostForm';
 import ClipCard from '../components/posts/ClipCard';
+import PreferencesModal from '../components/profile/PreferencesModal';
 
 const SORT_OPTIONS = [
   { key: 'latest',     label: '🕐 Latest' },
   { key: 'most_liked', label: '🔥 Top' }
 ];
+
+const FOR_YOU_OPTION = { key: 'foryou', label: '✨ For You' };
 
 const Feed = () => {
   const { user, fetchMe } = useAuth();
@@ -22,7 +25,13 @@ const Feed = () => {
   const [showForm, setShowForm] = useState(false);
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(true);
+  const [showPrefs, setShowPrefs] = useState(false);
   const LIMIT = 15;
+
+  // Personalized ranking needs a signed-in viewer; fall back when logged out.
+  useEffect(() => {
+    if (!user && sort === 'foryou') setSort('latest');
+  }, [user, sort]);
 
   // Auto-open form if navigated with ?create=1
   useEffect(() => {
@@ -132,7 +141,7 @@ const Feed = () => {
 
             {/* Sort tabs */}
             <div className="sort-tabs">
-              {SORT_OPTIONS.map(({ key, label }) => (
+              {(user ? [FOR_YOU_OPTION, ...SORT_OPTIONS] : SORT_OPTIONS).map(({ key, label }) => (
                 <button
                   key={key}
                   className={`sort-tab ${sort === key ? 'active' : ''}`}
@@ -142,6 +151,16 @@ const Feed = () => {
                 </button>
               ))}
             </div>
+
+            {user && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setShowPrefs(true)}
+                title="Favourite games and genres"
+              >
+                ⚙️ Interests
+              </button>
+            )}
 
             {user && (
               <button
@@ -193,6 +212,8 @@ const Feed = () => {
           </>
         )}
       </div>
+
+      <PreferencesModal isOpen={showPrefs} onClose={() => setShowPrefs(false)} />
     </main>
   );
 };

@@ -9,7 +9,8 @@ const {
   sanitizeLinkPreview,
   normalizeTags,
   escapeRegex,
-  isHttpUrl
+  isHttpUrl,
+  decodeHtmlEntities
 } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 
@@ -69,6 +70,14 @@ test('link previews only accept http(s) URLs', () => {
   assert.equal(clean.image, null); // unsafe image dropped
   assert.equal(clean.siteName, 'Example');
   assert.equal('injected' in clean, false);
+});
+
+test('third-party HTML entities are decoded once', () => {
+  assert.equal(decodeHtmlEntities('It&#39;s &quot;great&quot; &amp; fun'), 'It\'s "great" & fun');
+  assert.equal(decodeHtmlEntities('&#x1F3AE; game'), '🎮 game');
+  assert.equal(decodeHtmlEntities('&amp;lt;script&amp;gt;'), '&lt;script&gt;');
+  assert.equal(decodeHtmlEntities('100% &unknown; raw'), '100% &unknown; raw');
+  assert.equal(decodeHtmlEntities(null), '');
 });
 
 test('isHttpUrl', () => {

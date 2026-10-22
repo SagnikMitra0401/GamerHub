@@ -87,6 +87,73 @@ function parseCookie(cookieStr) {
 
 const fail = (socket, message, code) => socket.emit('error_msg', { message, ...(code ? { code } : {}) });
 
+// ── Presence ────────────────────────────────────────────────────────────────
+// Counted per user, not per socket: closing one of three tabs must not make a
+// player look offline. An 'invisible' player is never flipped to online.
+const presenceSockets = new Map();
+
+async function markPresenceOnConnect(socket, userId) {
+  if (!userId) return;
+  const next = (presenceSockets.get(userId) || 0) + 1;
+  presenceSockets.set(userId, next);
+  if (next > 1) return;
+
+  try {
+    const user = await User.findById(userId).select('presence username').lean();
+    const status = user?.presence?.status || 'offline';
+    if (status !== 'offline') return; // in_game / invisible are explicit choices
+
+    await User.updateOne(
+      { _id: userId },
+      { $set: { 'presence.status': 'online', 'presence.lastActive': new Date() } }
+    );
+    ioInstance?.emit('presence_change', {
+      userId,
+      username: user?.username || socket.user?.username || null,
+      status: 'online',
+      activeGame: user?.presence?.activeGame || ''
+    });
+  } catch (err) {
+    console.error('[Socket] presence connect error:', err.message);
+  }
+}
+
+async function markPresenceOnDisconnect(io, userId) {
+  if (!userId) return;
+  const remaining = (presenceSockets.get(userId) || 1) - 1;
+  if (remaining > 0) {
+    presenceSockets.set(userId, remaining);
+    return;
+  }
+  presenceSockets.delete(userId);
+
+  // Shutting down: skip the write instead of logging a closed-connection error.
+  if (mongoose.connection.readyState !== 1) return;
+
+  try {
+    const user = await User.findById(userId).select('presence username').lean();
+    if (!user || user.presence?.status === 'invisible') return;
+
+    await User.updateOne(
+      { _id: userId },
+      { $set: { 'presence.status': 'offline', 'presence.activeGame': '', 'presence.lastActive': new Date() } }
+    );
+    io.emit('presence_change', {
+      userId,
+      username: user.username,
+      status: 'offline',
+      activeGame: ''
+    });
+  } catch (err) {
+    console.error('[Socket] presence disconnect error:', err.message);
+  }
+}
+
+/** Test helper. */
+function resetPresenceTracking() {
+  presenceSockets.clear();
+}
+
 /**
  * Resolve the channel + its community. The community is ALWAYS derived from
  * channel.communityId — never from the client payload — which closes the
@@ -149,6 +216,14 @@ function initSocket(httpServer) {
 
     // channelId -> communityId, so eviction can be scoped to one server.
     socket.data.joinedChannels = new Map();
+
+    // Private room for per-user pushes (notifications, LFG requests).
+    if (userId) socket.join(`user:${userId}`);
+
+    // Fire-and-forget: awaiting here would delay listener registration and a
+    // `join_channel` sent right after connect could be missed. The function
+    // handles its own errors.
+    markPresenceOnConnect(socket, userId);
 
     const leaveChannelRooms = () => {
       for (const room of [...socket.rooms]) {
@@ -355,6 +430,7 @@ function initSocket(httpServer) {
           });
         }
       }
+      markPresenceOnDisconnect(io, userId);
     });
   });
 
@@ -367,5 +443,6 @@ module.exports = {
   emitToChannel,
   emitToCommunity,
   evictUserFromCommunity,
-  resetChatTrackers
+  resetChatTrackers,
+  resetPresenceTracking
 };

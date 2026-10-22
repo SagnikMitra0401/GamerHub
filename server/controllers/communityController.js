@@ -20,6 +20,7 @@ const {
 const { sanitizeLine } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { recordAudit } = require('../utils/audit');
+const { publicPresence } = require('../utils/presence');
 const { badRequest, forbidden, notFound, conflict } = require('../utils/httpError');
 const { emitToCommunity, emitToChannel, evictUserFromCommunity } = require('../config/socket');
 
@@ -75,8 +76,17 @@ const memberSummary = (entry) => ({
   username: entry.userId?.username || 'Unknown',
   level: entry.userId?.level ?? 1,
   role: entry.role,
+  presence: publicPresence(entry.userId?.presence),
   joinedAt: entry.joinedAt
 });
+
+/** Replace raw presence on each populated member with its public projection. */
+const withPublicPresence = (members = []) =>
+  members.map((member) => {
+    const user = member.userId;
+    if (!user || typeof user !== 'object') return member;
+    return { ...member, userId: { ...user, presence: publicPresence(user.presence) } };
+  });
 
 // ─── POST /api/communities ──────────────────────────────────────────────────
 // Create a community + auto-generate #general channel
@@ -162,7 +172,7 @@ const getCommunityBySlug = async (req, res, next) => {
   try {
     const community = await Community.findOne({ slug: String(req.params.slug).toLowerCase() })
       .populate('ownerId', 'username level role')
-      .populate('members.userId', 'username level role medals')
+      .populate('members.userId', 'username level role medals presence')
       .lean();
 
     if (!community) throw notFound('Community not found.');
@@ -186,7 +196,8 @@ const getCommunityBySlug = async (req, res, next) => {
     );
 
     const memberCount = (community.members || []).length;
-    const members = sortMembers(community.members).slice(0, 100);
+    // Owners of an 'invisible' presence must still look offline to members.
+    const members = withPublicPresence(sortMembers(community.members).slice(0, 100));
 
     res.status(200).json({
       community: { ...community, members, memberCount },
@@ -211,7 +222,7 @@ const getCommunityMembers = async (req, res, next) => {
     const { page, limit } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 100 });
     const q = sanitizeLine(req.query.q, 40).toLowerCase();
 
-    const populated = await community.populate('members.userId', 'username level role');
+    const populated = await community.populate('members.userId', 'username level role presence');
     let members = sortMembers(populated.members);
 
     if (q) {
