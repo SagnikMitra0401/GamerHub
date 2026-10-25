@@ -72,18 +72,30 @@ jobs:
           npm ci
           npm ci --prefix client
 
+      # A missing secret must not read as "all good". The first push of this
+      # workflow went green while both steps below were skipped, because the
+      # secrets were created as *environment* secrets and a job only sees those
+      # after declaring `environment:`. A fork legitimately has no cluster, so a
+      # fork pull request may still skip silently; anything else fails loudly.
       - name: Check for a test cluster
         id: cluster
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          if [ -z "$MONGO_URI" ] || [ -z "$JWT_SECRET" ]; then
-            echo "::notice::MONGO_URI / JWT_SECRET are not configured; skipping the e2e suites."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
+          if [ -n "$MONGO_URI" ] && [ -n "$JWT_SECRET" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ]; then
+            echo "::notice::Fork pull request: no cluster secrets, so the e2e suites are skipped."
+            exit 0
+          fi
+
+          echo "::error::MONGO_URI / JWT_SECRET are not visible to this job, so the e2e suites and the migration check did NOT run. Add them under Settings -> Secrets and variables -> Actions -> Repository secrets. A job cannot read environment secrets unless it declares 'environment:'."
+          exit 1
 
       - name: E2E suites
         if: steps.cluster.outputs.ready == 'true'

@@ -32,6 +32,24 @@ their scaffolding changed, not because the server did; the refactor produced the
 same 59 / 66 / 159 tallies, which is the equivalence proof. Nothing is
 outstanding — the remaining work is product work, in [ROADMAP.md](ROADMAP.md).
 
+### CI run 1 — `8654301`, green, e2e skipped (read this before trusting a badge)
+
+The first Actions run reported **success in 22 s**, but `E2E suites` and
+`Migration status` are listed as `skipped`, not passed: the cluster check found
+`MONGO_URI` / `JWT_SECRET` empty. The secrets existed, yet were stored as
+**environment** secrets, and a job only receives those after declaring
+`environment:` — so the 284 e2e checks never ran in CI. Change either side:
+store the two secrets as **repository** secrets (no `environment:` needed, no
+approval gate per run), or name the environment in the workflow.
+
+Because of that, the check step now **fails** when the secrets are invisible,
+with a message naming the fix; only a fork pull request (which cannot be given
+secrets) still skips quietly. A green `e2e` job therefore means the suites ran.
+
+Still true regardless: the 284 e2e checks passed locally on this commit, and the
+`quality` job genuinely executed all five steps (install, 74 units, 28 client
+checks, build, emoji gate).
+
 ### Do not re-run a tier unless
 
 | Tier | Re-run when |
@@ -85,7 +103,7 @@ Locate the check with `grep -n "<keyword>" scripts/e2e*.js server/tests/*.js`.
 | Client — reactions | like/unlike label + pressed state, one call per click, six-spark burst on fine pointer, no burst on touch/reduced-motion or when unliking, sparks unmount on `animationend`, comment label pluralisation, bookmark shown only with a handler and toggles state, busy disables, clicks do not reach the card | `PostActions.test.jsx` (9) |
 | Client — post card | like uses the server's count/state, failed like leaves the count untouched and does not fire the callback, signed-out click redirects to `/login` without a request, bookmark hits `/users/saved/:id` and syncs the session | `PostCard.test.jsx` (4) |
 | Client — notification bell | null for a signed-out visitor, badge + accessible name from `unreadCount`, dropdown inside the wrapper on desktop, portalled modal sheet with scrim + close control below 640 px, Escape closes, mark-all-read is optimistic, single read patches and decrements, socket payload appends and bumps the badge | `NotificationBell.test.jsx` (8) |
-| CI | both suites, the client build and the emoji gate on every push/PR; e2e + `migrate:status` when `MONGO_URI`/`JWT_SECRET` are configured | `.github/workflows/ci.yml` |
+| CI | both suites, the client build and the emoji gate on every push/PR; e2e + `migrate:status` whenever `MONGO_URI`/`JWT_SECRET` resolve, and a failing check step (not a quiet skip) when they do not, except on fork PRs | `.github/workflows/ci.yml` |
 | Migrations | both migrations applied; weighted text index, `posts_userId_createdAt`, `posts_likeCount_hot`, `notif_userId_read_createdAt` present | `npm run migrate:status` |
 | Design system | no emoji or typographic glyph in `client/src` JSX/CSS | `node scripts/scan-emoji.js` (manual gate) |
 
