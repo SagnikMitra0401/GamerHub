@@ -7,8 +7,11 @@ server/node_modules/
 client/dist/
 dist/
 
-# Environment variables
+# Environment variables. The template (.env.example) stays tracked — README
+# tells people to copy it; only real values are ignored.
 .env
+.env.local
+.env.*.local
 
 # Local credentials notes — never commit
 ADMIN_CREDENTIALS.txt
@@ -18,9 +21,19 @@ ADMIN_CREDENTIALS.txt
 Thumbs.db
 
 # Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Test and tool output
+coverage/
+client/coverage/
+
+# Deploy and editor state
+.vercel/
+.vscode/
+.idea/
 
 # Local analysis, testing artifacts & screenshots
 .freebuff/
