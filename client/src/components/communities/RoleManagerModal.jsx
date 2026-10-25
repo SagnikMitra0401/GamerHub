@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
+import { CloseIcon } from '../common/icons';
 import {
   CAP,
   ROLE_LABELS,
@@ -122,12 +123,12 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
       <div className="modal-box role-manager-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header-row">
           <div>
-            <h2 id="role-manager-title" className="modal-title" style={{ margin: 0 }}>🛡️ Members &amp; Roles</h2>
+            <h2 id="role-manager-title" className="modal-title" style={{ margin: 0 }}>Members &amp; Roles</h2>
             <p className="text-muted" style={{ fontSize: '0.78rem', margin: '0.2rem 0 0' }}>
               Server roles only control this server. Application roles are separate.
             </p>
           </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
@@ -160,7 +161,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
 
         <input
           className="form-input"
-          placeholder="🔍 Filter members…"
+          placeholder="Filter members…"
           value={query}
           onChange={e => setQuery(e.target.value)}
           maxLength={40}
@@ -203,7 +204,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
                     ))}
                   </select>
                 ) : (
-                  <span className="role-member-locked">{isOwner ? '👑' : '—'}</span>
+                  !isOwner && <span className="role-member-locked">—</span>
                 )}
 
                 {canKick && !isOwner && (

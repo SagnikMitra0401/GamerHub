@@ -6,13 +6,28 @@ import PostList from '../components/posts/PostList';
 import PostForm from '../components/posts/PostForm';
 import ClipCard from '../components/posts/ClipCard';
 import PreferencesModal from '../components/profile/PreferencesModal';
+import useCursorGlow from '../hooks/useCursorGlow';
+import SegmentedTabs from '../components/common/SegmentedTabs';
+import {
+  CompassIcon, UsersIcon, SparklesIcon, ClockIcon, FlameIcon, ListIcon, FilmIcon, PlusIcon
+} from '../components/common/icons';
 
-const SORT_OPTIONS = [
-  { key: 'latest',     label: '🕐 Latest' },
-  { key: 'most_liked', label: '🔥 Top' }
+const FEED_MODE_OPTIONS = [
+  { key: 'global',    label: 'Global',    icon: <CompassIcon size={15} /> },
+  { key: 'following', label: 'Following', icon: <UsersIcon size={15} /> }
 ];
 
-const FOR_YOU_OPTION = { key: 'foryou', label: '✨ For You' };
+const LAYOUT_OPTIONS = [
+  { key: 'list',  label: 'List',  icon: <ListIcon size={15} /> },
+  { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> }
+];
+
+const LATEST_OPTION = { key: 'latest', label: 'Latest', icon: <ClockIcon size={15} /> };
+const TOP_OPTION    = { key: 'most_liked', label: 'Top', icon: <FlameIcon size={15} /> };
+const FOR_YOU_OPTION = { key: 'foryou', label: 'For You', icon: <SparklesIcon size={15} /> };
+
+const SORT_OPTIONS_GUEST = [LATEST_OPTION, TOP_OPTION];
+const SORT_OPTIONS_USER  = [FOR_YOU_OPTION, LATEST_OPTION, TOP_OPTION];
 
 const Feed = () => {
   const { user, fetchMe } = useAuth();
@@ -27,6 +42,7 @@ const Feed = () => {
   const [hasMore, setHasMore]   = useState(true);
   const [showPrefs, setShowPrefs] = useState(false);
   const LIMIT = 15;
+  const glowRef = useCursorGlow();
 
   // Personalized ranking needs a signed-in viewer; fall back when logged out.
   useEffect(() => {
@@ -77,7 +93,7 @@ const Feed = () => {
       // Force a re-sync so the UI reflects who the server actually thinks we are
       await fetchMe();
       alert(
-        '⚠️ Session mismatch detected!\n\n' +
+        'Session mismatch detected!\n\n' +
         'You may have logged into a different account in another tab.\n' +
         'Your active session has been refreshed. Please try posting again.'
       );
@@ -100,75 +116,56 @@ const Feed = () => {
   const mediaPosts = posts.filter(p => p.mediaUrl && p.mediaType && p.mediaType !== 'none');
 
   return (
-    <main className="page">
+    <main className="page" ref={glowRef}>
       <div className="container">
         <div className="feed-header">
-          <h1 className="feed-title">🎮 The Hub</h1>
-          <div className="feed-controls" style={{ gap: '0.5rem' }}>
-            {/* Feed mode — only show Following tab when logged in */}
+          <h1 className="feed-title">The Hub</h1>
+          <div className="feed-controls">
+            <div className="feed-tabs-rail">
+              {/* Feed mode — only show Following tab when logged in */}
+              {user && (
+                <SegmentedTabs
+                  className="seg-feed-mode"
+                  ariaLabel="Feed source"
+                  value={feedMode}
+                  onChange={setFeedMode}
+                  options={FEED_MODE_OPTIONS}
+                />
+              )}
+
+              <SegmentedTabs
+                className="seg-layout"
+                ariaLabel="Feed layout"
+                value={layout}
+                onChange={setLayout}
+                options={LAYOUT_OPTIONS}
+              />
+
+              <SegmentedTabs
+                className="seg-sort"
+                ariaLabel="Sort posts"
+                value={sort}
+                onChange={setSort}
+                options={user ? SORT_OPTIONS_USER : SORT_OPTIONS_GUEST}
+              />
+            </div>
+
             {user && (
-              <div className="sort-tabs">
+              <div className="feed-actions">
                 <button
-                  className={`sort-tab ${feedMode === 'global' ? 'active' : ''}`}
-                  onClick={() => setFeedMode('global')}
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowPrefs(true)}
+                  title="Favourite games and genres"
                 >
-                  🌐 Global
+                  Interests
                 </button>
                 <button
-                  className={`sort-tab ${feedMode === 'following' ? 'active' : ''}`}
-                  onClick={() => setFeedMode('following')}
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowForm(v => !v)}
                 >
-                  👥 Following
+                  {showForm ? 'Cancel' : (<><PlusIcon size={15} /> New post</>)}
                 </button>
               </div>
-            )}
-
-            {/* Layout Toggle */}
-            <div className="sort-tabs">
-              <button
-                className={`sort-tab ${layout === 'list' ? 'active' : ''}`}
-                onClick={() => setLayout('list')}
-              >
-                📰 List
-              </button>
-              <button
-                className={`sort-tab ${layout === 'clips' ? 'active' : ''}`}
-                onClick={() => setLayout('clips')}
-              >
-                🎥 Clips
-              </button>
-            </div>
-
-            {/* Sort tabs */}
-            <div className="sort-tabs">
-              {(user ? [FOR_YOU_OPTION, ...SORT_OPTIONS] : SORT_OPTIONS).map(({ key, label }) => (
-                <button
-                  key={key}
-                  className={`sort-tab ${sort === key ? 'active' : ''}`}
-                  onClick={() => setSort(key)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {user && (
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => setShowPrefs(true)}
-                title="Favourite games and genres"
-              >
-                ⚙️ Interests
-              </button>
-            )}
-
-            {user && (
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowForm(v => !v)}
-              >
-                {showForm ? 'Cancel' : '+ New Post'}
-              </button>
             )}
           </div>
         </div>

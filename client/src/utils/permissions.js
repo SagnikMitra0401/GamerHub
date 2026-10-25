@@ -22,9 +22,9 @@ export const CAP = Object.freeze({
 export const ROLE_LEVELS = Object.freeze({ member: 0, moderator: 1, admin: 2, owner: 3 });
 
 export const ROLE_LABELS = Object.freeze({
-  owner: '👑 Owner',
-  admin: '🛡️ Admin',
-  moderator: '⚔️ Moderator',
+  owner: 'Owner',
+  admin: 'Admin',
+  moderator: 'Moderator',
   member: 'Member'
 });
 

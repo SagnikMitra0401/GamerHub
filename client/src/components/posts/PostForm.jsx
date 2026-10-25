@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
 import LinkPreviewCard from './LinkPreviewCard';
+import { CloseIcon } from '../common/icons';
 
 const COMMON_TAGS = ['FPS', 'RPG', 'MOBA', 'Battle Royale', 'Strategy', 'Sports', 'Horror', 'Co-op'];
 
@@ -169,7 +170,7 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
 
   return (
     <div className="post-form-card">
-      <h3 className="post-form-title">{editing ? '✏️ Edit Post' : '✍️ Share a Moment'}</h3>
+      <h3 className="post-form-title">{editing ? 'Edit Post' : 'Share a Moment'}</h3>
       {error && <div className="form-error">{error}</div>}
 
       <form onSubmit={handleSubmit}>
@@ -248,7 +249,7 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
             <label className="form-label">Upload Clip / Image</label>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <label className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', cursor: 'pointer' }}>
-                📁 Select File
+                Select File
                 <input
                   type="file"
                   accept="image/*,video/*"
@@ -273,7 +274,7 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
                     minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}
                   title="Remove media"
-                >✕</button>
+                ><CloseIcon size={14} /></button>
                 {file.type.startsWith('video/') ? (
                   <video src={filePreview} controls style={{ maxHeight: '200px', maxWidth: '100%', borderRadius: 'var(--radius-sm)' }} />
                 ) : (
@@ -303,7 +304,7 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+        <div className="post-form-actions">
           {onCancel && (
             <button type="button" className="btn btn-ghost" onClick={handleCancelClick}>Cancel</button>
           )}

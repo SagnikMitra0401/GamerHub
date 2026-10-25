@@ -1,23 +1,30 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
+import { CloseIcon, ArrowRightIcon } from '../common/icons';
 
 const ACTION_META = {
-  ROLE_UPDATE:     { icon: '🎭', label: 'Role changed' },
-  MEMBER_ADD:      { icon: '➕', label: 'Member added' },
-  MEMBER_KICK:     { icon: '🥾', label: 'Member removed' },
-  CHANNEL_CREATE:  { icon: '📁', label: 'Channel created' },
-  CHANNEL_UPDATE:  { icon: '✏️', label: 'Channel updated' },
-  CHANNEL_DELETE:  { icon: '🗑️', label: 'Channel deleted' },
-  MESSAGE_PURGE:   { icon: '🧹', label: 'Message purged' },
-  SETTINGS_UPDATE: { icon: '⚙️', label: 'Server settings changed' }
+  ROLE_UPDATE:     { label: 'Role changed' },
+  MEMBER_ADD:      { label: 'Member added' },
+  MEMBER_KICK:     { label: 'Member removed' },
+  CHANNEL_CREATE:  { label: 'Channel created' },
+  CHANNEL_UPDATE:  { label: 'Channel updated' },
+  CHANNEL_DELETE:  { label: 'Channel deleted' },
+  MESSAGE_PURGE:   { label: 'Message purged' },
+  SETTINGS_UPDATE: { label: 'Server settings changed' }
 };
 
 const describe = (entry) => {
   const meta = entry.metadata || {};
   switch (entry.actionType) {
     case 'ROLE_UPDATE':
-      return `${meta.previousRole || 'member'} → ${meta.newRole || 'member'}`;
+      return (
+        <span className="audit-role-change">
+          {meta.previousRole || 'member'}
+          <ArrowRightIcon size={12} />
+          {meta.newRole || 'member'}
+        </span>
+      );
     case 'MEMBER_ADD':
       return `${meta.username || 'user'} as ${meta.role || 'member'}`;
     case 'MEMBER_KICK':
@@ -87,12 +94,12 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
       <div className="modal-box audit-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header-row">
           <div>
-            <h2 id="audit-title" className="modal-title" style={{ margin: 0 }}>📜 Audit Log</h2>
+            <h2 id="audit-title" className="modal-title" style={{ margin: 0 }}>Audit Log</h2>
             <p className="text-muted" style={{ fontSize: '0.78rem', margin: '0.2rem 0 0' }}>
               Every administrative action in this server, newest first.
             </p>
           </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
@@ -107,11 +114,10 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
           )}
 
           {entries.map(entry => {
-            const meta = ACTION_META[entry.actionType] || { icon: '•', label: entry.actionType };
+            const meta = ACTION_META[entry.actionType] || { label: entry.actionType };
             const detail = describe(entry);
             return (
               <div key={entry._id} className="audit-entry">
-                <span className="audit-icon" aria-hidden="true">{meta.icon}</span>
                 <div className="audit-body">
                   <div className="audit-line">
                     <strong>{entry.actorId?.username || 'Unknown'}</strong>

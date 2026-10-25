@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
+import { CloseIcon } from '../common/icons';
 import { ROLE_LABELS } from '../../utils/permissions';
 
 const ROLE_OPTIONS = ['member', 'moderator', 'admin', 'owner'];
@@ -82,9 +83,9 @@ const ChannelSettingsModal = ({ isOpen, onClose, communityId, channel, onSaved, 
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px' }}>
         <div className="modal-header-row">
           <h2 id="channel-settings-title" className="modal-title" style={{ margin: 0 }}>
-            ⚙️ #{channel.name}
+            #{channel.name}
           </h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
@@ -110,8 +111,8 @@ const ChannelSettingsModal = ({ isOpen, onClose, communityId, channel, onSaved, 
               value={form.type}
               onChange={e => set({ type: e.target.value })}
             >
-              <option value="text">💬 Text</option>
-              <option value="announcement">📢 Announcement (moderators can post)</option>
+              <option value="text">Text</option>
+              <option value="announcement">Announcement (moderators can post)</option>
             </select>
           </div>
 
@@ -191,7 +192,7 @@ const ChannelSettingsModal = ({ isOpen, onClose, communityId, channel, onSaved, 
               checked={form.isProtected}
               onChange={e => set({ isProtected: e.target.checked })}
             />
-            🛡️ Restrict copying/selecting channel content
+            Restrict copying/selecting channel content
           </label>
 
           <div className="modal-footer" style={{ marginTop: '1.25rem' }}>
@@ -201,7 +202,7 @@ const ChannelSettingsModal = ({ isOpen, onClose, communityId, channel, onSaved, 
               onClick={() => setConfirmDelete(true)}
               disabled={saving || deleting}
             >
-              🗑️ Delete channel
+              Delete channel
             </button>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

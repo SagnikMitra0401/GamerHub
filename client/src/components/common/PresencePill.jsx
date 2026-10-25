@@ -3,9 +3,9 @@ import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 
 const OPTIONS = [
-  { key: 'online',    icon: '🟢', label: 'Online',    hint: 'Visible and available' },
-  { key: 'in_game',   icon: '🟣', label: 'Playing',   hint: 'Show the game you are in' },
-  { key: 'invisible', icon: '⚪', label: 'Invisible', hint: 'Appear offline to everyone' }
+  { key: 'online',    label: 'Online',    hint: 'Visible and available' },
+  { key: 'in_game',   label: 'Playing',   hint: 'Show the game you are in' },
+  { key: 'invisible', label: 'Invisible', hint: 'Appear offline to everyone' }
 ];
 
 const metaFor = (status) => OPTIONS.find(o => o.key === status) || OPTIONS[0];
@@ -69,7 +69,7 @@ const PresencePill = () => {
         aria-expanded={open}
         onClick={() => { setOpen(v => !v); setPickingGame(false); setError(''); }}
       >
-        <span aria-hidden="true">{meta.icon}</span>
+        <span aria-hidden="true" className={`presence-dot ${meta.key}`} />
         <span className="presence-label">
           {status === 'in_game' && activeGame ? activeGame : meta.label}
         </span>
@@ -88,7 +88,7 @@ const PresencePill = () => {
                   disabled={saving}
                   onClick={() => (option.key === 'in_game' ? pickPlaying() : save(option.key))}
                 >
-                  <span aria-hidden="true">{option.icon}</span>
+                  <span aria-hidden="true" className={`presence-dot ${option.key}`} />
                   <span className="presence-option-text">
                     <strong>
                       {option.key === 'in_game' && activeGame ? `Playing ${activeGame}` : option.label}

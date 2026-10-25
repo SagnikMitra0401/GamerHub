@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
+import { CloseIcon } from '../common/icons';
 
 const GENRE_OPTIONS = [
   'Shooter', 'RPG', 'Battle Royale', 'MOBA', 'Strategy', 'Racing',
@@ -74,7 +75,7 @@ const PreferencesModal = ({ isOpen, onClose }) => {
       const { data } = await axiosInstance.post('/bot/sync-youtube');
       setNotice(
         data.created > 0
-          ? `🤖 ${data.created} new video ping${data.created === 1 ? '' : 's'} added to your notifications.`
+          ? `${data.created} new video ping${data.created === 1 ? '' : 's'} added to your notifications.`
           : 'No new videos since the last check.'
       );
     } catch (err) {
@@ -88,8 +89,8 @@ const PreferencesModal = ({ isOpen, onClose }) => {
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="prefs-title">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
         <div className="modal-header-row">
-          <h2 id="prefs-title" className="modal-title" style={{ margin: 0 }}>⚙️ Your interests</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <h2 id="prefs-title" className="modal-title" style={{ margin: 0 }}>Your interests</h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         <p className="text-muted" style={{ fontSize: '0.78rem', marginBottom: '0.85rem' }}>
@@ -126,7 +127,8 @@ const PreferencesModal = ({ isOpen, onClose }) => {
                     onClick={() => setGames(games.filter(g => g !== gameName))}
                     title="Remove"
                   >
-                    {gameName} ✕
+                    {gameName}
+                    <CloseIcon size={12} />
                   </button>
                 ))}
               </div>
@@ -175,7 +177,7 @@ const PreferencesModal = ({ isOpen, onClose }) => {
               disabled={syncing}
               title="Fetch new videos for your favourite games"
             >
-              {syncing ? 'Checking…' : '🤖 Check for new videos'}
+              {syncing ? 'Checking…' : 'Check for new videos'}
             </button>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

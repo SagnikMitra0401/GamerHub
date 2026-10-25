@@ -87,9 +87,9 @@ const MessageInput = ({
           rows={1}
           placeholder={
             !canWrite
-              ? '🔒 You don’t have permission to send messages here.'
+              ? 'You don’t have permission to send messages here.'
               : cooldown > 0
-                ? `⏱️ Slowmode active (${cooldown}s)…`
+                ? `Slowmode active (${cooldown}s)…`
                 : (placeholder || 'Send a message…')
           }
           value={text}
@@ -105,7 +105,7 @@ const MessageInput = ({
           onClick={send}
           disabled={disabled || !text.trim()}
         >
-          {cooldown > 0 ? `⏱ ${cooldown}s` : 'Send'}
+          {cooldown > 0 ? `${cooldown}s` : 'Send'}
         </button>
       </div>
       <div className="chat-composer-meta">

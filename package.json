@@ -8,9 +8,15 @@
     "server": "nodemon server/server.js",
     "client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "test": "node --test server/tests/permissions.test.js server/tests/sanitize.test.js server/tests/ssrf.test.js server/tests/origins.test.js server/tests/lfg.test.js server/tests/feedRanking.test.js server/tests/cache.test.js server/tests/botSecurity.test.js"
+    "test": "node --test server/tests/permissions.test.js server/tests/sanitize.test.js server/tests/ssrf.test.js server/tests/origins.test.js server/tests/lfg.test.js server/tests/feedRanking.test.js server/tests/cache.test.js server/tests/botSecurity.test.js server/tests/likeBuffer.test.js server/tests/redisCache.test.js",
+    "test:e2e": "node scripts/e2e.js && node scripts/e2e-phase4.js && node scripts/e2e-phase6.js",
+    "migrate:up": "migrate-mongo up",
+    "migrate:down": "migrate-mongo down",
+    "migrate:status": "migrate-mongo status",
+    "migrate:create": "migrate-mongo create"
   },
   "dependencies": {
+    "@upstash/redis": "^1.39.0",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.6",
@@ -27,6 +33,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "migrate-mongo": "^14.0.7",
     "nodemon": "^3.1.0"
   }
 }

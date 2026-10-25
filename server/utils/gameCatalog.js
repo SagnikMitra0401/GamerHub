@@ -5,11 +5,13 @@
  * so browsing/filtering never hammers the upstream. No API key is involved.
  */
 const { createTtlCache } = require('./cache');
+const { cacheWrap } = require('./redisCache');
 const { fetchJson } = require('./outbound');
 const { sanitizeLine, sanitizeText, decodeHtmlEntities } = require('./sanitize');
 
 const API_BASE = 'https://www.freetogame.com/api';
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const DETAIL_TTL_SECONDS = 60 * 60; // single game payloads are small: safe in Redis
 const TIMEOUT_MS = 7000;
 const MAX_RESULTS = 60;
 
@@ -56,7 +58,15 @@ async function loadCatalog() {
   }
 }
 
-/** @returns {Promise<{games: object[], fetchedAt: string, stale: boolean}>} */
+/**
+ * The whole catalog is ~400 normalised games (six figures of JSON). It stays in
+ * process memory on purpose: fetching that blob over Upstash HTTP on every cold
+ * request would cost more than the single upstream call it replaces, and the
+ * in-memory copy is already shared by every request in the process.
+ * Per-game detail payloads are small, so those go through Redis.
+ *
+ * @returns {Promise<{games: object[], fetchedAt: string, stale: boolean}>}
+ */
 const getCatalog = () => cache.wrap('catalog', loadCatalog, CACHE_TTL_MS);
 
 /** In-memory search/filter over an already-normalised catalog. */
@@ -88,7 +98,7 @@ async function getGameDetail(id) {
   const numericId = Number(id);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
 
-  return cache.wrap(`game:${numericId}`, async () => {
+  return cacheWrap(`gamecatalog:game:${numericId}`, async () => {
     const raw = await fetchJson(`${API_BASE}/game?id=${numericId}`, { timeoutMs: TIMEOUT_MS });
     if (!raw || !raw.id) return null;
 
@@ -109,7 +119,7 @@ async function getGameDetail(id) {
         storage: sanitizeLine(requirements.storage, 60)
       }
     };
-  }, CACHE_TTL_MS);
+  }, DETAIL_TTL_SECONDS);
 }
 
 /** Test helper. */

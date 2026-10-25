@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
-
-const ICONS = ['🎮', '🏆', '⚔️', '🔫', '🧙', '🚀', '🐉', '🦊', '💀', '🌐', '🎯', '🔥'];
+import { CloseIcon } from '../common/icons';
+import CommunitySigil from './CommunitySigil';
 
 const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted }) => {
-  const [form, setForm] = useState({ name: '', description: '', icon: '🎮', isPrivate: false });
+  const [form, setForm] = useState({ name: '', description: '', icon: '', isPrivate: false });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -17,7 +17,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
     setForm({
       name: community.name || '',
       description: community.description || '',
-      icon: community.icon || '🎮',
+      icon: community.icon || '',
       isPrivate: !!community.isPrivate
     });
     setError('');
@@ -60,40 +60,27 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="server-settings-title">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px' }}>
         <div className="modal-header-row">
-          <h2 id="server-settings-title" className="modal-title" style={{ margin: 0 }}>⚙️ Server Settings</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <h2 id="server-settings-title" className="modal-title" style={{ margin: 0 }}>Server Settings</h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
 
         <form onSubmit={save}>
           <div className="form-group">
-            <label className="form-label">Server icon</label>
-            <div className="icon-picker">
-              {ICONS.map(icon => (
-                <button
-                  key={icon}
-                  type="button"
-                  className={`icon-pick${form.icon === icon ? ' active' : ''}`}
-                  onClick={() => setForm(prev => ({ ...prev, icon }))}
-                >
-                  {icon}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group">
             <label className="form-label" htmlFor="server-name">Name</label>
-            <input
-              id="server-name"
-              className="form-input"
-              value={form.name}
-              maxLength={40}
-              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+              <CommunitySigil name={form.name || community.name} icon={community.icon} size={40} />
+              <input
+                id="server-name"
+                className="form-input"
+                value={form.name}
+                maxLength={40}
+                onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
             <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-              The URL slug stays unchanged so existing links keep working.
+              The sigil follows the name; the URL slug stays unchanged so existing links keep working.
             </span>
           </div>
 
@@ -115,7 +102,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
               checked={form.isPrivate}
               onChange={e => setForm(prev => ({ ...prev, isPrivate: e.target.checked }))}
             />
-            🔒 Invite-only server (only members can see it)
+            Invite-only server (only members can see it)
           </label>
 
           <div className="modal-footer" style={{ marginTop: '1.25rem' }}>
@@ -125,7 +112,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
               onClick={() => setConfirmDelete(true)}
               disabled={saving || deleting}
             >
-              🗑️ Delete server
+              Delete server
             </button>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

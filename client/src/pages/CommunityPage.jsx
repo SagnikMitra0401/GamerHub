@@ -10,7 +10,9 @@ import RoleManagerModal from '../components/communities/RoleManagerModal';
 import ChannelSettingsModal from '../components/communities/ChannelSettingsModal';
 import AuditLogModal from '../components/communities/AuditLogModal';
 import CommunitySettingsModal from '../components/communities/CommunitySettingsModal';
+import CommunitySigil from '../components/communities/CommunitySigil';
 import ConfirmModal from '../components/common/ConfirmModal';
+import { ScrollIcon, SettingsIcon, PlusIcon, TrashIcon, MenuIcon, CloseIcon } from '../components/common/icons';
 
 import {
   CAP,
@@ -54,6 +56,7 @@ const CommunityPage = () => {
   const [channelToEdit, setChannelToEdit] = useState(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [socketReady, setSocketReady] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // userId -> { status, activeGame } from live presence events
   const [presenceMap, setPresenceMap] = useState({});
 
@@ -61,6 +64,15 @@ const CommunityPage = () => {
   const endRef = useRef(null);
 
   const activeChannel = channels.find(c => c._id === activeChannelId) || null;
+
+  // Mobile channel drawer: close on route change and on Escape.
+  useEffect(() => { setDrawerOpen(false); }, [slug]);
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKeyDown = (event) => { if (event.key === 'Escape') setDrawerOpen(false); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [drawerOpen]);
 
   // ── Data loading ───────────────────────────────────────────────────────────
   const loadCommunity = useCallback(async ({ silent = false } = {}) => {
@@ -278,7 +290,6 @@ const CommunityPage = () => {
   if (error) {
     return (
       <div className="page" style={{ textAlign: 'center', paddingTop: '4rem' }}>
-        <p style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>{error.status === 403 ? '🔒' : '😕'}</p>
         <h2>{error.message}</h2>
         <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => navigate('/communities')}>
           Browse servers
@@ -305,24 +316,44 @@ const CommunityPage = () => {
   const typingNames = Object.keys(typingUsers);
 
   return (
-    <div className="community-layout">
-      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-      <aside className="community-sidebar">
+    <div className={`community-layout${drawerOpen ? ' drawer-open' : ''}`}>
+      {/* ── Sidebar (slides in on phones and tablets) ─────────────────────── */}
+      {drawerOpen && (
+        <button
+          type="button"
+          className="community-scrim"
+          aria-label="Close channels"
+          tabIndex={-1}
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+      <aside className={`community-sidebar${drawerOpen ? ' open' : ''}`} id="community-sidebar">
         <div className="community-sidebar-header">
-          <span style={{ fontSize: '1.6rem' }}>{community.icon}</span>
+          <CommunitySigil name={community.name} icon={community.icon} size={34} />
           <div style={{ overflow: 'hidden', flex: 1 }}>
             <div className="community-title" title={community.name}>{community.name}</div>
             <div className="community-subtitle">
               {memberCount} member{memberCount === 1 ? '' : 's'}
-              {community.isPrivate ? ' • 🔒 Private' : ''}
+              {community.isPrivate ? ' • Private' : ''}
             </div>
           </div>
           <div className="community-header-actions">
+            <button
+              type="button"
+              className="icon-btn sidebar-close"
+              title="Close channels"
+              aria-label="Close channels"
+              onClick={() => setDrawerOpen(false)}
+            ><CloseIcon size={16} /></button>
             {canViewAudit && (
-              <button className="icon-btn" title="Audit log" aria-label="Audit log" onClick={() => setModal('audit')}>📜</button>
+              <button className="icon-btn" title="Audit log" aria-label="Audit log" onClick={() => setModal('audit')}>
+                <ScrollIcon size={15} />
+              </button>
             )}
             {canManageServer && (
-              <button className="icon-btn" title="Server settings" aria-label="Server settings" onClick={() => setModal('settings')}>⚙️</button>
+              <button className="icon-btn" title="Server settings" aria-label="Server settings" onClick={() => setModal('settings')}>
+                <SettingsIcon size={15} />
+              </button>
             )}
           </div>
         </div>
@@ -330,7 +361,7 @@ const CommunityPage = () => {
         {!isMember && (
           community.isPrivate ? (
             <div className="invite-only">
-              🔒 Invite-only server. Ask an admin to add you.
+              Invite-only server. Ask an admin to add you.
             </div>
           ) : user ? (
             <button
@@ -339,7 +370,7 @@ const CommunityPage = () => {
               onClick={joinServer}
               disabled={joining}
             >
-              {joining ? 'Joining…' : '➕ Join server'}
+              {joining ? 'Joining…' : 'Join server'}
             </button>
           ) : (
             <Link
@@ -379,13 +410,13 @@ const CommunityPage = () => {
             <div key={channel._id} className={`channel-row${channel._id === activeChannelId ? ' active' : ''}`}>
               <button
                 className="channel-item"
-                onClick={() => setActiveChannelId(channel._id)}
+                onClick={() => { setActiveChannelId(channel._id); setDrawerOpen(false); }}
                 title={channel.topic || `#${channel.name}`}
               >
-                <span className="channel-hash">{channel.type === 'announcement' ? '📢' : '#'}</span>
+                <span className="channel-hash">{channel.type === 'announcement' ? '!' : '#'}</span>
                 <span className="channel-name">{channel.name}</span>
-                {channel.slowModeSeconds > 0 && <span className="channel-flag" title={`Slowmode ${channel.slowModeSeconds}s`}>⏱</span>}
-                {channel.minRoleToWrite !== 'member' && <span className="channel-flag" title={`Only ${channel.minRoleToWrite}s can post`}>🔒</span>}
+                {channel.slowModeSeconds > 0 && <span className="channel-flag" title={`Slowmode ${channel.slowModeSeconds}s`}>{channel.slowModeSeconds}s</span>}
+                {channel.minRoleToWrite !== 'member' && <span className="channel-flag" title={`Only ${channel.minRoleToWrite}s can post`}>locked</span>}
               </button>
               {canManageChannel && (
                 <button
@@ -393,7 +424,7 @@ const CommunityPage = () => {
                   title={`Settings for #${channel.name}`}
                   aria-label={`Settings for ${channel.name}`}
                   onClick={() => { setChannelToEdit(channel); setModal('channel'); }}
-                >⚙️</button>
+                ><SettingsIcon size={13} /></button>
               )}
             </div>
           ))}
@@ -412,7 +443,7 @@ const CommunityPage = () => {
               onClick={() => setModal('roles')}
               title="Manage members and roles"
               aria-label="Manage members and roles"
-            >⚙</button>
+            ><PlusIcon size={13} /></button>
           )}
         </div>
 
@@ -431,10 +462,10 @@ const CommunityPage = () => {
                   <div className="member-name">{name}</div>
                   {presence?.status === 'in_game' && presence.activeGame ? (
                     <div className="member-presence playing" title={`Playing ${presence.activeGame}`}>
-                      🟣 {presence.activeGame}
+                      {presence.activeGame}
                     </div>
                   ) : presence?.status === 'online' ? (
-                    <div className="member-presence online">🟢 Online</div>
+                    <div className="member-presence online">Online</div>
                   ) : null}
                   {member.role !== 'member' && (
                     <div className="member-role" style={{ color: ROLE_COLORS[member.role] }}>
@@ -458,13 +489,21 @@ const CommunityPage = () => {
         {notice && (
           <div className="chat-notice" role="status">
             <span>{notice}</span>
-            <button onClick={() => setNotice('')} aria-label="Dismiss">✕</button>
+            <button onClick={() => setNotice('')} aria-label="Dismiss"><CloseIcon size={14} /></button>
           </div>
         )}
 
         {!isMember ? (
           <div className="chat-locked">
-            <p style={{ fontSize: '2rem', margin: 0 }}>👋</p>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm channel-drawer-toggle"
+              aria-controls="community-sidebar"
+              aria-expanded={drawerOpen}
+              onClick={() => setDrawerOpen(true)}
+            >
+              <MenuIcon size={17} /> Channels &amp; members
+            </button>
             <h3>Join {community.name} to read and send messages</h3>
             <p className="text-muted" style={{ maxWidth: '360px' }}>
               {community.description || 'Members of this server can chat in its channels.'}
@@ -479,19 +518,29 @@ const CommunityPage = () => {
         ) : activeChannel ? (
           <>
             <div className="chat-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="channel-drawer-toggle"
+                aria-label="Open channels and members"
+                aria-controls="community-sidebar"
+                aria-expanded={drawerOpen}
+                onClick={() => setDrawerOpen(true)}
+              >
+                <MenuIcon size={18} />
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
-                  {activeChannel.type === 'announcement' ? '📢' : '#'}
+                  {activeChannel.type === 'announcement' ? '!' : '#'}
                 </span>
                 <span style={{ fontWeight: 800, fontSize: '1rem' }}>{activeChannel.name}</span>
                 {activeChannel.topic && (
                   <span className="chat-topic">{activeChannel.topic}</span>
                 )}
                 {activeChannel.slowModeSeconds > 0 && (
-                  <span className="chat-badge" title="Slowmode">⏱ {activeChannel.slowModeSeconds}s</span>
+                  <span className="chat-badge" title="Slowmode">{activeChannel.slowModeSeconds}s</span>
                 )}
                 {activeChannel.retentionDays > 0 && (
-                  <span className="chat-badge" title="Messages auto-delete">🗓 {activeChannel.retentionDays}d</span>
+                  <span className="chat-badge" title="Messages auto-delete">{activeChannel.retentionDays}d</span>
                 )}
               </div>
             </div>
@@ -535,11 +584,11 @@ const CommunityPage = () => {
                               title="Delete message"
                               aria-label="Delete message"
                               onClick={() => deleteMessage(message._id)}
-                            >🗑️</button>
+                            ><TrashIcon size={13} /></button>
                           )}
                         </div>
                         <p className={`chat-message-text${message.isDeleted ? ' text-tombstone' : ''}`}>
-                          {message.isDeleted ? '🚫 This message was deleted' : message.text}
+                          {message.isDeleted ? 'This message was deleted' : message.text}
                         </p>
                       </div>
                     </div>

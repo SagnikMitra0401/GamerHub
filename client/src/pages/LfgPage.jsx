@@ -4,6 +4,7 @@ import axiosInstance from '../api/axiosInstance';
 import { getSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
 import CreatePartyModal from '../components/lfg/CreatePartyModal';
+import useCursorGlow from '../hooks/useCursorGlow';
 
 const userName = (value) => value?.username || 'deleted user';
 const userId = (value) => value?._id || value;
@@ -32,21 +33,21 @@ const PartyCard = ({ party, onJoin, onRespond, onClose, joining, joinMessage, se
   const canJoin = party.viewerMembership === 'none' && party.openSlots > 0 && party.status === 'open';
 
   return (
-    <article className={`lfg-card${isLeader ? ' mine' : ''}`}>
+    <article className={`lfg-card glow-card${isLeader ? ' mine' : ''}`}>
       <div className="lfg-card-top">
         {party.gameThumbnail ? (
           <img className="lfg-thumb" src={party.gameThumbnail} alt="" loading="lazy" />
         ) : (
-          <div className="lfg-thumb lfg-thumb-fallback" aria-hidden="true">🎮</div>
+          <div className="lfg-thumb lfg-thumb-fallback" aria-hidden="true">LFG</div>
         )}
         <div className="lfg-card-head">
           <h3 className="lfg-game">{party.gameTitle}</h3>
           <p className="lfg-activity">{party.activity || 'Any activity'}</p>
           <div className="lfg-tags">
             <SlotDots taken={members.length} max={party.maxSlots} />
-            {party.requirements?.micRequired && <span className="lfg-tag">🎙️ Mic required</span>}
-            {party.requirements?.minRank && <span className="lfg-tag">🏆 {party.requirements.minRank}</span>}
-            {isLeader && <span className="lfg-tag lfg-tag-lead">👑 Your squad</span>}
+            {party.requirements?.micRequired && <span className="lfg-tag">Mic required</span>}
+            {party.requirements?.minRank && <span className="lfg-tag">{party.requirements.minRank}</span>}
+            {isLeader && <span className="lfg-tag lfg-tag-lead">Your squad</span>}
           </div>
         </div>
         <span className="lfg-expiry">{party.status === 'open' ? timeLeft(party.expiresAt) : party.status}</span>
@@ -57,7 +58,7 @@ const PartyCard = ({ party, onJoin, onRespond, onClose, joining, joinMessage, se
           <span key={userId(member.user)} className="lfg-member" title={userName(member.user)}>
             <span className="lfg-avatar">{userName(member.user).slice(0, 1).toUpperCase()}</span>
             {userName(member.user)}
-            {member.role === 'leader' && <span aria-label="leader">👑</span>}
+            {member.role === 'leader' && <span className="lfg-leader-tag">Leader</span>}
           </span>
         ))}
       </div>
@@ -114,10 +115,10 @@ const PartyCard = ({ party, onJoin, onRespond, onClose, joining, joinMessage, se
       )}
 
       {party.viewerMembership === 'pending' && (
-        <p className="lfg-note">⏳ Request sent — waiting for the leader.</p>
+        <p className="lfg-note">Request sent — waiting for the leader.</p>
       )}
       {party.viewerMembership === 'member' && (
-        <p className="lfg-note">✅ You are in this squad.</p>
+        <p className="lfg-note">You are in this squad.</p>
       )}
 
       {isLeader && (
@@ -143,6 +144,7 @@ const LfgPage = () => {
   const [joining, setJoining] = useState(null);
   const [joinMessage, setJoinMessage] = useState({});
   const reloadTimer = useRef(null);
+  const glowRef = useCursorGlow();
 
   const load = useCallback(async (currentFilters = filters) => {
     setLoading(true);
@@ -188,7 +190,7 @@ const LfgPage = () => {
       }, 350);
     };
     const onRequest = (payload) => {
-      setToast(`🎯 ${payload?.requester?.username || 'A player'} wants to join your ${payload?.gameTitle || 'squad'}.`);
+      setToast(`${payload?.requester?.username || 'A player'} wants to join your ${payload?.gameTitle || 'squad'}.`);
       scheduleReload();
     };
 
@@ -212,7 +214,7 @@ const LfgPage = () => {
     setError('');
     try {
       await axiosInstance.post(`/lfg/${party._id}/request`, { message: joinMessage[party._id] || '' });
-      setToast(`✅ Request sent to @${userName(party.leader)}.`);
+      setToast(`Request sent to @${userName(party.leader)}.`);
       setJoinMessage(prev => ({ ...prev, [party._id]: '' }));
       await load(filters);
     } catch (err) {
@@ -228,7 +230,7 @@ const LfgPage = () => {
     try {
       const { data } = await axiosInstance.patch(`/lfg/${party._id}/respond`, { userId: applicantId, action });
       setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
-      setToast(action === 'accept' ? '✅ Player added to your squad.' : 'Request declined.');
+      setToast(action === 'accept' ? 'Player added to your squad.' : 'Request declined.');
       load(filters);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not update that request.');
@@ -255,11 +257,11 @@ const LfgPage = () => {
   };
 
   return (
-    <main className="page">
+    <main className="page" ref={glowRef}>
       <div className="container">
         <div className="page-header">
           <div>
-            <h1 className="page-title">🎯 LFG Board</h1>
+            <h1 className="page-title">LFG Board</h1>
             <p className="page-subtitle">Find a squad, fill your slots, play together.</p>
           </div>
           {user ? (
@@ -286,7 +288,7 @@ const LfgPage = () => {
               checked={filters.mic}
               onChange={e => setFilters(prev => ({ ...prev, mic: e.target.checked }))}
             />
-            🎙️ Mic only
+            Mic only
           </label>
           <label className="checkbox-row">
             <input
@@ -350,8 +352,7 @@ const LfgPage = () => {
       <CreatePartyModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={(party) => {
-          setToast(`🎯 ${party.gameTitle} squad is live.`);
+        onCreated={(party) => {          setToast(`${party.gameTitle} squad is live.`);
           setMine(prev => [party, ...prev]);
           load(filters);
         }}

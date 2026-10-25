@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CloseIcon } from '../common/icons';
 
 /**
  * LinkPreviewCard
@@ -9,7 +10,7 @@ import React, { useState } from 'react';
  *
  * Props:
  *   preview   {url, title, description, image, siteName}
- *   onDismiss optional callback — renders an ✕ button when provided
+ *   onDismiss optional callback — renders a close button when provided
  *   clickable true by default; wraps in <a> for feed cards
  */
 const LinkPreviewCard = ({ preview, onDismiss, clickable = true }) => {
@@ -76,7 +77,7 @@ const LinkPreviewCard = ({ preview, onDismiss, clickable = true }) => {
             marginBottom: '0.15rem',
           }}
         >
-          🔗 {displaySite}
+          {displaySite}
         </span>
 
         {/* Title */}
@@ -140,7 +141,7 @@ const LinkPreviewCard = ({ preview, onDismiss, clickable = true }) => {
             zIndex: 2,
           }}
         >
-          ✕
+          <CloseIcon size={13} />
         </button>
       )}
     </div>

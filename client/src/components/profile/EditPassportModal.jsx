@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { detectCurrentDevice } from '../../utils/deviceDetector';
+import { CloseIcon } from '../common/icons';
 
 const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch', 'Mobile', 'Other'];
 const DEVICE_TYPES = ['PC', 'Laptop', 'Mobile', 'Console', 'Handheld'];
@@ -131,7 +132,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       const matchNames = similarRigs.map(r => `"${r.rigName}"`).join(', ');
       const matchDetails = similarRigs.map(r => `• ${r.rigName} (GPU: ${r.specs?.gpu || 'N/A'}, Display: ${r.specs?.monitor || 'N/A'})`).join('\n');
       const proceed = window.confirm(
-        `⚠️ Similar Device Detected!\n\n` +
+        `Similar Device Detected!\n\n` +
         `The detected hardware specifications match existing setup(s):\n${matchDetails}\n\n` +
         `Hardware similarities found with: ${matchNames}.\n\n` +
         `Do you want to proceed and save this as a duplicate setup, or click Cancel to skip changes?`
@@ -186,9 +187,9 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       <div className="modal-box passport-modal" onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2 className="modal-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            🪪 Edit Gamer Passport
+            Edit Gamer Passport
           </h2>
-          <button className="search-clear" onClick={onClose} aria-label="Close">✕</button>
+          <button className="search-clear" onClick={onClose} aria-label="Close"><CloseIcon size={15} /></button>
         </div>
 
         {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
@@ -200,28 +201,28 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
             className={`search-tab${activeTab === 'ids' ? ' active' : ''}`}
             onClick={() => setActiveTab('ids')}
           >
-            🏷️ In-Game IDs
+            In-Game IDs
           </button>
           <button
             type="button"
             className={`search-tab${activeTab === 'games' ? ' active' : ''}`}
             onClick={() => setActiveTab('games')}
           >
-            🎮 Games & Ranks ({activeGames.length}/10)
+            Games & Ranks ({activeGames.length}/10)
           </button>
           <button
             type="button"
             className={`search-tab${activeTab === 'rigs' ? ' active' : ''}`}
             onClick={() => setActiveTab('rigs')}
           >
-            🖥️ Battle Station ({hardwareRigs.length}/5)
+            Battle Station ({hardwareRigs.length}/5)
           </button>
           <button
             type="button"
             className={`search-tab${activeTab === 'quote' ? ' active' : ''}`}
             onClick={() => setActiveTab('quote')}
           >
-            💬 Motto / Quote
+            Motto / Quote
           </button>
         </div>
 
@@ -235,7 +236,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                 </p>
 
                 <div className="form-group">
-                  <label className="form-label">🎯 Riot ID (e.g. TenZ#NA1)</label>
+                  <label className="form-label">Riot ID (e.g. TenZ#NA1)</label>
                   <input
                     className="form-input"
                     placeholder="Username#TAG"
@@ -246,7 +247,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">💨 Steam ID / Custom URL</label>
+                  <label className="form-label">Steam ID / Custom URL</label>
                   <input
                     className="form-input"
                     placeholder="e.g. 76561198... or CustomName"
@@ -257,7 +258,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">🎮 PlayStation Network (PSN)</label>
+                  <label className="form-label">PlayStation Network (PSN)</label>
                   <input
                     className="form-input"
                     placeholder="e.g. PSN_Gamer"
@@ -268,7 +269,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">🟢 Xbox Gamertag</label>
+                  <label className="form-label">Xbox Gamertag</label>
                   <input
                     className="form-input"
                     placeholder="e.g. MasterChief#123"
@@ -279,7 +280,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">💬 Discord Handle</label>
+                  <label className="form-label">Discord Handle</label>
                   <input
                     className="form-input"
                     placeholder="e.g. gamer_tag"
@@ -300,7 +301,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                   </p>
                   {activeGames.length < 10 && (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={addGame}>
-                      ➕ Add Game
+                      Add Game
                     </button>
                   )}
                 </div>
@@ -336,7 +337,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                           onClick={() => removeGame(idx)}
                           title="Remove Game"
                         >
-                          🗑️
+                          Remove
                         </button>
                       </div>
                       <input
@@ -361,7 +362,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                   </p>
                   {hardwareRigs.length < 5 && (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={addRig}>
-                      ➕ Add Device
+                      Add Device
                     </button>
                   )}
                 </div>
@@ -402,7 +403,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                             title="Set as your primary gaming device"
                             style={{ fontSize: '0.72rem', padding: '0.25rem 0.6rem' }}
                           >
-                            {rig.isPrimary ? '⭐ Primary' : 'Set Primary'}
+                            {rig.isPrimary ? 'Primary' : 'Set Primary'}
                           </button>
                           <button
                             type="button"
@@ -410,7 +411,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                             onClick={() => removeRig(idx)}
                             title="Remove Device"
                           >
-                            🗑️
+                            Remove
                           </button>
                         </div>
                       </div>
@@ -422,7 +423,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                         style={{ width: '100%', marginBottom: '0.65rem', fontSize: '0.78rem', borderColor: 'var(--accent)' }}
                         onClick={() => handleAutoDetect(idx)}
                       >
-                        ⚡ Auto-Detect This Device's Specs
+                        Auto-Detect This Device's Specs
                       </button>
 
                       {/* Specs Fields */}
@@ -514,7 +515,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : '💾 Save Passport'}
+              {saving ? 'Saving...' : 'Save Passport'}
             </button>
           </div>
         </form>

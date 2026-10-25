@@ -12,8 +12,11 @@ const Party     = require('../models/Party');
 const Notification = require('../models/Notification');
 
 const { snapshot } = require('../utils/metrics');
+const { cacheWrap } = require('../utils/redisCache');
 const youtubeBot = require('../utils/youtubeBot');
 const { CACHE_TTL_MS: GAME_CACHE_TTL_MS } = require('../utils/gameCatalog');
+const { isConfigured: redisConfigured } = require('../config/redis');
+const { isLikeWorkerRunning } = require('../utils/likeBuffer');
 
 const BUILD_ASSETS_DIR = path.join(__dirname, '..', '..', 'client', 'dist', 'assets');
 const MAX_SCAN_BYTES = 15 * 1024 * 1024;
@@ -103,9 +106,13 @@ async function countCollections() {
 // GET /api/admin/system-health
 const getSystemHealth = async (req, res, next) => {
   try {
+    // Both are expensive (a filesystem scan and eight counts). They are cached
+    // briefly: 60s keeps the numbers meaningful while making repeated dashboard
+    // refreshes free. A deploy produces a new process, so the bundle scan TTL is
+    // deliberately short enough that a fresh build is picked up quickly.
     const [bundle, counts, audit] = await Promise.all([
-      scanClientBundle(),
-      countCollections(),
+      cacheWrap('admin:client-bundle', scanClientBundle, 60),
+      cacheWrap('admin:collection-counts', countCollections, 60),
       AuditLog.find()
         .sort({ createdAt: -1 })
         .limit(20)
@@ -155,7 +162,14 @@ const getSystemHealth = async (req, res, next) => {
                         present(process.env.CLOUDINARY_API_KEY) &&
                         present(process.env.CLOUDINARY_API_SECRET)
           },
-          gameCatalog: { provider: 'FreeToGame', cacheMinutes: Math.round(GAME_CACHE_TTL_MS / 60_000) }
+          gameCatalog: { provider: 'FreeToGame', cacheMinutes: Math.round(GAME_CACHE_TTL_MS / 60_000) },
+          // Reported from the live switch rather than hardcoded, so the
+          // dashboard cannot claim Redis is off while it is serving traffic.
+          redis: {
+            configured: redisConfigured(),
+            cache: redisConfigured() ? 'redis' : 'memory',
+            likeBuffer: isLikeWorkerRunning() ? 'redis' : 'off'
+          }
         }
       },
       database: { counts },

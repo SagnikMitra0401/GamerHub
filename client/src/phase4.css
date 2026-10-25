@@ -91,8 +91,8 @@
 .notif-link { background: none; border: none; color: var(--accent); font-size: 0.72rem; cursor: pointer; }
 .notif-link:disabled { color: var(--text-muted); cursor: default; }
 .notif-list { max-height: 380px; overflow-y: auto; }
-.notif-item { border-bottom: 1px solid rgba(124, 58, 237, 0.08); }
-.notif-item.unread { background: rgba(124, 58, 237, 0.08); }
+.notif-item { border-bottom: 1px solid rgba(148, 163, 184, 0.08); }
+.notif-item.unread { background: rgba(148, 163, 184, 0.08); }
 .notif-row {
   display: flex;
   gap: 0.65rem;
@@ -376,7 +376,7 @@
 .admin-note { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.45; }
 .admin-warn { font-size: 0.72rem; color: var(--warning); margin-top: 0.45rem; }
 .admin-services { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.76rem; color: var(--text-secondary); }
-.service-row { display: flex; justify-content: space-between; gap: 0.5rem; border-bottom: 1px dashed rgba(124, 58, 237, 0.14); padding-bottom: 0.25rem; }
+.service-row { display: flex; justify-content: space-between; gap: 0.5rem; border-bottom: 1px dashed rgba(148, 163, 184, 0.14); padding-bottom: 0.25rem; }
 .service-row .ok { color: var(--success); }
 .service-row .muted { color: var(--text-muted); }
 .admin-table { width: 100%; border-collapse: collapse; margin-top: 0.7rem; font-size: 0.72rem; }
@@ -389,7 +389,7 @@
   letter-spacing: 0.07em;
   padding-bottom: 0.3rem;
 }
-.admin-table td { padding: 0.22rem 0.3rem 0.22rem 0; border-top: 1px solid rgba(124, 58, 237, 0.1); color: var(--text-secondary); }
+.admin-table td { padding: 0.22rem 0.3rem 0.22rem 0; border-top: 1px solid rgba(148, 163, 184, 0.1); color: var(--text-secondary); }
 .audit-stream { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.74rem; }
 .audit-row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; padding: 0.35rem 0.5rem; background: var(--bg-surface); border-radius: var(--radius-sm); }
 .audit-action { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--accent); }
@@ -399,7 +399,6 @@
 
 @media (max-width: 860px) { .admin-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
-  .notif-panel { right: -70px; }
   .presence-pill .presence-label { display: none; }
   .lfg-grid, .catalog-grid { grid-template-columns: 1fr; }
 }

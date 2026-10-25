@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
+import { CloseIcon } from '../common/icons';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
+import CommunitySigil from './CommunitySigil';
 
 const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
   const [name, setName]             = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon]             = useState('🎮');
   const [isPrivate, setIsPrivate]   = useState(false);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState('');
-
-  const ICON_PRESETS = ['🎮', '🏆', '⚔️', '🔫', '🧙', '🚀', '🐉', '🦊', '💀', '🌐', '🎯', '🔥'];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,12 +23,11 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
       const { data } = await axiosInstance.post('/communities', {
         name: name.trim(),
         description: description.trim(),
-        icon,
         isPrivate
       });
       onCreated(data);
       onClose();
-      setName(''); setDescription(''); setIcon('🎮'); setIsPrivate(false);
+      setName(''); setDescription(''); setIsPrivate(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create community.');
     } finally {
@@ -43,46 +41,29 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h2 className="modal-title" style={{ margin: 0 }}>🏰 Create a Community</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+          <h2 className="modal-title" style={{ margin: 0 }}>Create a Community</h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          {/* Icon Picker */}
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label className="form-label">Community Icon</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.3rem' }}>
-              {ICON_PRESETS.map(emoji => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setIcon(emoji)}
-                  style={{
-                    fontSize: '1.5rem', padding: '0.25rem 0.5rem',
-                    background: icon === emoji ? 'var(--accent)' : 'var(--bg-elevated)',
-                    border: `2px solid ${icon === emoji ? 'var(--accent)' : 'var(--border)'}`,
-                    borderRadius: '8px', cursor: 'pointer'
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="form-group">
             <label className="form-label">Community Name *</label>
-            <input
-              className="form-input"
-              placeholder="e.g. Valorant Elite APAC"
-              value={name}
-              maxLength={40}
-              onChange={e => setName(e.target.value)}
-              required
-            />
-            <span className="text-muted" style={{ fontSize: '0.75rem' }}>{name.length}/40</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+              <CommunitySigil name={name || 'New server'} size={40} />
+              <input
+                className="form-input"
+                placeholder="e.g. Valorant Elite APAC"
+                value={name}
+                maxLength={40}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+            </div>
+            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+              {name.length}/40 · the sigil is generated from the name
+            </span>
           </div>
 
           <div className="form-group">
@@ -107,7 +88,7 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
               style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }}
             />
             <label htmlFor="isPrivate" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
-              🔒 Private Community <span className="text-muted" style={{ fontSize: '0.8rem' }}>(only visible to members)</span>
+              Private Community <span className="text-muted" style={{ fontSize: '0.8rem' }}>(only visible to members)</span>
             </label>
           </div>
 
@@ -118,7 +99,7 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Creating...' : `${icon} Create Community`}
+              {saving ? 'Creating...' : 'Create Community'}
             </button>
           </div>
         </form>

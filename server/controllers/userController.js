@@ -230,16 +230,21 @@ const searchAll = async (req, res, next) => {
     const safe = escapeRegex(q);
 
     const [posts, users, tags] = await Promise.all([
+      // Weights come from the schema/migration text index: title 10, tags 5,
+      // body 1. Sorting by textScore puts the best match first; createdAt breaks
+      // ties so equally relevant posts stay in publish order.
       Post.find(
         { $text: { $search: q } },
         { score: { $meta: 'textScore' } }
       )
-        .sort({ score: { $meta: 'textScore' } })
+        .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
         .limit(10)
         .populate('userId', 'username level role')
         .lean(),
 
-      User.find({ username: { $regex: safe, $options: 'i' } })
+      // Anchored prefix, not an unanchored scan: the unique username index can
+      // serve `^handle` directly.
+      User.find({ username: { $regex: `^${safe}`, $options: 'i' } })
         .select('username level role medals')
         .limit(8)
         .lean(),

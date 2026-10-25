@@ -5,6 +5,13 @@ import axiosInstance from '../api/axiosInstance';
 import PostList from '../components/posts/PostList';
 import PostForm from '../components/posts/PostForm';
 import ClipCard from '../components/posts/ClipCard';
+import { StarIcon, PlusIcon, ListIcon, FilmIcon } from '../components/common/icons';
+import SegmentedTabs from '../components/common/SegmentedTabs';
+
+const LAYOUT_OPTIONS = [
+  { key: 'list',  label: 'List',  icon: <ListIcon size={15} /> },
+  { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> }
+];
 
 const ChannelPage = () => {
   const { tag } = useParams();
@@ -85,37 +92,34 @@ const ChannelPage = () => {
             </p>
           </div>
           
-          <div className="feed-controls" style={{ gap: '0.5rem' }}>
-            {/* Layout Toggle */}
-            <div className="sort-tabs">
-              <button
-                className={`sort-tab ${layout === 'list' ? 'active' : ''}`}
-                onClick={() => setLayout('list')}
-              >
-                📰 List
-              </button>
-              <button
-                className={`sort-tab ${layout === 'clips' ? 'active' : ''}`}
-                onClick={() => setLayout('clips')}
-              >
-                🎥 Clips
-              </button>
+          <div className="feed-controls">
+            <div className="feed-tabs-rail">
+              <SegmentedTabs
+                className="seg-layout"
+                ariaLabel="Channel layout"
+                value={layout}
+                onChange={setLayout}
+                options={LAYOUT_OPTIONS}
+              />
             </div>
 
-            <button
-              className={`btn btn-sm ${isFav ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={handleFavToggle}
-              disabled={favLoading}
-              title={isFav ? 'Remove from favourites' : 'Add to favourites (boosts in feed)'}
-            >
-              {isFav ? '⭐ Favourited' : '☆ Favourite Channel'}
-            </button>
-            
-            {user && (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowForm(v => !v)}>
-                {showForm ? 'Cancel' : '+ New Post'}
+            <div className="feed-actions">
+              <button
+                className={`btn btn-sm ${isFav ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={handleFavToggle}
+                disabled={favLoading}
+                title={isFav ? 'Remove from favourites' : 'Add to favourites (boosts in feed)'}
+              >
+                <StarIcon size={15} />
+                {isFav ? 'Favourited' : 'Favourite'}
               </button>
-            )}
+
+              {user && (
+                <button className="btn btn-primary btn-sm" onClick={() => setShowForm(v => !v)}>
+                  {showForm ? 'Cancel' : (<><PlusIcon size={15} /> New post</>)}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

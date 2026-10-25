@@ -28,6 +28,14 @@ const PostSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User'
   }],
+  // Denormalised size of `likes`, maintained atomically by every like write
+  // (see utils/likeBuffer.likePipeline). Stored so feeds can sort on it without
+  // materialising every liker id.
+  likeCount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   commentCount: {
     type: Number,
     default: 0
@@ -56,11 +64,11 @@ const PostSchema = new Schema({
 
 PostSchema.index({ tags: 1 });
 PostSchema.index({ createdAt: -1 });
-PostSchema.index({ title: 'text', content: 'text', tags: 'text' }); // full-text search
-
-PostSchema.virtual('likeCount').get(function () {
-  return this.likes.length;
-});
-PostSchema.set('toJSON', { virtuals: true });
+// Weighted full-text search. The name matches the index created by the
+// add-compound-indexes migration so both describe the same index.
+PostSchema.index(
+  { title: 'text', content: 'text', tags: 'text' },
+  { weights: { title: 10, tags: 5, content: 1 }, name: 'posts_text_weighted' }
+);
 
 module.exports = mongoose.model('Post', PostSchema);

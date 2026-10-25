@@ -8,19 +8,23 @@
  * (a search costs 100 units of 10,000/day, so cache hits are what make this
  * feature usable at all).
  */
-const { createTtlCache } = require('./cache');
+const { cacheWrap } = require('./redisCache');
 const { fetchJson } = require('./outbound');
 const { notifyUser } = require('./notify');
 const { sanitizeLine, decodeHtmlEntities } = require('./sanitize');
 
 const API_BASE = 'https://www.googleapis.com/youtube/v3/search';
 const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_TTL_SECONDS = CACHE_TTL_MS / 1000;
 const MAX_GAMES_PER_SYNC = 3;
 const MAX_RESULTS = 3;
 const LOOKBACK_DAYS = 30;
 const TIMEOUT_MS = 6000;
 
-const videoCache = createTtlCache({ ttlMs: CACHE_TTL_MS, maxEntries: 50 });
+// Search results are cached through redisCache (memory L1 + Upstash L2), so a
+// deploy or Render restart no longer burns 100 quota units per game again.
+// Bumped by resetYoutubeCache() so tests never see a previous case's hits.
+let cacheEpoch = 0;
 
 let lastSync = null; // { at, ok, created, message } — shown on the admin dashboard
 
@@ -44,7 +48,9 @@ async function searchLatestVideos(gameTitle, { maxResults = MAX_RESULTS } = {}) 
   const query = sanitizeLine(`${gameTitle} gameplay`, 80);
   if (!query) throw new Error('Game title is empty');
 
-  return videoCache.wrap(`${query}:${maxResults}`, async () => {
+  const cacheKey = `yt:search:v${cacheEpoch}:${query.toLowerCase()}:${maxResults}`;
+
+  return cacheWrap(cacheKey, async () => {
     const publishedAfter = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
     const params = new URLSearchParams({
       part: 'snippet',
@@ -69,7 +75,7 @@ async function searchLatestVideos(gameTitle, { maxResults = MAX_RESULTS } = {}) 
         thumbnail: pickThumbnail(item.snippet)
       }))
       .filter((video) => video.videoId && video.title);
-  });
+  }, CACHE_TTL_SECONDS);
 }
 
 /**
@@ -143,7 +149,7 @@ function getStatus() {
     configured: isConfigured(),
     lookbackDays: LOOKBACK_DAYS,
     cacheTtlMinutes: CACHE_TTL_MS / 60_000,
-    cachedQueries: videoCache.size,
+    cacheBackend: 'memory',
     maxGamesPerSync: MAX_GAMES_PER_SYNC,
     estimatedQuotaUnitsPerSync: MAX_GAMES_PER_SYNC * 100,
     lastSync
@@ -152,7 +158,7 @@ function getStatus() {
 
 /** Test helper. */
 function resetYoutubeCache() {
-  videoCache.clear();
+  cacheEpoch += 1;
   lastSync = null;
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
@@ -16,6 +16,32 @@ import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
 import AdminDashboard from './pages/AdminDashboard';
 import './index.css';
+
+/**
+ * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
+ * background layer can cross-fade between sections without repainting the DOM.
+ */
+const ATMOSPHERES = [
+  ['/communities', 'community'],
+  ['/lfg', 'lfg'],
+  ['/games', 'games'],
+  ['/u/', 'passport'],
+  ['/admin', 'admin'],
+  ['/', 'feed']
+];
+
+const AtmosphereSync = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const match = ATMOSPHERES.find(([prefix]) => (
+      prefix === '/' ? pathname === '/' : pathname.startsWith(prefix)
+    ));
+    document.body.dataset.atmosphere = match?.[1] || 'feed';
+  }, [pathname]);
+
+  return null;
+};
 
 /**
  * The floating toolbar belongs to the social feed. Inside a server the chat
@@ -38,7 +64,8 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="hero-glow" />
+        <AtmosphereSync />
+        <div className="hero-glow" aria-hidden="true" />
         <Navbar />
         <Routes>
           <Route path="/"                       element={<Feed />} />

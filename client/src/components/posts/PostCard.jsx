@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
 import LinkPreviewCard from './LinkPreviewCard';
+import PostActions from './PostActions';
 
 const PostCard = ({ post, onDelete, onLikeToggle }) => {
   const { user, updateSavedPosts } = useAuth();
@@ -90,7 +91,7 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
   };
 
   return (
-    <article className="post-card" onClick={() => navigate(`/posts/${post._id}`)}>
+    <article className="post-card glow-card" onClick={() => navigate(`/posts/${post._id}`)}>
       <div className="post-card-meta">
         <div
           className="post-avatar"
@@ -112,8 +113,8 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         <span className="level-badge" title={`Player Level ${post.userId?.level || 1}`}>
           Lv{post.userId?.level || 1}
         </span>
-        {post.userId?.role === 'admin' && <span className="role-badge admin">👑 Admin</span>}
-        {post.userId?.role === 'moderator' && <span className="role-badge mod">🛡️ Mod</span>}
+        {post.userId?.role === 'admin' && <span className="role-badge admin">Admin</span>}
+        {post.userId?.role === 'moderator' && <span className="role-badge mod">Mod</span>}
 
         <span>·</span>
         <span>{timeAgo(post.createdAt)}</span>
@@ -133,7 +134,7 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
             display: 'flex', 
             justifyContent: 'center',
             maxHeight: '380px',
-            border: '1px solid rgba(124, 58, 237, 0.1)'
+            border: '1px solid var(--glass-border)'
           }}
           onClick={e => e.stopPropagation()} // Prevent clicking video from triggering card click
         >
@@ -179,26 +180,17 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
       )}
 
       <div className="post-card-footer">
-        <button
-          className={`like-btn ${liked ? 'liked' : ''}`}
-          onClick={handleLike}
-          disabled={likeLoading}
-          title={liked ? 'Unlike' : 'Like'}
-        >
-          {liked ? '❤️' : '🤍'} {likeCount}
-        </button>
-
-        <span className="post-stat">💬 {post.commentCount ?? 0}</span>
-
-        <button
-          className={`like-btn ${saved ? 'liked' : ''}`}
-          onClick={handleSave}
-          disabled={saveLoading}
-          title={saved ? 'Remove bookmark' : 'Bookmark'}
-          style={{ marginLeft: '0.25rem' }}
-        >
-          {saved ? '🔖' : '📑'}
-        </button>
+        <PostActions
+          likeCount={likeCount}
+          liked={!!liked}
+          onLike={handleLike}
+          likeBusy={likeLoading}
+          commentCount={post.commentCount ?? 0}
+          onComment={() => navigate(`/posts/${post._id}#comments`)}
+          saved={!!saved}
+          onSave={handleSave}
+          saveBusy={saveLoading}
+        />
 
         {(canDelete || (isOwner && canEdit)) && (
           <div className="post-card-owner-actions" onClick={e => e.stopPropagation()}>
@@ -208,7 +200,7 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
                 onClick={e => { e.stopPropagation(); navigate(`/posts/${post._id}?edit=1`); }}
                 title="Edit post (available for 5 min after posting)"
               >
-                ✏️ Edit
+                Edit
               </button>
             )}
             {canDelete && (
@@ -217,7 +209,7 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
                 onClick={handleDelete}
                 title={isOwner ? 'Delete your post' : 'Moderate/Delete this post'}
               >
-                🗑️ Delete
+                Delete
               </button>
             )}
           </div>

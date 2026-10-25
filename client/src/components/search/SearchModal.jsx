@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
+import { SearchIcon, CloseIcon } from '../common/icons';
 
 const SearchModal = ({ isOpen, onClose }) => {
   const [query, setQuery]       = useState('');
@@ -64,7 +65,7 @@ const SearchModal = ({ isOpen, onClose }) => {
 
         {/* Search Input */}
         <div className="search-input-wrap">
-          <span style={{ fontSize: '1.1rem' }}>🔍</span>
+          <SearchIcon size={16} className="search-input-icon" />
           <input
             ref={inputRef}
             className="search-input"
@@ -74,7 +75,7 @@ const SearchModal = ({ isOpen, onClose }) => {
             autoComplete="off"
           />
           {query && (
-            <button className="search-clear" onClick={() => setQuery('')} aria-label="Clear">✕</button>
+            <button className="search-clear" onClick={() => setQuery('')} aria-label="Clear"><CloseIcon size={14} /></button>
           )}
         </div>
 
@@ -87,7 +88,7 @@ const SearchModal = ({ isOpen, onClose }) => {
                 className={`search-tab${activeTab === tab ? ' active' : ''}`}
                 onClick={() => setActiveTab(tab)}
               >
-                {tab === 'all' ? '✨ All' : tab === 'users' ? '👾 Gamers' : tab === 'posts' ? '📰 Posts' : '🏷️ Channels'}
+                {tab === 'all' ? 'All' : tab === 'users' ? 'Gamers' : tab === 'posts' ? 'Posts' : 'Channels'}
               </button>
             ))}
           </div>
@@ -103,7 +104,6 @@ const SearchModal = ({ isOpen, onClose }) => {
 
           {!loading && query.length >= 2 && !hasResults && (
             <div className="search-empty">
-              <span style={{ fontSize: '2rem' }}>🎮</span>
               <p>No results for "<strong>{query}</strong>"</p>
             </div>
           )}
@@ -113,7 +113,7 @@ const SearchModal = ({ isOpen, onClose }) => {
               {/* Gamers */}
               {visibleUsers.length > 0 && (
                 <section>
-                  <h4 className="search-section-title">👾 Gamers</h4>
+                  <h4 className="search-section-title">Gamers</h4>
                   {visibleUsers.map(u => (
                     <div key={u._id} className="search-result-item" onClick={() => go(`/u/${u.username}`)}>
                       <div className="search-result-avatar">{u.username[0].toUpperCase()}</div>
@@ -121,8 +121,8 @@ const SearchModal = ({ isOpen, onClose }) => {
                         <span className="search-result-name">{u.username}</span>
                         <span className="search-result-meta">
                           Lv{u.level || 1}
-                          {u.role === 'admin' && <span className="role-badge admin">👑 Admin</span>}
-                          {u.role === 'moderator' && <span className="role-badge mod">🛡️ Mod</span>}
+                          {u.role === 'admin' && <span className="role-badge admin">Admin</span>}
+                          {u.role === 'moderator' && <span className="role-badge mod">Mod</span>}
                         </span>
                       </div>
                     </div>
@@ -133,7 +133,7 @@ const SearchModal = ({ isOpen, onClose }) => {
               {/* Channels / Tags */}
               {visibleTags.length > 0 && (
                 <section>
-                  <h4 className="search-section-title">🏷️ Channels</h4>
+                  <h4 className="search-section-title">Channels</h4>
                   <div className="search-tags-wrap">
                     {visibleTags.map(tag => (
                       <span key={tag} className="tag" style={{ cursor: 'pointer' }} onClick={() => go(`/c/${tag}`)}>
@@ -147,11 +147,11 @@ const SearchModal = ({ isOpen, onClose }) => {
               {/* Posts */}
               {visiblePosts.length > 0 && (
                 <section>
-                  <h4 className="search-section-title">📰 Posts</h4>
+                  <h4 className="search-section-title">Posts</h4>
                   {visiblePosts.map(p => (
                     <div key={p._id} className="search-result-item" onClick={() => go(`/posts/${p._id}`)}>
                       {p.mediaType && p.mediaType !== 'none' && (
-                        <span style={{ fontSize: '1.1rem' }}>{p.mediaType === 'video' ? '🎬' : '📷'}</span>
+                        <span className="search-media-tag">{p.mediaType === 'video' ? 'Clip' : 'Image'}</span>
                       )}
                       <div className="search-result-info">
                         <span className="search-result-name">{p.title}</span>
@@ -166,7 +166,6 @@ const SearchModal = ({ isOpen, onClose }) => {
 
           {!query && (
             <div className="search-placeholder">
-              <span style={{ fontSize: '2.5rem' }}>🎮</span>
               <p>Find gamers, posts, and channels</p>
               <p className="text-muted" style={{ fontSize: '0.82rem' }}>Type at least 2 characters to search</p>
             </div>

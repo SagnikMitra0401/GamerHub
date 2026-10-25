@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
+import { CloseIcon } from '../common/icons';
 
 const SLOT_OPTIONS = [2, 3, 4, 5, 6];
 const ACTIVITY_SUGGESTIONS = ['Ranked Competitive', 'Casual Fun', 'Raid', 'Co-op Story', 'Scrims'];
@@ -69,8 +70,8 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="create-party-title">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         <div className="modal-header-row">
-          <h2 id="create-party-title" className="modal-title" style={{ margin: 0 }}>🎯 Recruit a squad</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <h2 id="create-party-title" className="modal-title" style={{ margin: 0 }}>Recruit a squad</h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
@@ -145,7 +146,7 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
               checked={form.micRequired}
               onChange={e => set({ micRequired: e.target.checked })}
             />
-            🎙️ Mic required
+            Mic required
           </label>
 
           <p className="text-muted" style={{ fontSize: '0.74rem', marginTop: '0.5rem' }}>

@@ -107,7 +107,7 @@ const AdminDashboard = () => {
       <div className="container">
         <div className="page-header">
           <div>
-            <h1 className="page-title">🛡️ Admin monitor</h1>
+            <h1 className="page-title">Admin monitor</h1>
             <p className="page-subtitle">
               Key isolation, platform health, quotas and the live audit stream.
               {lastLoaded && ` Updated ${lastLoaded.toLocaleTimeString()}.`}
@@ -134,7 +134,7 @@ const AdminDashboard = () => {
             <section className="admin-grid">
               <div className="admin-card">
                 <div className="admin-card-head">
-                  <h2>🔐 API key security</h2>
+                  <h2>API key security</h2>
                   <span className={`admin-badge ${security?.secretIsolation?.ok ? 'ok' : 'warn'}`}>
                     {security?.secretIsolation?.ok ? 'Isolated' : 'Needs attention'}
                   </span>
@@ -165,7 +165,7 @@ const AdminDashboard = () => {
                   Client bundle:{' '}
                   {security?.clientBundle?.scanned
                     ? security.clientBundle.leakedKeys.length
-                      ? `⚠️ leaked ${security.clientBundle.leakedKeys.join(', ')}`
+                      ? `leaked ${security.clientBundle.leakedKeys.join(', ')}`
                       : `clean (${security.clientBundle.files} asset${security.clientBundle.files === 1 ? '' : 's'} scanned)`
                     : security?.clientBundle?.reason || 'not scanned'}
                 </p>
@@ -176,7 +176,7 @@ const AdminDashboard = () => {
 
               <div className="admin-card">
                 <div className="admin-card-head">
-                  <h2>📊 Platform health</h2>
+                  <h2>Platform health</h2>
                   <span className={`admin-badge ${health?.database?.connected ? 'ok' : 'bad'}`}>
                     {health?.database?.state || 'unknown'}
                   </span>
@@ -198,7 +198,7 @@ const AdminDashboard = () => {
                   </div>
                   {youtube?.configured && (
                     <p className="admin-note">
-                      {youtube.cachedQueries} cached queries · {youtube.estimatedQuotaUnitsPerSync} quota units per sync
+                      {youtube.cacheBackend || 'memory'} cache · {youtube.estimatedQuotaUnitsPerSync} quota units per sync
                       {youtube.lastSync && ` · last: ${youtube.lastSync.message}`}
                     </p>
                   )}
@@ -236,7 +236,7 @@ const AdminDashboard = () => {
 
             <section className="admin-card">
               <div className="admin-card-head">
-                <h2>🗄️ Database</h2>
+                <h2>Database</h2>
                 <span className="admin-badge muted">{formatTime(data.generatedAt)}</span>
               </div>
               <div className="admin-stats">
@@ -253,7 +253,7 @@ const AdminDashboard = () => {
 
             <section className="admin-card">
               <div className="admin-card-head">
-                <h2>📜 Live audit stream</h2>
+                <h2>Live audit stream</h2>
                 <span className="admin-badge muted">latest 20</span>
               </div>
               {data.audit?.length ? (

@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { HeartIcon, CommentIcon } from '../common/icons';
 
 const ClipCard = ({ post }) => {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ const ClipCard = ({ post }) => {
     >
       {/* Media Type Badge */}
       <span className="clip-card-badge">
-        {post.mediaType === 'video' ? '🎥 Clip' : '📸 Image'}
+        {post.mediaType === 'video' ? 'Clip' : 'Image'}
       </span>
 
       {/* Render element */}
@@ -54,8 +55,8 @@ const ClipCard = ({ post }) => {
 
       {/* Hover Overlay with Stats */}
       <div className="clip-card-overlay">
-        <span className="clip-card-stat">❤️ {likesCount}</span>
-        <span className="clip-card-stat">💬 {post.commentCount ?? 0}</span>
+        <span className="clip-card-stat"><HeartIcon size={13} /> {likesCount}</span>
+        <span className="clip-card-stat"><CommentIcon size={13} /> {post.commentCount ?? 0}</span>
       </div>
     </div>
   );

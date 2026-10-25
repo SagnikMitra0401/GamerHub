@@ -5,7 +5,7 @@ const { protect, optionalProtect } = require('../middleware/auth');
 const { checkOwnership } = require('../middleware/ownership');
 const upload = require('../middleware/upload');
 const {
-  createPost, getPosts, getPostById, updatePost, deletePost, toggleLike, previewLink
+  createPost, getPosts, getPostById, updatePost, deletePost, toggleLike, previewLink, suggestTags
 } = require('../controllers/postController');
 
 const router = express.Router();
@@ -21,6 +21,7 @@ const previewLimiter = rateLimit({
 
 router.get('/',        optionalProtect, getPosts);
 router.get('/preview', protect, previewLimiter, previewLink); // before /:id
+router.get('/tags/suggest', optionalProtect, suggestTags);    // before /:id
 router.get('/:id',     optionalProtect, getPostById);
 router.post('/', protect, upload.single('media'), createPost);
 router.put('/:id', protect, checkOwnership(Post), updatePost);

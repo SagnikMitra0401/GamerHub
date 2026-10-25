@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
+import { CloseIcon } from '../common/icons';
 
 const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
   const [name, setName]                   = useState('');
@@ -14,7 +15,7 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
   const [error, setError]                   = useState('');
 
   const ROLES = ['member', 'moderator', 'admin', 'owner'];
-  const ROLE_LABELS = { member: '🎮 Member+', moderator: '⚔️ Moderator+', admin: '🛡️ Admin+', owner: '👑 Owner Only' };
+  const ROLE_LABELS = { member: 'Member+', moderator: 'Moderator+', admin: 'Admin+', owner: 'Owner Only' };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,8 +54,8 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h2 className="modal-title" style={{ margin: 0 }}>💬 Create Channel</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+          <h2 className="modal-title" style={{ margin: 0 }}>Create Channel</h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
@@ -70,7 +71,7 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
                   onClick={() => setType(t)}
                   className={`btn btn-sm ${type === t ? 'btn-primary' : 'btn-ghost'}`}
                 >
-                  {t === 'text' ? '💬 Text' : '📢 Announcement'}
+                  {t === 'text' ? 'Text' : 'Announcement'}
                 </button>
               ))}
             </div>
@@ -117,7 +118,7 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">⏱️ Slowmode Cooldown</label>
+            <label className="form-label">Slowmode Cooldown</label>
             <select className="form-input" value={slowModeSeconds} onChange={e => setSlowModeSeconds(Number(e.target.value))}>
               <option value={0}>Disabled (Off)</option>
               <option value={5}>5 seconds</option>
@@ -136,14 +137,14 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
               style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }}
             />
             <label htmlFor="protectContent" style={{ cursor: 'pointer', fontSize: '0.85rem' }}>
-              🛡️ Restrict Saving/Copying <span className="text-muted" style={{ fontSize: '0.75rem' }}>(Telegram pattern)</span>
+              Restrict Saving/Copying <span className="text-muted" style={{ fontSize: '0.75rem' }}>(Telegram pattern)</span>
             </label>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Creating...' : '💬 Create Channel'}
+              {saving ? 'Creating...' : 'Create Channel'}
             </button>
           </div>
         </form>

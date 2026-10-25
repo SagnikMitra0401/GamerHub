@@ -7,8 +7,8 @@ import FollowButton from '../components/common/FollowButton';
 import GamerPassportCard from '../components/profile/GamerPassportCard';
 import EditPassportModal from '../components/profile/EditPassportModal';
 import { ROLE_LABELS } from '../utils/permissions';
-
-const PLATFORM_ICONS = { PC: '🖥', PlayStation: '🎮', Xbox: '🟢', Switch: '🔴' };
+import { FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon } from '../components/common/icons';
+import CommunitySigil from '../components/communities/CommunitySigil';
 
 const ProfilePage = () => {
   const { username } = useParams();
@@ -119,9 +119,9 @@ const ProfilePage = () => {
                     <h1 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{profile.username}</h1>
                     
                     {/* Role Badge */}
-                    {profile.role === 'admin' && <span className="role-badge admin">👑 Admin</span>}
-                    {profile.role === 'moderator' && <span className="role-badge mod">🛡️ Mod</span>}
-                    {(!profile.role || profile.role === 'user') && <span className="role-badge user">🎮 Gamer</span>}
+                    {profile.role === 'admin' && <span className="role-badge admin">Admin</span>}
+                    {profile.role === 'moderator' && <span className="role-badge mod">Mod</span>}
+                    {(!profile.role || profile.role === 'user') && <span className="role-badge user">Gamer</span>}
 
                     <FollowButton
                       username={profile.username}
@@ -138,7 +138,7 @@ const ProfilePage = () => {
                   <div className="profile-xp-section" style={{ marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                       <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary-light)' }}>
-                        ⚡ Level {profile.level || 1}
+                        Level {profile.level || 1}
                       </span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         {(profile.xp || 0) % 25}/25 XP ({profile.xp || 0} Total XP)
@@ -155,14 +155,14 @@ const ProfilePage = () => {
                   {/* Medals Showcase */}
                   <div style={{ marginBottom: '1rem' }}>
                     <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-                      🏅 Achievement Medals ({profile.medals?.length || 0}/4)
+                      Achievement Medals ({profile.medals?.length || 0}/4)
                     </h4>
                     <div className="medals-grid">
                       {[
-                        { id: 'highlight_poster', name: 'Highlight Poster', icon: '🎬', desc: 'Uploaded 1st gaming clip/screenshot' },
-                        { id: 'gamer_critic',     name: 'Gamer Critic',     icon: '💬', desc: 'Posted 1st community comment' },
-                        { id: 'viral_gamer',      name: 'Viral Gamer',      icon: '🔥', desc: 'Post reached 10 likes' },
-                        { id: 'community_builder',name: 'Community Builder',icon: '🌐', desc: 'Followed 5+ gamers' }
+                        { id: 'highlight_poster', name: 'Highlight Poster', icon: <FilmIcon size={22} />, desc: 'Uploaded 1st gaming clip/screenshot' },
+                        { id: 'gamer_critic',     name: 'Gamer Critic',     icon: <CommentIcon size={22} />, desc: 'Posted 1st community comment' },
+                        { id: 'viral_gamer',      name: 'Viral Gamer',      icon: <FlameIcon size={22} />, desc: 'Post reached 10 likes' },
+                        { id: 'community_builder',name: 'Community Builder',icon: <UsersIcon size={22} />, desc: 'Followed 5+ gamers' }
                       ].map(m => {
                         const earned = (profile.medals || []).find(x => x.id === m.id);
                         return (
@@ -192,7 +192,7 @@ const ProfilePage = () => {
                   {profile.communities?.length > 0 && (
                     <div style={{ marginBottom: '1rem' }}>
                       <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '0.45rem' }}>
-                        🏰 Servers
+                        Servers
                       </h4>
                       <div className="server-chip-row">
                         {profile.communities.map(server => (
@@ -202,10 +202,10 @@ const ProfilePage = () => {
                             className="server-chip"
                             title={`${server.name} — ${ROLE_LABELS[server.role] || server.role}`}
                           >
-                            <span>{server.icon}</span>
+                            <CommunitySigil name={server.name} icon={server.icon} size={18} />
                             <span>{server.name}</span>
                             {server.role !== 'member' && (
-                              <span className="server-role">{ROLE_LABELS[server.role]?.replace(/^\S+\s/, '')}</span>
+                              <span className="server-role">{ROLE_LABELS[server.role]}</span>
                             )}
                           </Link>
                         ))}
@@ -216,7 +216,7 @@ const ProfilePage = () => {
                   {/* Stats */}
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                     <span className="post-stat" style={{ userSelect: 'none' }}>
-                      📝 {profile.postCount ?? 0} Posts
+                      {profile.postCount ?? 0} Posts
                     </span>
                     
                     <span 
@@ -227,7 +227,7 @@ const ProfilePage = () => {
                       onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
                       title="View followers"
                     >
-                      👥 {followersList.length} Followers
+                      {followersList.length} Followers
                     </span>
 
                     <span 
@@ -238,7 +238,7 @@ const ProfilePage = () => {
                       onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
                       title="View following list"
                     >
-                      ➡️ {followingList.length} Following
+                      {followingList.length} Following
                     </span>
                   </div>
 
@@ -247,7 +247,7 @@ const ProfilePage = () => {
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                       {profile.preferredPlatforms.map(p => (
                         <span key={p} className="tag">
-                          {PLATFORM_ICONS[p] ?? ''} {p}
+                          {p}
                         </span>
                       ))}
                     </div>
@@ -262,14 +262,14 @@ const ProfilePage = () => {
                 className={`sort-tab ${tab === 'posts' ? 'active' : ''}`}
                 onClick={() => setTab('posts')}
               >
-                📝 Posts
+                Posts
               </button>
               {isOwnProfile && (
                 <button
                   className={`sort-tab ${tab === 'saved' ? 'active' : ''}`}
                   onClick={() => setTab('saved')}
                 >
-                  🔖 Saved
+                  Saved
                 </button>
               )}
             </div>
@@ -296,15 +296,17 @@ const ProfilePage = () => {
               </h2>
               <button 
                 onClick={() => setActiveModal(null)} 
+                aria-label={`Close ${activeModal} list`}
                 style={{ 
                   background: 'transparent', 
                   border: 'none', 
                   color: 'var(--text-secondary)', 
                   cursor: 'pointer', 
-                  fontSize: '1.1rem' 
+                  display: 'flex', 
+                  alignItems: 'center' 
                 }}
               >
-                ✕
+                <CloseIcon size={16} />
               </button>
             </div>
 

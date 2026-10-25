@@ -6,10 +6,11 @@ const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
-const { sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags } = require('../utils/sanitize');
+const { sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags, escapeRegex } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { rankPostsForUser } = require('../utils/feedRanking');
+const { bufferLikeEvent, readPendingLike, likePipeline } = require('../utils/likeBuffer');
 
 // "For You" ranks this many recent posts in memory, then paginates the ranking.
 const FOR_YOU_POOL = 100;
@@ -119,7 +120,9 @@ const getPosts = async (req, res, next) => {
       .slice(0, 50);
 
     const addFieldsStage = {
-      likeCount: { $size: '$likes' },
+      // Stored counter is authoritative; $size only covers documents written
+      // before the denormalisation migration ran.
+      likeCount: { $ifNull: ['$likeCount', { $size: '$likes' }] },
       boostScore: favChannels.length
         ? {
             $cond: {
@@ -272,7 +275,13 @@ const deletePost = async (req, res, next) => {
   }
 };
 
-// Atomic toggle — no ownership check required, self-contained authorization
+// Toggle like — no ownership check required, self-contained authorization.
+//
+// With Redis configured the toggle is queued and answered optimistically; the
+// flush worker folds queued toggles into one bulkWrite every few seconds. The
+// pending action is read back first, so like → unlike inside one flush window
+// still resolves to the state the user sees. Without Redis (local dev, tests,
+// Upstash outage) this is the same direct write as before.
 const toggleLike = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -280,22 +289,82 @@ const toggleLike = async (req, res, next) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
 
-    const alreadyLiked = await Post.exists({ _id: id, likes: userId });
-
-    const update = alreadyLiked
-      ? { $pull: { likes: userId } }
-      : { $addToSet: { likes: userId } };
-
-    const post = await Post.findByIdAndUpdate(id, update, { new: true });
+    // $ifNull keeps the count right for documents written before the
+    // denormalisation migration, without shipping the liker array back.
+    const [post] = await Post.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
+      { $project: { userId: 1, likeCount: { $ifNull: ['$likeCount', { $size: '$likes' }] } } }
+    ]);
     if (!post) throw notFound('Post not found');
 
-    if (!alreadyLiked && post.likes.length === 10) {
-      awardXp(post.userId, 50, 'viral_gamer');
+    const [alreadyLiked, pendingAction] = await Promise.all([
+      Post.exists({ _id: id, likes: userId }),
+      readPendingLike(id, userId)
+    ]);
+
+    const dbHasLike = !!alreadyLiked;
+    const currentlyLiked = pendingAction ? pendingAction === 'like' : dbHasLike;
+    const action = currentlyLiked ? 'unlike' : 'like';
+    const liked = action === 'like';
+
+    // The stored count already contains the user's like when the database has
+    // it. A queued toggle that has not flushed yet is not in the database, so
+    // reconcile the two before applying this click.
+    const base = Number.isFinite(post.likeCount) ? post.likeCount : 0;
+    const effectiveBase = base
+      + (pendingAction === 'like' && !dbHasLike ? 1 : 0)
+      - (pendingAction === 'unlike' && dbHasLike ? 1 : 0);
+
+    const buffered = await bufferLikeEvent(id, userId, action);
+    if (buffered) {
+      return res.status(200).json({
+        likeCount: Math.max(0, effectiveBase + (liked ? 1 : -1)),
+        liked,
+        buffered: true
+      });
     }
 
-    res.status(200).json({ likeCount: post.likes.length, liked: !alreadyLiked });
+    const updated = await Post.findByIdAndUpdate(
+      id,
+      likePipeline(liked ? { adds: [userId] } : { removes: [userId] }),
+      { new: true, projection: { likeCount: 1, userId: 1 } }
+    ).lean();
+    if (!updated) throw notFound('Post not found');
+
+    if (liked && updated.likeCount === 10) {
+      awardXp(updated.userId, 50, 'viral_gamer');
+    }
+
+    res.status(200).json({ likeCount: updated.likeCount, liked });
   } catch (err) {
     next(err);
+  }
+};
+
+/**
+ * GET /api/posts/tags/suggest?q=val
+ * Prefix tag autocomplete. The `tags` index serves the anchored regex, and the
+ * aggregation only ever returns tags that already exist on a post.
+ */
+const suggestTags = async (req, res, next) => {
+  try {
+    const q = sanitizeLine(req.query.q, 24).toLowerCase().replace(/^#/, '');
+    if (!q) return res.status(200).json([]);
+
+    const prefix = new RegExp(`^${escapeRegex(q)}`);
+    const tags = await Post.aggregate([
+      { $match: { tags: prefix } },
+      { $unwind: '$tags' },
+      { $match: { tags: prefix } },
+      { $group: { _id: '$tags', count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 8 },
+      { $project: { _id: 0, tag: '$_id', count: 1 } }
+    ]);
+
+    return res.status(200).json(tags);
+  } catch (err) {
+    return next(err);
   }
 };
 
@@ -323,4 +392,13 @@ const previewLink = async (req, res, next) => {
   }
 };
 
-module.exports = { createPost, getPosts, getPostById, updatePost, deletePost, toggleLike, previewLink };
+module.exports = {
+  createPost,
+  getPosts,
+  getPostById,
+  updatePost,
+  deletePost,
+  toggleLike,
+  previewLink,
+  suggestTags
+};

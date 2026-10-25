@@ -7,6 +7,8 @@ import CommentForm from '../components/comments/CommentForm';
 import CommentThread from '../components/comments/CommentThread';
 import ConfirmModal from '../components/common/ConfirmModal';
 import LinkPreviewCard from '../components/posts/LinkPreviewCard';
+import PostActions from '../components/posts/PostActions';
+import { ArrowLeftIcon } from '../components/common/icons';
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -52,6 +54,13 @@ const PostDetail = () => {
     };
     load();
   }, [id, user?._id]);
+
+  // Deep link from a post card's comment button: the section mounts after the
+  // fetch resolves, so the native hash jump needs a hand.
+  useEffect(() => {
+    if (!post || location.hash !== '#comments') return;
+    document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [post, location.hash]);
 
   const handleLike = async () => {
     if (!user) return navigate('/login');
@@ -104,7 +113,7 @@ const PostDetail = () => {
       <div className="container" style={{ textAlign: 'center', paddingTop: '4rem' }}>
         <p className="text-muted">{error}</p>
         <button className="btn btn-ghost" style={{ marginTop: '1rem' }} onClick={() => navigate('/')}>
-          ← Back to Feed
+          <ArrowLeftIcon size={15} /> Back to Feed
         </button>
       </div>
     </div>
@@ -122,7 +131,7 @@ const PostDetail = () => {
       <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
 
         <button className="post-detail-back" onClick={() => navigate('/')}>
-          ← Back to Feed
+          <ArrowLeftIcon size={15} /> Back to Feed
         </button>
 
         {editing ? (
@@ -163,7 +172,7 @@ const PostDetail = () => {
                   display: 'flex', 
                   justifyContent: 'center',
                   maxHeight: '500px',
-                  border: '1px solid rgba(124, 58, 237, 0.15)'
+                  border: '1px solid var(--glass-border)'
                 }}
               >
                 {post.mediaType === 'video' ? (
@@ -194,15 +203,14 @@ const PostDetail = () => {
 
             {/* Actions */}
             <div className="post-detail-actions">
-              <button
-                className={`like-btn ${liked ? 'liked' : ''}`}
-                onClick={handleLike}
-                disabled={likeLoading}
-              >
-                {liked ? '❤️' : '🤍'} {likeCount} {likeCount === 1 ? 'Like' : 'Likes'}
-              </button>
-
-              <span className="post-stat">💬 {post.commentCount ?? comments.length}</span>
+              <PostActions
+                likeCount={likeCount}
+                liked={!!liked}
+                onLike={handleLike}
+                likeBusy={likeLoading}
+                commentCount={post.commentCount ?? comments.length}
+                onComment={() => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              />
 
               {isOwner && (
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
@@ -221,9 +229,9 @@ const PostDetail = () => {
         )}
 
         {/* Comments */}
-        <section className="comments-section">
+        <section className="comments-section" id="comments">
           <h2 className="comments-title">
-            💬 Discussion ({comments.length})
+            Discussion ({comments.length})
           </h2>
           <CommentForm postId={id} onCommentAdded={handleCommentAdded} />
           <CommentThread comments={comments} setComments={setComments} />

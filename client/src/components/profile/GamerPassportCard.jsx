@@ -1,27 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import useCursorGlow from '../../hooks/useCursorGlow';
 import ReactDOM from 'react-dom';
-
-const DEVICE_ICONS = {
-  PC: '🖥️',
-  Laptop: '💻',
-  Mobile: '📱',
-  Console: '🎮',
-  Handheld: '🕹️'
-};
-
-const PLATFORM_ICONS = {
-  PC: '🖥️',
-  PlayStation: '🎮',
-  Xbox: '🟢',
-  Switch: '🔴',
-  Mobile: '📱',
-  Other: '🎯'
-};
+import { CloseIcon } from '../common/icons';
 
 const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) => {
   const [copiedKey, setCopiedKey] = useState(null);
   const [selectedRigIdx, setSelectedRigIdx] = useState(0);
   const [expandedRig, setExpandedRig] = useState(null);
+  const glowRef = useCursorGlow();
 
   // Close expanded modal on Escape
   useEffect(() => {
@@ -82,10 +68,9 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
   const currentRig = hardwareRigs[selectedRigIdx] || hardwareRigs[0];
 
   return (
-    <div className="card passport-card">
+    <div className="card passport-card glow-card" ref={glowRef}>
       <div className="passport-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1.2rem' }}>🪪</span>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>Gamer Passport</h3>
         </div>
         {isOwnProfile && (
@@ -95,7 +80,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
             title="Edit your Gamer Passport and Battle Station specs"
             style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
           >
-            ✏️ Edit
+            Edit
           </button>
         )}
       </div>
@@ -110,7 +95,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
 
       {/* In-Game Accounts / Gamer Tags */}
       <div className="passport-section">
-        <h4 className="passport-section-title">🎯 In-Game Accounts</h4>
+        <h4 className="passport-section-title">In-Game Accounts</h4>
         {!hasAnyIds ? (
           <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
             {isOwnProfile ? 'No in-game IDs linked yet. Click Edit to add them!' : 'No in-game accounts listed.'}
@@ -119,70 +104,70 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
           <div className="game-ids-list">
             {gameIds.riotId && (
               <div className="id-badge-row">
-                <span className="id-badge-label">🎯 Riot</span>
+                <span className="id-badge-label">Riot</span>
                 <span className="id-badge-val" title={gameIds.riotId}>{gameIds.riotId}</span>
                 <button
                   className={`copy-btn ${copiedKey === 'riot' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.riotId, 'riot')}
                   title="Copy Riot ID"
                 >
-                  {copiedKey === 'riot' ? '✔️' : '📋'}
+                  {copiedKey === 'riot' ? 'Copied' : 'Copy'}
                 </button>
               </div>
             )}
 
             {gameIds.steamId && (
               <div className="id-badge-row">
-                <span className="id-badge-label">💨 Steam</span>
+                <span className="id-badge-label">Steam</span>
                 <span className="id-badge-val" title={gameIds.steamId}>{gameIds.steamId}</span>
                 <button
                   className={`copy-btn ${copiedKey === 'steam' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.steamId, 'steam')}
                   title="Copy Steam ID"
                 >
-                  {copiedKey === 'steam' ? '✔️' : '📋'}
+                  {copiedKey === 'steam' ? 'Copied' : 'Copy'}
                 </button>
               </div>
             )}
 
             {gameIds.psnTag && (
               <div className="id-badge-row">
-                <span className="id-badge-label">🎮 PSN</span>
+                <span className="id-badge-label">PSN</span>
                 <span className="id-badge-val" title={gameIds.psnTag}>{gameIds.psnTag}</span>
                 <button
                   className={`copy-btn ${copiedKey === 'psn' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.psnTag, 'psn')}
                   title="Copy PSN Tag"
                 >
-                  {copiedKey === 'psn' ? '✔️' : '📋'}
+                  {copiedKey === 'psn' ? 'Copied' : 'Copy'}
                 </button>
               </div>
             )}
 
             {gameIds.xboxTag && (
               <div className="id-badge-row">
-                <span className="id-badge-label">🟢 Xbox</span>
+                <span className="id-badge-label">Xbox</span>
                 <span className="id-badge-val" title={gameIds.xboxTag}>{gameIds.xboxTag}</span>
                 <button
                   className={`copy-btn ${copiedKey === 'xbox' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.xboxTag, 'xbox')}
                   title="Copy Xbox Tag"
                 >
-                  {copiedKey === 'xbox' ? '✔️' : '📋'}
+                  {copiedKey === 'xbox' ? 'Copied' : 'Copy'}
                 </button>
               </div>
             )}
 
             {gameIds.discordTag && (
               <div className="id-badge-row">
-                <span className="id-badge-label">💬 Discord</span>
+                <span className="id-badge-label">Discord</span>
                 <span className="id-badge-val" title={gameIds.discordTag}>{gameIds.discordTag}</span>
                 <button
                   className={`copy-btn ${copiedKey === 'discord' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.discordTag, 'discord')}
                   title="Copy Discord Tag"
                 >
-                  {copiedKey === 'discord' ? '✔️' : '📋'}
+                  {copiedKey === 'discord' ? 'Copied' : 'Copy'}
                 </button>
               </div>
             )}
@@ -193,7 +178,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
       {/* Featured Games & Ranks */}
       <div className="passport-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-          <h4 className="passport-section-title" style={{ margin: 0 }}>🎮 Active Games</h4>
+          <h4 className="passport-section-title" style={{ margin: 0 }}>Active Games</h4>
           <span className="self-report-label" title="Ranks self-reported by gamer">Self-Reported</span>
         </div>
 
@@ -206,7 +191,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
             {activeGames.map((game, i) => (
               <div key={i} className="active-game-item">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
-                  <span>{PLATFORM_ICONS[game.platform] || '🎮'}</span>
+                  <span className="game-platform">{game.platform}</span>
                   <span className="game-item-title" title={game.gameName}>{game.gameName}</span>
                 </div>
                 {game.rankOrLevel ? (
@@ -225,7 +210,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
       {/* Multi-Rig Battle Station Hardware */}
       <div className="passport-section" style={{ borderBottom: 'none' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-          <h4 className="passport-section-title" style={{ margin: 0 }}>🖥️ Battle Station</h4>
+          <h4 className="passport-section-title" style={{ margin: 0 }}>Battle Station</h4>
           <span className="self-report-label" title="Hardware specifications self-reported by gamer">Self-Reported</span>
         </div>
 
@@ -245,8 +230,8 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
                     onClick={() => setSelectedRigIdx(idx)}
                     title={rig.rigName}
                   >
-                    {DEVICE_ICONS[rig.deviceType] || '🖥️'} {rig.rigName}
-                    {rig.isPrimary && <span style={{ marginLeft: '2px' }}>⭐</span>}
+                    {rig.rigName}
+                    {rig.isPrimary && <span className="rig-primary-flag">Primary</span>}
                   </button>
                 ))}
               </div>
@@ -262,7 +247,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
               >
                 <div className="rig-spec-header">
                   <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                    {DEVICE_ICONS[currentRig.deviceType] || '🖥️'} {currentRig.rigName}
+                    {currentRig.deviceType} · {currentRig.rigName}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                     {currentRig.isPrimary && (
@@ -275,7 +260,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
                       onClick={(e) => { e.stopPropagation(); setExpandedRig(currentRig); }}
                       title="Expand full specifications"
                     >
-                      🔍 Expand
+                      Expand
                     </button>
                   </div>
                 </div>
@@ -324,20 +309,19 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1.3rem' }}>{DEVICE_ICONS[expandedRig.deviceType] || '🖥️'}</span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>{expandedRig.rigName}</h3>
                   <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                    {expandedRig.deviceType} Setup {expandedRig.isPrimary ? '• ⭐ Primary' : ''}
+                    {expandedRig.deviceType} Setup {expandedRig.isPrimary ? '• Primary' : ''}
                   </span>
                 </div>
               </div>
               <button 
                 onClick={() => setExpandedRig(null)} 
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 aria-label="Close"
               >
-                ✕
+                <CloseIcon size={16} />
               </button>
             </div>
 
@@ -400,7 +384,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
                 title="Download this rig's specifications as a .txt file"
                 style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               >
-                💾 Download Specs (.txt)
+                Download Specs (.txt)
               </button>
             </div>
           </div>

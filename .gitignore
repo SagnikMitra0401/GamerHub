@@ -10,6 +10,9 @@ dist/
 # Environment variables
 .env
 
+# Local credentials notes — never commit
+ADMIN_CREDENTIALS.txt
+
 # OS files
 .DS_Store
 Thumbs.db

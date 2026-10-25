@@ -3,34 +3,67 @@
 
 /* ============ CSS VARIABLES ============ */
 :root {
-  --bg-base:       #07070f;
-  --bg-surface:    #0e0e1a;
-  --bg-card:       #13131f;
-  --bg-elevated:   #1a1a2e;
-  --border:        rgba(124, 58, 237, 0.18);
-  --border-hover:  rgba(124, 58, 237, 0.45);
+  color-scheme: dark;
 
-  --primary:       #7c3aed;
-  --primary-light: #9b5de5;
-  --primary-glow:  rgba(124, 58, 237, 0.25);
-  --accent:        #06b6d4;
-  --accent-glow:   rgba(6, 182, 212, 0.2);
-  --success:       #10b981;
-  --danger:        #ef4444;
-  --warning:       #f59e0b;
+  /* ── Obsidian surfaces ─────────────────────────────────────────────── */
+  --bg-abyss:      #05070a;
+  --bg-base:       #05070a;
+  --bg-surface:    #0a0d13;
+  --bg-card:       #0d1017;
+  --bg-elevated:   #151a22;
+  --bg-main:       #070a0f;
+  --bg-inset:      rgba(6, 8, 12, 0.8);
 
-  --text-primary:  #f0f0ff;
-  --text-secondary:#a0a0c0;
-  --text-muted:    #5a5a7a;
+  /* ── Liquid glass ──────────────────────────────────────────────────── */
+  --glass-surface:         rgba(13, 16, 23, 0.72);
+  --glass-elevated:        rgba(21, 26, 34, 0.86);
+  --glass-inset:           rgba(6, 8, 12, 0.8);
+  --glass-border:          rgba(255, 255, 255, 0.08);
+  --glass-border-specular: rgba(255, 255, 255, 0.18);
+  --glass-shadow-bottom:   rgba(0, 0, 0, 0.5);
+  --glass-blur:            blur(20px) saturate(180%);
 
-  --radius-sm:  6px;
-  --radius-md:  12px;
-  --radius-lg:  18px;
-  --radius-xl:  24px;
+  /* ── Cyber silver ──────────────────────────────────────────────────── */
+  --silver-platinum: #f8fafc;
+  --silver-chrome:   #e2e8f0;
+  --silver-brushed:  #cbd5e1;
+  --silver-slate:    #94a3b8;
+  --silver-shadow:   #334155;
 
-  --shadow-card: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
-  --shadow-glow: 0 0 30px var(--primary-glow);
+  --border:        rgba(148, 163, 184, 0.14);
+  --border-hover:  rgba(203, 213, 225, 0.34);
+
+  --primary:         #e2e8f0;
+  --primary-contrast:#05070a;
+  --primary-light:   #f8fafc;
+  --primary-glow:    rgba(226, 232, 240, 0.16);
+  --accent:          #38bdf8;
+  --accent-light:    #7dd3fc;
+  --accent-glow:     rgba(56, 189, 248, 0.2);
+  --accent-dim:      rgba(56, 189, 248, 0.12);
+  --success:         #34d399;
+  --danger:          #f43f5e;
+  --warning:         #f59e0b;
+
+  --text-primary:   #eef3f9;
+  --text-secondary: #9aa8b8;
+  --text-muted:     #7b8a9e;
+
+  --radius-sm:  8px;
+  --radius-md:  14px;
+  --radius-lg:  20px;
+  --radius-xl:  26px;
+
+  --nav-h: 60px;
+  --dock-h: 0px;
+
+  --shadow-card: 0 24px 60px -40px rgba(0,0,0,0.95), 0 0 0 1px var(--border);
+  --shadow-glass: inset 0 1px 0 var(--glass-border-specular), inset 0 -1px 0 var(--glass-shadow-bottom), 0 30px 60px -30px rgba(0,0,0,0.9);
+  --shadow-glow: 0 0 0 1px rgba(226, 232, 240, 0.2), 0 18px 40px -24px rgba(226, 232, 240, 0.35);
   --transition: 0.2s ease;
+
+  /* Ambient tint (R, G, B) switched per page by data-atmosphere. */
+  --ambient: 203, 213, 225;
 }
 
 /* ============ RESET & BASE ============ */
@@ -250,7 +283,7 @@ img { max-width: 100%; }
   align-items: center;
   justify-content: center;
   padding: 2rem 1.25rem;
-  background: radial-gradient(ellipse 80% 60% at 50% -20%, rgba(124,58,237,0.15) 0%, transparent 70%);
+  background: radial-gradient(ellipse 80% 60% at 50% -20%, rgba(148, 163, 184, 0.15) 0%, transparent 70%);
 }
 
 .auth-box {
@@ -312,6 +345,37 @@ img { max-width: 100%; }
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Tab groups scroll on phones; the primary actions stay pinned beside them
+   so "New post" can never be scrolled out of reach. */
+.feed-tabs-rail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* The action cluster never shrinks and never wraps mid-label: "New post"
+   must stay a single clean pill at every width down to 320px. */
+.feed-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.feed-actions .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .sort-tabs {
@@ -416,8 +480,8 @@ img { max-width: 100%; }
 }
 
 .tag {
-  background: rgba(124,58,237,0.12);
-  border: 1px solid rgba(124,58,237,0.25);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
   color: var(--primary-light);
   border-radius: 99px;
   padding: 0.2rem 0.65rem;
@@ -441,31 +505,6 @@ img { max-width: 100%; }
   font-size: 0.82rem;
   color: var(--text-muted);
   font-weight: 500;
-}
-
-.like-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  font-family: 'Outfit', sans-serif;
-  padding: 0.2rem 0.5rem;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition);
-}
-
-.like-btn:hover {
-  color: #ec4899;
-  background: rgba(236,72,153,0.1);
-}
-
-.like-btn.liked {
-  color: #ec4899;
 }
 
 .post-card-owner-actions {
@@ -628,7 +667,7 @@ img { max-width: 100%; }
   transform: translateX(-50%);
   width: 800px;
   height: 400px;
-  background: radial-gradient(ellipse, rgba(124,58,237,0.08) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(148, 163, 184, 0.08) 0%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -772,9 +811,9 @@ img { max-width: 100%; }
   background: rgba(14, 14, 26, 0.78);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(124, 58, 237, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 999px;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(124, 58, 237, 0.18);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(148, 163, 184, 0.18);
   max-width: 92vw;
   animation: toolbarFloatIn 0.35s ease-out;
 }
@@ -810,7 +849,7 @@ img { max-width: 100%; }
 
 .floating-toolbar-btn.active {
   color: var(--primary-light);
-  background: rgba(124, 58, 237, 0.15);
+  background: rgba(148, 163, 184, 0.15);
 }
 
 .toolbar-icon {
@@ -829,7 +868,7 @@ img { max-width: 100%; }
   background: linear-gradient(135deg, var(--primary), var(--accent));
   color: #fff;
   border-radius: 999px;
-  box-shadow: 0 0 16px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 0 16px rgba(148, 163, 184, 0.45);
   padding: 0.45rem 1rem;
 }
 
@@ -1051,8 +1090,8 @@ img { max-width: 100%; }
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(124, 58, 237, 0.18);
-  border: 1px solid rgba(124, 58, 237, 0.4);
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   color: var(--primary-light);
   margin-left: 0.25rem;
   user-select: none;
@@ -1126,12 +1165,12 @@ img { max-width: 100%; }
 }
 
 .medal-badge-card.unlocked {
-  background: rgba(124, 58, 237, 0.12);
-  border: 1px solid rgba(124, 58, 237, 0.35);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .medal-badge-card.unlocked:hover {
-  background: rgba(124, 58, 237, 0.22);
+  background: rgba(148, 163, 184, 0.22);
   transform: translateY(-2px);
   box-shadow: 0 4px 14px var(--primary-glow);
 }
@@ -1200,7 +1239,7 @@ img { max-width: 100%; }
 }
 
 .passport-quote-box {
-  background: rgba(124, 58, 237, 0.08);
+  background: rgba(148, 163, 184, 0.08);
   border-left: 3px solid var(--primary-light);
   padding: 0.5rem 0.75rem;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -1318,6 +1357,27 @@ img { max-width: 100%; }
   padding: 0.35rem 0.6rem;
   border-radius: var(--radius-sm);
   font-size: 0.8rem;
+}
+
+.game-platform {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.58rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  flex: 0 0 auto;
+}
+
+.rig-primary-flag {
+  margin-left: 4px;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--silver-chrome);
+  opacity: 0.75;
 }
 
 .game-item-title {
@@ -1456,12 +1516,6 @@ img { max-width: 100%; }
   transform: translateY(-2px);
 }
 
-.community-card-icon {
-  font-size: 2.2rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
 .community-card-body {
   flex: 1;
   overflow: hidden;
@@ -1550,7 +1604,7 @@ img { max-width: 100%; }
   transition: background 0.12s, color 0.12s;
 }
 .channel-item:hover  { background: var(--bg-elevated); color: var(--text-primary); }
-.channel-item.active { background: var(--accent-dim, rgba(139,92,246,0.2)); color: var(--accent); font-weight: 700; }
+.channel-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 700; }
 
 .channel-hash {
   font-size: 0.85rem;
@@ -1802,7 +1856,7 @@ img { max-width: 100%; }
 .channel-row { display: flex; align-items: center; gap: 0.15rem; padding-right: 0.35rem; }
 .channel-row .channel-item { flex: 1; min-width: 0; }
 .channel-row.active .channel-item {
-  background: var(--accent-dim, rgba(139, 92, 246, 0.2));
+  background: var(--accent-dim);
   color: var(--accent);
   font-weight: 700;
 }
@@ -1961,18 +2015,6 @@ img { max-width: 100%; }
 }
 .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
-.icon-picker { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.icon-pick {
-  font-size: 1.25rem;
-  padding: 0.15rem 0.4rem;
-  background: var(--bg-elevated);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color var(--transition), background var(--transition);
-}
-.icon-pick.active { border-color: var(--accent); background: rgba(6, 182, 212, 0.12); }
-
 /* Audit log */
 .audit-list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.15rem; }
 .audit-entry {
@@ -2009,4 +2051,3 @@ img { max-width: 100%; }
   letter-spacing: 0.04em;
   color: var(--accent);
 }
-

@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom';
 import { Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
+import useCursorGlow from '../hooks/useCursorGlow';
+import { CloseIcon } from '../components/common/icons';
 
 const GameDetailModal = ({ gameId, onClose }) => {
   const [game, setGame] = useState(null);
@@ -35,7 +37,7 @@ const GameDetailModal = ({ gameId, onClose }) => {
           <h2 id="game-detail-title" className="modal-title" style={{ margin: 0 }}>
             {game?.title || 'Game details'}
           </h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close">✕</button>
+          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
         </div>
 
         {loading && <div className="spinner" />}
@@ -74,7 +76,7 @@ const GameDetailModal = ({ gameId, onClose }) => {
 
             {game.gameUrl && (
               <a className="btn btn-ghost btn-sm" href={game.gameUrl} target="_blank" rel="noreferrer noopener">
-                Play for free ↗
+                Play for free 
               </a>
             )}
           </>
@@ -98,6 +100,7 @@ const GameCatalog = () => {
   const [saving, setSaving] = useState(null);
   const [toast, setToast] = useState('');
   const searchTimer = useRef(null);
+  const glowRef = useCursorGlow();
 
   const load = useCallback(async (query, genreValue) => {
     setLoading(true);
@@ -143,7 +146,7 @@ const GameCatalog = () => {
         activeGame: game.title
       });
       updateUser({ presence: data.presence });
-      setToast(`🟣 You are now playing ${game.title}.`);
+      setToast(`You are now playing ${game.title}.`);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not set your active game.');
     } finally {
@@ -152,11 +155,11 @@ const GameCatalog = () => {
   };
 
   return (
-    <main className="page">
+    <main className="page" ref={glowRef}>
       <div className="container">
         <div className="page-header">
           <div>
-            <h1 className="page-title">🎮 Game catalog</h1>
+            <h1 className="page-title">Game catalog</h1>
             <p className="page-subtitle">
               Browse free-to-play games{meta.catalogSize ? ` · ${meta.catalogSize} titles` : ''}. Set one as your active game and it shows up in chat and on your profile.
             </p>
@@ -204,7 +207,7 @@ const GameCatalog = () => {
         ) : (
           <div className="catalog-grid">
             {games.map(game => (
-              <article key={game.id} className="catalog-card">
+              <article key={game.id} className="catalog-card glow-card">
                 <img className="catalog-thumb" src={game.thumbnail} alt="" loading="lazy" />
                 <div className="catalog-body">
                   <h3 className="catalog-title">{game.title}</h3>

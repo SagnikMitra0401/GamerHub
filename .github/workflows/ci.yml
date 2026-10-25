@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  quality:
+    name: Unit tests, build and gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Install client dependencies
+        run: npm ci --prefix client
+
+      # 74 checks: permissions, sanitizers, SSRF, origins, LFG, feed ranking,
+      # cache, bot security, like buffer, redis cache. No database needed.
+      - name: Server unit tests
+        run: npm test
+
+      - name: Client component tests
+        run: npm test --prefix client
+
+      - name: Client production build
+        run: npm run build --prefix client
+
+      # Chrome glyphs and emojis are banned in the shell; this is the gate that
+      # keeps the design system from drifting back.
+      - name: Design-system gate (no emoji in chrome)
+        run: node scripts/scan-emoji.js
+
+  e2e:
+    name: End-to-end suites
+    runs-on: ubuntu-latest
+    # The suites boot the app in-process against a throwaway database on the
+    # same cluster as MONGO_URI, then drop it. Without the secret they are
+    # skipped rather than red — a fork cannot run them and should not fail CI.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix client
+
+      - name: Check for a test cluster
+        id: cluster
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          if [ -z "$MONGO_URI" ] || [ -z "$JWT_SECRET" ]; then
+            echo "::notice::MONGO_URI / JWT_SECRET are not configured; skipping the e2e suites."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: E2E suites
+        if: steps.cluster.outputs.ready == 'true'
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          # Redis stays off: the free tier quota is the constraint, and the
+          # Redis-off fallback is the path that ships.
+          REDIS_ENABLED: ''
+        run: npm run test:e2e
+
+      - name: Migration status
+        if: steps.cluster.outputs.ready == 'true'
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+        # Reports pending migrations without applying them: a push must never
+        # mutate a database that a deploy is about to use.
+        run: npm run migrate:status
