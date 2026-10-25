@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 26 October 2026 · **Branch:** `main` · **Working tree:** clean (pass 3 committed)
+**Last updated:** 26 October 2026 · **Branch:** `main` · **Head:** `f69a2e7` · **Working tree:** clean
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -22,8 +22,11 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | Client production build | `npm run build --prefix client` | **pass** — 164 modules, 76.05 kB CSS / 429.44 kB JS | 26 Oct, pass 3 |
 | UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** | 25 Oct (that pass) |
 | Design-system gate | `node scripts/scan-emoji.js` | **0 hits** | 26 Oct, pass 3 |
+| CI — `quality` job | push to `main` | **pass** — 5 steps really executed (install, 74 units, 28 client checks, build, emoji gate), 17 s | 26 Oct, run 2 (`f69a2e7`) |
+| CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**386 automated checks green** (74 server + 28 client + 284 e2e).
+**386 automated checks green** (74 server + 28 client + 284 e2e), and the same
+284 now run on GitHub's runners as well as locally.
 
 **Pass 3 (26 Oct) — Phase 7 quality gate.** Added the server suites for the
 buffered like path and the two-tier cache, the client component suite, a shared
@@ -32,7 +35,21 @@ their scaffolding changed, not because the server did; the refactor produced the
 same 59 / 66 / 159 tallies, which is the equivalence proof. Nothing is
 outstanding — the remaining work is product work, in [ROADMAP.md](ROADMAP.md).
 
-### CI run 1 — `8654301`, green, e2e skipped (read this before trusting a badge)
+### CI run 2 — `f69a2e7`, the real pass
+
+Both jobs green with nothing skipped: `Check for a test cluster` → success,
+`E2E suites` → success (3 m 13 s, which is the three scripts chained with `&&`
+— the step only exits 0 after `e2e.js`, `e2e-phase4.js` and `e2e-phase6.js` all
+report their full tallies), `Migration status` → success in 3 s. That last one
+also settles the two questions a local run could not: GitHub's runners reach
+Atlas, and both migrations are recorded as applied on the live cluster.
+
+Job logs are not readable without an authenticated API token, so the counts here
+come from step conclusions plus the suites' `process.exit(1)`-on-failure
+contract rather than from a parsed log line. Re-read the job page if a number
+ever needs quoting exactly.
+
+### CI run 1 — `8654301`, green, e2e skipped (superseded by run 2)
 
 The first Actions run reported **success in 22 s**, but `E2E suites` and
 `Migration status` are listed as `skipped`, not passed: the cluster check found
@@ -60,6 +77,7 @@ checks, build, emoji gate).
 | `scripts/e2e-phase4.js` | feed ranking, presence, LFG, bot, admin or catalog change |
 | `scripts/e2e-phase6.js` | posts, comments, likes, bookmarks, follows, passport, notifications, search, migrations, cache or rate limits change |
 | Client build | any file under `client/src/` changes |
+| The CI suite | never by hand — a push to `main` runs it; read the run instead |
 | UI smoke | a `*.jsx` or `*.css` file under `client/src/` changes **and** the change touches layout, a nav element, a modal, or the design tokens |
 | `scripts/lib/e2e-harness.js` | **always** re-run all three e2e suites — every check goes through it |
 
