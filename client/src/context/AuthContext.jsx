@@ -38,9 +38,15 @@ export const AuthProvider = ({ children }) => {
     await fetchMe(); // full profile (savedPosts/favoriteChannels)
   };
 
-  /** Exchange a Google ID token for a session (verified server-side). */
-  const loginWithGoogle = async (credential) => {
-    const { data } = await axiosInstance.post('/auth/google', { credential });
+  /**
+   * Exchange a Google credential for a session.
+   * Accepts either an ID token (credential) from the GIS renderButton flow
+   * or an access token from the OAuth2 token client flow (custom slider UI).
+   * The backend accepts both; exactly one must be truthy.
+   */
+  const loginWithGoogle = async (credential, accessToken) => {
+    const body = credential ? { credential } : { accessToken };
+    const { data } = await axiosInstance.post('/auth/google', body);
     if (data.token) setToken(data.token);
     await fetchMe();
   };

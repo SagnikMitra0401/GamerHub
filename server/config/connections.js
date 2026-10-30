@@ -25,6 +25,10 @@
  */
 
 const mongoose = require('mongoose');
+const dns = require('dns');
+
+dns.setDefaultResultOrder('ipv4first');
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const DOMAIN_LIMITS = Object.freeze({
   auth: 10,

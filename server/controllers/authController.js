@@ -164,9 +164,14 @@ const googleLogin = async (req, res, next) => {
       return res.status(503).json({ message: 'Google sign-in is not configured on this server.' });
     }
 
-    const credential = typeof req.body?.credential === 'string' ? req.body.credential : '';
-    if (!credential || credential.length > 8000) {
+    const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
+    const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
+
+    if (!credential && !accessToken) {
       return res.status(400).json({ message: 'Missing Google credential' });
+    }
+    if (credential.length > 8000 || accessToken.length > 2000) {
+      return res.status(400).json({ message: 'Invalid Google credential' });
     }
 
     let OAuth2Client;
@@ -177,21 +182,58 @@ const googleLogin = async (req, res, next) => {
     }
 
     const client = new OAuth2Client(clientId);
-    let payload;
-    try {
-      const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
-      payload = ticket.getPayload();
-    } catch {
-      return res.status(401).json({ message: 'Google credential could not be verified' });
+    let subject;
+    let email;
+    let name = '';
+
+    if (credential) {
+      let payload;
+      try {
+        const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+        payload = ticket.getPayload();
+      } catch {
+        return res.status(401).json({ message: 'Google credential could not be verified' });
+      }
+
+      subject = payload?.sub;
+      email = sanitizeLine(payload?.email, 254).toLowerCase();
+      name = payload?.name || '';
+      if (payload?.email_verified === false) {
+        return res.status(403).json({ message: 'That Google account has no verified email.' });
+      }
+    } else {
+      let tokenInfo;
+      try {
+        tokenInfo = await client.getTokenInfo(accessToken);
+      } catch {
+        return res.status(401).json({ message: 'Google credential could not be verified' });
+      }
+
+      if (tokenInfo.aud && tokenInfo.aud !== clientId && tokenInfo.issued_to !== clientId) {
+        return res.status(401).json({ message: 'Google token audience mismatch' });
+      }
+
+      subject = tokenInfo.sub || tokenInfo.user_id;
+      email = sanitizeLine(tokenInfo.email, 254).toLowerCase();
+      if (tokenInfo.email_verified === false || tokenInfo.verified_email === false) {
+        return res.status(403).json({ message: 'That Google account has no verified email.' });
+      }
+
+      try {
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (userRes.ok) {
+          const userObj = await userRes.json();
+          name = userObj.name || '';
+        }
+      } catch {
+        // Fallback to email for username generation
+      }
     }
 
-    const subject = payload?.sub;
-    const email = sanitizeLine(payload?.email, 254).toLowerCase();
     if (!subject || !email) {
       return res.status(401).json({ message: 'Google credential could not be verified' });
-    }
-    if (payload.email_verified === false) {
-      return res.status(403).json({ message: 'That Google account has no verified email.' });
     }
 
     let user = await User.findOne({
@@ -206,7 +248,7 @@ const googleLogin = async (req, res, next) => {
         });
       }
 
-      const username = await usernameFromGoogle({ email, name: payload.name });
+      const username = await usernameFromGoogle({ email, name });
       user = await User.create({
         username,
         email,
