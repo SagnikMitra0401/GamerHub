@@ -19,66 +19,95 @@ async function dropIndexIfPresent(collection, name) {
   }
 }
 
+async function safeCreateIndex(collection, keys, options = {}) {
+  try {
+    const indexes = await collection.indexes();
+    const keysJson = JSON.stringify(keys);
+    for (const idx of indexes) {
+      if (idx.name === options.name) return;
+      if (JSON.stringify(idx.key) === keysJson) {
+        await collection.dropIndex(idx.name);
+        break;
+      }
+    }
+  } catch (err) {
+    // Collection might not exist yet; safe to proceed to createIndex
+  }
+  await collection.createIndex(keys, options);
+}
+
 module.exports = {
   async up(db) {
     // ── Messages ────────────────────────────────────────────────────────────
-    await db.collection('messages').createIndex(
+    await safeCreateIndex(
+      db.collection('messages'),
       { channelId: 1, pinned: 1, createdAt: -1 },
       { name: 'messages_channel_pinned' }
     );
-    await db.collection('messages').createIndex(
+    await safeCreateIndex(
+      db.collection('messages'),
       { text: 'text' },
       { name: TEXT_INDEX, default_language: 'english' }
     );
 
     // ── Forum posts ─────────────────────────────────────────────────────────
-    await db.collection('forumposts').createIndex(
+    await safeCreateIndex(
+      db.collection('forumposts'),
       { channelId: 1, pinned: -1, lastReplyAt: -1, createdAt: -1 },
       { name: 'forumpost_channel_feed' }
     );
-    await db.collection('forumposts').createIndex(
+    await safeCreateIndex(
+      db.collection('forumposts'),
       { channelId: 1, status: 1, createdAt: -1 },
       { name: 'forumpost_channel_status' }
     );
-    await db.collection('forumposts').createIndex(
+    await safeCreateIndex(
+      db.collection('forumposts'),
       { channelId: 1, tags: 1 },
       { name: 'forumpost_tags' }
     );
-    await db.collection('forumposts').createIndex(
+    await safeCreateIndex(
+      db.collection('forumposts'),
       { title: 'text', body: 'text' },
       { weights: { title: 10, body: 1 }, name: FORUM_TEXT_INDEX }
     );
 
     // ── Forum replies ───────────────────────────────────────────────────────
-    await db.collection('forumreplies').createIndex(
+    await safeCreateIndex(
+      db.collection('forumreplies'),
       { postId: 1, createdAt: 1 },
       { name: 'forumreply_post_created' }
     );
 
     // ── Attachments ─────────────────────────────────────────────────────────
-    await db.collection('attachments').createIndex(
+    await safeCreateIndex(
+      db.collection('attachments'),
       { channelId: 1, createdAt: -1 },
       { name: 'attachment_channel_created' }
     );
-    await db.collection('attachments').createIndex(
+    await safeCreateIndex(
+      db.collection('attachments'),
       { uploaderId: 1, status: 1 },
       { name: 'attachment_uploader_status' }
     );
 
     // ── Reports ─────────────────────────────────────────────────────────────
-    await db.collection('reports').createIndex(
+    await safeCreateIndex(
+      db.collection('reports'),
       { communityId: 1, status: 1, createdAt: -1 },
       { name: 'report_community_status' }
     );
     // Duplicate reports are a no-op at the controller level; this index is the
     // reason the controller can rely on err.code 11000.
-    await db.collection('reports').createIndex(
+    await safeCreateIndex(
+      db.collection('reports'),
       { reporterId: 1, targetId: 1 },
       { name: 'report_reporter_target', unique: true }
     );
 
     // ── Communities ─────────────────────────────────────────────────────────
-    await db.collection('communities').createIndex(
+    await safeCreateIndex(
+      db.collection('communities'),
       { 'bannedUsers.userId': 1 },
       { name: 'community_banned_user' }
     );

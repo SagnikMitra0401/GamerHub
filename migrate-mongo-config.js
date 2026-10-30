@@ -10,6 +10,10 @@
  * the one the app actually writes to.
  */
 require('dotenv').config();
+const dns = require('dns');
+
+dns.setDefaultResultOrder('ipv4first');
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const MONGO_URI = process.env.MONGO_URI || '';
 
