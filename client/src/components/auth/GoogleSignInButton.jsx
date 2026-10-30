@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 
@@ -47,6 +48,7 @@ const Spinner = () => (
  */
 const GoogleSignInButton = ({ onError }) => {
   const { loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
 
   /* ── Provider config ───────────────────────────────────────────────── */
   const [config, setConfig] = useState(null);
@@ -89,6 +91,9 @@ const GoogleSignInButton = ({ onError }) => {
     try {
       await loginWithGoogle(null, tokenResponse.access_token);
       setUiState('success');
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 600);
     } catch (err) {
       setUiState('error');
       snapBack();
@@ -96,7 +101,7 @@ const GoogleSignInButton = ({ onError }) => {
       setTimeout(() => setUiState('idle'), 1800);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loginWithGoogle, onError]);
+  }, [loginWithGoogle, onError, navigate]);
 
   useEffect(() => {
     if (!config?.enabled || !config.clientId) return;
