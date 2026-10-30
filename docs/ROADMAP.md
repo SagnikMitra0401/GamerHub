@@ -1,12 +1,14 @@
 # GamerHub — Next Phases
 
-Written after the Phase 6 test pass. Each phase is sized to ship independently;
-nothing here is required for the app to keep working as it does today.
+Written after the Phase 6 test pass, updated after the community and foundation
+milestones. Each phase is sized to ship independently; nothing here is required
+for the app to keep working as it does today.
 
 Current state: MERN monolith (Express + Mongoose + Socket.io, React 18 + Vite),
-386 automated checks passing (74 server unit, 28 client component, 284 e2e),
-CI on every push, migrations applied, Redis implemented but switched off, single
-Render instance.
+579 automated checks passing (117 server unit, 28 client component, 434 e2e
+across five suites), CI on every push, Redis implemented but switched off,
+single Render instance, domain-partitioned migration tracks written and awaiting
+their first Atlas run.
 
 ---
 
@@ -45,6 +47,24 @@ also no CI: a broken build or a red migration is discovered by hand.
 fails CI without a human running anything.
 
 **Effort:** 1–1.5 days. **Risk:** low.
+
+---
+
+## Phase 8F — Foundation, consent & squads — ✅ delivered
+
+**Delivered 31 October 2026.** Domain-partitioned connections (the temporary
+squad-chat domain runs on its own pool) and per-domain migration tracks; account
+governance (session versions, `logout-all`, account states, Google Sign-In
+verification); the consent-driven invitation ledger with a squad → server
+migration; squad lifecycle with the 15-day temporary chat (request-time expiry,
+owner refresh, live eviction, retention purge); privacy settings, two-way
+blocking, JSON data export and a 30-day cancellable deletion flow with erasure.
+117 server checks and 434 e2e checks pass. Detail and what is *not* verified:
+[TEST_LEDGER.md](TEST_LEDGER.md) pass 5.
+
+Known follow-ups from this milestone: squad chat is text-only (no attachments),
+a squad's chat is not deleted when the Party TTL removes the squad (it expires on
+its own), and the domain migration tracks still need their first Atlas run.
 
 ---
 
@@ -127,7 +147,9 @@ and moderation currently starts and ends at message deletion.
 **Scope**
 - Email verification and password reset with single-use, hashed, expiring tokens
   (needs a transactional email provider — pick one at implementation time).
-- Active sessions list with revoke, plus "log out everywhere".
+- Active sessions list with revoke. ("Log out everywhere" ships in the
+  foundation milestone via `sessionVersion`; a per-device list needs a session
+  table, which is the remaining piece.)
 - Report flow for posts/messages/users → moderation queue in the admin dashboard,
   with resolution notes written to `AuditLog`.
 - Soft-delete/retention policy for posts to match the existing message tombstone.
@@ -167,11 +189,12 @@ not as a user report.
 |---|---|---|
 | 1 | **8 — Inbox** | Next product increment, low risk |
 | 2 | **12 — Operability** | Before any public push |
-| 3 | **11 — Account lifecycle** | When onboarding real users |
+| 3 | **11 — Account lifecycle** | When onboarding real users (session revocation and deletion already ship) |
 | 4 | **10 — Discovery** | Once there are thousands of posts |
 | 5 | **9 — Multi-instance** | Only when a second instance is actually needed |
 
-Phase 7 is done: 386 checks and a CI gate stand between a regression and `main`.
+Phases 7 and 8F are done: 579 checks and a CI gate stand between a regression
+and `main`, and identity/consent is no longer the weak spot in the product.
 
 ## Deliberately deferred
 

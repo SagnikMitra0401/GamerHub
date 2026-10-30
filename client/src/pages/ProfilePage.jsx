@@ -9,10 +9,12 @@ import EditPassportModal from '../components/profile/EditPassportModal';
 import { ROLE_LABELS } from '../utils/permissions';
 import { FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon } from '../components/common/icons';
 import CommunitySigil from '../components/communities/CommunitySigil';
+import PrivacySettingsModal from '../components/profile/PrivacySettingsModal';
+import InvitationInbox from '../components/invitations/InvitationInbox';
 
 const ProfilePage = () => {
   const { username } = useParams();
-  const { user: me } = useAuth();
+  const { user: me, updateUser } = useAuth();
   const navigate = useNavigate();
 
   const [profile, setProfile]               = useState(null);
@@ -23,8 +25,31 @@ const ProfilePage = () => {
   const [postsLoading, setPostsLoading]     = useState(false);
   const [activeModal, setActiveModal]       = useState(null); // 'followers' | 'following' | null
   const [passportModalOpen, setPassportModalOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [invitesOpen, setInvitesOpen] = useState(false);
 
   const isOwnProfile = me?.username === username;
+  const isBlocked = Boolean(
+    me && profile && (me.blockedUsers || []).some(id => String(id) === String(profile._id))
+  );
+
+  const toggleBlock = async () => {
+    if (!profile) return;
+    try {
+      const path = `/account/block/${profile._id}`;
+      if (isBlocked) await axiosInstance.delete(path);
+      else await axiosInstance.post(path);
+
+      const current = (me.blockedUsers || []).map(String);
+      updateUser({
+        blockedUsers: isBlocked
+          ? current.filter(id => id !== String(profile._id))
+          : [...current, String(profile._id)]
+      });
+    } catch (err) {
+      window.alert(err.response?.data?.message || 'Could not update that block.');
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -128,6 +153,31 @@ const ProfilePage = () => {
                       initialFollowing={profile.isFollowing}
                       onToggle={handleFollowToggle}
                     />
+
+                    {!isOwnProfile && me && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={toggleBlock}>
+                        {isBlocked ? 'Unblock' : 'Block'}
+                      </button>
+                    )}
+
+                    {isOwnProfile && (
+                      <span className="profile-own-actions">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setInvitesOpen(true)}
+                        >
+                          Invitations
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setPrivacyOpen(true)}
+                        >
+                          Privacy &amp; data
+                        </button>
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-muted" style={{ marginBottom: '0.75rem' }}>
@@ -353,6 +403,17 @@ const ProfilePage = () => {
         initialPassport={profile.gamerPassport}
         onSave={handlePassportSave}
       />
+
+      {isOwnProfile && (
+        <>
+          <PrivacySettingsModal isOpen={privacyOpen} onClose={() => setPrivacyOpen(false)} />
+          <InvitationInbox
+            isOpen={invitesOpen}
+            onClose={() => setInvitesOpen(false)}
+            onAccepted={() => navigate('/lfg')}
+          />
+        </>
+      )}
     </main>
   );
 };

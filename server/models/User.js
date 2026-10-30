@@ -100,6 +100,49 @@ const UserSchema = new mongoose.Schema({
     }
   },
 
+  // ── Identity & account governance (phase 8) ────────────────────────────
+  // 'creator_business' profiles get the contact-consent rules; the flag is
+  // deliberately advisory — every enforcement point reads privacySettings,
+  // never the profile type.
+  profileType: {
+    type: String,
+    enum: ['personal', 'creator_business'],
+    default: 'personal'
+  },
+  // 'restricted' is a staff-limited account; 'deletion_pending' keeps the
+  // account usable (the owner may change their mind) until the grace period
+  // ends and the retention worker anonymises it into 'deleted'.
+  status: {
+    type: String,
+    enum: ['active', 'restricted', 'suspended', 'deletion_pending', 'deleted'],
+    default: 'active',
+    index: true
+  },
+  // Bumped by "sign out everywhere" and by a deletion request. Tokens carry
+  // the version they were minted with, so an old cookie stops working without
+  // a server-side session table.
+  sessionVersion: { type: Number, default: 0 },
+
+  authIdentities: [{
+    provider: { type: String, enum: ['google', 'local'], required: true },
+    // The stable OIDC 'sub' claim — never the email, which can change.
+    providerSubject: { type: String, required: true },
+    emailVerified: { type: Boolean, default: false }
+  }],
+
+  privacySettings: {
+    allowSquadInvites:  { type: String, enum: ['anyone', 'followers', 'none'], default: 'anyone' },
+    allowServerInvites: { type: String, enum: ['anyone', 'followers', 'none'], default: 'anyone' },
+    allowDirectMessages: { type: String, enum: ['anyone', 'mutual_follows', 'none'], default: 'mutual_follows' },
+    discoverableInSearch: { type: Boolean, default: true },
+    showActivityStatus:   { type: Boolean, default: true }
+  },
+
+  // People this user never wants to hear from. Enforced server-side for
+  // invitations and search; chat muting stays a separate client preference.
+  blockedUsers: { type: [mongoose.Schema.Types.ObjectId], ref: 'User', default: [] },
+  deletionRequestedAt: { type: Date, default: null },
+
   // Personal mutes: hides another user's content from YOUR client only.
   // Deliberately not a moderation tool — the server keeps delivering the
   // messages so a mute can never be mistaken for a ban.

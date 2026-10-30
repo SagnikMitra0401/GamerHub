@@ -36,7 +36,9 @@ function cleanStringList(input, { maxLength = 40, limit = MAX_FAVORITES } = {}) 
 const getProfile = async (req, res, next) => {
   try {
     const user = await User.findOne({ username: req.params.username })
-      .select('-passwordHash -email')
+      // Sign-in identities, session counters and personal block lists are not
+      // public profile data.
+      .select('-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -blockedUsers -mutedUsers')
       .populate('followers', 'username')
       .populate('following', 'username')
       .lean();
@@ -229,14 +231,33 @@ const searchAll = async (req, res, next) => {
 
     const safe = escapeRegex(q);
 
+    // Blocking is symmetric: hide accounts the caller blocked *and* accounts
+    // that blocked the caller, in both people and post results.
+    let hiddenIds = [];
+    if (req.user) {
+      const blockedByOthers = await User.find({ blockedUsers: req.user._id })
+        .select('_id')
+        .lean();
+      hiddenIds = [
+        ...(req.user.blockedUsers || []).map(String),
+        ...blockedByOthers.map((user) => String(user._id))
+      ];
+    }
+
+    const userFilter = {
+      username: { $regex: `^${safe}`, $options: 'i' },
+      'privacySettings.discoverableInSearch': { $ne: false }
+    };
+    if (hiddenIds.length) userFilter._id = { $nin: hiddenIds };
+
+    const postFilter = { $text: { $search: q } };
+    if (hiddenIds.length) postFilter.userId = { $nin: hiddenIds };
+
     const [posts, users, tags] = await Promise.all([
       // Weights come from the schema/migration text index: title 10, tags 5,
       // body 1. Sorting by textScore puts the best match first; createdAt breaks
       // ties so equally relevant posts stay in publish order.
-      Post.find(
-        { $text: { $search: q } },
-        { score: { $meta: 'textScore' } }
-      )
+      Post.find(postFilter, { score: { $meta: 'textScore' } })
         .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
         .limit(10)
         .populate('userId', 'username level role')
@@ -244,7 +265,7 @@ const searchAll = async (req, res, next) => {
 
       // Anchored prefix, not an unanchored scan: the unique username index can
       // serve `^handle` directly.
-      User.find({ username: { $regex: `^${safe}`, $options: 'i' } })
+      User.find(userFilter)
         .select('username level role medals')
         .limit(8)
         .lean(),

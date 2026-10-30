@@ -4,6 +4,7 @@ import axiosInstance from '../api/axiosInstance';
 import { getSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
 import CreatePartyModal from '../components/lfg/CreatePartyModal';
+import SquadChatDrawer from '../components/lfg/SquadChatDrawer';
 import useCursorGlow from '../hooks/useCursorGlow';
 
 const userName = (value) => value?.username || 'deleted user';
@@ -27,10 +28,24 @@ const SlotDots = ({ taken, max }) => (
   </span>
 );
 
-const PartyCard = ({ party, onJoin, onRespond, onClose, joining, joinMessage, setJoinMessage }) => {
+const chatTimeLeft = (expiresAt) => {
+  if (!expiresAt) return '';
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return 'expired';
+  const days = Math.floor(ms / 86_400_000);
+  const hours = Math.floor((ms % 86_400_000) / 3_600_000);
+  return days >= 1 ? `${days}d ${hours}h` : `${Math.max(1, Math.floor(ms / 3_600_000))}h`;
+};
+
+const PartyCard = ({
+  party, onJoin, onRespond, onClose, onLock, onUnlock, onLeave, onOpenChat,
+  joining, joinMessage, setJoinMessage
+}) => {
   const members = party.members || [];
   const isLeader = party.viewerMembership === 'leader';
+  const isMember = party.viewerMembership === 'member';
   const canJoin = party.viewerMembership === 'none' && party.openSlots > 0 && party.status === 'open';
+  const chat = party.chat;
 
   return (
     <article className={`lfg-card glow-card${isLeader ? ' mine' : ''}`}>
@@ -48,6 +63,11 @@ const PartyCard = ({ party, onJoin, onRespond, onClose, joining, joinMessage, se
             {party.requirements?.micRequired && <span className="lfg-tag">Mic required</span>}
             {party.requirements?.minRank && <span className="lfg-tag">{party.requirements.minRank}</span>}
             {isLeader && <span className="lfg-tag lfg-tag-lead">Your squad</span>}
+            {chat && (
+              <span className={`lfg-tag lfg-chat-tag${chat.state !== 'active' ? ' ended' : ''}`}>
+                Squad chat · {chat.state === 'active' ? chatTimeLeft(chat.expiresAt) : chat.state}
+              </span>
+            )}
           </div>
         </div>
         <span className="lfg-expiry">{party.status === 'open' ? timeLeft(party.expiresAt) : party.status}</span>
@@ -117,15 +137,42 @@ const PartyCard = ({ party, onJoin, onRespond, onClose, joining, joinMessage, se
       {party.viewerMembership === 'pending' && (
         <p className="lfg-note">Request sent — waiting for the leader.</p>
       )}
-      {party.viewerMembership === 'member' && (
+      {isMember && !chat && (
         <p className="lfg-note">You are in this squad.</p>
       )}
 
-      {isLeader && (
+      {(isLeader || isMember || chat) && (
         <div className="lfg-card-footer">
-          <button type="button" className="btn btn-danger btn-sm" onClick={() => onClose(party)}>
-            Close squad
-          </button>
+          {chat && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onOpenChat(party)}
+              disabled={chat.state === 'closed'}
+            >
+              {chat.state === 'active' ? 'Squad chat' : 'Chat closed'}
+            </button>
+          )}
+          {isLeader && party.status === 'open' && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onLock(party)}>
+              Lock &amp; open chat
+            </button>
+          )}
+          {isLeader && party.status === 'full' && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onUnlock(party)}>
+              Reopen recruiting
+            </button>
+          )}
+          {isMember && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onLeave(party)}>
+              Leave squad
+            </button>
+          )}
+          {isLeader && (
+            <button type="button" className="btn btn-danger btn-sm" onClick={() => onClose(party)}>
+              Close squad
+            </button>
+          )}
         </div>
       )}
     </article>
@@ -143,6 +190,7 @@ const LfgPage = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [joining, setJoining] = useState(null);
   const [joinMessage, setJoinMessage] = useState({});
+  const [activeChat, setActiveChat] = useState(null);
   const reloadTimer = useRef(null);
   const glowRef = useCursorGlow();
 
@@ -239,6 +287,52 @@ const LfgPage = () => {
     }
   };
 
+  const lockSquad = async (party) => {
+    setJoining(`lock:${party._id}`);
+    setError('');
+    try {
+      const { data } = await axiosInstance.post(`/lfg/${party._id}/lock`);
+      setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
+      setToast('Squad locked — the temporary chat is live for 15 days.');
+      load(filters);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not lock that squad.');
+    } finally {
+      setJoining(null);
+    }
+  };
+
+  const unlockSquad = async (party) => {
+    setJoining(`unlock:${party._id}`);
+    setError('');
+    try {
+      const { data } = await axiosInstance.post(`/lfg/${party._id}/unlock`);
+      setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
+      setToast('Recruiting again.');
+      load(filters);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not reopen that squad.');
+    } finally {
+      setJoining(null);
+    }
+  };
+
+  const leaveSquad = async (party) => {
+    if (!window.confirm(`Leave ${party.gameTitle}?`)) return;
+    setJoining(`leave:${party._id}`);
+    setError('');
+    try {
+      await axiosInstance.post(`/lfg/${party._id}/leave`);
+      setMine(prev => prev.filter(p => p._id !== party._id));
+      setToast('You left the squad.');
+      load(filters);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not leave that squad.');
+    } finally {
+      setJoining(null);
+    }
+  };
+
   const closeParty = async (party) => {
     if (!window.confirm(`Close your ${party.gameTitle} squad?`)) return;
     try {
@@ -249,6 +343,12 @@ const LfgPage = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Could not close that squad.');
     }
+  };
+
+  const openChat = (party) => {
+    const chatId = party.chat?._id || party.chatId;
+    if (!chatId) return;
+    setActiveChat({ chatId, title: party.gameTitle });
   };
 
   const submitFilters = (event) => {
@@ -312,6 +412,10 @@ const LfgPage = () => {
                   onJoin={join}
                   onRespond={respond}
                   onClose={closeParty}
+                  onLock={lockSquad}
+                  onUnlock={unlockSquad}
+                  onLeave={leaveSquad}
+                  onOpenChat={openChat}
                   joining={joining}
                   joinMessage={joinMessage}
                   setJoinMessage={setJoinMessage}
@@ -339,6 +443,10 @@ const LfgPage = () => {
                   onJoin={join}
                   onRespond={respond}
                   onClose={closeParty}
+                  onLock={lockSquad}
+                  onUnlock={unlockSquad}
+                  onLeave={leaveSquad}
+                  onOpenChat={openChat}
                   joining={joining}
                   joinMessage={joinMessage}
                   setJoinMessage={setJoinMessage}
@@ -357,6 +465,14 @@ const LfgPage = () => {
           load(filters);
         }}
       />
+
+      {activeChat && (
+        <SquadChatDrawer
+          chatId={activeChat.chatId}
+          squadTitle={activeChat.title}
+          onClose={() => setActiveChat(null)}
+        />
+      )}
     </main>
   );
 };

@@ -12,12 +12,16 @@ const userRoutes      = require('./routes/userRoutes');
 const communityRoutes = require('./routes/communityRoutes');
 const lfgRoutes       = require('./routes/lfgRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const accountRoutes   = require('./routes/accountRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
+const squadChatRoutes = require('./routes/squadChatRoutes');
 const gameRoutes      = require('./routes/gameRoutes');
 const adminRoutes     = require('./routes/adminRoutes');
 const botRoutes       = require('./routes/botRoutes');
 const errorHandler    = require('./middleware/errorHandler');
 const { corsOrigin }  = require('./utils/origins');
 const { metricsMiddleware } = require('./utils/metrics');
+const { domainStatus } = require('./config/connections');
 
 const app = express();
 
@@ -54,7 +58,13 @@ const globalLimiter = rateLimit({
 app.use('/api', globalLimiter);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', uptime: Math.round(process.uptime()) });
+  const domains = domainStatus();
+  const healthy = domains.auth === 'connected' && domains.squads === 'connected';
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
+    uptime: Math.round(process.uptime()),
+    domains
+  });
 });
 
 app.use('/api/auth',        authRoutes);
@@ -64,6 +74,9 @@ app.use('/api/users',       userRoutes);
 app.use('/api/communities', communityRoutes);
 app.use('/api/lfg',         lfgRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/account',     accountRoutes);
+app.use('/api/invitations', invitationRoutes);
+app.use('/api/squad-chats', squadChatRoutes);
 app.use('/api/games',       gameRoutes);
 app.use('/api/admin',       adminRoutes);
 app.use('/api/bot',         botRoutes);

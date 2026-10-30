@@ -38,6 +38,13 @@ export const AuthProvider = ({ children }) => {
     await fetchMe(); // full profile (savedPosts/favoriteChannels)
   };
 
+  /** Exchange a Google ID token for a session (verified server-side). */
+  const loginWithGoogle = async (credential) => {
+    const { data } = await axiosInstance.post('/auth/google', { credential });
+    if (data.token) setToken(data.token);
+    await fetchMe();
+  };
+
   const register = async (username, email, password, preferredPlatforms = []) => {
     const { data } = await axiosInstance.post('/auth/register', {
       username,
@@ -82,7 +89,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{
-      user, token, loading, login, register, logout, fetchMe, updateUser,
+      user, token, loading, login, register, loginWithGoogle, logout, fetchMe, updateUser,
       updateFavouriteChannels, updateSavedPosts
     }}>
       {children}

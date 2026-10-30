@@ -14,12 +14,14 @@ const {
   updatePresence
 } = require('../controllers/userController');
 const { toggleMute, getMutedUsers } = require('../controllers/moderationController');
+const { updatePrivacySettings } = require('../controllers/accountController');
 
 // Search & Passport (must be before /:username to avoid route collision)
 router.get('/search',         optionalProtect, searchAll);
 router.put('/me/passport',    protect,         updateGamerPassport);
 router.patch('/me/preferences', protect,       updatePreferences);
 router.patch('/presence',     protect,         updatePresence);
+router.patch('/privacy-settings', protect,      updatePrivacySettings);
 router.get('/me/saved',       protect,         getSavedPosts);
 router.get('/me/muted',       protect,         getMutedUsers);
 

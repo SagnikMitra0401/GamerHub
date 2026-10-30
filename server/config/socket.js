@@ -17,6 +17,9 @@ const {
   extractMentionNames, mentionsEveryone, replyPreview, MAX_MENTIONS_PER_MESSAGE
 } = require('../utils/mentions');
 const { resolveAttachments } = require('../utils/attachmentRefs');
+const {
+  toChatView, toMessageView, loadChatForUser, postSquadMessage
+} = require('../utils/squadChatService');
 const { createSlidingWindowLimiter, createRecentEventTracker } = require('../utils/rateLimiter');
 const { recordAudit } = require('../utils/audit');
 const { corsOrigin } = require('../utils/origins');
@@ -62,6 +65,35 @@ function evictUserFromCommunity(userId, communityId) {
 }
 
 /**
+ * Remove a user's live sockets from ONE squad chat room.
+ * Used when they leave the squad, are removed, or the squad is closed — the
+ * authoritative check also blocks them, but this stops delivery immediately.
+ */
+function evictUserFromSquadChat(userId, chatId) {
+  if (!ioInstance) return;
+  const room = `squad:${String(chatId)}`;
+
+  for (const socket of ioInstance.sockets.sockets.values()) {
+    if (!socket.user || String(socket.user._id) !== String(userId)) continue;
+    socket.leave(room);
+    if (socket.data?.squadChat === String(chatId)) socket.data.squadChat = null;
+    socket.emit('squad_chat_evicted', { chatId: String(chatId) });
+  }
+}
+
+/** Drop every live socket for a user (account deletion / "sign out everywhere"). */
+function disconnectUser(userId) {
+  if (!ioInstance || !userId) return 0;
+  let closed = 0;
+  for (const socket of ioInstance.sockets.sockets.values()) {
+    if (!socket.user || String(socket.user._id) !== String(userId)) continue;
+    socket.disconnect(true);
+    closed += 1;
+  }
+  return closed;
+}
+
+/**
  * Rebuild the mention list from the message text.
  *
  * Nothing the client sends about identity is trusted: names are matched against
@@ -104,12 +136,19 @@ const slowmodeTracker = createRecentEventTracker({
 const typingTracker = createRecentEventTracker({
   maxAgeMs: CHAT_POLICY.typing.indicatorTtlMs
 });
+// Separate budget for temporary squad chat: a rapid squad exchange must not
+// consume the community-chat allowance (or vice versa).
+const squadFloodLimiter = createSlidingWindowLimiter({
+  windowMs: CHAT_POLICY.flood.windowMs,
+  max: CHAT_POLICY.flood.maxMessages
+});
 
 /** Reset all in-memory trackers (used by tests). */
 function resetChatTrackers() {
   floodLimiter.reset();
   slowmodeTracker.reset();
   typingTracker.reset();
+  squadFloodLimiter.reset();
 }
 
 function parseCookie(cookieStr) {
@@ -528,6 +567,53 @@ function initSocket(httpServer) {
       }
     });
 
+    // ── squad chat (temporary, 15 days) ─────────────────────────────────────
+    // Membership and expiry are resolved by the service on every join and send:
+    // the room name alone is never treated as authorisation.
+    socket.on('join_squad_chat', async (payload = {}) => {
+      try {
+        if (!userId) return fail(socket, 'Sign in to open this squad chat.', 'UNAUTHENTICATED');
+
+        const chat = await loadChatForUser(payload.chatId, userId);
+        socket.join(`squad:${chat._id}`);
+        socket.data.squadChat = String(chat._id);
+
+        socket.emit('joined_squad_chat', { chat: toChatView(chat, userId) });
+      } catch (err) {
+        const code = err.statusCode === 404 ? 'NOT_FOUND' : err.statusCode === 403 ? 'FORBIDDEN' : 'INTERNAL';
+        fail(socket, err.message || 'Could not open that squad chat.', code);
+      }
+    });
+
+    socket.on('send_squad_message', async (payload = {}) => {
+      try {
+        if (!userId) return fail(socket, 'Sign in to send messages.', 'UNAUTHENTICATED');
+
+        const flood = squadFloodLimiter.consume(userId);
+        if (!flood.allowed) {
+          const seconds = Math.max(1, Math.ceil(flood.retryAfterMs / 1000));
+          return fail(socket, `Slow down! Try again in ${seconds}s.`, 'FLOOD');
+        }
+
+        const chat = await loadChatForUser(payload.chatId, userId);
+        const message = await postSquadMessage({ chat, user: socket.user, text: payload.text });
+
+        ioInstance.to(`squad:${chat._id}`).emit('squad_message', toMessageView(message));
+      } catch (err) {
+        const code = err.statusCode === 404 ? 'NOT_FOUND'
+          : err.statusCode === 403 ? 'FORBIDDEN'
+            : err.statusCode === 400 ? 'INVALID_MESSAGE'
+              : 'INTERNAL';
+        fail(socket, err.message || 'Could not send that message.', code);
+      }
+    });
+
+    socket.on('leave_squad_chat', (payload = {}) => {
+      if (!payload.chatId) return;
+      socket.leave(`squad:${String(payload.chatId)}`);
+      if (socket.data?.squadChat === String(payload.chatId)) socket.data.squadChat = null;
+    });
+
     // ── typing indicators ───────────────────────────────────────────────────
     const handleTyping = async (payload = {}, typing) => {
       if (!userId || !payload.channelId) return;
@@ -575,6 +661,8 @@ module.exports = {
   emitToChannel,
   emitToCommunity,
   evictUserFromCommunity,
+  evictUserFromSquadChat,
+  disconnectUser,
   resetChatTrackers,
   resetPresenceTracking
 };

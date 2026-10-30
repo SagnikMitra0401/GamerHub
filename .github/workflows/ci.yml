@@ -113,4 +113,4 @@ jobs:
           MONGO_URI: ${{ secrets.MONGO_URI }}
         # Reports pending migrations without applying them: a push must never
         # mutate a database that a deploy is about to use.
-        run: npm run migrate:status
+        run: npm run migrate:status && npm run migrate:domains:status

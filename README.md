@@ -59,6 +59,21 @@ GamerHub is a full-stack gaming social platform built on the MERN stack. It comb
                     └────────────────────────────────────┘
 ```
 
+### Workload domains
+
+Database access is split into four workload domains, each with its own
+migration track and pool ceiling: identity/auth (pool 10), social/feed (15),
+communities (20) and squads/temporary chat (20).
+
+The squad-chat domain runs on a **separate driver connection**
+(`server/config/connections.js`, optional `MONGO_URI_SQUADS`), so a burst of
+temporary-chat writes can never exhaust the connections auth and feed queries
+need. The other three share the default connection on purpose: Mongoose
+`populate()` only resolves models registered on the same connection, and
+identity is populated from posts, members and party leaders everywhere —
+splitting those pools would trade a real outage risk for a theoretical one.
+`GET /api/health` reports each domain's readiness.
+
 ### Request Flow (REST)
 
 ```
@@ -122,6 +137,36 @@ Express app.js
 - Auto-TTL: squads expire and are hard-deleted from the database after 6 hours
 - Board filtered by game, mic requirement, and open slots
 - Join request → notification to squad leader → accept/decline flow
+- Squad lifecycle: recruiting → locked → active → completed / cancelled; the last
+  accepted request locks the squad automatically
+- **Temporary squad chat**: locking opens a private, 15-day thread. Expiry is
+  enforced on every read and write (not only by the sweep), the leader can roll
+  it forward by another 15 days, and leaving or closing the squad evicts the
+  member's live socket immediately
+- Members can leave a squad; the leader must close it instead
+- Squad → server migration issues one invitation per member — nobody is ever
+  enrolled silently
+
+### Identity & Consent
+- Email/password accounts plus optional Google Sign-In (OpenID Connect via
+  `google-auth-library`; the ID token's signature, issuer and audience are
+  verified server-side, and an existing local account is never merged by email)
+- Session version on every JWT: "sign out everywhere" and account deletion
+  revoke every cookie already in the wild, with no session table
+- Account states: active, restricted, suspended, deletion_pending, deleted
+- Privacy settings per user: who may invite to squads, who may invite to
+  servers, who may message, search discoverability, activity visibility
+- Formal invitation ledger (`pending → accepted | declined | expired | revoked`)
+  with a 7-day TTL, duplicate-pending protection and per-inviter rate limiting
+- Two-way blocking: hidden from each other's search, invitations and follow
+  graph; the reason is never disclosed to the blocked party
+
+### Privacy & Data Rights
+- Self-service JSON export of the caller's own profile, posts, comments,
+  communities, squads, chat messages, invitations and notifications
+- Account deletion with a 30-day grace period, cancellable by signing back in;
+  the retention worker then anonymises the account and removes its content
+- Personal mutes (client-side hiding) remain separate from moderation bans
 
 ### Gamification
 - XP awarded for: posting, media posts, receiving likes, milestones
@@ -175,7 +220,9 @@ Express app.js
 | WebSocket server | Socket.io 4 | Room multiplexing |
 | Database | MongoDB Atlas | M0 free cluster |
 | ODM | Mongoose 8 | Schema + indexes |
-| Authentication | JWT + HttpOnly cookies | bcrypt password hashing |
+| Authentication | JWT + HttpOnly cookies | bcrypt password hashing, session-version revocation |
+| Federated sign-in | google-auth-library | OpenID Connect ID-token verification |
+| Temporary chat store | Dedicated Mongo connection | Isolated pool for the squads domain |
 | Media storage | Cloudinary | Images and videos |
 | Security headers | Helmet 7 | Full CSP suite |
 | Input sanitization | express-mongo-sanitize | NoSQL injection strip |
@@ -364,6 +411,13 @@ Notification ──── User (recipient) ────────────�
 | `gamerPassport` | Object | Game IDs, active games, hardware rigs |
 | `preferences` | Object | Favorite games, genres, platforms (drives bot + feed) |
 | `presence` | Object | `status`, `activeGame`, `lastActive` |
+| `profileType` | Enum | `personal` / `creator_business` |
+| `status` | Enum | `active` / `restricted` / `suspended` / `deletion_pending` / `deleted` |
+| `sessionVersion` | Number | Bumped to revoke every issued cookie |
+| `authIdentities[]` | Array | `{ provider, providerSubject, emailVerified }` — never exposed publicly |
+| `privacySettings` | Object | Invite/DM policies, search discoverability, activity visibility |
+| `blockedUsers` | ObjectId[] | Two-way enforcement in search and invitations |
+| `deletionRequestedAt` | Date | Start of the 30-day erasure grace period |
 
 ### Post
 
@@ -414,9 +468,40 @@ Community
 | `leaderId` | Squad creator |
 | `members[]` | Joined users with join timestamp |
 | `maxSlots` | 2–6 |
-| `status` | `open` / `full` / `closed` |
+| `status` | `open` / `full` / `closed` (board visibility) |
+| `state` | `recruiting` / `locked` / `active` / `completed` / `cancelled` (lifecycle) |
+| `chatId` | The temporary `SquadChat` created when the squad locks |
+| `lockedAt`, `completedAt` | Lifecycle timestamps |
 | `expiresAt` | TTL index; MongoDB hard-deletes the document at this time |
 | `requirements.micRequired` | Filter on LFG board |
+
+### SquadChat / SquadChatMessage (temporary)
+
+| Field | Notes |
+|---|---|
+| `squadId` | Unique — exactly one chat per squad |
+| `ownerUserId`, `ownerUsername` | Leader; only the owner may refresh |
+| `memberIds[]` | Participants; eviction removes the id and the live socket |
+| `state` | `active` / `expired` / `closed` |
+| `expiresAt` | 15 days from creation or the last refresh |
+| `refreshCount`, `lifecycleVersion` | Rolling-extension bookkeeping |
+| `purgedAt` | Set when the retention sweep reclaimed the messages |
+
+Messages store `authorUserId` **and** a username/level snapshot, because the
+collection lives on its own connection and must not depend on a cross-connection
+populate.
+
+### Invitation
+
+| Field | Notes |
+|---|---|
+| `inviterUserId`, `inviterUsername` | Who asked |
+| `recipientUserId` | Who must answer |
+| `targetType`, `targetId`, `targetName` | `squad` or `community_server` |
+| `status` | `pending` / `accepted` / `declined` / `expired` / `revoked` |
+| `expiresAt` | 7-day TTL, checked on every read |
+
+One live invitation per recipient + target (partial unique index on `pending`).
 
 ### Notification
 
@@ -441,7 +526,10 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 |---|---|---|---|
 | POST | `/auth/register` | — | Create account |
 | POST | `/auth/login` | — | Login, set cookie |
-| POST | `/auth/logout` | — | Clear cookie |
+| GET | `/auth/providers` | — | Public sign-in config (Google enabled + client id) |
+| POST | `/auth/google` | — | Exchange a Google ID token for a session |
+| POST | `/auth/logout` | Required | Clear cookie |
+| POST | `/auth/logout-all` | Required | Bump session version; revoke every device |
 | GET | `/auth/me` | Required | Current user profile |
 
 ### Posts
@@ -470,6 +558,7 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 | PUT | `/users/presence` | Set online status |
 | POST | `/users/:id/mute` | Toggle a personal mute (hides their content from you) |
 | GET | `/users/me/muted` | Your muted users |
+| PATCH | `/users/privacy-settings` | Invite/DM/visibility consent settings |
 
 ### Communities
 
@@ -520,10 +609,49 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/lfg` | Squad board (filterable) |
+| GET | `/lfg/mine` | Squads you lead or play in, with chat summary |
 | POST | `/lfg` | Create squad |
-| POST | `/lfg/:id/join` | Request to join |
-| DELETE | `/lfg/:id/leave` | Leave squad |
-| DELETE | `/lfg/:id` | Disband squad (leader) |
+| GET | `/lfg/:id` | One squad |
+| POST | `/lfg/:id/request` | Request to join |
+| PATCH | `/lfg/:id/respond` | Leader accepts or declines a request |
+| POST | `/lfg/:id/lock` | Stop recruiting and open the temporary chat |
+| POST | `/lfg/:id/unlock` | Resume recruiting (chat stays) |
+| POST | `/lfg/:id/leave` | Leave a squad (members) |
+| POST | `/lfg/:id/server-migration` | Invite every member to a server (leader) |
+| DELETE | `/lfg/:id` | Close squad (leader); closes the chat |
+
+### Invitations
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/invitations` | Invite a player to a squad or server (consent-checked) |
+| GET | `/invitations/inbox` | Your pending invitations |
+| GET | `/invitations/sent` | Invitations you sent, any state |
+| POST | `/invitations/:id/accept` | Accept (the only way membership is granted) |
+| POST | `/invitations/:id/decline` | Decline |
+| POST | `/invitations/:id/revoke` | Inviter withdraws a pending invitation |
+
+### Squad Chats (temporary)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/squad-chats/:chatId` | Chat metadata, expiry countdown, refresh rights |
+| GET | `/squad-chats/:chatId/messages` | Cursor-paginated history (`?before=`) |
+| POST | `/squad-chats/:chatId/messages` | Send a message (expiry enforced) |
+| POST | `/squad-chats/:chatId/refresh` | Leader: roll expiry forward 15 days |
+| DELETE | `/squad-chats/:chatId/messages/:messageId` | Author or leader deletes |
+
+### Account & Data Rights
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/account` | Account state, privacy settings, blocked list |
+| GET | `/account/blocked` | Players you have blocked |
+| POST | `/account/block/:userId` | Block (also drops follow edges both ways) |
+| DELETE | `/account/block/:userId` | Unblock |
+| GET | `/account/data-export` | Download your data as JSON (rate limited) |
+| POST | `/account/deletion-request` | Schedule erasure, revoke sessions and sockets |
+| POST | `/account/deletion-cancel` | Cancel inside the 30-day grace period |
 
 ### Games, Notifications, Bot, Admin
 
@@ -539,7 +667,7 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 | GET | `/admin/metrics` | Dashboard metrics snapshot (admin) |
 | GET | `/admin/users` | User list with roles (admin) |
 | PUT | `/admin/users/:id/role` | Change global role (admin) |
-| GET | `/api/health` | Uptime check |
+| GET | `/api/health` | Readiness: uptime + per-domain connection state (200 / 503) |
 
 ---
 
@@ -579,6 +707,9 @@ Socket events:
 | `join_community` | Authenticates and subscribes to all channels |
 | `leave_community` | Unsubscribes from all community rooms |
 | `send_message` | Rate-checked, slowmode-checked, persisted and broadcast |
+| `join_squad_chat` | Membership + expiry checked, then joins the `squad:<id>` room |
+| `send_squad_message` | Separate flood budget; expiry re-checked on every send |
+| `leave_squad_chat` | Leaves the squad room |
 | `typing_start` / `typing_stop` | Typing indicator relay |
 | `update_presence` | Status change broadcast to followers |
 
@@ -589,6 +720,10 @@ Socket events:
 | `member_joined` / `member_left` | Community membership changes |
 | `role_updated` | Member role change |
 | `presence_update` | User status change for followers |
+| `squad_message` / `squad_message_deleted` | Temporary squad chat traffic |
+| `squad_chat_refreshed` | Leader extended the 15-day window |
+| `squad_chat_expired` / `squad_chat_closed` | Chat ended; the drawer closes |
+| `squad_chat_evicted` | You are no longer a participant |
 
 ---
 
@@ -699,11 +834,28 @@ No code changes anywhere else — all callers check `getRedis() === null` and fa
 `migrate-mongo` (not Prisma) is used because MongoDB is schemaless — Prisma has no migration DDL for it. `migrate-mongo` tracks applied scripts in a `changelog` collection and supports rollback.
 
 ```bash
-npm run migrate:status     # show applied / pending migrations
-npm run migrate:up         # apply all pending migrations
+npm run migrate:status     # show applied / pending migrations (original track)
+npm run migrate:up         # apply all pending migrations (original track)
 npm run migrate:down       # roll back the last migration
 npm run migrate:create     # scaffold a new migration file
 ```
+
+### Domain-isolated tracks
+
+Each workload domain migrates independently — its own folder, `changelog_<domain>`
+collection and lock — so a failure or lock in one track cannot block another.
+See [migrations/README.md](migrations/README.md).
+
+| Track | Folder | Command |
+|---|---|---|
+| Identity & auth | `migrations/auth/` | `npm run migrate:auth` |
+| Social & feed | `migrations/feed/` | `npm run migrate:feed` |
+| Communities | `migrations/communities/` | `npm run migrate:communities` |
+| Squads & chat | `migrations/squads/` | `npm run migrate:squads` |
+
+`npm run migrate:domains` runs all four in order; `npm run migrate:domains:status`
+reports each. The original `migrations/` track is left untouched so its applied
+history stays valid.
 
 ### Applied Migrations
 
@@ -711,6 +863,9 @@ npm run migrate:create     # scaffold a new migration file
 |---|---|
 | `add-compound-indexes` | Adds `posts_userId_createdAt`, replaces unweighted text index with weighted (title×10 tags×5 content×1), adds `notif_userId_read_createdAt` |
 | `denormalize-post-like-count` | Backfills `likeCount` field on all posts from `likes.length`; adds `posts_likeCount_hot` index |
+| `phase7-community-interaction-indexes` | Message/forum weighted text search, attachment, report and forum indexes |
+| `identity-governance-indexes` (auth track) | Backfills status/profileType/privacySettings/sessionVersion; `user_status`, `user_auth_identity`, `user_blocked` |
+| `squad-chat-invitation-indexes` (squads track) | Unique chat per squad, expiry sweep index, one-pending-invitation partial unique index |
 
 ### Index Map
 
@@ -730,6 +885,14 @@ npm run migrate:create     # scaffold a new migration file
 | `parties` | `{ expiresAt: 1 }` (TTL, expires: 0) | Auto-delete expired squads |
 | `auditlogs` | `{ communityId: 1, createdAt: -1 }` | Chronological audit feed |
 | `users` | `{ username: 1 }` (unique) | Username lookup + search prefix |
+| `users` | `{ status: 1 }` | Account-state sweeps (deletion grace period) |
+| `users` | `{ 'authIdentities.provider': 1, 'authIdentities.providerSubject': 1 }` | Federated identity lookup |
+| `users` | `{ blockedUsers: 1 }` | Reverse block lookup (symmetric filtering) |
+| `squadchats` | `{ squadId: 1 }` (unique) | Exactly one chat per squad |
+| `squadchats` | `{ state: 1, expiresAt: 1 }` | Expiry sweep |
+| `squadchatmessages` | `{ chatId: 1, createdAt: -1 }` | Cursor-paginated squad history |
+| `invitations` | `{ recipientUserId: 1, status: 1, createdAt: -1 }` | Inbox |
+| `invitations` | `{ recipientUserId: 1, targetType: 1, targetId: 1 }` partial unique on `pending` | No duplicate live invitations |
 
 ---
 
@@ -876,8 +1039,12 @@ Creates: a sample community with channels, three LFG squads, and three notificat
 Run migrations against Atlas before or immediately after deploying a new server version:
 
 ```bash
-MONGO_URI=<atlas-uri> npm run migrate:up
+MONGO_URI=<atlas-uri> npm run migrate:up          # original track
+MONGO_URI=<atlas-uri> npm run migrate:domains    # auth → feed → communities → squads
 ```
+
+Run `npm run migrate:domains:status` first; each track records itself in its own
+`changelog_<domain>` collection.
 
 ---
 
@@ -907,6 +1074,12 @@ MONGO_URI=<atlas-uri> npm run migrate:up
 | `UPSTASH_REDIS_REST_TOKEN` | — | Upstash Redis token; required only when `REDIS_ENABLED=1` |
 | `DISABLE_LIKE_BUFFER` | `0` | Set to `1` to force direct DB writes even when Redis is up |
 | `ALLOWED_ORIGINS` | built-in list | Comma-separated exact origins for CORS |
+| `GOOGLE_CLIENT_ID` | — | OAuth client id for Google Sign-In; the button is hidden without it |
+| `MONGO_URI_SQUADS` | `MONGO_URI` | Optional separate cluster for the temporary squad-chat domain |
+| `MONGO_MAX_POOL_SIZE_SQUADS` | `20` | Connection ceiling for the isolated squads pool |
+| `INVITE_RATE_LIMIT_MAX` | `30` | Invitations per user per hour |
+| `SQUAD_CHAT_RATE_LIMIT_MAX` | `120` | Squad-chat REST writes per minute |
+| `EXPORT_RATE_LIMIT_MAX` | `5` | Data exports per user per hour |
 
 ---
 
@@ -916,11 +1089,11 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 74 checks, no database needed
+npm test                      # server: 117 checks, no database needed
 npm test --prefix client      # client components: 28 checks in jsdom
 ```
 
-**74 server checks across 10 suites — all passing.**
+**117 server checks across 13 suites — all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -934,6 +1107,12 @@ npm test --prefix client      # client components: 28 checks in jsdom
 | `botSecurity.test.js` | YouTube bot: key never exposed, notification URL validation, unconfigured state |
 | `likeBuffer.test.js` | Last-write-wins collapsing, idempotent pipeline, retry on failed write, one-time viral medal, worker lifecycle |
 | `redisCache.test.js` | L1/L2 layering, TTL, 30 s degrade window and recovery, miss collapsing, failed loads never cached |
+| `reactions.test.js` | Reaction allowlist, emoji normalisation, aggregation |
+| `mentions.test.js` | Mention extraction, `@everyone` detection, reply previews, caps |
+| `fileValidator.test.js` | Magic-byte sniffing per allowlisted MIME, oversize and spoofed types |
+| `privacy.test.js` | Consent matrix, symmetric blocking, privacy patch validation, account gate, erasure payload |
+| `squadLifecycle.test.js` | 15-day expiry boundary, owner-only refresh, membership, countdown formatting |
+| `connections.test.js` | Domain pooling rules, per-domain URI precedence, test-mode URI pinning, readiness shape |
 
 Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
@@ -948,13 +1127,15 @@ breakpoint, badge count, mark-read).
 End-to-end smoke tests (requires a running backend):
 
 ```bash
-npm run test:e2e              # all three suites below
+npm run test:e2e              # all five suites below
 node scripts/e2e.js           # 59 auth/community/chat checks
 node scripts/e2e-phase4.js    # 66 feed/LFG/notification/admin checks
 node scripts/e2e-phase6.js    # 159 lifecycle/search/Redis-off checks
+node scripts/e2e-phase7.js    # 80 Discord-interaction checks
+node scripts/e2e-phase8.js    # 70 identity/consent/squad-chat/data-rights checks
 ```
 
-All three run against a throwaway database derived from `MONGO_URI` and drop it
+All five run against a throwaway database derived from `MONGO_URI` and drop it
 when they finish. They need no Redis: the degraded path is asserted explicitly,
 so a future Redis re-enable that breaks the fallback fails here. Their shared
 scaffolding (`api`, `check`, `register`, sockets) lives in
@@ -978,7 +1159,7 @@ pull request:
 | Job | Steps |
 |---|---|
 | quality | `npm ci` → `npm test` → `npm test --prefix client` → `npm run build --prefix client` → emoji gate |
-| e2e | all three suites against a throwaway database, then `migrate:status` |
+| e2e | all five suites against a throwaway database, then `migrate:status` and `migrate:domains:status` |
 
 The e2e job needs `MONGO_URI` and `JWT_SECRET` repository secrets; without them it
 reports a notice and skips instead of failing, so forks stay green. It never runs

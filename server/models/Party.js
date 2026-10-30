@@ -56,6 +56,22 @@ const PartySchema = new Schema({
     default: 'open',
     index: true
   },
+  // Squad lifecycle (phase 8). `status` stays the board-visibility field so the
+  // existing board queries keep working; `state` is the formal lifecycle.
+  state: {
+    type: String,
+    enum: ['recruiting', 'locked', 'active', 'completed', 'cancelled'],
+    default: 'recruiting',
+    index: true
+  },
+  // The temporary 15-day chat created when the squad locks.
+  chatId: {
+    type: Schema.Types.ObjectId,
+    ref: 'SquadChat',
+    default: null
+  },
+  lockedAt: { type: Date, default: null },
+  completedAt: { type: Date, default: null },
   // TTL index: Mongo removes the document at this point, so a stale squad can
   // never linger on the board.
   expiresAt: {

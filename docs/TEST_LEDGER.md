@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 31 October 2026 · **Branch:** `main` · **Head:** `be3baa8` + the community-interaction milestone (uncommitted)
+**Last updated:** 31 October 2026 · **Branch:** `main` · **Head:** the foundation/squad milestone (uncommitted)
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,23 +14,57 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **92 / 92 pass** | 31 Oct |
+| Unit / contract — server | `npm test` | **117 / 117 pass** | 31 Oct |
 | Unit — client components | `npm test --prefix client` | **28 / 28 pass** | 31 Oct |
 | E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 31 Oct |
 | E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 31 Oct |
 | E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 31 Oct |
 | E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 31 Oct |
-| Client production build | `npm run build --prefix client` | **pass** — 171 modules, 88.24 kB CSS / 464.44 kB JS | 31 Oct |
-| UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** | 25 Oct (that pass) |
+| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 31 Oct |
+| Client production build | `npm run build --prefix client` | **pass** — 175 modules, 94.98 kB CSS / 485.18 kB JS | 31 Oct |
+| UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** (pre-phase-8 pages only) | 25 Oct (that pass) |
 | Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 31 Oct |
+| Migration tracks (local) | `npm run migrate:domains:status` | **not run** — needs the Atlas URI; see open findings | — |
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**484 automated checks green** (92 server + 28 client + 364 e2e across four suites).
-CI has not been re-run since this milestone; no workflow edit is needed, because
-the `quality` job calls `npm test` (which now includes the three new suites) and
-the `e2e` job calls `npm run test:e2e` (which now chains all four scripts). The
-next push therefore exercises every check above.
+**579 automated checks green** (117 server + 28 client + 434 e2e across five suites).
+CI has not been re-run since the last two milestones; no workflow step had to be
+added, because the `quality` job calls `npm test` and the `e2e` job calls
+`npm run test:e2e`, both of which now include the new suites. The one workflow
+edit (adding `migrate:domains:status` next to `migrate:status`) only extends the
+last step. The next push therefore exercises every check above.
+
+### Pass 5 (31 Oct) — foundation, consent & squad system
+
+Domain-isolated connections and migration tracks, account governance (session
+versions, Google sign-in surface, account states), the consent-driven invitation
+engine, squad lifecycle with the 15-day temporary chat, privacy settings,
+blocking, data export and account deletion are now implemented.
+
+All five e2e suites were re-run because the auth middleware, `User`, party
+controller, socket engine and retention worker all changed. The four older
+suites kept their exact tallies (59 / 66 / 159 / 80) — that is the no-regression
+proof for this pass, not a repeat of their detail. `npm test` went from 92 to
+117 with three new pure-function suites (`privacy`, `squadLifecycle`,
+`connections`).
+
+Two real defects were found by the new suite and fixed:
+
+1. `purgeExpiredSquadChats` only scanned `state: 'active'`, so a chat that had
+   already been flipped to `expired` by a request-time check kept its messages
+   forever. The sweep now also reclaims messages for already-expired chats and
+   records `purgedAt` so settled chats leave the scan.
+2. The LFG accept/decline responses returned the squad without its chat summary,
+   so a client that patched its list from the response lost the chat id. Both
+   responses now go through `attachChatMeta`, and every party view declares
+   `chat: null` explicitly.
+
+What is **not** verified here: Google sign-in itself (no client id/credential in
+this environment — only the provider surface and the fail-closed branches are
+exercised), the new UI in a browser (build + DOM-free component checks only), and
+any Cloudinary path (unchanged from pass 4). The domain migration tracks are
+written but not yet applied to Atlas.
 
 ### Pass 4 (31 Oct) — community interaction milestone
 
@@ -96,6 +130,8 @@ checks, build, emoji gate).
 | `scripts/e2e-phase4.js` | feed ranking, presence, LFG, bot, admin or catalog change |
 | `scripts/e2e-phase6.js` | posts, comments, likes, bookmarks, follows, passport, notifications, search, migrations, cache or rate limits change |
 | `scripts/e2e-phase7.js` | `server/utils/permissions.js`, `config/socket.js`, the community/forum/attachment/moderation controllers, or any model those touch change |
+| `scripts/e2e-phase8.js` | `middleware/auth.js`, `utils/generateToken.js`, `controllers/{auth,account,invitation,squadChat,lfg}Controller.js`, `utils/{privacy,squadLifecycle,squadChatService}.js`, `config/{connections,socket}.js`, `jobs/retention.js`, or the `User`/`Party`/`Invitation`/`SquadChat*` models change |
+| `migrate:domains:status` | a file under `migrations/{auth,feed,communities,squads}/` is added, or on the first deploy after this milestone |
 | Client build | any file under `client/src/` changes |
 | The CI suite | never by hand — a push to `main` runs it; read the run instead |
 | UI smoke | a `*.jsx` or `*.css` file under `client/src/` changes **and** the change touches layout, a nav element, a modal, or the design tokens |
@@ -149,8 +185,16 @@ Locate the check with `grep -n "<keyword>" scripts/e2e*.js server/tests/*.js`.
 | Client — reactions | like/unlike label + pressed state, one call per click, six-spark burst on fine pointer, no burst on touch/reduced-motion or when unliking, sparks unmount on `animationend`, comment label pluralisation, bookmark shown only with a handler and toggles state, busy disables, clicks do not reach the card | `PostActions.test.jsx` (9) |
 | Client — post card | like uses the server's count/state, failed like leaves the count untouched and does not fire the callback, signed-out click redirects to `/login` without a request, bookmark hits `/users/saved/:id` and syncs the session | `PostCard.test.jsx` (4) |
 | Client — notification bell | null for a signed-out visitor, badge + accessible name from `unreadCount`, dropdown inside the wrapper on desktop, portalled modal sheet with scrim + close control below 640 px, Escape closes, mark-all-read is optimistic, single read patches and decrements, socket payload appends and bumps the badge | `NotificationBell.test.jsx` (8) |
-| CI | both suites, the client build and the emoji gate on every push/PR; e2e + `migrate:status` whenever `MONGO_URI`/`JWT_SECRET` resolve, and a failing check step (not a quiet skip) when they do not, except on fork PRs | `.github/workflows/ci.yml` |
-| Migrations | both migrations applied; weighted text index, `posts_userId_createdAt`, `posts_likeCount_hot`, `notif_userId_read_createdAt` present | `npm run migrate:status` |
+| Identity & sessions | `sv` claim pinned to `User.sessionVersion`, logout-all revokes the old cookie, deletion request revokes it too, deleted/suspended accounts blocked at the middleware, public profile never exposes identities/email/blocks | `privacy.test.js`, `e2e-phase8.js` |
+| Google provider | provider surface always answerable, sign-in fails closed with no credential/configuration, no merge on unverified email (code path; no live Google token in CI) | `e2e-phase8.js` |
+| Consent matrix | anyone / followers-only / nobody per target type, blocked pairs refused with a generic reason, deleted or suspended recipients unavailable, self-invite refused, duplicate pending refused | `privacy.test.js`, `e2e-phase8.js` |
+| Invitations | leader-only squad invites, admin-only server invites, recipient-only accept (404 for anyone else), idempotent re-accept, decline, revoke, inbox contents, 7-day expiry sweep | `e2e-phase8.js` |
+| Squad lifecycle | recruiting → locked on lock or when the last seat fills, unlock restores recruiting without destroying the chat, leader cannot leave, member leave evicts the socket and revokes access | `e2e-phase8.js` |
+| Temporary chat | 15-day expiry, boundary instant already expired, owner-only refresh with `refreshCount`, member read/write, outsider socket join refused, non-member REST 403, empty message 400, history ordered, retention sweep purges messages, socket and REST share one expiry rule | `squadLifecycle.test.js`, `e2e-phase8.js` |
+| Privacy & data rights | privacy patch validation, blocking hides both directions in search, unblock restores, export is an attachment with the caller's own data and no hashes/secrets, export rate limit, deletion request + cancel + grace period, erasure anonymises and blocks sign-in | `privacy.test.js`, `e2e-phase8.js` |
+| Domain connections | squads is the only pooled domain, domain URI precedence, `NODE_ENV=test` pins the base URI, per-domain pool ceilings, readiness reports every domain | `connections.test.js`, `e2e-phase8.js` |
+| CI | both suites, the client build and the emoji gate on every push/PR; e2e + `migrate:status` + `migrate:domains:status` whenever `MONGO_URI`/`JWT_SECRET` resolve, and a failing check step (not a quiet skip) when they do not, except on fork PRs | `.github/workflows/ci.yml` |
+| Migrations | original track applied; weighted text index, `posts_userId_createdAt`, `posts_likeCount_hot`, `notif_userId_read_createdAt` present. Domain tracks written but **not applied** yet | `npm run migrate:status`, `npm run migrate:domains:status` |
 | Design system | no emoji or typographic glyph in any `client/src` JSX/CSS outside the single reaction catalogue, which holds the 8 sanctioned reaction glyphs | `node scripts/scan-emoji.js` (manual gate) |
 
 ---
@@ -265,6 +309,11 @@ Verification of the above: `npm run build --prefix client` → pass, `npm test` 
 | Low | Notification cursor is server-side only; the bell requests 20 newest with no "load older" | Phase 8 |
 | Low | Public profile masks presence for the owner too (`invisible` → `offline`) | Session doc carries the raw value |
 | Low | Channel rename is not supported by `PATCH /channels/:id` | UI does not offer it |
+| Med | Google Sign-In is verified only for its fail-closed branches; no live ID token exists in CI | Set `GOOGLE_CLIENT_ID`, sign in once, then delete the account |
+| Med | Domain migration tracks are written but not applied to Atlas | Run `migrate:domains:status` then `migrate:domains` |
+| Low | Squad chat has no file attachments (text only) | Phase 3 attachment model exists; wiring it to squad chat is a follow-up |
+| Low | A squad's temporary chat is not deleted when the Party TTL removes the squad | Chat expires on its own within 15 days; the sweeper then purges it |
+| Low | New phase-8 UI (chat drawer, inbox, privacy modal, Google button) has had no browser pass | Build + component checks only; ask for a screenshot pass |
 | Low | Segmented tab rail clips its last tray at ≤360 px (scrollable, mask-faded) | Intentional; revisit if a tray is added |
 | Medium | Cloudinary upload is only verified for its auth/validation branches — there are no credentials in the local environment | Run `scripts/e2e-phase7.js` with Cloudinary env set before relying on uploads in production |
 | Low | EXIF stripping depends on `sharp`; if it fails to install the upload still works but metadata is kept | `require('sharp')` is lazy and non-fatal by design |
@@ -281,11 +330,12 @@ Full detail in [ROADMAP.md](ROADMAP.md); the order and trigger are what matter:
 | Order | Phase | Why it is next | Effort |
 |---|---|---|---|
 | — | ~~**7 — Quality gate & CI**~~ | **Delivered in pass 3.** 74 server + 28 client checks, shared e2e harness, GitHub Actions. Nothing in this list depends on it any more. | done |
-| 1 | **8 — Inbox** | Notifications are the cheapest retention win and the data exists; add comment/follow/like pings, `nextCursor` paging, per-category mute. | 1.5 d |
-| 2 | **12 — Operability** | Readiness probe, request IDs, structured logs, error reporting before any public push. | 1.5 d |
-| 3 | **11 — Account lifecycle** | Email verification, password reset, session list, report queue with audit trail. | 3–4 d |
-| 4 | **10 — Discovery** | Atlas Search, tag pages, trending; only once content volume justifies it. | 2–3 d |
-| 5 | **9 — Multi-instance** | Only when a second instance is actually required; costs Upstash quota. | 2–3 d |
+| — | ~~**8 — Foundation pack**~~ | **Delivered in pass 5.** Domain connections + migration tracks, identity governance, consent/invitations, squad lifecycle, 15-day chat, privacy/data rights. 117 server + 434 e2e checks. | done |
+| 1 | **9 — Inbox** | Notifications are the cheapest retention win and the data exists; add comment/follow/like pings, `nextCursor` paging, per-category mute, and surface squad invitations in the bell. | 1.5 d |
+| 2 | **10 — Operability** | `/health/ready` already splits per domain; add request IDs, structured logs and error reporting before a public push. | 1.5 d |
+| 3 | **11 — Email lifecycle** | Verification and password reset are the remaining account gaps; the session/revocation and deletion halves are done. | 2–3 d |
+| 4 | **12 — Discovery** | Atlas Search, tag pages, trending; only once content volume justifies it. | 2–3 d |
+| 5 | **13 — Multi-instance** | Only when a second instance is actually required; costs Upstash quota. | 2–3 d |
 
 ---
 
@@ -297,11 +347,12 @@ npm run dev            # API :5000
 npm run dev --prefix client   # Vite :3000
 
 # 2. automated tiers (see §1 for when to skip)
-npm test                      # server units, 92 checks, no database
+npm test                      # server units, 117 checks, no database
 npm test --prefix client      # client components, 28 checks, jsdom
-npm run test:e2e              # four suites, 364 checks, throwaway DB
+npm run test:e2e              # five suites, 434 checks, throwaway DB
 npm run build --prefix client
 npm run migrate:status
+npm run migrate:domains:status
 
 # 3. design-system gate
 node scripts/scan-emoji.js     # must print "0 line(s)" (reaction glyphs are listed separately)

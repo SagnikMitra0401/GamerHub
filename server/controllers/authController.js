@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
@@ -7,6 +8,27 @@ const SALT_ROUNDS = 10;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 128; // bcrypt silently truncates past 72 bytes
 const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
+
+// Public OIDC client id. It is not a secret; the server still verifies every
+// ID token's signature and audience before trusting a single claim.
+const googleClientId = () => String(process.env.GOOGLE_CLIENT_ID || '').trim();
+
+/** Build a unique, valid GamerHub username from a Google profile. */
+async function usernameFromGoogle({ email, name }) {
+  const base = String(name || email || 'player')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 16) || 'player';
+
+  const seed = base.length >= 3 ? base : `player_${base}`.slice(0, 16);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = attempt === 0 ? seed : `${seed.slice(0, 12)}_${attempt}`;
+    const taken = await User.exists({ username: candidate });
+    if (!taken) return candidate;
+  }
+  return `player_${crypto.randomBytes(4).toString('hex')}`.slice(0, 20);
+}
 
 const register = async (req, res, next) => {
   try {
@@ -33,9 +55,12 @@ const register = async (req, res, next) => {
       : [];
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    // `authIdentities` is reserved for federated sign-in. A local account has
+    // no external subject, and storing the email there would leak it through
+    // the public profile payload.
     const user = await User.create({ username, email, passwordHash, preferredPlatforms });
 
-    const token = generateToken(res, user._id);
+    const token = generateToken(res, user._id, user.sessionVersion);
 
     res.status(201).json({
       user: { id: user._id, username: user.username, email: user.email },
@@ -60,12 +85,19 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const match = await bcrypt.compare(password, user.passwordHash);
+    const match = await bcrypt.compare(password, user.passwordHash).catch(() => false);
     if (!match) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = generateToken(res, user._id);
+    if (user.status === 'suspended') {
+      return res.status(403).json({ message: 'This account is suspended' });
+    }
+    if (user.status === 'deleted') {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = generateToken(res, user._id, user.sessionVersion);
 
     res.status(200).json({
       user: { id: user._id, username: user.username, email: user.email },
@@ -76,7 +108,7 @@ const login = async (req, res, next) => {
   }
 };
 
-const logout = (req, res) => {
+const clearAuthCookie = (res) => {
   res.cookie('jwt', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -84,7 +116,127 @@ const logout = (req, res) => {
     expires: new Date(0),
     path: '/'
   });
+};
+
+const logout = (req, res) => {
+  clearAuthCookie(res);
   res.status(200).json({ message: 'Logged out' });
+};
+
+/**
+ * Revoke every session, on every device.
+ * The cookie in *this* browser is cleared too, so the caller has to sign in
+ * again — that is the point of the button.
+ */
+const logoutAll = async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $inc: { sessionVersion: 1 } },
+      { new: true, select: 'sessionVersion' }
+    );
+    clearAuthCookie(res);
+    res.status(200).json({ message: 'Signed out everywhere', sessionVersion: user.sessionVersion });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** Public sign-in configuration. The client id is public by design. */
+const getProviders = (req, res) => {
+  res.status(200).json({
+    google: { enabled: Boolean(googleClientId()), clientId: googleClientId() || null }
+  });
+};
+
+/**
+ * Google Sign-In (OpenID Connect).
+ *
+ * The browser posts the ID token from Google Identity Services; the signature,
+ * issuer and audience are verified server-side before any claim is read. An
+ * existing local account with the same email is never merged automatically —
+ * linking on an unverified match is the classic account-takeover path.
+ */
+const googleLogin = async (req, res, next) => {
+  try {
+    const clientId = googleClientId();
+    if (!clientId) {
+      return res.status(503).json({ message: 'Google sign-in is not configured on this server.' });
+    }
+
+    const credential = typeof req.body?.credential === 'string' ? req.body.credential : '';
+    if (!credential || credential.length > 8000) {
+      return res.status(400).json({ message: 'Missing Google credential' });
+    }
+
+    let OAuth2Client;
+    try {
+      ({ OAuth2Client } = require('google-auth-library'));
+    } catch {
+      return res.status(503).json({ message: 'Google sign-in is unavailable on this server.' });
+    }
+
+    const client = new OAuth2Client(clientId);
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      return res.status(401).json({ message: 'Google credential could not be verified' });
+    }
+
+    const subject = payload?.sub;
+    const email = sanitizeLine(payload?.email, 254).toLowerCase();
+    if (!subject || !email) {
+      return res.status(401).json({ message: 'Google credential could not be verified' });
+    }
+    if (payload.email_verified === false) {
+      return res.status(403).json({ message: 'That Google account has no verified email.' });
+    }
+
+    let user = await User.findOne({
+      authIdentities: { $elemMatch: { provider: 'google', providerSubject: subject } }
+    });
+
+    if (!user) {
+      const emailOwner = await User.findOne({ email }).select('_id').lean();
+      if (emailOwner) {
+        return res.status(409).json({
+          message: 'An account already uses this email. Sign in with your password, then link Google from settings.'
+        });
+      }
+
+      const username = await usernameFromGoogle({ email, name: payload.name });
+      user = await User.create({
+        username,
+        email,
+        // A random secret: password login is impossible until the owner sets one.
+        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS),
+        profileType: 'personal',
+        status: 'active',
+        authIdentities: [{ provider: 'google', providerSubject: subject, emailVerified: true }]
+      });
+    } else {
+      if (user.status === 'suspended') {
+        return res.status(403).json({ message: 'This account is suspended' });
+      }
+      if (user.status === 'deleted' || user.status === 'deletion_pending') {
+        return res.status(403).json({ message: 'This account is being deleted' });
+      }
+      await User.updateOne(
+        { _id: user._id, 'authIdentities.providerSubject': subject },
+        { $set: { 'authIdentities.$.emailVerified': true } }
+      );
+    }
+
+    const token = generateToken(res, user._id, user.sessionVersion);
+    res.status(200).json({
+      user: { id: user._id, username: user.username, email: user.email },
+      token
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // Returns full profile — refetch so bio/preferredPlatforms/createdAt are included
@@ -143,4 +295,14 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, logout, getMe, updateProfile };
+module.exports = {
+  register,
+  login,
+  logout,
+  logoutAll,
+  getProviders,
+  googleLogin,
+  getMe,
+  updateProfile,
+  clearAuthCookie
+};
