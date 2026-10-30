@@ -100,6 +100,11 @@ const UserSchema = new mongoose.Schema({
     }
   },
 
+  // Personal mutes: hides another user's content from YOUR client only.
+  // Deliberately not a moderation tool — the server keeps delivering the
+  // messages so a mute can never be mistaken for a ban.
+  mutedUsers: { type: [mongoose.Schema.Types.ObjectId], ref: 'User', default: [] },
+
   // Live presence — mirrored to other clients over Socket.io.
   presence: {
     // 'invisible' is stored, but broadcast to others as offline.

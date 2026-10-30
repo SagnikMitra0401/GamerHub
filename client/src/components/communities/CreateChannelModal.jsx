@@ -64,14 +64,18 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
           <div className="form-group">
             <label className="form-label">Channel Type</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {['text', 'announcement'].map(t => (
+              {[
+                { key: 'text', label: 'Text' },
+                { key: 'announcement', label: 'Announcement' },
+                { key: 'forum', label: 'Forum' }
+              ].map(option => (
                 <button
-                  key={t}
+                  key={option.key}
                   type="button"
-                  onClick={() => setType(t)}
-                  className={`btn btn-sm ${type === t ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setType(option.key)}
+                  className={`btn btn-sm ${type === option.key ? 'btn-primary' : 'btn-ghost'}`}
                 >
-                  {t === 'text' ? 'Text' : 'Announcement'}
+                  {option.label}
                 </button>
               ))}
             </div>

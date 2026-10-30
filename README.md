@@ -96,8 +96,17 @@ Express app.js
 ### Community Channels
 - Discord-style communities: create, join, leave, invite
 - Per-community role hierarchy: owner → admin → moderator → member
-- Text channels with real-time Socket.io messaging
-- Slowmode per channel (configurable message interval)
+- Text, announcement and forum channels with real-time Socket.io messaging
+- Forum channels: titled threads with tags, replies and open / answered / locked / archived status
+- Message reactions from a server-side allowlist (short codes, never client markup)
+- Reply quoting with a preview captured at send time, scoped to the same channel
+- `@username` mentions resolved against real members, capped at five per message;
+  `@everyone` requires the moderator capability and is otherwise not broadcast
+- Image attachments: 8 MB cap, magic-byte validation, EXIF stripped, signed short-lived read URLs
+- Pinned messages plus permission-scoped search that can never return a channel you cannot read
+- Slowmode per channel (configurable message interval), role gates, retention windows
+- Moderation: report queue, timed send suspension, bans that survive leaving and re-invites,
+  and personal mutes that only hide content from the muting user
 - Content protection flags (restrict copy, restrict media)
 - GDPR tombstone deletes: message body replaced with `[deleted]`, metadata kept
 - Full audit log: every moderation action recorded with actor, timestamp, and target
@@ -459,6 +468,8 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 | PUT | `/users/passport` | Update Gamer Passport |
 | PUT | `/users/preferences` | Update game/genre preferences |
 | PUT | `/users/presence` | Set online status |
+| POST | `/users/:id/mute` | Toggle a personal mute (hides their content from you) |
+| GET | `/users/me/muted` | Your muted users |
 
 ### Communities
 
@@ -467,13 +478,42 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 | GET | `/communities` | Browse communities |
 | POST | `/communities` | Create community |
 | GET | `/communities/:slug` | Community detail + channels |
-| POST | `/communities/:slug/join` | Join community |
-| DELETE | `/communities/:slug/leave` | Leave community |
-| POST | `/communities/:slug/channels` | Create channel (admin+) |
-| GET | `/communities/:slug/channels/:id/messages` | Paginated message history |
-| PUT | `/communities/:slug/members/:userId/role` | Set member role (admin+) |
-| DELETE | `/communities/:slug/members/:userId` | Kick member (admin+) |
-| GET | `/communities/:slug/audit` | Audit log (admin+) |
+| POST | `/communities/:id/join` | Join community |
+| POST | `/communities/:id/leave` | Leave community |
+| GET | `/communities/:id/members` | Member list (members only) |
+| POST | `/communities/:id/members` | Add a member by username (admin+) |
+| PATCH | `/communities/:id/members/:userId/role` | Set member role (admin+) |
+| DELETE | `/communities/:id/members/:userId` | Kick member (admin+) |
+| GET | `/communities/:id/audit` | Audit log (admin+) |
+| POST | `/communities/:id/channels` | Create channel — `text`, `announcement` or `forum` (admin+) |
+| PATCH | `/communities/:id/channels/:channelId` | Channel gates, slowmode, retention, forum config |
+| DELETE | `/communities/:id/channels/:channelId` | Delete channel + its content (admin+) |
+| GET | `/communities/channels/:channelId/messages` | Paginated message history (cursor) |
+| POST | `/communities/channels/:channelId/messages/:messageId/react` | Toggle a reaction |
+| POST | `/communities/channels/:channelId/messages/:messageId/pin` | Pin a message (moderator+) |
+| DELETE | `/communities/channels/:channelId/messages/:messageId/pin` | Unpin a message (moderator+) |
+| GET | `/communities/channels/:channelId/pins` | Pinned message tray |
+| POST | `/communities/channels/:channelId/attachments` | Upload an image (multipart `file`) |
+| GET | `/communities/channels/:channelId/attachments/:attachmentId` | Signed, expiring read URL |
+| DELETE | `/communities/channels/:channelId/attachments/:attachmentId` | Delete an upload (uploader or moderator) |
+| GET | `/communities/:id/search` | Search messages + forum threads in readable channels |
+| GET | `/communities/:id/channels/:channelId/forum` | List forum threads |
+| POST | `/communities/:id/channels/:channelId/forum` | Create a thread |
+| GET | `/communities/:id/channels/:channelId/forum/:postId` | Thread + paginated replies |
+| PUT | `/communities/:id/channels/:channelId/forum/:postId` | Edit a thread (author, 30 min) |
+| DELETE | `/communities/:id/channels/:channelId/forum/:postId` | Delete a thread (author or moderator) |
+| PATCH | `/communities/:id/channels/:channelId/forum/:postId/status` | Lock / archive / reopen (moderator+) |
+| POST | `/communities/:id/channels/:channelId/forum/:postId/replies` | Reply to a thread |
+| PUT | `/communities/:id/channels/:channelId/forum/:postId/replies/:replyId` | Edit a reply (author, 30 min) |
+| DELETE | `/communities/:id/channels/:channelId/forum/:postId/replies/:replyId` | Delete a reply |
+| POST | `/communities/:id/reports` | Report a message, thread or member |
+| GET | `/communities/:id/reports` | Report queue (moderator+) |
+| PATCH | `/communities/:id/reports/:reportId` | Mark reviewed / dismissed (moderator+) |
+| POST | `/communities/:id/members/:userId/timeout` | Timed send suspension (moderator+) |
+| DELETE | `/communities/:id/members/:userId/timeout` | Lift a timeout (moderator+) |
+| GET | `/communities/:id/bans` | Ban list (admin+) |
+| POST | `/communities/:id/bans/:userId` | Ban a member (admin+) |
+| DELETE | `/communities/:id/bans/:userId` | Lift a ban (admin+) |
 
 ### LFG
 

@@ -113,6 +113,7 @@ const ChannelSettingsModal = ({ isOpen, onClose, communityId, channel, onSaved, 
             >
               <option value="text">Text</option>
               <option value="announcement">Announcement (moderators can post)</option>
+              <option value="forum">Forum (threaded posts)</option>
             </select>
           </div>
 

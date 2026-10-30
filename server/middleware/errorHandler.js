@@ -35,11 +35,13 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (err.name === 'MulterError') {
-    const message =
-      err.code === 'LIMIT_FILE_SIZE'
-        ? 'File is too large. Videos are limited to 10MB, images to 5MB.'
-        : 'Upload failed';
-    return res.status(400).json({ message });
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'That file is too large. Images are limited to 8 MB.' });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ message: 'Only JPEG, PNG, WEBP and GIF images are allowed, one at a time.' });
+    }
+    return res.status(400).json({ message: 'Upload failed' });
   }
 
   if (err.type === 'entity.too.large') {

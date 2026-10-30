@@ -240,6 +240,26 @@ export const SendIcon = props => (
   </Svg>
 );
 
+export const ReplyIcon = props => (
+  <Svg {...props}>
+    <path d="M9 7L4 12l5 5" />
+    <path d="M4 12h8.5a5.5 5.5 0 0 1 5.5 5.5V19" />
+  </Svg>
+);
+
+export const PinIcon = props => (
+  <Svg {...props}>
+    <path d="M9.5 3h5l-.8 5.2 3.3 3.3H7l3.3-3.3z" />
+    <path d="M12 11.5V21" />
+  </Svg>
+);
+
+export const PaperclipIcon = props => (
+  <Svg {...props}>
+    <path d="M20 11.5l-7.6 7.6a4.6 4.6 0 0 1-6.5-6.5l8-8a3.1 3.1 0 0 1 4.4 4.4l-8 8a1.6 1.6 0 0 1-2.2-2.2l7.2-7.2" />
+  </Svg>
+);
+
 export const MenuIcon = props => (
   <Svg {...props}>
     <path d="M4 7h16M4 12h16M4 17h16" />

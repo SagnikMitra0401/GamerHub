@@ -22,7 +22,18 @@ const AuditLogSchema = new mongoose.Schema({
       'CHANNEL_UPDATE',
       'CHANNEL_DELETE',
       'MESSAGE_PURGE',
-      'SETTINGS_UPDATE'
+      'SETTINGS_UPDATE',
+      'MEMBER_TIMEOUT',
+      'MEMBER_TIMEOUT_LIFT',
+      'MEMBER_BAN',
+      'MEMBER_UNBAN',
+      'MESSAGE_PIN',
+      'MESSAGE_UNPIN',
+      'REPORT_REVIEWED',
+      'FORUM_POST_LOCK',
+      'FORUM_POST_ARCHIVE',
+      'FORUM_POST_REOPEN',
+      'FORUM_POST_DELETE'
     ],
     required: true
   },
@@ -32,7 +43,7 @@ const AuditLogSchema = new mongoose.Schema({
   },
   targetModel: {
     type: String,
-    enum: ['User', 'Channel', 'Message', 'Community', null],
+    enum: ['User', 'Channel', 'Message', 'Community', 'ForumPost', 'Report', null],
     default: null
   },
   metadata: {

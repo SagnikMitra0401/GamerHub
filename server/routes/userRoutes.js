@@ -13,6 +13,7 @@ const {
   updatePreferences,
   updatePresence
 } = require('../controllers/userController');
+const { toggleMute, getMutedUsers } = require('../controllers/moderationController');
 
 // Search & Passport (must be before /:username to avoid route collision)
 router.get('/search',         optionalProtect, searchAll);
@@ -20,6 +21,10 @@ router.put('/me/passport',    protect,         updateGamerPassport);
 router.patch('/me/preferences', protect,       updatePreferences);
 router.patch('/presence',     protect,         updatePresence);
 router.get('/me/saved',       protect,         getSavedPosts);
+router.get('/me/muted',       protect,         getMutedUsers);
+
+// Personal mute (hides their content from YOUR view; not a moderation action)
+router.post('/:id/mute',      protect,         toggleMute);
 
 // Public routes (with optional auth for isFollowing flag)
 router.get('/:username',       optionalProtect, getProfile);

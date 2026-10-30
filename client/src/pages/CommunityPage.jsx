@@ -11,8 +11,15 @@ import ChannelSettingsModal from '../components/communities/ChannelSettingsModal
 import AuditLogModal from '../components/communities/AuditLogModal';
 import CommunitySettingsModal from '../components/communities/CommunitySettingsModal';
 import CommunitySigil from '../components/communities/CommunitySigil';
+import MessageItem from '../components/communities/MessageItem';
+import ForumChannel from '../components/communities/ForumChannel';
+import ChannelSearchModal from '../components/communities/ChannelSearchModal';
+import ReportsModal from '../components/communities/ReportsModal';
+import ReportModal from '../components/communities/ReportModal';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { ScrollIcon, SettingsIcon, PlusIcon, TrashIcon, MenuIcon, CloseIcon } from '../components/common/icons';
+import {
+  ScrollIcon, SettingsIcon, PlusIcon, MenuIcon, CloseIcon, SearchIcon, AlertIcon
+} from '../components/common/icons';
 
 import {
   CAP,
@@ -21,14 +28,6 @@ import {
   hasCapability,
   roleAtLeast
 } from '../utils/permissions';
-
-const timeAgo = (date) => {
-  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return new Date(date).toLocaleDateString();
-};
 
 const CommunityPage = () => {
   const { slug } = useParams();
@@ -59,6 +58,13 @@ const CommunityPage = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // userId -> { status, activeGame } from live presence events
   const [presenceMap, setPresenceMap] = useState({});
+
+  // Phase 7 interaction surface
+  const [replyTo, setReplyTo] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [mutedUsers, setMutedUsers] = useState([]);
 
   const socketRef = useRef(null);
   const endRef = useRef(null);
@@ -101,6 +107,19 @@ const CommunityPage = () => {
 
   useEffect(() => { loadCommunity(); }, [loadCommunity]);
 
+  // A reply belongs to the channel it was started in.
+  useEffect(() => { setReplyTo(null); }, [activeChannelId]);
+
+  // Personal mutes: their messages are hidden from my view only.
+  useEffect(() => {
+    if (!user) { setMutedUsers([]); return undefined; }
+    let cancelled = false;
+    axiosInstance.get('/users/me/muted')
+      .then(({ data }) => { if (!cancelled) setMutedUsers(data.mutedUsers || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?._id]);
+
   // Live presence badges in the member sidebar (works even before you join).
   useEffect(() => {
     const sock = getSocket();
@@ -136,6 +155,34 @@ const CommunityPage = () => {
         m._id === messageId ? { ...m, isDeleted: true, text: 'This message was deleted' } : m
       )));
     };
+
+    // Broadcasts carry counts only; each client keeps its own "mine" flag so a
+    // reaction from someone else never clears the current user's highlight.
+    const onReactionUpdated = ({ messageId, reactions }) => {
+      setMessages(prev => prev.map(message => {
+        if (message._id !== messageId) return message;
+        const previous = message.reactions || [];
+        return {
+          ...message,
+          reactions: (reactions || []).map(reaction => ({
+            ...reaction,
+            mine: previous.some(entry => entry.emoji === reaction.emoji && entry.mine)
+          }))
+        };
+      }));
+    };
+
+    const markPinned = (messageId, pinned) => {
+      setMessages(prev => prev.map(message => (
+        message._id === messageId ? { ...message, pinned } : message
+      )));
+    };
+    const onPinned = ({ messageId }) => markPinned(messageId, true);
+    const onUnpinned = ({ messageId }) => markPinned(messageId, false);
+
+    const onTimedOut = ({ timeoutUntil }) => {
+      setNotice(`You are timed out until ${new Date(timeoutUntil).toLocaleTimeString()} — you can read, but not post.`);
+    };
     const onTyping = ({ username }) => {
       setTypingUsers(prev => ({ ...prev, [username]: Date.now() }));
     };
@@ -168,6 +215,10 @@ const CommunityPage = () => {
     sock.on('joined_channel', onJoined);
     sock.on('new_message', onNewMessage);
     sock.on('message_deleted', onMessageDeleted);
+    sock.on('reaction_updated', onReactionUpdated);
+    sock.on('message_pinned', onPinned);
+    sock.on('message_unpinned', onUnpinned);
+    sock.on('member_timed_out', onTimedOut);
     sock.on('user_typing', onTyping);
     sock.on('user_stopped_typing', onStopTyping);
     sock.on('error_msg', onErrorMsg);
@@ -187,6 +238,10 @@ const CommunityPage = () => {
       sock.off('joined_channel', onJoined);
       sock.off('new_message', onNewMessage);
       sock.off('message_deleted', onMessageDeleted);
+      sock.off('reaction_updated', onReactionUpdated);
+      sock.off('message_pinned', onPinned);
+      sock.off('message_unpinned', onUnpinned);
+      sock.off('member_timed_out', onTimedOut);
       sock.off('user_typing', onTyping);
       sock.off('user_stopped_typing', onStopTyping);
       sock.off('error_msg', onErrorMsg);
@@ -284,6 +339,42 @@ const CommunityPage = () => {
     socketRef.current?.emit('delete_message', { messageId });
   };
 
+  const reactToMessage = async (message, emoji) => {
+    if (!activeChannelId) return;
+    try {
+      const { data } = await axiosInstance.post(
+        `/communities/channels/${activeChannelId}/messages/${message._id}/react`,
+        { emoji }
+      );
+      setMessages(prev => prev.map(row => (
+        row._id === message._id ? { ...row, reactions: data.reactions } : row
+      )));
+    } catch (err) {
+      setNotice(err.response?.data?.message || 'Could not add that reaction.');
+    }
+  };
+
+  const pinMessage = async (message) => {
+    if (!activeChannelId) return;
+    try {
+      const { data } = await axiosInstance[
+        message.pinned ? 'delete' : 'post'
+      ](`/communities/channels/${activeChannelId}/messages/${message._id}/pin`);
+      setMessages(prev => prev.map(row => (
+        row._id === message._id ? { ...row, pinned: data.pinned } : row
+      )));
+    } catch (err) {
+      setNotice(err.response?.data?.message || 'Could not pin that message.');
+    }
+  };
+
+  const jumpToChannel = (channelId) => {
+    if (!channelId) return;
+    if (!channels.some(channel => channel._id === channelId)) return;
+    setActiveChannelId(channelId);
+    setDrawerOpen(false);
+  };
+
   // ── Render guards ──────────────────────────────────────────────────────────
   if (loading) return <div className="page"><div className="spinner" /></div>;
 
@@ -304,8 +395,16 @@ const CommunityPage = () => {
   const canManageRoles = hasCapability(permissions, CAP.MANAGE_ROLES);
   const canKick = hasCapability(permissions, CAP.KICK_MEMBERS);
   const canViewAudit = hasCapability(permissions, CAP.VIEW_AUDIT_LOG);
+  const canViewReports = hasCapability(permissions, CAP.VIEW_REPORTS);
   const canManageServer = hasCapability(permissions, CAP.MANAGE_SERVER);
   const isMember = !!callerRole;
+
+  // Personal mutes hide content from this view only — the server still
+  // delivers it, so nobody can mistake a mute for a moderation action.
+  const mutedSet = new Set(mutedUsers.map(String));
+  const visibleMessages = messages.filter(
+    message => !mutedSet.has(String(message.senderId?._id ?? message.senderId))
+  );
 
   const canWrite = isMember && activeChannel
     && hasCapability(permissions, CAP.SEND_MESSAGES)
@@ -542,9 +641,43 @@ const CommunityPage = () => {
                 {activeChannel.retentionDays > 0 && (
                   <span className="chat-badge" title="Messages auto-delete">{activeChannel.retentionDays}d</span>
                 )}
+                {activeChannel.type === 'forum' && <span className="chat-badge">forum</span>}
+              </div>
+
+              <div className="chat-header-actions">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  title="Search messages & pins"
+                  aria-label="Search messages and pins"
+                  onClick={() => setSearchOpen(true)}
+                >
+                  <SearchIcon size={16} />
+                </button>
+                {canViewReports && (
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    title="Report queue"
+                    aria-label="Open the report queue"
+                    onClick={() => setReportsOpen(true)}
+                  >
+                    <AlertIcon size={16} />
+                  </button>
+                )}
               </div>
             </div>
 
+            {activeChannel.type === 'forum' ? (
+              <ForumChannel
+                communityId={community._id}
+                channel={activeChannel}
+                permissions={permissions}
+                canWrite={isMember}
+                onNotice={setNotice}
+              />
+            ) : (
+            <>
             <div className={`chat-messages ${activeChannel.isProtected ? 'protected-chat' : ''}`}>
               {messagesLoading ? (
                 <div className="spinner" />
@@ -554,44 +687,26 @@ const CommunityPage = () => {
                   <p>This is the beginning of <strong>#{activeChannel.name}</strong>.</p>
                 </div>
               ) : (
-                messages.map((message, index) => {
+                visibleMessages.map(message => {
                   const sender = message.senderId || {};
                   const role = message.communityRole
                     || community.members?.find(m => String(m.userId?._id || m.userId) === String(sender._id))?.role;
-                  const isAuthor = user && String(sender._id) === String(user._id);
-                  const canDelete = !message.isDeleted
-                    && (isAuthor || hasCapability(permissions, CAP.MANAGE_MESSAGES));
 
                   return (
-                    <div key={message._id || index} className={`chat-message${message.isDeleted ? ' deleted' : ''}`}>
-                      <div className="chat-avatar">{sender.username?.[0]?.toUpperCase() || '?'}</div>
-                      <div className="chat-message-body">
-                        <div className="chat-message-header">
-                          <Link to={`/u/${sender.username || ''}`} className="chat-sender-name">
-                            {sender.username || 'Unknown'}
-                          </Link>
-                          {sender.level && (
-                            <span className="level-badge" style={{ fontSize: '0.65rem' }}>Lv{sender.level}</span>
-                          )}
-                          {role && role !== 'member' && (
-                            <span style={{ fontSize: '0.68rem', color: ROLE_COLORS[role] }}>{ROLE_LABELS[role]}</span>
-                          )}
-                          <span className="chat-timestamp">{timeAgo(message.createdAt)}</span>
-                          {canDelete && (
-                            <button
-                              type="button"
-                              className="chat-msg-delete-btn"
-                              title="Delete message"
-                              aria-label="Delete message"
-                              onClick={() => deleteMessage(message._id)}
-                            ><TrashIcon size={13} /></button>
-                          )}
-                        </div>
-                        <p className={`chat-message-text${message.isDeleted ? ' text-tombstone' : ''}`}>
-                          {message.isDeleted ? 'This message was deleted' : message.text}
-                        </p>
-                      </div>
-                    </div>
+                    <MessageItem
+                      key={message._id}
+                      message={message}
+                      channelId={activeChannel._id}
+                      me={user}
+                      permissions={permissions}
+                      communityRole={role}
+                      canWrite={canWrite}
+                      onDelete={deleteMessage}
+                      onReply={setReplyTo}
+                      onReact={reactToMessage}
+                      onPin={pinMessage}
+                      onReport={setReportTarget}
+                    />
                   );
                 })
               )}
@@ -615,9 +730,13 @@ const CommunityPage = () => {
               canWrite={canWrite}
               slowModeSeconds={activeChannel.slowModeSeconds || 0}
               permissions={permissions}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
               onNotice={setNotice}
               placeholder={`Message #${activeChannel.name}`}
             />
+            </>
+            )}
           </>
         ) : (
           <div className="chat-locked">
@@ -670,6 +789,28 @@ const CommunityPage = () => {
           setChannels(prev => [...prev, channel]);
           setActiveChannelId(channel._id);
         }}
+      />
+
+      <ChannelSearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        communityId={community._id}
+        channelId={activeChannelId}
+        onJump={jumpToChannel}
+      />
+
+      <ReportsModal
+        isOpen={reportsOpen}
+        onClose={() => setReportsOpen(false)}
+        communityId={community._id}
+      />
+
+      <ReportModal
+        isOpen={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        communityId={community._id}
+        target={reportTarget}
+        onDone={() => setNotice('Report received. A moderator will review it.')}
       />
 
       <ConfirmModal

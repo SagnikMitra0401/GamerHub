@@ -29,20 +29,42 @@ const CAP = Object.freeze({
   MANAGE_ROLES: 'MANAGE_ROLES',
   MANAGE_CHANNELS: 'MANAGE_CHANNELS',
   VIEW_AUDIT_LOG: 'VIEW_AUDIT_LOG',
-  MANAGE_SERVER: 'MANAGE_SERVER'
+  MANAGE_SERVER: 'MANAGE_SERVER',
+
+  // Phase 7 — community interaction surface.
+  ADD_REACTIONS: 'ADD_REACTIONS',
+  ATTACH_FILES: 'ATTACH_FILES',
+  CREATE_FORUM_POSTS: 'CREATE_FORUM_POSTS',
+  REPLY_FORUM_POSTS: 'REPLY_FORUM_POSTS',
+
+  // Phase 7 — moderation surface.
+  MENTION_EVERYONE: 'MENTION_EVERYONE',
+  TIMEOUT_MEMBERS: 'TIMEOUT_MEMBERS',
+  PIN_MESSAGES: 'PIN_MESSAGES',
+  MANAGE_FORUM_POSTS: 'MANAGE_FORUM_POSTS',
+  VIEW_REPORTS: 'VIEW_REPORTS'
 });
 
 const MEMBER_CAPS = Object.freeze([
   CAP.VIEW_SERVER,
   CAP.VIEW_CHANNEL,
   CAP.SEND_MESSAGES,
-  CAP.DELETE_OWN_MESSAGE
+  CAP.DELETE_OWN_MESSAGE,
+  CAP.ADD_REACTIONS,
+  CAP.ATTACH_FILES,
+  CAP.CREATE_FORUM_POSTS,
+  CAP.REPLY_FORUM_POSTS
 ]);
 
 const MODERATOR_CAPS = Object.freeze([
   ...MEMBER_CAPS,
   CAP.MANAGE_MESSAGES,
-  CAP.BYPASS_SLOWMODE
+  CAP.BYPASS_SLOWMODE,
+  CAP.MENTION_EVERYONE,
+  CAP.TIMEOUT_MEMBERS,
+  CAP.PIN_MESSAGES,
+  CAP.MANAGE_FORUM_POSTS,
+  CAP.VIEW_REPORTS
 ]);
 
 const ADMIN_CAPS = Object.freeze([
@@ -173,6 +195,25 @@ function canAssignCommunityRole(actorRole, targetRole, newRole) {
 }
 
 /**
+ * Can `actorRole` moderate (timeout / ban) `targetRole`?
+ * Moderation follows the same hierarchy as kicking, without the kick's
+ * "admin only" restriction — a moderator may time out a member, never a peer.
+ */
+function canModerateMember(actorRole, targetRole, { self = false } = {}) {
+  if (self) return { ok: false, reason: 'You cannot moderate yourself.' };
+  if (roleLevel(actorRole) < ROLE_LEVELS.moderator) {
+    return { ok: false, reason: 'You need the Moderator role or higher to moderate members.' };
+  }
+  if (targetRole === 'owner') {
+    return { ok: false, reason: 'The owner cannot be moderated.' };
+  }
+  if (roleLevel(actorRole) <= roleLevel(targetRole)) {
+    return { ok: false, reason: 'You cannot moderate a member at or above your own role.' };
+  }
+  return { ok: true };
+}
+
+/**
  * Can `actorRole` kick `targetRole`?
  *  - admin/owner only, never the owner, never yourself (use Leave)
  *  - admins cannot kick other admins
@@ -219,5 +260,6 @@ module.exports = {
   isPlatformAdmin,
   canAssignCommunityRole,
   canKickCommunityMember,
+  canModerateMember,
   assignableRoles
 };

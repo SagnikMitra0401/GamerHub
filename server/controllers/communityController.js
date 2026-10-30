@@ -5,6 +5,10 @@ const Channel   = require('../models/Channel');
 const Message   = require('../models/Message');
 const AuditLog  = require('../models/AuditLog');
 const User      = require('../models/User');
+const ForumPost   = require('../models/ForumPost');
+const ForumReply  = require('../models/ForumReply');
+const Attachment  = require('../models/Attachment');
+const Report      = require('../models/Report');
 
 const { CHAT_POLICY } = require('../config/chatPolicy');
 const {
@@ -18,6 +22,7 @@ const {
   canKickCommunityMember
 } = require('../utils/permissions');
 const { sanitizeLine } = require('../utils/sanitize');
+const { serializeReactions } = require('../utils/reactions');
 const { parsePagination } = require('../utils/pagination');
 const { recordAudit } = require('../utils/audit');
 const { publicPresence } = require('../utils/presence');
@@ -55,6 +60,8 @@ function requireCapability(community, userId, capability, message) {
   return { role, permissions };
 }
 
+const CHANNEL_TYPES = ['text', 'announcement', 'forum'];
+
 const channelName = (raw) =>
   sanitizeLine(String(raw || ''), CHAT_POLICY.channels.maxNameLength)
     .toLowerCase()
@@ -77,7 +84,9 @@ const memberSummary = (entry) => ({
   level: entry.userId?.level ?? 1,
   role: entry.role,
   presence: publicPresence(entry.userId?.presence),
-  joinedAt: entry.joinedAt
+  joinedAt: entry.joinedAt,
+  // Only surfaced so moderators can see and lift an active timeout.
+  timeoutUntil: entry.timeoutUntil || null
 });
 
 /** Replace raw presence on each populated member with its public projection. */
@@ -254,6 +263,11 @@ const joinCommunity = async (req, res, next) => {
     if (community.isPrivate) {
       throw forbidden('This server is invite-only. Ask an admin to add you.');
     }
+    // A ban outlives leaving, kicking and re-inviting.
+    const banned = (community.bannedUsers || []).some(
+      (entry) => String(entry.userId?._id ?? entry.userId) === String(req.user._id)
+    );
+    if (banned) throw forbidden('You are banned from this server.');
     if ((community.members || []).length >= CHAT_POLICY.community.maxMembers) {
       throw conflict('This server has reached its member limit.');
     }
@@ -519,6 +533,10 @@ const deleteCommunity = async (req, res, next) => {
 
     await Message.deleteMany({ communityId: community._id });
     await Channel.deleteMany({ communityId: community._id });
+    await ForumPost.deleteMany({ communityId: community._id });
+    await ForumReply.deleteMany({ communityId: community._id });
+    await Attachment.deleteMany({ communityId: community._id });
+    await Report.deleteMany({ communityId: community._id });
     await AuditLog.deleteMany({ communityId: community._id });
     await community.deleteOne();
 
@@ -560,7 +578,7 @@ const createChannel = async (req, res, next) => {
       communityId: community._id,
       name,
       topic: sanitizeLine(req.body.topic, CHAT_POLICY.channels.maxTopicLength),
-      type: ['text', 'announcement'].includes(req.body.type) ? req.body.type : 'text',
+      type: CHANNEL_TYPES.includes(req.body.type) ? req.body.type : 'text',
       position: Number.isFinite(Number(req.body.position)) ? Number(req.body.position) : channelCount,
       minRoleToRead: minRoleToRead,
       minRoleToWrite: minRoleToWrite,
@@ -572,7 +590,21 @@ const createChannel = async (req, res, next) => {
         Math.max(Number(req.body.retentionDays) || 0, CHAT_POLICY.retention.minDays),
         CHAT_POLICY.retention.maxDays
       ),
-      isProtected: !!req.body.isProtected
+      isProtected: !!req.body.isProtected,
+      attachmentsEnabled: req.body.attachmentsEnabled !== undefined ? !!req.body.attachmentsEnabled : true,
+      forumConfig: (() => {
+        const incoming = req.body.forumConfig || {};
+        return {
+          allowedTags: Array.isArray(incoming.allowedTags)
+            ? incoming.allowedTags.map((tag) => sanitizeLine(tag, 24).toLowerCase()).filter(Boolean).slice(0, 20)
+            : [],
+          requireTag: !!incoming.requireTag,
+          postCreationRoleMin: COMMUNITY_ROLES.includes(incoming.postCreationRoleMin)
+            ? incoming.postCreationRoleMin : 'member',
+          replyRoleMin: COMMUNITY_ROLES.includes(incoming.replyRoleMin)
+            ? incoming.replyRoleMin : 'member'
+        };
+      })()
     });
 
     recordAudit({
@@ -619,8 +651,25 @@ const updateChannel = async (req, res, next) => {
       updates.topic = sanitizeLine(req.body.topic, CHAT_POLICY.channels.maxTopicLength);
     }
     if (req.body.type !== undefined) {
-      if (!['text', 'announcement'].includes(req.body.type)) throw badRequest('Invalid channel type.');
+      if (!CHANNEL_TYPES.includes(req.body.type)) throw badRequest('Invalid channel type.');
       updates.type = req.body.type;
+    }
+    if (req.body.attachmentsEnabled !== undefined) {
+      updates.attachmentsEnabled = !!req.body.attachmentsEnabled;
+    }
+    if (req.body.forumConfig !== undefined && req.body.forumConfig !== null) {
+      const incoming = req.body.forumConfig || {};
+      updates.forumConfig = {
+        ...(channel.forumConfig?.toObject?.() ?? channel.forumConfig ?? {}),
+        ...(Array.isArray(incoming.allowedTags)
+          ? { allowedTags: incoming.allowedTags.map((tag) => sanitizeLine(tag, 24).toLowerCase()).filter(Boolean).slice(0, 20) }
+          : {}),
+        ...(incoming.requireTag !== undefined ? { requireTag: !!incoming.requireTag } : {}),
+        ...(COMMUNITY_ROLES.includes(incoming.postCreationRoleMin)
+          ? { postCreationRoleMin: incoming.postCreationRoleMin } : {}),
+        ...(COMMUNITY_ROLES.includes(incoming.replyRoleMin)
+          ? { replyRoleMin: incoming.replyRoleMin } : {})
+      };
     }
     if (req.body.minRoleToRead !== undefined) {
       if (!COMMUNITY_ROLES.includes(req.body.minRoleToRead)) throw badRequest('Invalid read role gate.');
@@ -700,6 +749,9 @@ const deleteChannel = async (req, res, next) => {
     }
 
     await Message.deleteMany({ channelId: channel._id });
+    await ForumPost.deleteMany({ channelId: channel._id });
+    await ForumReply.deleteMany({ channelId: channel._id });
+    await Attachment.deleteMany({ channelId: channel._id });
     await channel.deleteOne();
 
     recordAudit({
@@ -739,6 +791,11 @@ const getChannelMessages = async (req, res, next) => {
       throw forbidden('You do not have permission to read this channel.');
     }
 
+    // Forum channels have no live stream; the client renders the forum surface.
+    if (channel.type === 'forum') {
+      return res.status(200).json({ messages: [], hasMore: false, forum: true });
+    }
+
     const { limit } = parsePagination(req.query, {
       defaultLimit: CHAT_POLICY.history.defaultLimit,
       maxLimit: CHAT_POLICY.history.maxLimit
@@ -756,6 +813,7 @@ const getChannelMessages = async (req, res, next) => {
       .sort({ _id: -1 })
       .limit(limit)
       .populate('senderId', 'username level role medals')
+      .populate('attachments', 'mimeType sizeBytes width height')
       .lean();
 
     const hasMore = messages.length === limit;
@@ -766,6 +824,9 @@ const getChannelMessages = async (req, res, next) => {
     );
     const decorated = messages.reverse().map((message) => ({
       ...message,
+      // Reaction user ids never leave the server: a count plus "mine" is all
+      // the UI needs, and it keeps history payloads small.
+      reactions: serializeReactions(message.reactions, req.user?._id),
       communityRole: roleByUser.get(String(message.senderId?._id ?? message.senderId)) || null
     }));
 

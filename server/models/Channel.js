@@ -19,7 +19,7 @@ const ChannelSchema = new mongoose.Schema({
   },
 
   topic:    { type: String, default: '', trim: true, maxlength: 100 },
-  type:     { type: String, enum: ['text', 'announcement'], default: 'text' },
+  type:     { type: String, enum: ['text', 'announcement', 'forum'], default: 'text' },
   position: { type: Number, default: 0 },
 
   // Minimum community role required to READ messages in this channel
@@ -56,7 +56,18 @@ const ChannelSchema = new mongoose.Schema({
   isProtected: {
     type: Boolean,
     default: false
-  }
+  },
+
+  // Forum channels: threaded posts instead of a live message stream.
+  forumConfig: {
+    allowedTags:         { type: [String], default: [] },
+    requireTag:          { type: Boolean, default: false },
+    postCreationRoleMin: { type: String, enum: ['member', 'moderator', 'admin', 'owner'], default: 'member' },
+    replyRoleMin:        { type: String, enum: ['member', 'moderator', 'admin', 'owner'], default: 'member' }
+  },
+
+  // Uploads can be turned off per channel without touching community settings.
+  attachmentsEnabled: { type: Boolean, default: true }
 
 }, { timestamps: true });
 

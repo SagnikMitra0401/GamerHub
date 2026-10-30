@@ -6,10 +6,17 @@ const Community = require('../models/Community');
 const Channel   = require('../models/Channel');
 const Message   = require('../models/Message');
 const User      = require('../models/User');
+const Attachment = require('../models/Attachment');
 
 const { CHAT_POLICY } = require('./chatPolicy');
-const { CAP, communityPermissions, roleAtLeast, isAppStaff } = require('../utils/permissions');
-const { normalizeMessageText } = require('../utils/sanitize');
+const {
+  CAP, communityPermissions, roleAtLeast, isAppStaff, findMember
+} = require('../utils/permissions');
+const { normalizeMessageText, escapeRegex } = require('../utils/sanitize');
+const {
+  extractMentionNames, mentionsEveryone, replyPreview, MAX_MENTIONS_PER_MESSAGE
+} = require('../utils/mentions');
+const { resolveAttachments } = require('../utils/attachmentRefs');
 const { createSlidingWindowLimiter, createRecentEventTracker } = require('../utils/rateLimiter');
 const { recordAudit } = require('../utils/audit');
 const { corsOrigin } = require('../utils/origins');
@@ -52,6 +59,38 @@ function evictUserFromCommunity(userId, communityId) {
     socket.leave(`community:${target}`);
     socket.emit('membership_revoked', { communityId: target });
   }
+}
+
+/**
+ * Rebuild the mention list from the message text.
+ *
+ * Nothing the client sends about identity is trusted: names are matched against
+ * real users, then filtered down to members of this community, and only
+ * `@everyone` requires the MENTION_EVERYONE capability.
+ */
+async function resolveMentions({ text, community, permissions }) {
+  const everyoneRequested = mentionsEveryone(text);
+  const everyoneAllowed = everyoneRequested && permissions.includes(CAP.MENTION_EVERYONE);
+
+  const names = extractMentionNames(text).slice(0, 20);
+  if (!names.length) return { mentions: [], everyoneRequested, everyoneAllowed };
+
+  // Case-insensitive exact match, anchored so `@ali` never resolves to `@alice`.
+  const pattern = new RegExp(`^(${names.map(escapeRegex).join('|')})$`, 'i');
+  const users = await User.find({ username: pattern }).select('_id username').lean();
+
+  const memberIds = new Set(
+    (community.members || []).map((member) => String(member.userId?._id ?? member.userId))
+  );
+
+  const mentions = [];
+  for (const user of users) {
+    if (!memberIds.has(String(user._id))) continue;
+    mentions.push({ userId: user._id, username: user.username });
+    if (mentions.length >= MAX_MENTIONS_PER_MESSAGE) break;
+  }
+
+  return { mentions, everyoneRequested, everyoneAllowed };
 }
 
 // ── Abuse control (per-user, shared across tabs/sockets) ────────────────────
@@ -289,11 +328,7 @@ function initSocket(httpServer) {
           return fail(socket, `Slow down! Try again in ${seconds}s.`, 'FLOOD');
         }
 
-        // 2. Normalise text (control chars, bidi overrides, zero-width, length)
-        const normalized = normalizeMessageText(payload.text, CHAT_POLICY);
-        if (!normalized.ok) return fail(socket, normalized.reason, 'INVALID_MESSAGE');
-
-        // 3. Resolve channel + community from the server side only
+        // 2. Resolve channel + community from the server side only
         const ctx = await loadChannelContext(payload.channelId);
         if (!ctx) return fail(socket, 'Channel not found.', 'NOT_FOUND');
 
@@ -304,12 +339,48 @@ function initSocket(httpServer) {
           return fail(socket, 'You do not have permission to post in this channel.', 'FORBIDDEN');
         }
 
+        // Forum channels use threads; there is no live stream to post into.
+        if (channel.type === 'forum') {
+          return fail(socket, 'This is a forum channel. Start a thread instead.', 'FORUM_CHANNEL');
+        }
+
         // Announcement channels are staff-only by design.
         if (channel.type === 'announcement' && !roleAtLeast(role, 'moderator')) {
           return fail(socket, 'Only moderators can post in announcement channels.', 'FORBIDDEN');
         }
 
-        // 4. Slowmode (moderators+ bypass it)
+        // 3. Timed suspension (server-owned clock, never the client's).
+        const member = findMember(community, userId);
+        if (member?.timeoutUntil && new Date(member.timeoutUntil).getTime() > Date.now()) {
+          return fail(
+            socket,
+            `You are timed out until ${new Date(member.timeoutUntil).toLocaleString()}.`,
+            'TIMEOUT'
+          );
+        }
+
+        // 4. Attachments must already be uploaded by THIS user into THIS channel.
+        const attachmentIds = await resolveAttachments({
+          attachmentIds: payload.attachmentIds,
+          channelId: channel._id,
+          communityId: community._id,
+          uploaderId: userId
+        });
+
+        // Uploads disabled after the fact must not be attachable either.
+        if (attachmentIds.length && channel.attachmentsEnabled === false) {
+          return fail(socket, 'Attachments are disabled in this channel.', 'FORBIDDEN');
+        }
+
+        // 5. Normalise text (control chars, bidi overrides, zero-width, length).
+        //    An image-only message is allowed when the upload succeeded.
+        const normalized = normalizeMessageText(payload.text ?? '', CHAT_POLICY);
+        if (!normalized.ok && !attachmentIds.length) {
+          return fail(socket, normalized.reason, 'INVALID_MESSAGE');
+        }
+        const text = normalized.ok ? normalized.text : '';
+
+        // 6. Slowmode (moderators+ bypass it)
         if (channel.slowModeSeconds > 0 && !permissions.includes(CAP.BYPASS_SLOWMODE)) {
           const key = `${userId}:${channel._id}`;
           const lastSent = slowmodeTracker.get(key);
@@ -321,21 +392,82 @@ function initSocket(httpServer) {
           slowmodeTracker.set(key);
         }
 
-        // 5. Persist raw text (React escapes on render — no double encoding)
+        // 7. Reply context: only a message in the SAME channel may be quoted.
+        let replyTo = null;
+        if (payload.replyTo?.messageId && mongoose.Types.ObjectId.isValid(String(payload.replyTo.messageId))) {
+          const target = await Message.findOne({
+            _id: payload.replyTo.messageId,
+            channelId: channel._id
+          }).select('senderId text isDeleted').populate('senderId', 'username').lean();
+
+          if (target) {
+            replyTo = {
+              messageId: target._id,
+              senderName: target.senderId?.username || null,
+              preview: target.isDeleted ? '[deleted]' : replyPreview(target.text)
+            };
+          }
+        }
+
+        // 8. Mentions: rebuild from text, restricted to real members.
+        const { mentions, everyoneRequested, everyoneAllowed } = await resolveMentions({
+          text,
+          community,
+          permissions
+        });
+
+        // 9. Persist raw text (React escapes on render — no double encoding)
         const message = await Message.create({
           channelId: channel._id,
           communityId: community._id, // derived, never client-supplied
           senderId: userId,
-          text: normalized.text
+          text,
+          replyTo,
+          mentions,
+          attachments: attachmentIds
         });
 
-        const populated = await message.populate('senderId', 'username level role medals');
-        // `communityRole` is the *server* role — distinct from the platform role
-        // inside senderId.role — so clients can render the right badge.
-        emitToChannel(channel._id, 'new_message', {
+        if (attachmentIds.length) {
+          await Attachment.updateMany(
+            { _id: { $in: attachmentIds } },
+            { $set: { messageId: message._id } }
+          );
+        }
+
+        const populated = await message.populate([
+          { path: 'senderId', select: 'username level role medals' },
+          { path: 'attachments', select: 'mimeType sizeBytes width height' }
+        ]);
+
+        const payloadOut = {
           ...populated.toObject(),
-          communityRole: role
-        });
+          // `communityRole` is the *server* role — distinct from the platform role
+          // inside senderId.role — so clients can render the right badge.
+          communityRole: role,
+          mentionsEveryone: everyoneRequested && everyoneAllowed
+        };
+
+        emitToChannel(channel._id, 'new_message', payloadOut);
+
+        // 10. Mention pings are best-effort and never delay the broadcast.
+        //     Required lazily: notify.js calls this module's getIO(), so a
+        //     top-level import would capture an empty exports object mid-load.
+        const { notifyUser } = require('../utils/notify');
+        for (const mention of mentions) {
+          notifyUser({
+            userId: mention.userId,
+            type: 'social',
+            title: `${socket.user.username} mentioned you`,
+            message: text.slice(0, 140),
+            actionUrl: `/communities/${community.slug}`,
+            metadata: {
+              kind: 'mention',
+              communityId: String(community._id),
+              channelId: String(channel._id),
+              messageId: String(message._id)
+            }
+          });
+        }
       } catch (err) {
         console.error('[Socket] send_message error:', err.message);
         fail(socket, 'Could not send that message.', 'INTERNAL');

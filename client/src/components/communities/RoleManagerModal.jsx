@@ -29,9 +29,15 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
   const [addRole, setAddRole] = useState('member');
   const [adding, setAdding] = useState(false);
 
+  // Phase 7 moderation: timeouts and bans.
+  const [pendingBan, setPendingBan] = useState(null);
+  const [bansOpen, setBansOpen] = useState(false);
+  const [bans, setBans] = useState([]);
+
   const canManageRoles = hasCapability(permissions, CAP.MANAGE_ROLES);
   const canKick        = hasCapability(permissions, CAP.KICK_MEMBERS);
   const canAdd         = hasCapability(permissions, CAP.ADD_MEMBERS);
+  const canTimeout     = hasCapability(permissions, CAP.TIMEOUT_MEMBERS);
   const grantable      = assignableRoles(callerRole);
 
   const load = useCallback(async () => {
@@ -63,8 +69,81 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
       setQuery('');
       setAddUsername('');
       setAddRole('member');
+      setBansOpen(false);
+      setBans([]);
     }
   }, [isOpen, community?._id]);
+
+  const loadBans = async () => {
+    setError('');
+    try {
+      const { data } = await axiosInstance.get(`/communities/${community._id}/bans`);
+      setBans(data.bans || []);
+      setBansOpen(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not load bans.');
+    }
+  };
+
+  const applyTimeout = async (member, durationMinutes) => {
+    if (!durationMinutes) return;
+    setBusyId(member.userId);
+    setError('');
+    try {
+      const { data } = await axiosInstance.post(
+        `/communities/${community._id}/members/${member.userId}/timeout`,
+        { durationMinutes }
+      );
+      setMembers(prev => prev.map(row => (
+        row.userId === member.userId ? { ...row, timeoutUntil: data.timeoutUntil } : row
+      )));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not time that member out.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const liftTimeout = async (member) => {
+    setBusyId(member.userId);
+    setError('');
+    try {
+      await axiosInstance.delete(`/communities/${community._id}/members/${member.userId}/timeout`);
+      setMembers(prev => prev.map(row => (
+        row.userId === member.userId ? { ...row, timeoutUntil: null } : row
+      )));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not lift that timeout.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const ban = async () => {
+    if (!pendingBan) return;
+    setBusyId(pendingBan.userId);
+    setError('');
+    try {
+      await axiosInstance.post(`/communities/${community._id}/bans/${pendingBan.userId}`);
+      setMembers(prev => prev.filter(m => m.userId !== pendingBan.userId));
+      onChanged?.();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not ban that member.');
+    } finally {
+      setBusyId(null);
+      setPendingBan(null);
+    }
+  };
+
+  const unban = async (userId) => {
+    setError('');
+    try {
+      await axiosInstance.delete(`/communities/${community._id}/bans/${userId}`);
+      setBans(prev => prev.filter(entry => entry.userId !== userId));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not lift that ban.');
+    }
+  };
 
   if (!isOpen || !community) return null;
 
@@ -159,6 +238,38 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
           </form>
         )}
 
+        {canKick && (
+          <div className="role-bans">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => (bansOpen ? setBansOpen(false) : loadBans())}
+            >
+              {bansOpen ? 'Hide banned users' : 'Banned users'}
+            </button>
+            {bansOpen && (
+              bans.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: '0.75rem', margin: '0.4rem 0 0' }}>Nobody is banned.</p>
+              ) : (
+                <div className="role-bans-list">
+                  {bans.map(entry => (
+                    <div key={entry.userId} className="role-ban-row">
+                      <span className="role-ban-name">{entry.username}</span>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => unban(entry.userId)}
+                      >
+                        Unban
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+        )}
+
         <input
           className="form-input"
           placeholder="Filter members…"
@@ -207,17 +318,61 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
                   !isOwner && <span className="role-member-locked">—</span>
                 )}
 
-                {canKick && !isOwner && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger"
-                    disabled={busyId === member.userId}
-                    onClick={() => setPendingKick(member)}
-                    title="Remove from server"
-                  >
-                    Kick
-                  </button>
-                )}
+                <div className="role-member-actions">
+                  {canTimeout && !isOwner && (
+                    member.timeoutUntil && new Date(member.timeoutUntil) > new Date() ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        disabled={busyId === member.userId}
+                        onClick={() => liftTimeout(member)}
+                        title={`Timeout ends ${new Date(member.timeoutUntil).toLocaleTimeString()} — click to lift`}
+                      >
+                        Timed out
+                      </button>
+                    ) : (
+                      <select
+                        className="form-input role-select role-timeout-select"
+                        defaultValue=""
+                        disabled={busyId === member.userId}
+                        aria-label={`Time out ${member.username}`}
+                        onChange={(event) => {
+                          applyTimeout(member, Number(event.target.value));
+                          event.target.value = '';
+                        }}
+                      >
+                        <option value="">Timeout…</option>
+                        <option value="5">5 min</option>
+                        <option value="10">10 min</option>
+                        <option value="60">1 hour</option>
+                        <option value="1440">1 day</option>
+                      </select>
+                    )
+                  )}
+
+                  {canKick && !isOwner && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        disabled={busyId === member.userId}
+                        onClick={() => setPendingKick(member)}
+                        title="Remove from server (can rejoin)"
+                      >
+                        Kick
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        disabled={busyId === member.userId}
+                        onClick={() => setPendingBan(member)}
+                        title="Ban from this server"
+                      >
+                        Ban
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -238,6 +393,18 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
           isDanger
           onConfirm={kick}
           onCancel={() => setPendingKick(null)}
+        />
+
+        <ConfirmModal
+          isOpen={!!pendingBan}
+          title="Ban member"
+          message={pendingBan
+            ? `Ban ${pendingBan.username}? They are removed immediately and cannot rejoin until an admin unbans them.`
+            : ''}
+          confirmText="Ban"
+          isDanger
+          onConfirm={ban}
+          onCancel={() => setPendingBan(null)}
         />
       </div>
     </div>,
