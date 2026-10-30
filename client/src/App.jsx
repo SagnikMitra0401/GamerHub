@@ -15,6 +15,8 @@ import CommunityPage from './pages/CommunityPage';
 import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
 import AdminDashboard from './pages/AdminDashboard';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 import './index.css';
 
 /**
@@ -79,6 +81,8 @@ function App() {
           <Route path="/lfg"                    element={<LfgPage />} />
           <Route path="/games"                  element={<GameCatalog />} />
           <Route path="/admin"                  element={<AdminDashboard />} />
+          <Route path="/privacy"                element={<PrivacyPolicy />} />
+          <Route path="/terms"                  element={<TermsOfService />} />
           <Route path="*"                       element={<Navigate to="/" replace />} />
         </Routes>
         <GlobalToolbar
