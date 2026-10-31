@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { protect, optionalProtect } = require('../middleware/auth');
+const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const {
   getProfile,
   getUserPosts,
@@ -33,8 +33,8 @@ router.get('/:username',       optionalProtect, getProfile);
 router.get('/:username/posts', optionalProtect, getUserPosts);
 
 // Protected routes
-router.post('/:username/follow',   protect, toggleFollow);
-router.post('/saved/:postId',      protect, toggleSavePost);
+router.post('/:username/follow',   protect, activeOnly, toggleFollow);
+router.post('/saved/:postId',      protect, activeOnly, toggleSavePost);
 router.post('/channels/favourite', protect, toggleFavouriteChannel);
 
 module.exports = router;

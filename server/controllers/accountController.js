@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
 
 const User = require('../models/User');
 const Post = require('../models/Post');
@@ -11,10 +12,13 @@ const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
 
 const generateToken = require('../utils/generateToken');
+const { normalizeUsername, usernameFilter } = require('../utils/username');
+const { planSuccessionForUser } = require('../utils/succession');
+const { eraseAccount } = require('../utils/accountErasure');
 const { clearAuthCookie } = require('./authController');
-const { badRequest, notFound, conflict } = require('../utils/httpError');
+const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
 const { idOf, isBlockedBetween } = require('../utils/privacy');
-const { disconnectUser } = require('../config/socket');
+const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
 
 const DELETION_GRACE_DAYS = 30;
 const EXPORT_ROW_LIMIT = 5000;
@@ -25,7 +29,10 @@ const isId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 const getAccount = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id)
-      .select('username email profileType status privacySettings blockedUsers deletionRequestedAt sessionVersion createdAt')
+      .select(
+        'username email profileType status privacySettings blockedUsers deletionRequestedAt ' +
+        'createdAt authIdentities hasLocalPassword frozenAt feedResetAt preferences favoriteChannels'
+      )
       .lean();
     if (!user) throw notFound('User not found');
 
@@ -34,12 +41,252 @@ const getAccount = async (req, res, next) => {
       .lean();
 
     res.status(200).json({
+      username: user.username,
+      email: user.email,
       status: user.status,
       profileType: user.profileType,
+      createdAt: user.createdAt,
+      hasLocalPassword: user.hasLocalPassword !== false,
+      frozenAt: user.frozenAt,
+      feedResetAt: user.feedResetAt,
+      providers: [...new Set((user.authIdentities || []).map((identity) => identity.provider))],
       privacySettings: user.privacySettings,
       deletionRequestedAt: user.deletionRequestedAt,
       deletionGraceDays: DELETION_GRACE_DAYS,
-      blockedUsers: blocked.map((u) => ({ _id: String(u._id), username: u.username, level: u.level }))
+      blockedUsers: blocked.map((u) => ({ _id: String(u._id), username: u.username, level: u.level })),
+      feedSignals: {
+        favoriteGames: (user.preferences?.favoriteGames || []).length,
+        favoriteGenres: (user.preferences?.favoriteGenres || []).length,
+        favoriteChannels: (user.favoriteChannels || []).length,
+        platforms: user.preferences?.platforms || []
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/account/username
+ *
+ * Only the handle changes: `_id` stays put, so posts, follows and audit rows
+ * keep pointing at the same account. The old handle becomes free immediately.
+ */
+const changeUsername = async (req, res, next) => {
+  try {
+    const parsed = normalizeUsername(req.body?.username);
+    if (!parsed.ok) throw badRequest(parsed.reason);
+
+    const me = await User.findById(req.user._id).select('username').lean();
+    if (!me) throw notFound('User not found');
+    if (me.username === parsed.value) {
+      throw badRequest('That is already your username.');
+    }
+
+    const taken = await User.findOne(usernameFilter(parsed.value, req.user._id))
+      .select('_id')
+      .lean();
+    if (taken) throw conflict('That username is already taken.');
+
+    let updated;
+    try {
+      updated = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: { username: parsed.value } },
+        { new: true, runValidators: true, projection: { username: 1 } }
+      ).lean();
+    } catch (err) {
+      // The unique index is the final arbiter under a race.
+      if (err.code === 11000) throw conflict('That username is already taken.');
+      throw err;
+    }
+
+    // Snapshots exist because squad chat lives on its own connection and cannot
+    // populate the identity model. A rename must not leave stale names there.
+    await Promise.all([
+      SquadChat.updateMany({ ownerUserId: req.user._id }, { $set: { ownerUsername: updated.username } }),
+      SquadChatMessage.updateMany(
+        { authorUserId: req.user._id },
+        { $set: { authorUsername: updated.username } }
+      )
+    ]);
+
+    res.status(200).json({ username: updated.username });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/account/feed-reset
+ *
+ * Restores the "For You" baseline. The ranker reads three affinity lists; those
+ * are exactly what is cleared. Platform preference and follows are social data,
+ * not ranking signals, so they are kept.
+ */
+const resetFeedRecommendations = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('preferences favoriteChannels')
+      .lean();
+    if (!user) throw notFound('User not found');
+
+    const cleared = {
+      favoriteGames: (user.preferences?.favoriteGames || []).length,
+      favoriteGenres: (user.preferences?.favoriteGenres || []).length,
+      favoriteChannels: (user.favoriteChannels || []).length
+    };
+    const resetAt = new Date();
+
+    await User.updateOne(
+      { _id: req.user._id },
+      {
+        $set: {
+          'preferences.favoriteGames': [],
+          'preferences.favoriteGenres': [],
+          favoriteChannels: [],
+          feedResetAt: resetAt
+        }
+      }
+    );
+
+    res.status(200).json({
+      feedResetAt: resetAt,
+      cleared,
+      kept: { platforms: user.preferences?.platforms || [] }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Confirm a destructive action with the credential the account actually has.
+ * Google-only accounts never set a password, so they confirm by typing their
+ * exact username instead of a password they could not know.
+ */
+async function verifyOwner(req, body = {}, { requireConfirm = false } = {}) {
+  const user = await User.findById(req.user._id)
+    .select('_id username passwordHash hasLocalPassword status')
+    .lean();
+  if (!user) throw notFound('User not found');
+
+  if (requireConfirm) {
+    const typed = String(body.confirmUsername || '').trim();
+    if (!typed || typed.toLowerCase() !== String(user.username).toLowerCase()) {
+      throw badRequest('Type your username exactly to confirm.');
+    }
+  }
+
+  if (user.hasLocalPassword !== false) {
+    const password = typeof body.password === 'string' ? body.password : '';
+    if (!password) throw badRequest('Enter your password to continue.');
+    const matches = await bcrypt.compare(password, user.passwordHash).catch(() => false);
+    if (!matches) throw forbidden('That password is not correct.');
+  }
+
+  return user;
+}
+
+/**
+ * POST /api/account/freeze  { frozen, password?, confirmUsername? }
+ *
+ * Self-service stealth mode: while frozen the account can still sign in and
+ * read (so it can be unfrozen), but its posts disappear from feeds, search and
+ * profiles, its presence reads offline, and participation is refused by the
+ * active-account guard.
+ */
+const setFreeze = async (req, res, next) => {
+  try {
+    const frozen = req.body?.frozen;
+    if (typeof frozen !== 'boolean') throw badRequest('frozen must be true or false.');
+
+    const user = await verifyOwner(req, req.body || {});
+
+    if (['deleted', 'suspended', 'restricted'].includes(user.status)) {
+      throw conflict('This account cannot be frozen.');
+    }
+    if (user.status === 'deletion_pending') {
+      throw conflict('Cancel the scheduled deletion before freezing your account.');
+    }
+    if (frozen && user.status === 'frozen') {
+      return res.status(200).json({ status: 'frozen', frozenAt: null });
+    }
+    if (!frozen && user.status !== 'frozen') {
+      return res.status(200).json({ status: user.status, frozenAt: null });
+    }
+
+    const update = frozen
+      ? {
+          $set: {
+            status: 'frozen',
+            frozenAt: new Date(),
+            'presence.status': 'offline',
+            'presence.activeGame': ''
+          }
+        }
+      : {
+          $set: {
+            status: 'active',
+            frozenAt: null,
+            'presence.lastActive': new Date()
+          }
+        };
+
+    const updated = await User.findByIdAndUpdate(req.user._id, update, {
+      new: true,
+      select: 'status frozenAt'
+    }).lean();
+
+    // Live sockets keep the status they saw at handshake; flip it in place so
+    // the next message is refused without a per-message database read.
+    setUserFrozenState(req.user._id, frozen);
+
+    if (frozen) {
+      getIO()?.emit('presence_change', {
+        userId: String(req.user._id),
+        username: user.username,
+        status: 'offline',
+        activeGame: ''
+      });
+    }
+
+    res.status(200).json({ status: updated.status, frozenAt: updated.frozenAt });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** GET /api/account/succession-preview — who inherits each server/squad. */
+const getSuccessionPreview = async (req, res, next) => {
+  try {
+    res.status(200).json(await planSuccessionForUser(req.user._id));
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/account/delete-now
+ *
+ * Immediate, password-confirmed erasure. Ownership transfers first, then the
+ * account is anonymised and its personal content removed. Because the email is
+ * released, signing up again with it creates a genuinely fresh account.
+ */
+const deleteAccountNow = async (req, res, next) => {
+  try {
+    const user = await verifyOwner(req, req.body || {}, { requireConfirm: true });
+    if (user.status === 'deleted') throw conflict('This account has already been deleted.');
+
+    const result = await eraseAccount(user);
+    if (!result.erased) throw conflict('This account could not be deleted right now.');
+
+    clearAuthCookie(res);
+    disconnectUser(req.user._id);
+
+    res.status(200).json({
+      deleted: true,
+      succession: result.succession
     });
   } catch (err) {
     next(err);
@@ -246,6 +493,7 @@ const exportData = async (req, res, next) => {
  *
  * Schedules erasure, revokes every session and drops every live socket. The
  * account stays readable (so the owner can cancel) until the grace period ends.
+ * Succession is applied by the sweep at erasure time, not here.
  */
 const requestDeletion = async (req, res, next) => {
   try {
@@ -311,6 +559,11 @@ const isBlockedPair = (a, b) => isBlockedBetween(a, b);
 module.exports = {
   DELETION_GRACE_DAYS,
   getAccount,
+  changeUsername,
+  resetFeedRecommendations,
+  setFreeze,
+  getSuccessionPreview,
+  deleteAccountNow,
   updatePrivacySettings,
   blockUser,
   unblockUser,

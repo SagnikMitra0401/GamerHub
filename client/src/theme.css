@@ -60,8 +60,8 @@ body[data-atmosphere="feed"]      { --ambient: 203, 213, 225; }
 body[data-atmosphere="community"] { --ambient: 56, 189, 248; }
 body[data-atmosphere="lfg"]       { --ambient: 245, 158, 11; }
 body[data-atmosphere="games"]     { --ambient: 148, 163, 184; }
-body[data-atmosphere="passport"]  { --ambient: 16, 185, 129; }
-body[data-atmosphere="admin"]     { --ambient: 244, 63, 94; }
+body[data-atmosphere="passport"]  { --ambient: 16, 185, 129; }body[data-atmosphere="admin"]      { --ambient: 244, 63, 94; }
+body[data-atmosphere="settings"]   { --ambient: 203, 213, 225; }
 
 .hero-glow {
   width: min(1280px, 100vw);

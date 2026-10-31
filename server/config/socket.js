@@ -22,6 +22,7 @@ const {
 } = require('../utils/squadChatService');
 const { createSlidingWindowLimiter, createRecentEventTracker } = require('../utils/rateLimiter');
 const { recordAudit } = require('../utils/audit');
+const { canParticipate } = require('../utils/privacy');
 const { corsOrigin } = require('../utils/origins');
 
 /** Live Socket.io instance (controllers broadcast channel/member changes). */
@@ -79,6 +80,24 @@ function evictUserFromSquadChat(userId, chatId) {
     if (socket.data?.squadChat === String(chatId)) socket.data.squadChat = null;
     socket.emit('squad_chat_evicted', { chatId: String(chatId) });
   }
+}
+
+/**
+ * Update the cached status on a user's live sockets.
+ *
+ * The handshake snapshot is what the participation guard reads, so a freeze
+ * must also flip open connections — otherwise an already-connected tab keeps
+ * its pre-freeze `active` status until it reconnects.
+ */
+function setUserFrozenState(userId, frozen) {
+  if (!ioInstance || !userId) return 0;
+  let updated = 0;
+  for (const socket of ioInstance.sockets.sockets.values()) {
+    if (!socket.user || String(socket.user._id) !== String(userId)) continue;
+    socket.user.status = frozen ? 'frozen' : 'active';
+    updated += 1;
+  }
+  return updated;
 }
 
 /** Drop every live socket for a user (account deletion / "sign out everywhere"). */
@@ -177,7 +196,9 @@ async function markPresenceOnConnect(socket, userId) {
   if (next > 1) return;
 
   try {
-    const user = await User.findById(userId).select('presence username').lean();
+    const user = await User.findById(userId).select('presence username status').lean();
+    // A frozen account never broadcasts presence, not even to its own tabs.
+    if (user?.status === 'frozen') return;
     const status = user?.presence?.status || 'offline';
     if (status !== 'offline') return; // in_game / invisible are explicit choices
 
@@ -279,7 +300,7 @@ function initSocket(httpServer) {
       }
 
       const user = await User.findById(targetId)
-        .select('_id username level role medals')
+        .select('_id username level role medals status')
         .lean();
       socket.user = user || null;
       return next();
@@ -359,6 +380,10 @@ function initSocket(httpServer) {
     socket.on('send_message', async (payload = {}) => {
       try {
         if (!userId) return fail(socket, 'You must be logged in to send messages.', 'UNAUTHENTICATED');
+
+        // A frozen account may read, but not take part. Mirrors the REST guard.
+        const gate = canParticipate(socket.user);
+        if (!gate.ok) return fail(socket, gate.reason, gate.code);
 
         // 1. Per-user flood control (across every socket this user has open)
         const flood = floodLimiter.consume(userId);
@@ -589,6 +614,9 @@ function initSocket(httpServer) {
       try {
         if (!userId) return fail(socket, 'Sign in to send messages.', 'UNAUTHENTICATED');
 
+        const gate = canParticipate(socket.user);
+        if (!gate.ok) return fail(socket, gate.reason, gate.code);
+
         const flood = squadFloodLimiter.consume(userId);
         if (!flood.allowed) {
           const seconds = Math.max(1, Math.ceil(flood.retryAfterMs / 1000));
@@ -663,6 +691,7 @@ module.exports = {
   evictUserFromCommunity,
   evictUserFromSquadChat,
   disconnectUser,
+  setUserFrozenState,
   resetChatTrackers,
   resetPresenceTracking
 };

@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const { getIO } = require('../config/socket');
 const { sanitizeLine, isHttpUrl } = require('./sanitize');
 
@@ -42,6 +43,10 @@ async function notifyUser({
 }) {
   try {
     if (!userId) return null;
+
+    // Stealth mode silences pings: nothing is written or pushed while frozen.
+    const recipient = await User.findById(userId).select('status').lean();
+    if (recipient?.status === 'frozen') return null;
 
     const doc = {
       userId,

@@ -1,6 +1,6 @@
 const express = require('express');
 const Comment = require('../models/Comment');
-const { protect } = require('../middleware/auth');
+const { protect, activeOnly } = require('../middleware/auth');
 const { checkOwnership } = require('../middleware/ownership');
 const {
   createComment, getCommentsForPost, updateComment, deleteComment
@@ -9,7 +9,7 @@ const {
 const router = express.Router({ mergeParams: true }); // mounted at /api/posts/:postId/comments
 
 router.get('/', getCommentsForPost);
-router.post('/', protect, createComment);
+router.post('/', protect, activeOnly, createComment);
 router.put('/:id', protect, checkOwnership(Comment), updateComment);
 router.delete('/:id', protect, checkOwnership(Comment), deleteComment);
 

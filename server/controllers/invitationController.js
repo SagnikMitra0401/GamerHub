@@ -61,7 +61,7 @@ const createInvitation = async (req, res, next) => {
 
     const [recipient, inviter] = await Promise.all([
       User.findById(recipientId).select('_id username status privacySettings blockedUsers').lean(),
-      User.findById(req.user._id).select('_id username following blockedUsers').lean()
+      User.findById(req.user._id).select('_id username status following blockedUsers').lean()
     ]);
     if (!recipient) throw notFound('User not found');
 

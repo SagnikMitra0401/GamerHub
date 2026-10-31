@@ -109,15 +109,27 @@ const UserSchema = new mongoose.Schema({
     enum: ['personal', 'creator_business'],
     default: 'personal'
   },
-  // 'restricted' is a staff-limited account; 'deletion_pending' keeps the
-  // account usable (the owner may change their mind) until the grace period
-  // ends and the retention worker anonymises it into 'deleted'.
+  // 'restricted' is a staff-limited account; 'frozen' is a self-service
+  // stealth mode (content hidden, participation paused, still able to sign in
+  // and unfreeze); 'deletion_pending' keeps the account usable (the owner may
+  // change their mind) until the grace period ends and the retention worker
+  // anonymises it into 'deleted'.
   status: {
     type: String,
-    enum: ['active', 'restricted', 'suspended', 'deletion_pending', 'deleted'],
+    enum: ['active', 'restricted', 'frozen', 'suspended', 'deletion_pending', 'deleted'],
     default: 'active',
     index: true
   },
+  frozenAt: { type: Date, default: null },
+
+  // Google-created accounts have a random, unknowable password hash. They still
+  // need a way to confirm a destructive action, so the settings hub asks them
+  // to type their username instead of a password they never set.
+  hasLocalPassword: { type: Boolean, default: true },
+
+  // Last time the owner reset their feed affinities (audit/UX only — the
+  // ranking itself reads preferences and favourite channels).
+  feedResetAt: { type: Date, default: null },
   // Bumped by "sign out everywhere" and by a deletion request. Tokens carry
   // the version they were minted with, so an old cookie stops working without
   // a server-side session table.

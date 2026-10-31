@@ -33,7 +33,8 @@ const AuditLogSchema = new mongoose.Schema({
       'FORUM_POST_LOCK',
       'FORUM_POST_ARCHIVE',
       'FORUM_POST_REOPEN',
-      'FORUM_POST_DELETE'
+      'FORUM_POST_DELETE',
+      'OWNER_TRANSFER'
     ],
     required: true
   },

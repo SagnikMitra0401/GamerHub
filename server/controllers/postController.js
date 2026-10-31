@@ -140,6 +140,14 @@ const getPosts = async (req, res, next) => {
         ? { boostScore: -1, likeCount: -1, createdAt: -1 }
         : { boostScore: -1, createdAt: -1 };
 
+    // A frozen author disappears from other people's feeds. Their own feed
+    // keeps their posts, otherwise freezing would look like data loss. The
+    // filter lives inside the lookup so the emitted author stays minimal.
+    const viewerId = req.user?._id || null;
+    const authorVisible = viewerId
+      ? { $or: [{ status: { $ne: 'frozen' } }, { _id: viewerId }] }
+      : { status: { $ne: 'frozen' } };
+
     const posts = await Post.aggregate([
       { $match: matchStage },
       { $addFields: addFieldsStage },
@@ -150,7 +158,12 @@ const getPosts = async (req, res, next) => {
           from: 'users',
           let: { authorId: '$userId' },
           pipeline: [
-            { $match: { $expr: { $eq: ['$_id', '$$authorId'] } } },
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$authorId'] },
+                ...authorVisible
+              }
+            },
             // ⚠️ Never widen this projection: emails and password hashes must
             // never be reachable from an unauthenticated feed request.
             { $project: { _id: 1, username: 1, level: 1, role: 1 } }
@@ -203,9 +216,14 @@ const getPostById = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
 
     const post = await Post.findById(id)
-      .populate('userId', 'username level role')
+      .populate('userId', 'username level role status')
       .lean({ virtuals: true });
     if (!post) throw notFound('Post not found');
+
+    // Same rule as the feed: hidden from everybody except its author.
+    if (post.userId?.status === 'frozen' && String(post.userId._id) !== String(req.user?._id)) {
+      throw notFound('Post not found');
+    }
 
     res.status(200).json(post);
   } catch (err) {

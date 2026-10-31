@@ -1,7 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const Post = require('../models/Post');
-const { protect, optionalProtect } = require('../middleware/auth');
+const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const { checkOwnership } = require('../middleware/ownership');
 const upload = require('../middleware/upload');
 const {
@@ -23,9 +23,9 @@ router.get('/',        optionalProtect, getPosts);
 router.get('/preview', protect, previewLimiter, previewLink); // before /:id
 router.get('/tags/suggest', optionalProtect, suggestTags);    // before /:id
 router.get('/:id',     optionalProtect, getPostById);
-router.post('/', protect, upload.single('media'), createPost);
-router.put('/:id', protect, checkOwnership(Post), updatePost);
-router.delete('/:id', protect, checkOwnership(Post), deletePost);
-router.post('/:id/like', protect, toggleLike);
+router.post('/', protect, activeOnly, upload.single('media'), createPost);
+router.put('/:id', protect, activeOnly, checkOwnership(Post), updatePost);
+router.delete('/:id', protect, activeOnly, checkOwnership(Post), deletePost);
+router.post('/:id/like', protect, activeOnly, toggleLike);
 
 module.exports = router;

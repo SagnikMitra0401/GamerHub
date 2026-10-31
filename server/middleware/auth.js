@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { accountGate } = require('../utils/privacy');
+const { accountGate, canParticipate } = require('../utils/privacy');
 
 const SESSION_FIELDS =
   '_id username email following favoriteChannels savedPosts role ' +
@@ -60,4 +60,19 @@ const optionalProtect = async (req, res, next) => {
   next();
 };
 
-module.exports = { protect, optionalProtect, SESSION_FIELDS };
+/**
+ * Participation guard for write routes.
+ *
+ * `protect` deliberately lets a frozen account through so it can reach the
+ * settings hub and unfreeze itself. Content creation, squad actions and
+ * moderation must use this guard as well.
+ */
+const activeOnly = (req, res, next) => {
+  const gate = canParticipate(req.user);
+  if (gate.ok) return next();
+
+  const status = gate.code === 'UNAUTHENTICATED' ? 401 : 403;
+  return res.status(status).json({ code: gate.code, message: gate.reason });
+};
+
+module.exports = { protect, optionalProtect, activeOnly, SESSION_FIELDS };

@@ -15,6 +15,8 @@ import CommunityPage from './pages/CommunityPage';
 import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
 import AdminDashboard from './pages/AdminDashboard';
+import SettingsPage from './pages/SettingsPage';
+import PrivateRoute from './components/common/PrivateRoute';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import './index.css';
@@ -28,6 +30,7 @@ const ATMOSPHERES = [
   ['/lfg', 'lfg'],
   ['/games', 'games'],
   ['/u/', 'passport'],
+  ['/settings', 'settings'],
   ['/admin', 'admin'],
   ['/', 'feed']
 ];
@@ -81,6 +84,7 @@ function App() {
           <Route path="/lfg"                    element={<LfgPage />} />
           <Route path="/games"                  element={<GameCatalog />} />
           <Route path="/admin"                  element={<AdminDashboard />} />
+          <Route path="/settings"               element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="/privacy"                element={<PrivacyPolicy />} />
           <Route path="/terms"                  element={<TermsOfService />} />
           <Route path="*"                       element={<Navigate to="/" replace />} />

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Party = require('../models/Party');
 const SquadChat = require('../models/SquadChat');
+const User = require('../models/User');
 const { getIO, evictUserFromSquadChat } = require('../config/socket');
 const {
   ensureSquadChat,
@@ -23,7 +24,7 @@ const { parsePagination } = require('../utils/pagination');
 const { badRequest, notFound, forbidden, conflict } = require('../utils/httpError');
 const { isPlatformAdmin } = require('../utils/permissions');
 
-const LEADER_FIELDS = 'username level role presence';
+const LEADER_FIELDS = 'username level role presence status';
 const MEMBER_FIELDS = 'username level role presence';
 
 const POPULATE = [
@@ -130,6 +131,10 @@ const listParties = async (req, res, next) => {
       query['requirements.micRequired'] = true;
     }
 
+    // A frozen leader's squad is not a live invitation to play.
+    const frozenLeaders = await User.distinct('_id', { status: 'frozen' });
+    if (frozenLeaders.length) query.leaderId = { $nin: frozenLeaders };
+
     const [total, parties] = await Promise.all([
       Party.countDocuments(query),
       Party.find(query)
@@ -202,6 +207,9 @@ const getParty = async (req, res, next) => {
     const party = await Party.findById(req.params.id).populate(POPULATE).lean();
     if (!party) throw notFound('Squad not found');
     const view = toPartyView(party, req.user?._id);
+    if (party.leaderId?.status === 'frozen' && view.viewerMembership === 'none') {
+      throw notFound('Squad not found');
+    }
     await attachChatMeta([view], req.user?._id);
     res.status(200).json(view);
   } catch (err) {

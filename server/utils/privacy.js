@@ -8,7 +8,12 @@
 
 const INVITE_POLICIES = Object.freeze(['anyone', 'followers', 'none']);
 const DM_POLICIES = Object.freeze(['anyone', 'mutual_follows', 'none']);
-const ACCOUNT_STATUSES = Object.freeze(['active', 'restricted', 'suspended', 'deletion_pending', 'deleted']);
+const ACCOUNT_STATUSES = Object.freeze([
+  'active', 'restricted', 'frozen', 'suspended', 'deletion_pending', 'deleted'
+]);
+
+// Frozen accounts may sign in (to unfreeze) and read, but must not create,
+// message, invite or react while their content is hidden.
 
 /** Accepts an ObjectId, a string or a document with `_id`. */
 const idOf = (value) => {
@@ -57,8 +62,17 @@ function canInvite({ targetType, recipient, inviter, inviterFollowsRecipient = f
   if (inviterId === recipientId) {
     return { ok: false, code: 'SELF_INVITE', reason: 'You are already in this squad.' };
   }
-  // A deleted (or mid-deletion) account has withdrawn consent entirely.
-  if (['deleted', 'deletion_pending', 'suspended'].includes(recipient.status)) {
+  if (inviter.status === 'frozen') {
+    return {
+      ok: false,
+      code: 'ACCOUNT_FROZEN',
+      reason: 'Unfreeze your account before inviting players.'
+    };
+  }
+
+  // A deleted (or mid-deletion) account has withdrawn consent entirely; a
+  // frozen one is deliberately unreachable while it is on a break.
+  if (['deleted', 'deletion_pending', 'suspended', 'frozen'].includes(recipient.status)) {
     return { ok: false, code: 'UNAVAILABLE', reason: 'This player cannot be invited.' };
   }
   if (isBlockedBetween(inviter, recipient)) {
@@ -128,6 +142,27 @@ function sanitizePrivacyPatch(body) {
     return { ok: false, errors: ['No updatable privacy fields provided'] };
   }
   return { ok: true, value };
+}
+
+/** May this account create content or take part in a squad right now? */
+function canParticipate(user) {
+  if (!user) {
+    return { ok: false, code: 'UNAUTHENTICATED', reason: 'Sign in to continue.' };
+  }
+  if (user.status === 'frozen') {
+    return {
+      ok: false,
+      code: 'ACCOUNT_FROZEN',
+      reason: 'Your account is frozen. Unfreeze it in Settings to take part.'
+    };
+  }
+  if (user.status === 'suspended') {
+    return { ok: false, code: 'ACCOUNT_SUSPENDED', reason: 'This account is suspended.' };
+  }
+  if (user.status === 'deleted') {
+    return { ok: false, code: 'ACCOUNT_DELETED', reason: 'This account no longer exists.' };
+  }
+  return { ok: true };
 }
 
 /** Can this account still use authenticated endpoints? */
@@ -206,6 +241,7 @@ module.exports = {
   canInvite,
   sanitizePrivacyPatch,
   accountGate,
+  canParticipate,
   isDiscoverable,
   erasurePatch
 };

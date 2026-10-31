@@ -2,16 +2,10 @@ const Channel = require('../models/Channel');
 const Message = require('../models/Message');
 const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
-const Post = require('../models/Post');
-const Comment = require('../models/Comment');
-const Community = require('../models/Community');
-const Party = require('../models/Party');
-const Invitation = require('../models/Invitation');
-const Notification = require('../models/Notification');
 const User = require('../models/User');
 
 const { getIO } = require('../config/socket');
-const { erasurePatch } = require('../utils/privacy');
+const { eraseAccount } = require('../utils/accountErasure');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
@@ -94,32 +88,13 @@ async function eraseDeletionPendingUsers({ now = new Date(), graceDays = DELETIO
 
   let erased = 0;
   for (const user of users) {
-    const patch = erasurePatch(user);
-    const claim = await User.updateOne(
-      { _id: user._id, status: 'deletion_pending' },
-      patch
-    );
-    if (!claim.modifiedCount) continue;
-
-    await Promise.all([
-      Post.deleteMany({ userId: user._id }),
-      Comment.deleteMany({ userId: user._id }),
-      Notification.deleteMany({ userId: user._id }),
-      SquadChatMessage.deleteMany({ authorUserId: user._id }),
-      Invitation.deleteMany({ $or: [{ inviterUserId: user._id }, { recipientUserId: user._id }] }),
-      Community.updateMany({ 'members.userId': user._id }, { $pull: { members: { userId: user._id } } }),
-      Party.updateMany({ 'members.userId': user._id }, { $pull: { members: { userId: user._id } } }),
-      Party.updateMany(
-        { leaderId: user._id, status: { $ne: 'closed' } },
-        { $set: { status: 'closed', state: 'cancelled', completedAt: new Date() } }
-      ),
-      User.updateMany(
-        {},
-        { $pull: { followers: user._id, following: user._id, blockedUsers: user._id, mutedUsers: user._id } }
-      )
-    ]);
-
-    erased += 1;
+    try {
+      // Shared with the "delete now" path: succession first, then erasure.
+      const result = await eraseAccount(user);
+      if (result.erased) erased += 1;
+    } catch (err) {
+      console.error(`[Retention] erase ${user._id} failed:`, err.message);
+    }
   }
   return erased;
 }

@@ -17,8 +17,9 @@ const createComment = async (req, res, next) => {
     const text = sanitizeText(req.body.text, MAX_COMMENT);
     if (!text) throw badRequest('Comment text required');
 
-    const postExists = await Post.exists({ _id: postId });
-    if (!postExists) throw notFound('Post not found');
+    const post = await Post.findById(postId).select('userId').populate('userId', 'status').lean();
+    if (!post) throw notFound('Post not found');
+    if (post.userId?.status === 'frozen') throw notFound('Post not found');
 
     const comment = await Comment.create({ postId, userId: req.user._id, text });
     await Post.findByIdAndUpdate(postId, { $inc: { commentCount: 1 } });
@@ -36,6 +37,13 @@ const getCommentsForPost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(postId)) throw badRequest('Invalid post id');
+
+    // A frozen author's post is not readable, so neither is its comment thread.
+    const post = await Post.findById(postId).select('userId').populate('userId', 'status').lean();
+    if (!post) throw notFound('Post not found');
+    if (post.userId?.status === 'frozen' && String(req.user?._id) !== String(post.userId._id)) {
+      throw notFound('Post not found');
+    }
 
     const { skip, limit } = parsePagination(req.query, { defaultLimit: 30, maxLimit: 100 });
 

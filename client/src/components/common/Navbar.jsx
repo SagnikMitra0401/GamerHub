@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import PresencePill from './PresencePill';
-import { MenuIcon, CloseIcon } from './icons';
+import { MenuIcon, CloseIcon, SettingsIcon } from './icons';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Feed', icon: 'home', end: true },
@@ -111,6 +111,14 @@ const Navbar = () => {
               <>
                 <PresencePill />
                 <NotificationBell />
+                <Link
+                  to="/settings"
+                  className={`navbar-icon-btn${pathname.startsWith('/settings') ? ' is-active' : ''}`}
+                  aria-label="Account settings"
+                  title="Account settings"
+                >
+                  <SettingsIcon size={17} />
+                </Link>
                 <Link to={`/u/${user.username}`} className="navbar-username">{user.username}</Link>
                 <button className="btn btn-ghost btn-sm navbar-logout" onClick={handleLogout}>Log out</button>
               </>
@@ -185,6 +193,7 @@ const Navbar = () => {
               </span>
             </Link>
             <div className="drawer-actions">
+              <Link to="/settings" className="btn btn-ghost btn-sm">Account settings</Link>
               <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
                 Log out
               </button>

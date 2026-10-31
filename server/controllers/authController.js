@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
 const { sanitizeLine, sanitizeText } = require('../utils/sanitize');
+const { normalizeUsername, usernameFilter } = require('../utils/username');
 
 const SALT_ROUNDS = 10;
 const MIN_PASSWORD = 8;
@@ -24,7 +25,9 @@ async function usernameFromGoogle({ email, name }) {
   const seed = base.length >= 3 ? base : `player_${base}`.slice(0, 16);
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const candidate = attempt === 0 ? seed : `${seed.slice(0, 12)}_${attempt}`;
-    const taken = await User.exists({ username: candidate });
+    // Reserved and malformed candidates are skipped, not handed out.
+    if (!normalizeUsername(candidate).ok) continue;
+    const taken = await User.exists(usernameFilter(candidate));
     if (!taken) return candidate;
   }
   return `player_${crypto.randomBytes(4).toString('hex')}`.slice(0, 20);
@@ -32,11 +35,15 @@ async function usernameFromGoogle({ email, name }) {
 
 const register = async (req, res, next) => {
   try {
-    const username = sanitizeLine(req.body.username, 20);
+    const parsedUsername = normalizeUsername(req.body.username);
+    if (!parsedUsername.ok) {
+      return res.status(400).json({ message: parsedUsername.reason });
+    }
+    const username = parsedUsername.value;
     const email = sanitizeLine(req.body.email, 254).toLowerCase();
     const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-    if (!username || !email || !password) {
+    if (!email || !password) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
     if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
@@ -45,7 +52,8 @@ const register = async (req, res, next) => {
       });
     }
 
-    const existing = await User.findOne({ $or: [{ email }, { username }] });
+    // Case-insensitive: `Alice` must not be able to register beside `alice`.
+    const existing = await User.findOne({ $or: [{ email }, usernameFilter(username)] });
     if (existing) {
       return res.status(409).json({ message: 'Username or email already in use' });
     }
@@ -254,6 +262,9 @@ const googleLogin = async (req, res, next) => {
         email,
         // A random secret: password login is impossible until the owner sets one.
         passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS),
+        // No password the owner actually knows — destructive confirmations ask
+        // for the username instead.
+        hasLocalPassword: false,
         profileType: 'personal',
         status: 'active',
         authIdentities: [{ provider: 'google', providerSubject: subject, emailVerified: true }]
@@ -288,6 +299,103 @@ const getMe = async (req, res, next) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     const token = req.cookies.jwt;
     res.status(200).json({ user, token });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/link-google
+ *
+ * Link a Google identity to the signed-in local account. Deliberately strict:
+ * the Google email must match the account email (no silent mixing of two
+ * identities), and a subject already linked elsewhere is refused.
+ */
+const linkGoogle = async (req, res, next) => {
+  try {
+    const clientId = googleClientId();
+    if (!clientId) {
+      return res.status(503).json({ message: 'Google sign-in is not configured on this server.' });
+    }
+
+    const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
+    if (!credential) return res.status(400).json({ message: 'Missing Google credential' });
+    if (credential.length > 8000) return res.status(400).json({ message: 'Invalid Google credential' });
+
+    let OAuth2Client;
+    try {
+      ({ OAuth2Client } = require('google-auth-library'));
+    } catch {
+      return res.status(503).json({ message: 'Google sign-in is unavailable on this server.' });
+    }
+
+    const client = new OAuth2Client(clientId);
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      return res.status(401).json({ message: 'Google credential could not be verified' });
+    }
+
+    const subject = payload?.sub;
+    const email = sanitizeLine(payload?.email, 254).toLowerCase();
+    if (!subject || !email) {
+      return res.status(401).json({ message: 'Google credential could not be verified' });
+    }
+    if (payload?.email_verified === false) {
+      return res.status(403).json({ message: 'That Google account has no verified email.' });
+    }
+    if (email !== String(req.user.email).toLowerCase()) {
+      return res.status(409).json({
+        message: 'That Google account uses a different email from your GamerHub account.'
+      });
+    }
+
+    const linkedElsewhere = await User.findOne({
+      _id: { $ne: req.user._id },
+      authIdentities: { $elemMatch: { provider: 'google', providerSubject: subject } }
+    }).select('_id').lean();
+    if (linkedElsewhere) {
+      return res.status(409).json({ message: 'That Google account is already linked to another player.' });
+    }
+
+    await User.updateOne(
+      { _id: req.user._id },
+      { $addToSet: { authIdentities: { provider: 'google', providerSubject: subject, emailVerified: true } } }
+    );
+
+    const fresh = await User.findById(req.user._id).select('authIdentities').lean();
+    res.status(200).json({
+      providers: [...new Set((fresh.authIdentities || []).map((identity) => identity.provider))]
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * DELETE /api/auth/link-google
+ * Refused for accounts with no local password: unlinking would lock them out.
+ */
+const unlinkGoogle = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('authIdentities hasLocalPassword')
+      .lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const linked = (user.authIdentities || []).some((identity) => identity.provider === 'google');
+    if (!linked) return res.status(200).json({ providers: [...new Set((user.authIdentities || []).map((i) => i.provider))] });
+
+    if (user.hasLocalPassword === false) {
+      return res.status(409).json({
+        message: 'This account signs in with Google only. Set a password before unlinking it.'
+      });
+    }
+
+    await User.updateOne({ _id: req.user._id }, { $pull: { authIdentities: { provider: 'google' } } });
+    res.status(200).json({ providers: ['local'] });
   } catch (err) {
     next(err);
   }
@@ -344,6 +452,8 @@ module.exports = {
   logoutAll,
   getProviders,
   googleLogin,
+  linkGoogle,
+  unlinkGoogle,
   getMe,
   updateProfile,
   clearAuthCookie

@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { protect } = require('../middleware/auth');
+const { protect, activeOnly } = require('../middleware/auth');
 const {
   createInvitation,
   listInbox,
@@ -25,8 +25,8 @@ const inviteLimiter = rateLimit({
 router.get('/inbox', protect, listInbox);
 router.get('/sent', protect, listSent);
 
-router.post('/', protect, inviteLimiter, createInvitation);
-router.post('/:id/accept', protect, acceptInvitation);
+router.post('/', protect, activeOnly, inviteLimiter, createInvitation);
+router.post('/:id/accept', protect, activeOnly, acceptInvitation);
 router.post('/:id/decline', protect, declineInvitation);
 router.post('/:id/revoke', protect, revokeInvitation);
 

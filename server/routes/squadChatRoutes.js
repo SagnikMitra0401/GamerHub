@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { protect } = require('../middleware/auth');
+const { protect, activeOnly } = require('../middleware/auth');
 const {
   getSquadChat,
   getSquadMessages,
@@ -21,7 +21,7 @@ const chatLimiter = rateLimit({
 
 router.get('/:chatId', protect, getSquadChat);
 router.get('/:chatId/messages', protect, getSquadMessages);
-router.post('/:chatId/messages', protect, chatLimiter, sendSquadMessage);
+router.post('/:chatId/messages', protect, activeOnly, chatLimiter, sendSquadMessage);
 router.post('/:chatId/refresh', protect, refreshSquadChat);
 router.delete('/:chatId/messages/:messageId', protect, deleteSquadMessage);
 

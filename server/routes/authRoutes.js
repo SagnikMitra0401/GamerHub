@@ -1,7 +1,8 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const {
-  register, login, logout, logoutAll, getProviders, googleLogin, getMe, updateProfile
+  register, login, logout, logoutAll, getProviders, googleLogin, linkGoogle, unlinkGoogle,
+  getMe, updateProfile
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -19,6 +20,8 @@ router.get('/providers', getProviders);
 router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
 router.post('/google', authLimiter, googleLogin);
+router.post('/link-google', protect, authLimiter, linkGoogle);
+router.delete('/link-google', protect, unlinkGoogle);
 router.post('/logout', protect, logout);
 router.post('/logout-all', protect, logoutAll);
 router.get('/me', protect, getMe);

@@ -165,69 +165,6 @@
   flex: 0 0 auto;
 }
 
-/* ── Privacy & data ───────────────────────────────────────── */
-.privacy-box {
-  max-width: 580px;
-  max-height: 88vh;
-  overflow-y: auto;
-}
-
-.privacy-section {
-  padding: 1rem 0;
-  border-top: 1px solid var(--glass-border);
-}
-
-.privacy-section:first-of-type { border-top: none; padding-top: 0; }
-
-.privacy-heading {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.65rem;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.privacy-actions {
-  display: flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-  margin-top: 0.6rem;
-}
-
-.privacy-section .form-group { margin-bottom: 0.85rem; }
-
-.blocked-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  list-style: none;
-}
-
-.blocked-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-}
-
-.blocked-name {
-  font-size: 0.86rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.danger-section .btn-danger { margin-top: 0.4rem; }
-
 /* ── Temporary squad chat drawer ──────────────────────────── */
 .squad-scrim {
   position: fixed;
@@ -425,7 +362,6 @@
     to   { transform: translate3d(0, 0, 0); opacity: 1; }
   }
 
-  .privacy-box { max-height: 92vh; padding: 1.25rem; }
   .invite-actions { flex-direction: row; }
   .invite-row { flex-wrap: wrap; }
   .invite-actions { width: 100%; justify-content: flex-end; }

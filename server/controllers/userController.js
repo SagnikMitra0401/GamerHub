@@ -6,7 +6,7 @@ const { awardXp } = require('../utils/gamification');
 const { resolveCommunityRole, roleLevel } = require('../utils/permissions');
 const { sanitizeLine, escapeRegex } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
-const { badRequest, notFound } = require('../utils/httpError');
+const { badRequest, notFound, forbidden } = require('../utils/httpError');
 const { getIO } = require('../config/socket');
 const { publicPresence } = require('../utils/presence');
 
@@ -44,13 +44,20 @@ const getProfile = async (req, res, next) => {
       .lean();
     if (!user) throw notFound('User not found');
 
+    const isSelf = req.user && String(req.user._id) === String(user._id);
+    const isStaff = req.user?.role === 'admin';
+
+    // Frozen means "not here right now": the profile is not a back door into
+    // the content the feed and search already hide.
+    if (user.status === 'frozen' && !isSelf && !isStaff) {
+      throw notFound('User not found');
+    }
+
     const postCount = await Post.countDocuments({ userId: user._id });
 
     const isFollowing = req.user
       ? req.user.following.some((id) => id.toString() === user._id.toString())
       : false;
-
-    const isSelf = req.user && String(req.user._id) === String(user._id);
 
     // Server memberships + the role held in each (role badge integration).
     const rows = await Community.find({ 'members.userId': user._id })
@@ -80,7 +87,10 @@ const getProfile = async (req, res, next) => {
 
     const profile = {
       ...user,
-      presence: publicPresence(user.presence),
+      // A frozen account reads offline even to itself and staff.
+      presence: user.status === 'frozen'
+        ? { status: 'offline', activeGame: '', lastActive: null }
+        : publicPresence(user.presence),
       postCount,
       isFollowing,
       communities
@@ -102,8 +112,12 @@ const getProfile = async (req, res, next) => {
 // GET /api/users/:username/posts
 const getUserPosts = async (req, res, next) => {
   try {
-    const target = await User.findOne({ username: req.params.username }).select('_id').lean();
+    const target = await User.findOne({ username: req.params.username }).select('_id status').lean();
     if (!target) throw notFound('User not found');
+
+    if (target.status === 'frozen' && String(req.user?._id) !== String(target._id) && req.user?.role !== 'admin') {
+      throw notFound('User not found');
+    }
 
     const { skip, limit } = parsePagination(req.query, { defaultLimit: 15, maxLimit: 50 });
 
@@ -123,8 +137,12 @@ const getUserPosts = async (req, res, next) => {
 // POST /api/users/:username/follow — toggle follow/unfollow
 const toggleFollow = async (req, res, next) => {
   try {
-    const target = await User.findOne({ username: req.params.username }).select('_id username');
+    const target = await User.findOne({ username: req.params.username }).select('_id username status');
     if (!target) throw notFound('User not found');
+
+    if (target.status === 'frozen') {
+      throw forbidden('That player is not accepting new followers right now.');
+    }
 
     if (target._id.toString() === req.user._id.toString()) {
       throw badRequest('You cannot follow yourself');
@@ -232,21 +250,29 @@ const searchAll = async (req, res, next) => {
     const safe = escapeRegex(q);
 
     // Blocking is symmetric: hide accounts the caller blocked *and* accounts
-    // that blocked the caller, in both people and post results.
+    // that blocked the caller, in both people and post results. Frozen and
+    // suspended accounts are hidden everywhere for the same reason.
     let hiddenIds = [];
+    const hiddenStatuses = await User.find({ status: { $in: ['frozen', 'suspended'] } })
+      .select('_id')
+      .lean();
+    hiddenIds.push(...hiddenStatuses.map((user) => String(user._id)));
+
     if (req.user) {
       const blockedByOthers = await User.find({ blockedUsers: req.user._id })
         .select('_id')
         .lean();
-      hiddenIds = [
+      hiddenIds.push(
         ...(req.user.blockedUsers || []).map(String),
         ...blockedByOthers.map((user) => String(user._id))
-      ];
+      );
     }
+    hiddenIds = [...new Set(hiddenIds)];
 
     const userFilter = {
       username: { $regex: `^${safe}`, $options: 'i' },
-      'privacySettings.discoverableInSearch': { $ne: false }
+      'privacySettings.discoverableInSearch': { $ne: false },
+      status: { $nin: ['frozen', 'suspended', 'deleted'] }
     };
     if (hiddenIds.length) userFilter._id = { $nin: hiddenIds };
 
@@ -397,6 +423,10 @@ const updatePreferences = async (req, res, next) => {
 // PATCH /api/users/presence — set online / in_game / offline / invisible
 const updatePresence = async (req, res, next) => {
   try {
+    if (req.user.status === 'frozen') {
+      throw forbidden('Your account is frozen. Unfreeze it in Settings to show a presence.');
+    }
+
     const status = String(req.body?.status || '');
     if (!PRESENCE_STATUSES.includes(status)) {
       throw badRequest('status must be one of: online, in_game, offline, invisible.');
