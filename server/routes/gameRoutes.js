@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { getGames, getGameById } = require('../controllers/gameController');
+const { catalogLimiter } = require('../middleware/limiters');
 
-router.get('/',    getGames);
-router.get('/:id', getGameById);
+// The catalog proxies a third-party API; the limiter protects that quota.
+router.get('/',    catalogLimiter, getGames);
+router.get('/:id', catalogLimiter, getGameById);
 
 module.exports = router;

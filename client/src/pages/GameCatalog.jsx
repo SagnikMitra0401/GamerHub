@@ -5,6 +5,7 @@ import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
 import useCursorGlow from '../hooks/useCursorGlow';
 import { CloseIcon } from '../components/common/icons';
+import { GameGridSkeleton } from '../components/common/Skeleton';
 
 const GameDetailModal = ({ gameId, onClose }) => {
   const [game, setGame] = useState(null);
@@ -198,7 +199,7 @@ const GameCatalog = () => {
         )}
 
         {loading ? (
-          <div className="spinner" />
+          <GameGridSkeleton />
         ) : games.length === 0 ? (
           <div className="post-list-empty">
             <h3>No games matched</h3>

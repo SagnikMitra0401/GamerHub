@@ -33,6 +33,23 @@ const POPULATE = [
   { path: 'requests.userId', select: 'username level role' }
 ];
 
+const { publicPresence } = require('../utils/presence');
+
+/**
+ * A squad card is public. Account state (frozen, deletion_pending) and the raw
+ * presence are not: an 'invisible' player must read offline here too.
+ */
+function publicPlayer(user) {
+  if (!user || typeof user !== 'object') return user;
+  return {
+    _id: user._id,
+    username: user.username,
+    level: user.level,
+    role: user.role,
+    presence: publicPresence(user.presence)
+  };
+}
+
 const isId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
 const idOf = (value) => (value && value._id ? String(value._id) : String(value || ''));
 
@@ -59,16 +76,16 @@ function toPartyView(party, viewerId) {
     // Enriched by attachChatMeta() when the caller is a participant.
     chat: null,
     requirements: party.requirements || { minRank: '', micRequired: false },
-    leader: party.leaderId,
+    leader: publicPlayer(party.leaderId),
     members: (party.members || []).map((m) => ({
-      user: m.userId,
+      user: publicPlayer(m.userId),
       role: m.role,
       joinedAt: m.joinedAt
     })),
     requestCount: isLeader ? (party.requests || []).length : undefined,
     requests: isLeader
       ? (party.requests || []).map((r) => ({
-          user: r.userId,
+          user: publicPlayer(r.userId),
           message: r.message,
           requestedAt: r.requestedAt
         }))

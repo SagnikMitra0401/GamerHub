@@ -12,6 +12,7 @@
  */
 
 const User = require('../models/User');
+const { invalidateVisibility } = require('./visibility');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const Community = require('../models/Community');
@@ -54,6 +55,9 @@ async function eraseAccount(user) {
     erasurePatch(fresh)
   );
   if (!claim.modifiedCount) return { erased: false, reason: 'claim-lost' };
+
+  // The tombstone must not linger in a cached visibility set.
+  invalidateVisibility();
 
   // Posts owned by the account, and comments that either they wrote or that
   // lived on those posts. Saved-post references are pulled from everyone.

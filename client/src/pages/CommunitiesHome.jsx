@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import CreateCommunityModal from '../components/communities/CreateCommunityModal';
 import CommunitySigil from '../components/communities/CommunitySigil';
 import useCursorGlow from '../hooks/useCursorGlow';
+import { CommunityGridSkeleton } from '../components/common/Skeleton';
 
 const CommunitiesHome = () => {
   const { user } = useAuth();
@@ -71,7 +72,7 @@ const CommunitiesHome = () => {
 
         {/* Communities Grid */}
         {loading ? (
-          <div className="spinner" />
+          <CommunityGridSkeleton />
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
             <p>No communities found. Be the first to create one!</p>

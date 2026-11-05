@@ -17,6 +17,7 @@ import ChannelSearchModal from '../components/communities/ChannelSearchModal';
 import ReportsModal from '../components/communities/ReportsModal';
 import ReportModal from '../components/communities/ReportModal';
 import ConfirmModal from '../components/common/ConfirmModal';
+import { ChatSkeleton, CommunitySkeleton } from '../components/common/Skeleton';
 import {
   ScrollIcon, SettingsIcon, PlusIcon, MenuIcon, CloseIcon, SearchIcon, AlertIcon
 } from '../components/common/icons';
@@ -376,7 +377,13 @@ const CommunityPage = () => {
   };
 
   // ── Render guards ──────────────────────────────────────────────────────────
-  if (loading) return <div className="page"><div className="spinner" /></div>;
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="container"><CommunitySkeleton /></div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -680,7 +687,7 @@ const CommunityPage = () => {
             <>
             <div className={`chat-messages ${activeChannel.isProtected ? 'protected-chat' : ''}`}>
               {messagesLoading ? (
-                <div className="spinner" />
+                <ChatSkeleton />
               ) : messages.length === 0 ? (
                 <div className="chat-empty">
                   <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>#{activeChannel.name}</p>

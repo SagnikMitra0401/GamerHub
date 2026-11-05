@@ -225,6 +225,17 @@ a server rule rather than a client check:
 - All animations use only `transform` and `opacity` (GPU compositor path)
 - `@media (prefers-reduced-motion)` respected throughout
 
+### Loading, empty and error states
+- Skeletons that reserve the real layout (feed, clips, post detail, profile, server
+  rail, chat, squad board, catalog, admin, settings) instead of a centred spinner,
+  so the page does not jump when data lands
+- The shimmer is a `transform` sweep on a pseudo-element and is disabled under
+  `prefers-reduced-motion`; each placeholder container announces "Loading" once
+  to screen readers
+- A real 404 page (`/` + unknown path) that names the requested address and
+  offers the four main surfaces — a wrong URL is never silently redirected
+- Empty states stay distinct from loading states on every list
+
 ---
 
 ## 3. Technology Stack
@@ -373,7 +384,7 @@ MERN_INTERNSHIP_Proj/
 │   │   └── generateToken.js        # JWT sign + set HttpOnly cookie
 │   ├── jobs/
 │   │   └── retention.js            # Periodic cleanup worker (stale data)
-│   └── tests/                      # 133 unit checks across 17 suites (Node native test runner)
+│   └── tests/                      # 148 unit checks across 18 suites (Node native test runner)
 │       ├── permissions.test.js
 │       ├── sanitize.test.js
 │       ├── ssrf.test.js
@@ -381,15 +392,19 @@ MERN_INTERNSHIP_Proj/
 │       ├── lfg.test.js
 │       ├── feedRanking.test.js
 │       ├── cache.test.js
-│       └── botSecurity.test.js
+│       ├── botSecurity.test.js
+│       └── hardening.test.js      # rate-limit keying + secret gate
 │
 ├── migrations/                     # migrate-mongo scripts (tracked in `changelog` collection)
 │   ├── 20261025090000-add-compound-indexes.js
-│   └── 20261025091000-denormalize-post-like-count.js
+│   ├── 20261025091000-denormalize-post-like-count.js
+│   └── 20261105090000-hardening-visibility-indexes.js
 │
 ├── scripts/
 │   ├── e2e.js                      # Phase 1–3 end-to-end smoke tests
 │   ├── e2e-phase4.js               # Phase 4 full feature smoke tests (66 checks)
+│   ├── e2e-phase10.js              # Hardening: search budget, presence privacy, socket caps
+│   ├── scan-secrets.js             # Credential-leak gate (source + build output)
 │   └── seed-demo-data.js           # Demo data: community, LFG squads, notifications
 │
 ├── migrate-mongo-config.js         # Migration runner config; parses DB name from URI
@@ -960,9 +975,26 @@ Middleware chain for a protected route:
 | NoSQL injection | `express-mongo-sanitize` strips `$` and `.` from all body/query inputs |
 | SSRF | `safeFetch.js`: DNS resolution + private IP range check on every outbound URL; max 3 redirects |
 | Stored XSS | `sanitize.js` strips control characters; HTML entity decode is one-pass only |
-| Rate limiting | 1000 req/5 min global (REST); stricter on `/auth/*`; sliding window on Socket.io per userId |
-| Projection discipline | `passwordHash` and `__v` never appear in any API response |
+| Rate limiting | 1000 req/5 min global (REST); per-surface limits on search/catalog/admin/browse; sliding window on Socket.io per userId |
+| Socket resource caps | 8 live sockets per account, 60 room joins/min, 100 kB frame ceiling |
+| Projection discipline | `passwordHash` and `__v` never appear in any API response; presence is always projected through `publicPresence` |
+| Secret leakage | `npm run scan:secrets` fails on a tracked `.env` or a credential-shaped literal in source **or** in `client/dist`; runs in `npm test` and CI |
 | Audit immutability | `AuditLog` documents have no update route; records are append-only |
+
+### Visibility rules
+
+Two account states change what other people may see, and both are applied in one
+place so a new endpoint cannot forget them:
+
+- `frozen` — hidden from the feed, search and the public profile; presence reads
+  offline; participation is refused (REST and sockets). The owner still sees
+  their own content while frozen.
+- `invisible` — stored on the account, but every public projection
+  (`publicPresence`) renders `offline`. The LFG board, member lists and profile
+  all use it.
+
+The longer audit, including the four privacy/load defects found and fixed in this
+pass, is in [docs/SECURITY.md](docs/SECURITY.md).
 
 ---
 
@@ -1114,6 +1146,12 @@ Run `npm run migrate:domains:status` first; each track records itself in its own
 | `INVITE_RATE_LIMIT_MAX` | `30` | Invitations per user per hour |
 | `SQUAD_CHAT_RATE_LIMIT_MAX` | `120` | Squad-chat REST writes per minute |
 | `EXPORT_RATE_LIMIT_MAX` | `5` | Data exports per user per hour |
+| `SEARCH_RATE_LIMIT_MAX` | `45` | Search requests per account per minute |
+| `CATALOG_RATE_LIMIT_MAX` | `90` | Game catalog requests per minute |
+| `ADMIN_RATE_LIMIT_MAX` | `120` | Admin dashboard requests per minute |
+| `BROWSE_RATE_LIMIT_MAX` | `180` | Community browse requests per minute |
+| `SOCKET_JOIN_RATE_MAX` | `60` | Channel/chat joins per account per minute |
+| `SOCKET_MAX_PER_USER` | `8` | Live sockets per account |
 
 ---
 
@@ -1123,11 +1161,12 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 133 checks, no database needed
-npm test --prefix client      # client components: 28 checks in jsdom
+npm test                      # server: 148 checks, no database needed
+npm test --prefix client      # client components: 31 checks in jsdom
+npm run scan:secrets          # credential-leak gate
 ```
 
-**133 server checks across 17 suites — all passing.**
+**148 server checks across 18 suites — all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -1148,30 +1187,33 @@ npm test --prefix client      # client components: 28 checks in jsdom
 | `squadLifecycle.test.js` | 15-day expiry boundary, owner-only refresh, membership, countdown formatting |
 | `connections.test.js` | Domain pooling rules, per-domain URI precedence, test-mode URI pinning, readiness shape |
 | `settings.test.js` | Handle rules (charset, length, reserved names, case-insensitive lookup), frozen/restricted participation matrix, succession ordering and tie-breaks |
+| `hardening.test.js` | Rate-limit keying (user vs IP, IPv6 /64 grouping), secret patterns (each issuer, placeholder exemptions, redacted output) and the live client-source secret gate |
 
 Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
 deterministic, and exercise the real feature switch and key prefix.
 
-**28 client checks across 4 files** — `SegmentedTabs` (aria state, keyboard,
+**31 client checks across 5 files** — `SegmentedTabs` (aria state, keyboard,
 indicator), `PostActions` (label/pressed state, spark burst gated on pointer and
 reduced-motion), `PostCard` (like and bookmark requests, failure path, signed-out
-redirect) and `NotificationBell` (dropdown vs portalled sheet at the 640 px
-breakpoint, badge count, mark-read).
+redirect), `NotificationBell` (dropdown vs portalled sheet at the 640 px
+breakpoint, badge count, mark-read) and `Skeleton` (one labelled status region,
+card count, placeholders hidden from the accessibility tree).
 
 End-to-end smoke tests (requires a running backend):
 
 ```bash
-npm run test:e2e              # all six suites below
+npm run test:e2e              # all seven suites below
 node scripts/e2e.js           # 59 auth/community/chat checks
 node scripts/e2e-phase4.js    # 66 feed/LFG/notification/admin checks
 node scripts/e2e-phase6.js    # 159 lifecycle/search/Redis-off checks
 node scripts/e2e-phase7.js    # 80 Discord-interaction checks
 node scripts/e2e-phase8.js    # 70 identity/consent/squad-chat/data-rights checks
 node scripts/e2e-phase9.js    # 62 settings/freeze/succession/erasure checks
+node scripts/e2e-phase10.js   # 13 search-budget/presence/socket-cap checks
 ```
 
-All six run against a throwaway database derived from `MONGO_URI` and drop it
+All seven run against a throwaway database derived from `MONGO_URI` and drop it
 when they finish. They need no Redis: the degraded path is asserted explicitly,
 so a future Redis re-enable that breaks the fallback fails here. Their shared
 scaffolding (`api`, `check`, `register`, sockets) lives in

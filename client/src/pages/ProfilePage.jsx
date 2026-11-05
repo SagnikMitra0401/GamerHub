@@ -10,6 +10,7 @@ import { ROLE_LABELS } from '../utils/permissions';
 import { FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon } from '../components/common/icons';
 import CommunitySigil from '../components/communities/CommunitySigil';
 import InvitationInbox from '../components/invitations/InvitationInbox';
+import { PostListSkeleton, ProfileSkeleton } from '../components/common/Skeleton';
 
 const ProfilePage = () => {
   const { username } = useParams();
@@ -101,7 +102,13 @@ const ProfilePage = () => {
     setProfile(prev => prev ? { ...prev, gamerPassport: updatedPassport } : prev);
   };
 
-  if (loading) return <div className="page"><div className="spinner" /></div>;
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="container"><ProfileSkeleton /></div>
+      </div>
+    );
+  }
   if (!profile) return null;
 
   const joinedDate = new Date(profile.createdAt).toLocaleDateString('en-US', {
@@ -319,7 +326,7 @@ const ProfilePage = () => {
             </div>
 
             {postsLoading ? (
-              <div className="spinner" />
+              <PostListSkeleton count={2} />
             ) : (
               <PostList
                 posts={tab === 'saved' ? savedPosts : posts}

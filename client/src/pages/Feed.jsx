@@ -8,6 +8,7 @@ import ClipCard from '../components/posts/ClipCard';
 import PreferencesModal from '../components/profile/PreferencesModal';
 import useCursorGlow from '../hooks/useCursorGlow';
 import SegmentedTabs from '../components/common/SegmentedTabs';
+import { ClipGridSkeleton, PostListSkeleton } from '../components/common/Skeleton';
 import {
   CompassIcon, UsersIcon, SparklesIcon, ClockIcon, FlameIcon, ListIcon, FilmIcon, PlusIcon
 } from '../components/common/icons';
@@ -175,7 +176,9 @@ const Feed = () => {
         )}
 
         {loading && page === 1 ? (
-          <div className="spinner" />
+          layout === 'clips'
+            ? <ClipGridSkeleton />
+            : <PostListSkeleton />
         ) : (
           <>
             {feedMode === 'following' && !loading && posts.length === 0 ? (

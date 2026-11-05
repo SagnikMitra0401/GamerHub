@@ -50,6 +50,12 @@ jobs:
       - name: Design-system gate (no emoji in chrome)
         run: node scripts/scan-emoji.js
 
+      # Fails on a credential-shaped literal in source or in client/dist, and on
+      # a tracked .env file. Also runs inside npm test; this step makes the
+      # failure visible by name in the Actions log.
+      - name: Secret-leak gate
+        run: node scripts/scan-secrets.js
+
   e2e:
     name: End-to-end suites
     runs-on: ubuntu-latest

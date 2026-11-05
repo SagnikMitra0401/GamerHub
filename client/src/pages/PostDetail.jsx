@@ -9,6 +9,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 import LinkPreviewCard from '../components/posts/LinkPreviewCard';
 import PostActions from '../components/posts/PostActions';
 import { ArrowLeftIcon } from '../components/common/icons';
+import { PostDetailSkeleton } from '../components/common/Skeleton';
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -106,7 +107,13 @@ const PostDetail = () => {
     return new Date(ts).toLocaleDateString();
   };
 
-  if (loading) return <div className="page"><div className="spinner" /></div>;
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="container"><PostDetailSkeleton /></div>
+      </div>
+    );
+  }
 
   if (error) return (
     <div className="page">

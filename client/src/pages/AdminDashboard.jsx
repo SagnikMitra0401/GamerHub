@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
+import { AdminSkeleton } from '../components/common/Skeleton';
 
 const formatUptime = (seconds) => {
   if (!Number.isFinite(seconds)) return '—';
@@ -127,7 +128,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {!data && loading && <div className="spinner" />}
+        {!data && loading && <AdminSkeleton />}
 
         {data && (
           <>

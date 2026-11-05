@@ -19,6 +19,7 @@ const { clearAuthCookie } = require('./authController');
 const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
 const { idOf, isBlockedBetween } = require('../utils/privacy');
 const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
+const { invalidateVisibility } = require('../utils/visibility');
 
 const DELETION_GRACE_DAYS = 30;
 const EXPORT_ROW_LIMIT = 5000;
@@ -242,6 +243,10 @@ const setFreeze = async (req, res, next) => {
     // the next message is refused without a per-message database read.
     setUserFrozenState(req.user._id, frozen);
 
+    // The search visibility cache must not keep serving a profile that just
+    // went into stealth mode (or one that just came back).
+    invalidateVisibility();
+
     if (frozen) {
       getIO()?.emit('presence_change', {
         userId: String(req.user._id),
@@ -333,6 +338,7 @@ const blockUser = async (req, res, next) => {
       { $pull: { followers: req.user._id, following: req.user._id } }
     );
 
+    invalidateVisibility();
     res.status(200).json({ blocked: true, userId: targetId });
   } catch (err) {
     next(err);
@@ -346,6 +352,7 @@ const unblockUser = async (req, res, next) => {
     if (!isId(targetId)) throw badRequest('Invalid user id');
 
     await User.updateOne({ _id: req.user._id }, { $pull: { blockedUsers: targetId } });
+    invalidateVisibility();
     res.status(200).json({ blocked: false, userId: targetId });
   } catch (err) {
     next(err);

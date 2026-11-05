@@ -9,6 +9,7 @@ const { parsePagination } = require('../utils/pagination');
 const { badRequest, notFound, forbidden } = require('../utils/httpError');
 const { getIO } = require('../config/socket');
 const { publicPresence } = require('../utils/presence');
+const { blockedIdsFor, hiddenAccountIds } = require('../utils/visibility');
 
 const USER_PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 const PRESENCE_STATUSES = ['online', 'in_game', 'offline', 'invisible'];
@@ -252,22 +253,22 @@ const searchAll = async (req, res, next) => {
     // Blocking is symmetric: hide accounts the caller blocked *and* accounts
     // that blocked the caller, in both people and post results. Frozen and
     // suspended accounts are hidden everywhere for the same reason.
-    let hiddenIds = [];
-    const hiddenStatuses = await User.find({ status: { $in: ['frozen', 'suspended'] } })
-      .select('_id')
-      .lean();
-    hiddenIds.push(...hiddenStatuses.map((user) => String(user._id)));
+    //
+    // The "who blocked me" and "who is frozen" lookups are cached for a few
+    // seconds (and invalidated by freeze/block), so a signed-in search does not
+    // scan the user collection on every keystroke.
+    const [blockedByThem, hiddenAccounts] = await Promise.all([
+      blockedIdsFor(req.user?._id),
+      hiddenAccountIds()
+    ]);
+    const blockedIds = [...new Set([
+      ...((req.user?.blockedUsers || []).map(String)),
+      ...blockedByThem
+    ])];
 
-    if (req.user) {
-      const blockedByOthers = await User.find({ blockedUsers: req.user._id })
-        .select('_id')
-        .lean();
-      hiddenIds.push(
-        ...(req.user.blockedUsers || []).map(String),
-        ...blockedByOthers.map((user) => String(user._id))
-      );
-    }
-    hiddenIds = [...new Set(hiddenIds)];
+    // Post authors are filtered after the populate, which is cheaper than
+    // loading every frozen account into a `$nin` before the text query.
+    const hiddenIds = [...new Set([...blockedIds, ...hiddenAccounts])];
 
     const userFilter = {
       username: { $regex: `^${safe}`, $options: 'i' },
@@ -276,17 +277,20 @@ const searchAll = async (req, res, next) => {
     };
     if (hiddenIds.length) userFilter._id = { $nin: hiddenIds };
 
+    // Only blocks are pushed into the text query; frozen authors are dropped
+    // from the populated page instead of turning into a large `$nin` list.
     const postFilter = { $text: { $search: q } };
-    if (hiddenIds.length) postFilter.userId = { $nin: hiddenIds };
+    if (blockedIds.length) postFilter.userId = { $nin: blockedIds };
 
     const [posts, users, tags] = await Promise.all([
       // Weights come from the schema/migration text index: title 10, tags 5,
       // body 1. Sorting by textScore puts the best match first; createdAt breaks
-      // ties so equally relevant posts stay in publish order.
+      // ties so equally relevant posts stay in publish order. A few extra rows
+      // are fetched so hiding a frozen author cannot empty the result page.
       Post.find(postFilter, { score: { $meta: 'textScore' } })
         .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
-        .limit(10)
-        .populate('userId', 'username level role')
+        .limit(15)
+        .populate('userId', 'username level role status')
         .lean(),
 
       // Anchored prefix, not an unanchored scan: the unique username index can
@@ -296,11 +300,17 @@ const searchAll = async (req, res, next) => {
         .limit(8)
         .lean(),
 
-      Post.distinct('tags', { tags: { $regex: safe, $options: 'i' } })
+      // Anchored prefix: `^gam` can walk the multikey tags index, while a bare
+      // regex would scan every post document on each search.
+      Post.distinct('tags', { tags: { $regex: `^${safe}`, $options: 'i' } })
         .then((t) => t.slice(0, 10))
     ]);
 
-    res.status(200).json({ posts, users, tags });
+    const visiblePosts = posts
+      .filter((post) => post.userId && post.userId.status !== 'frozen' && post.userId.status !== 'suspended')
+      .slice(0, 10);
+
+    res.status(200).json({ posts: visiblePosts, users, tags });
   } catch (err) {
     next(err);
   }

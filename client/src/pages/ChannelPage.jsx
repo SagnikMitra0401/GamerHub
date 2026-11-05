@@ -7,6 +7,7 @@ import PostForm from '../components/posts/PostForm';
 import ClipCard from '../components/posts/ClipCard';
 import { StarIcon, PlusIcon, ListIcon, FilmIcon } from '../components/common/icons';
 import SegmentedTabs from '../components/common/SegmentedTabs';
+import { ClipGridSkeleton, PostListSkeleton } from '../components/common/Skeleton';
 
 const LAYOUT_OPTIONS = [
   { key: 'list',  label: 'List',  icon: <ListIcon size={15} /> },
@@ -128,7 +129,9 @@ const ChannelPage = () => {
         )}
 
         {loading && page === 1 ? (
-          <div className="spinner" />
+          layout === 'clips'
+            ? <ClipGridSkeleton />
+            : <PostListSkeleton count={4} />
         ) : (
           <>
             {layout === 'clips' ? (

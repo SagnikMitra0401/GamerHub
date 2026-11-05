@@ -15,9 +15,12 @@ const {
 } = require('../controllers/userController');
 const { toggleMute, getMutedUsers } = require('../controllers/moderationController');
 const { updatePrivacySettings } = require('../controllers/accountController');
+const { searchLimiter } = require('../middleware/limiters');
 
-// Search & Passport (must be before /:username to avoid route collision)
-router.get('/search',         optionalProtect, searchAll);
+// Search & Passport (must be before /:username to avoid route collision).
+// The limiter sits after optionalProtect so a signed-in caller is keyed by
+// account rather than by the office NAT.
+router.get('/search',         optionalProtect, searchLimiter, searchAll);
 router.put('/me/passport',    protect,         updateGamerPassport);
 router.patch('/me/preferences', protect,       updatePreferences);
 router.patch('/presence',     protect,         updatePresence);

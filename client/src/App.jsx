@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import FloatingToolbar from './components/common/FloatingToolbar';
@@ -16,10 +16,12 @@ import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
 import AdminDashboard from './pages/AdminDashboard';
 import SettingsPage from './pages/SettingsPage';
+import NotFound from './pages/NotFound';
 import PrivateRoute from './components/common/PrivateRoute';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import './index.css';
+import './phase10.css';
 
 /**
  * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
@@ -87,7 +89,9 @@ function App() {
           <Route path="/settings"               element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="/privacy"                element={<PrivacyPolicy />} />
           <Route path="/terms"                  element={<TermsOfService />} />
-          <Route path="*"                       element={<Navigate to="/" replace />} />
+          {/* A wrong URL shows a real 404 instead of redirecting: a silent
+              redirect makes a broken link look like a working one. */}
+          <Route path="*"                       element={<NotFound />} />
         </Routes>
         <GlobalToolbar
           onSearchOpen={() => setSearchOpen(true)}

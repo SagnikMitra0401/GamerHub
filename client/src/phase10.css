@@ -1,0 +1,285 @@
+/* ============================================================================
+   Pass 10 — loading skeletons and the 404 surface.
+
+   Skeletons reserve the geometry of the content they replace, so the first
+   paint and the hydrated list have the same height. The shimmer is a
+   pseudo-element moved with `transform` only (compositor path), never a
+   background-position animation, and it stops entirely under
+   `prefers-reduced-motion`.
+   ========================================================================= */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Primitives ─────────────────────────────────────────────────────────── */
+
+.skel {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0.13),
+    rgba(148, 163, 184, 0.07)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.07);
+  flex: 0 0 auto;
+}
+
+.skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(226, 232, 240, 0.09) 45%,
+    rgba(226, 232, 240, 0.16) 55%,
+    transparent 100%
+  );
+  animation: skel-sweep 1.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes skel-sweep {
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel::after { animation: none; content: none; }
+}
+
+.skel-frame { display: flex; flex-direction: column; gap: 1rem; }
+
+.skel-lines {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.skel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.skel-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* ── Compositions ───────────────────────────────────────────────────────── */
+
+.skel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.6rem;
+}
+
+.skel-card + .skel-card { margin-top: 1rem; }
+
+.skel-footer {
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+.skel-article { padding: 1.8rem; }
+
+.skel-comment { align-items: flex-start; padding: 0.55rem 0; }
+
+.skel-profile-head {
+  display: flex;
+  gap: 1.4rem;
+  align-items: flex-start;
+}
+
+.skel-profile-id { gap: 12px; padding-top: 4px; }
+
+.skel-stat-row { flex-wrap: wrap; gap: 0.9rem; }
+
+.skel-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.skel-grid-wide { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.skel-grid-tight { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+
+.skel-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem;
+}
+
+.skel-tile.skel-row { flex-direction: row; }
+
+.skel-lfg { display: flex; flex-direction: column; gap: 0.55rem; padding: 1.1rem; }
+
+.skel-media { border-radius: var(--radius-lg); }
+
+.skel-community {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.skel-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.1rem;
+}
+
+.skel-stream { display: flex; flex-direction: column; gap: 0.2rem; min-height: 420px; }
+
+.skel-table-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr 1fr 0.8fr;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.skel-table-row:last-child { border-bottom: 0; }
+
+/* The settings page already owns a rail; keep its skeleton aligned. */
+.settings-panel .skel-frame { margin-top: 0; }
+
+@media (max-width: 860px) {
+  .skel-community { grid-template-columns: 1fr; }
+  .skel-rail { display: none; }
+  .skel-profile-head { flex-direction: column; }
+  .skel-stat-row .skel { width: 100%; }
+}
+
+/* ============================================================================
+   404 — lost signal
+   ========================================================================= */
+
+.nf-page {
+  min-height: calc(100vh - var(--nav-h));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem 6rem;
+}
+
+.nf-shell {
+  width: 100%;
+  max-width: 860px;
+  display: grid;
+  gap: 2.4rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+}
+
+.nf-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+}
+
+.nf-code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: clamp(5.5rem, 16vw, 9.5rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  color: transparent;
+  background: linear-gradient(160deg, #f8fafc 0%, #94a3b8 46%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 34px rgba(56, 189, 248, 0.16));
+}
+
+.nf-scan {
+  position: absolute;
+  inset: 18% 0;
+  background: linear-gradient(180deg, transparent, rgba(56, 189, 248, 0.14), transparent);
+  transform: translateY(-60%);
+  animation: nf-scan 4.5s ease-in-out infinite;
+  pointer-events: none;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+@keyframes nf-scan {
+  50% { transform: translateY(60%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-scan { animation: none; opacity: 0.35; transform: none; }
+}
+
+.nf-copy { display: flex; flex-direction: column; gap: 0.85rem; }
+
+.nf-eyebrow {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.nf-title {
+  font-size: clamp(1.6rem, 3.4vw, 2.3rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.nf-text { color: var(--text-secondary); line-height: 1.65; margin: 0; }
+
+.nf-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 0.4rem; }
+
+.nf-trails {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.nf-trail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--glass-surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.nf-trail:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+
+.nf-trail strong { font-size: 0.92rem; }
+.nf-trail small { color: var(--text-muted); font-size: 0.76rem; }
+
+@media (max-width: 720px) {
+  .nf-shell { grid-template-columns: 1fr; gap: 1.2rem; text-align: left; }
+  .nf-visual { min-height: 170px; }
+  .nf-page { padding-top: 2.5rem; }
+}

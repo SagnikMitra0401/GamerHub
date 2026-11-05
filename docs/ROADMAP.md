@@ -5,9 +5,9 @@ milestones. Each phase is sized to ship independently; nothing here is required
 for the app to keep working as it does today.
 
 Current state: MERN monolith (Express + Mongoose + Socket.io, React 18 + Vite),
-657 automated checks passing (133 server unit, 28 client component, 496 e2e
-across six suites), CI on every push, Redis implemented but switched off,
-single Render instance, all migration tracks applied on Atlas.
+688 automated checks passing (148 server unit, 31 client component, 509 e2e
+across seven suites) plus a secret-leak gate, CI on every push, Redis implemented
+but switched off, single Render instance, all migration tracks applied on Atlas.
 
 ---
 
@@ -86,6 +86,23 @@ fail-closed branches (no live credential in CI), erasure of a *scheduled*
 deletion is exercised through the same shared path as immediate deletion but has
 not been waited out in real time, and settings actions are proven through the API
 suite rather than a clicked-through browser flow.
+
+---
+
+## Phase 8H — Hardening & resilience — ✅ delivered
+
+**Delivered 5 November 2026.** Layout-shaped skeletons on every data surface, a
+real 404 page instead of a silent redirect, and a hardening pass documented in
+[SECURITY.md](SECURITY.md): per-surface rate limits (search, catalog, admin,
+browse), bounds on sockets per account and room joins, a cheaper search path
+(cached visibility lookups, anchored tag prefix, frozen authors filtered after
+populate), the LFG board no longer leaking `invisible` presence or account
+status, a multikey index for the symmetric block lookup, and a secret-leak gate
+that runs in `npm test` and CI. 148 server, 31 client and 509 e2e checks pass.
+
+Known follow-ups from this milestone: rate-limit counters are per process (a
+shared store is part of phase 9), and the skeletons have not been measured at
+phone widths.
 
 ---
 
@@ -214,9 +231,10 @@ not as a user report.
 | 4 | **10 — Discovery** | Once there are thousands of posts |
 | 5 | **9 — Multi-instance** | Only when a second instance is actually needed |
 
-Phases 7, 8F and 8G are done: 657 checks and a CI gate stand between a regression
-and `main`, identity/consent is no longer the weak spot, and every account-level
-promise (rename, reset, freeze, erase, succeed) has a server rule behind it.
+Phases 7, 8F, 8G and 8H are done: 688 checks and a CI gate stand between a
+regression and `main`, identity/consent is no longer the weak spot, every
+account-level promise (rename, reset, freeze, erase, succeed) has a server rule
+behind it, and the cheap-query surfaces now have a budget of their own.
 
 ## Deliberately deferred
 

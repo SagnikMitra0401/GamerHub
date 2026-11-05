@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const attachmentUpload = require('../middleware/attachmentUpload');
+const { searchLimiter, browseLimiter } = require('../middleware/limiters');
 
 const {
   createCommunity,
@@ -93,7 +94,7 @@ router.delete('/:id/channels/:channelId/forum/:postId/replies/:replyId', protect
 // ── Server administration ───────────────────────────────────────────────────
 router.get('/:id/members',            protect, getCommunityMembers);
 router.get('/:id/audit',              protect, getAuditLog);
-router.get('/:id/search',             protect, searchMessages);
+router.get('/:id/search',             protect, searchLimiter, searchMessages);
 router.patch('/:id',                  protect, activeOnly, updateCommunity);
 router.delete('/:id',                 protect, activeOnly, deleteCommunity);
 
@@ -123,7 +124,7 @@ router.delete('/:id/members/:userId',       protect, activeOnly, kickMember);
 
 // ── Communities CRUD ────────────────────────────────────────────────────────
 router.post('/',  protect, activeOnly, createCommunity);
-router.get('/',   optionalProtect, getCommunities);
+router.get('/',   optionalProtect, browseLimiter, getCommunities);
 
 // Wildcard slug route — MUST be last
 router.get('/:slug', optionalProtect, getCommunityBySlug);

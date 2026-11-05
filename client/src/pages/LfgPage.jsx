@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import CreatePartyModal from '../components/lfg/CreatePartyModal';
 import SquadChatDrawer from '../components/lfg/SquadChatDrawer';
 import useCursorGlow from '../hooks/useCursorGlow';
+import { LfgSkeleton } from '../components/common/Skeleton';
 
 const userName = (value) => value?.username || 'deleted user';
 const userId = (value) => value?._id || value;
@@ -428,7 +429,7 @@ const LfgPage = () => {
         <section className="lfg-section">
           <h2 className="section-heading">Open squads</h2>
           {loading ? (
-            <div className="spinner" />
+            <LfgSkeleton />
           ) : parties.length === 0 ? (
             <div className="post-list-empty">
               <h3>No squads recruiting</h3>

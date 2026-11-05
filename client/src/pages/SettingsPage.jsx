@@ -7,6 +7,7 @@ import FeedPanel from '../components/settings/FeedPanel';
 import PrivacyPanel from '../components/settings/PrivacyPanel';
 import SecurityPanel from '../components/settings/SecurityPanel';
 import DangerPanel from '../components/settings/DangerPanel';
+import { SettingsSkeleton } from '../components/common/Skeleton';
 import {
   AlertIcon, CompassIcon, CloseIcon, LockIcon, PencilIcon, UsersIcon
 } from '../components/common/icons';
@@ -142,7 +143,7 @@ const SettingsPage = () => {
         )}
 
         {loading && !account ? (
-          <div className="settings-loading"><div className="spinner" /></div>
+          <SettingsSkeleton />
         ) : !account ? null : (
           <div className="settings-shell">
             <nav className="settings-rail" aria-label="Settings sections">

@@ -161,6 +161,14 @@ const squadFloodLimiter = createSlidingWindowLimiter({
   windowMs: CHAT_POLICY.flood.windowMs,
   max: CHAT_POLICY.flood.maxMessages
 });
+// Room joins run two database reads each. A tab joins a handful of times per
+// session; a script can join thousands of times a minute, so the budget is
+// generous for people and prohibitive for a loop.
+const joinLimiter = createSlidingWindowLimiter({
+  windowMs: 60_000,
+  max: Number(process.env.SOCKET_JOIN_RATE_MAX) || 60
+});
+const MAX_SOCKETS_PER_USER = Number(process.env.SOCKET_MAX_PER_USER) || 8;
 
 /** Reset all in-memory trackers (used by tests). */
 function resetChatTrackers() {
@@ -168,6 +176,7 @@ function resetChatTrackers() {
   slowmodeTracker.reset();
   typingTracker.reset();
   squadFloodLimiter.reset();
+  joinLimiter.reset();
 }
 
 function parseCookie(cookieStr) {
@@ -303,6 +312,21 @@ function initSocket(httpServer) {
         .select('_id username level role medals status')
         .lean();
       socket.user = user || null;
+
+      // Bound the number of live sockets per account. Every socket holds rooms,
+      // presence bookkeeping and listeners; without a cap one account can grow
+      // the process until the container is killed.
+      if (user) {
+        const target = String(user._id);
+        let live = 0;
+        for (const existing of io.sockets.sockets.values()) {
+          if (existing.user && String(existing.user._id) === target) live += 1;
+        }
+        if (live >= MAX_SOCKETS_PER_USER) {
+          return next(new Error('TOO_MANY_CONNECTIONS'));
+        }
+      }
+
       return next();
     } catch {
       socket.user = null;
@@ -336,6 +360,11 @@ function initSocket(httpServer) {
     socket.on('join_channel', async (payload = {}) => {
       try {
         if (!userId) return fail(socket, 'You must be logged in to read this channel.', 'UNAUTHENTICATED');
+
+        const joins = joinLimiter.consume(userId);
+        if (!joins.allowed) {
+          return fail(socket, 'You are joining channels too quickly. Slow down.', 'RATE_LIMITED');
+        }
 
         const ctx = await loadChannelContext(payload.channelId);
         if (!ctx) return fail(socket, 'Channel not found.', 'NOT_FOUND');
@@ -598,6 +627,11 @@ function initSocket(httpServer) {
     socket.on('join_squad_chat', async (payload = {}) => {
       try {
         if (!userId) return fail(socket, 'Sign in to open this squad chat.', 'UNAUTHENTICATED');
+
+        const joins = joinLimiter.consume(userId);
+        if (!joins.allowed) {
+          return fail(socket, 'You are joining chats too quickly. Slow down.', 'RATE_LIMITED');
+        }
 
         const chat = await loadChatForUser(payload.chatId, userId);
         socket.join(`squad:${chat._id}`);
