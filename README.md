@@ -168,6 +168,26 @@ Express app.js
   the retention worker then anonymises the account and removes its content
 - Personal mutes (client-side hiding) remain separate from moderation bans
 
+### Account & Settings Hub
+One `/settings` page holds every account-level switch, and each panel is backed by
+a server rule rather than a client check:
+- **Profile & identity** — handle changes with charset, length, reserved-name and
+  case-insensitive uniqueness rules; bio; gaming passport. The account, posts and
+  memberships are untouched and the profile URL follows the new handle.
+- **Feed algorithm** — shows the tag affinities, favourite channel and genre that
+  shape "For You", and resets them to a fresh baseline (rate limited).
+- **Privacy & safety** — invite/DM policies, blocked-player manager, data export.
+- **Security & auth** — connected sign-in methods (Google link/unlink, verified
+  server-side) and "sign out everywhere", which bumps `sessionVersion` so every
+  cookie already issued is rejected on its next request.
+- **Danger zone** — password-confirmed freeze (posts leave feeds, search and the
+  public profile; presence reads offline; posting, reacting, joining and squad
+  messaging are refused on REST and sockets) and two deletion paths: a 30-day
+  scheduled erasure or an immediate one. Both hand each owned server to its next
+  owner — admin → moderator → veteran member — or dissolve a memberless server,
+  and move squad leadership (with the chat refresh right) before the account is
+  anonymised. A preview endpoint lists exactly what will be transferred first.
+
 ### Gamification
 - XP awarded for: posting, media posts, receiving likes, milestones
 - Level calculated from cumulative XP with a visible progress bar
@@ -274,8 +294,11 @@ MERN_INTERNSHIP_Proj/
 │   │   │   ├── LfgPage.jsx         # Looking-for-group board
 │   │   │   ├── GameCatalog.jsx     # FreeToGame-backed game browser
 │   │   │   ├── AdminDashboard.jsx  # Metrics + audit log + service status
+│   │   │   ├── SettingsPage.jsx    # Account & settings hub (5 URL-addressable panels)
 │   │   │   ├── Login.jsx
 │   │   │   └── Register.jsx
+│   │   ├── components/settings/    # ProfilePanel, FeedPanel, PrivacyPanel, SecurityPanel, DangerPanel
+│   │   │                           # + GoogleLinkButton; styles in phase9.css
 │   │   ├── utils/
 │   │   │   ├── deviceDetector.js   # WebGL DPI detection for Gamer Passport
 │   │   │   └── permissions.js      # Client-side capability checks (mirrors server)
@@ -343,11 +366,14 @@ MERN_INTERNSHIP_Proj/
 │   │   ├── httpError.js            # badRequest / forbidden / notFound factories
 │   │   ├── origins.js              # Exact CORS allow-list (no wildcards)
 │   │   ├── partyRules.js           # LFG join/leave/board business rules
+│   │   ├── username.js             # Handle validation, reserved names, case-insensitive lookup
+│   │   ├── succession.js           # Owner/leader inheritance, dissolution, preview
+│   │   ├── accountErasure.js       # Shared erase path for request-now and retention worker
 │   │   ├── scrapePreview.js        # Open Graph scraper for link previews
 │   │   └── generateToken.js        # JWT sign + set HttpOnly cookie
 │   ├── jobs/
 │   │   └── retention.js            # Periodic cleanup worker (stale data)
-│   └── tests/                      # 45 unit tests (Node native test runner)
+│   └── tests/                      # 133 unit checks across 17 suites (Node native test runner)
 │       ├── permissions.test.js
 │       ├── sanitize.test.js
 │       ├── ssrf.test.js
@@ -645,13 +671,21 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/account` | Account state, privacy settings, blocked list |
+| GET | `/account` | Account state, privacy settings, blocked list, affinity counts |
+| PATCH | `/account/username` | Change handle (reserved names, case-insensitive uniqueness, rate limited) |
+| POST | `/account/feed-reset` | Clear tag/channel/genre affinities to a fresh baseline |
+| POST | `/account/freeze` | Password-confirmed stealth mode on/off (`{ frozen, password }`) |
+| GET | `/account/succession-preview` | Read-only: what happens to the servers/squads you own |
+| POST | `/account/delete-now` | Immediate erasure after handle + password confirmation |
 | GET | `/account/blocked` | Players you have blocked |
 | POST | `/account/block/:userId` | Block (also drops follow edges both ways) |
 | DELETE | `/account/block/:userId` | Unblock |
 | GET | `/account/data-export` | Download your data as JSON (rate limited) |
 | POST | `/account/deletion-request` | Schedule erasure, revoke sessions and sockets |
 | POST | `/account/deletion-cancel` | Cancel inside the 30-day grace period |
+| POST | `/auth/link-google` | Link a Google identity (refused if the email differs) |
+| DELETE | `/auth/link-google` | Unlink; refused when it would lock the account out |
+| POST | `/auth/logout-all` | Revoke every session by bumping `sessionVersion` |
 
 ### Games, Notifications, Bot, Admin
 
@@ -1089,11 +1123,11 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 117 checks, no database needed
+npm test                      # server: 133 checks, no database needed
 npm test --prefix client      # client components: 28 checks in jsdom
 ```
 
-**117 server checks across 13 suites — all passing.**
+**133 server checks across 17 suites — all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -1113,6 +1147,7 @@ npm test --prefix client      # client components: 28 checks in jsdom
 | `privacy.test.js` | Consent matrix, symmetric blocking, privacy patch validation, account gate, erasure payload |
 | `squadLifecycle.test.js` | 15-day expiry boundary, owner-only refresh, membership, countdown formatting |
 | `connections.test.js` | Domain pooling rules, per-domain URI precedence, test-mode URI pinning, readiness shape |
+| `settings.test.js` | Handle rules (charset, length, reserved names, case-insensitive lookup), frozen/restricted participation matrix, succession ordering and tie-breaks |
 
 Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
@@ -1127,15 +1162,16 @@ breakpoint, badge count, mark-read).
 End-to-end smoke tests (requires a running backend):
 
 ```bash
-npm run test:e2e              # all five suites below
+npm run test:e2e              # all six suites below
 node scripts/e2e.js           # 59 auth/community/chat checks
 node scripts/e2e-phase4.js    # 66 feed/LFG/notification/admin checks
 node scripts/e2e-phase6.js    # 159 lifecycle/search/Redis-off checks
 node scripts/e2e-phase7.js    # 80 Discord-interaction checks
 node scripts/e2e-phase8.js    # 70 identity/consent/squad-chat/data-rights checks
+node scripts/e2e-phase9.js    # 62 settings/freeze/succession/erasure checks
 ```
 
-All five run against a throwaway database derived from `MONGO_URI` and drop it
+All six run against a throwaway database derived from `MONGO_URI` and drop it
 when they finish. They need no Redis: the degraded path is asserted explicitly,
 so a future Redis re-enable that breaks the fallback fails here. Their shared
 scaffolding (`api`, `check`, `register`, sockets) lives in

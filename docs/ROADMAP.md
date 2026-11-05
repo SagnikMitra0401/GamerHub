@@ -5,10 +5,9 @@ milestones. Each phase is sized to ship independently; nothing here is required
 for the app to keep working as it does today.
 
 Current state: MERN monolith (Express + Mongoose + Socket.io, React 18 + Vite),
-579 automated checks passing (117 server unit, 28 client component, 434 e2e
-across five suites), CI on every push, Redis implemented but switched off,
-single Render instance, domain-partitioned migration tracks written and awaiting
-their first Atlas run.
+657 automated checks passing (133 server unit, 28 client component, 496 e2e
+across six suites), CI on every push, Redis implemented but switched off,
+single Render instance, all migration tracks applied on Atlas.
 
 ---
 
@@ -63,8 +62,30 @@ blocking, JSON data export and a 30-day cancellable deletion flow with erasure.
 [TEST_LEDGER.md](TEST_LEDGER.md) pass 5.
 
 Known follow-ups from this milestone: squad chat is text-only (no attachments),
-a squad's chat is not deleted when the Party TTL removes the squad (it expires on
-its own), and the domain migration tracks still need their first Atlas run.
+and a squad's chat is not deleted when the Party TTL removes the squad (it
+expires on its own).
+
+---
+
+## Phase 8G — Account & settings hub — ✅ delivered
+
+**Delivered 5 November 2026.** One `/settings` page (profile & identity, feed
+algorithm, privacy & safety, security & auth, danger zone) sitting on the backend
+that makes each panel honest: handle changes with reserved-name and
+case-insensitive uniqueness rules, an Instagram-style feed reset that really
+clears tag/channel/genre affinities, a password-confirmed freeze enforced on REST
+*and* sockets and filtered out of feed/search/profile reads, `logout-all` session
+revocation, Google link/unlink verified server-side, and a succession engine that
+hands a server to its admin → moderator → veteran member (or dissolves a
+memberless one) when the owner erases the account. 133 server checks and 496 e2e
+checks pass. Detail and what is *not* verified: [TEST_LEDGER.md](TEST_LEDGER.md)
+pass 6.
+
+Known follow-ups from this milestone: the Google path is only proven for its
+fail-closed branches (no live credential in CI), erasure of a *scheduled*
+deletion is exercised through the same shared path as immediate deletion but has
+not been waited out in real time, and settings actions are proven through the API
+suite rather than a clicked-through browser flow.
 
 ---
 
@@ -193,8 +214,9 @@ not as a user report.
 | 4 | **10 — Discovery** | Once there are thousands of posts |
 | 5 | **9 — Multi-instance** | Only when a second instance is actually needed |
 
-Phases 7 and 8F are done: 579 checks and a CI gate stand between a regression
-and `main`, and identity/consent is no longer the weak spot in the product.
+Phases 7, 8F and 8G are done: 657 checks and a CI gate stand between a regression
+and `main`, identity/consent is no longer the weak spot, and every account-level
+promise (rename, reset, freeze, erase, succeed) has a server rule behind it.
 
 ## Deliberately deferred
 
