@@ -3,7 +3,8 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import NotificationBell from './NotificationBell';
 import PresencePill from './PresencePill';
-import { MenuIcon, CloseIcon, SettingsIcon } from './icons';
+import { MenuIcon, CloseIcon, SettingsIcon, MailIcon } from './icons';
+import useDmSummary from '../../hooks/useDmSummary';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Feed', icon: 'home', end: true },
@@ -48,6 +49,8 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const dmCounts = useDmSummary();
+  const dmTotal = (dmCounts.requests || 0) + (dmCounts.unread || 0);
 
   // A route change should never leave the drawer hanging over the new page.
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
@@ -110,6 +113,17 @@ const Navbar = () => {
             {user ? (
               <>
                 <PresencePill />
+                <Link
+                  to="/messages"
+                  className={`navbar-icon-btn${pathname.startsWith('/messages') ? ' is-active' : ''}`}
+                  aria-label={`Messages${dmTotal > 0 ? `, ${dmTotal} waiting` : ''}`}
+                  title="Messages"
+                >
+                  <MailIcon size={17} />
+                  {dmTotal > 0 && (
+                    <span className="navbar-icon-badge">{dmTotal > 9 ? '9+' : dmTotal}</span>
+                  )}
+                </Link>
                 <NotificationBell />
                 <Link
                   to="/settings"
@@ -173,6 +187,11 @@ const Navbar = () => {
 
         <div className="drawer-section-label">Navigate</div>
         <nav className="drawer-links">
+          <NavLink to="/messages" className={drawerClass}>
+            <MailIcon size={18} className="drawer-icon" />
+            <span>Messages</span>
+            {dmTotal > 0 && <span className="drawer-badge">{dmTotal > 9 ? '9+' : dmTotal}</span>}
+          </NavLink>
           {items.map(item => (
             <NavLink key={item.to} to={item.to} end={item.end} className={drawerClass}>
               <Glyph name={item.icon} className="drawer-icon" />

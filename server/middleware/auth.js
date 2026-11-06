@@ -4,7 +4,8 @@ const { accountGate, canParticipate } = require('../utils/privacy');
 
 const SESSION_FIELDS =
   '_id username email following favoriteChannels savedPosts role ' +
-  'sessionVersion status profileType privacySettings blockedUsers mutedUsers';
+  'sessionVersion status profileType privacySettings blockedUsers mutedUsers ' +
+  'createdAt authIdentities dmSettings';
 
 /** 401 when the account is deleted, 403 when it is suspended. */
 const denyAccount = (res, user) => {

@@ -16,12 +16,14 @@ import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
 import AdminDashboard from './pages/AdminDashboard';
 import SettingsPage from './pages/SettingsPage';
+import MessagesPage from './pages/MessagesPage';
 import NotFound from './pages/NotFound';
 import PrivateRoute from './components/common/PrivateRoute';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import './index.css';
 import './phase10.css';
+import './phase11.css';
 
 /**
  * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
@@ -33,6 +35,7 @@ const ATMOSPHERES = [
   ['/games', 'games'],
   ['/u/', 'passport'],
   ['/settings', 'settings'],
+  ['/messages', 'messages'],
   ['/admin', 'admin'],
   ['/', 'feed']
 ];
@@ -87,6 +90,7 @@ function App() {
           <Route path="/games"                  element={<GameCatalog />} />
           <Route path="/admin"                  element={<AdminDashboard />} />
           <Route path="/settings"               element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
+          <Route path="/messages"               element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
           <Route path="/privacy"                element={<PrivacyPolicy />} />
           <Route path="/terms"                  element={<TermsOfService />} />
           {/* A wrong URL shows a real 404 instead of redirecting: a silent

@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 5 November 2026 · **Branch:** `main` · **Head:** hardening & resilience pass
+**Last updated:** 6 November 2026 · **Branch:** `main` · **Head:** Phase 11 consent core implementation
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,31 +14,88 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **148 / 148 pass** | 5 Nov |
-| Unit — client components | `npm test --prefix client` | **31 / 31 pass** | 5 Nov |
-| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 5 Nov |
-| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 5 Nov |
-| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 5 Nov |
-| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 5 Nov |
-| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 5 Nov |
-| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **62 / 62 pass** | 5 Nov |
-| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 5 Nov |
-| Client production build | `npm run build --prefix client` | **pass** — 116 kB CSS / 533 kB JS (uncompressed) | 5 Nov |
-| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 5 Nov |
+| Unit / contract — server | `npm test` | **168 / 168 pass** | 6 Nov |
+| Unit — client components | `npm test --prefix client` | **31 / 31 pass** | 6 Nov |
+| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 6 Nov |
+| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 6 Nov |
+| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 6 Nov |
+| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 6 Nov |
+| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 6 Nov |
+| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **62 / 62 pass** | 6 Nov |
+| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 6 Nov |
+| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 6 Nov |
+| Client production build | `npm run build --prefix client` | **pass** — 130 kB CSS / 559 kB JS (uncompressed) | 6 Nov |
+| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 6 Nov |
+| UI smoke — pass 5 | browser + live API: feed, 404, settings, anonymous session, 360 px | **pass** — 25 HTTP probes (2 mis-aimed paths re-checked at the real ones), no overflow, no console errors | 6 Nov |
 | UI smoke — pass 4 | browser, 404 + settings skeleton | **pass** — 404 renders the requested path, no console errors | 5 Nov |
 | UI smoke — pass 3 | browser, `/settings` × 5 tabs | **pass** — every panel renders, `?tab=` addressable, no console errors | 5 Nov |
 | UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** (pre-phase-8 pages only) | 25 Oct (that pass) |
-| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 5 Nov |
-| Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied (incl. hardening indexes); auth 1, squads 1; feed/communities still empty | 5 Nov |
+| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 6 Nov |
+| Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied (incl. hardening indexes); auth 1, squads 1; feed/communities still empty | 6 Nov |
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**688 automated checks green** (148 server + 31 client + 509 e2e across seven suites), plus the secret gate.
+**752 automated checks defined** (168 server + 31 client + 553 e2e across eight suites), plus the secret and design-system gates.
+Pass 9 re-ran 388 of them against the changed tree: all server units, all client units, and the phase 8/9/10/11 e2e suites. The phase 4/6/7 suites were last green in pass 8; their surfaces were not changed beyond the additive DM fields and the account-erasure/block hooks re-covered by phase 9.
 CI has not been re-run since the community milestone; no workflow step had to be
 added, because the `quality` job calls `npm test` and the `e2e` job calls
 `npm run test:e2e`, both of which now include the new suites. The one workflow
 edit (adding `migrate:domains:status` next to `migrate:status`) only extends the
 last step. The next push therefore exercises every check above.
+
+### Pass 8 (6 Nov) — full-system verification
+
+No code changed in this pass. Every tier was re-run against the committed tree
+(`912e77d`) to prove the hardening pass did not leave a tier unverified, then the
+real processes were probed outside the test harness.
+
+| Tier | Result |
+|---|---|
+| `npm test` | 148 / 148 |
+| `npm test --prefix client` | 31 / 31 |
+| `npm run test:e2e` (seven suites) | **pass** — chain exit 0; 62/62 and 13/13 visible in the captured tail |
+| `npm run build --prefix client` | pass — 188 modules, 115.64 kB CSS / 532.86 kB JS (21.36 / 154.10 kB gzip) |
+| `npm run scan:secrets` | 0 hit(s) |
+| `node scripts/scan-emoji.js` | 0 line(s), +8 allowlisted reaction glyphs |
+| `migrate:status` / `migrate:domains:status` | 4 main applied; auth 1, squads 1, feed/communities empty |
+
+Live system (API :5000, Vite :3000, real Atlas, Redis off), 25 probes:
+
+- **Routing/errors** — unknown API path → JSON 404 `{"message":"Endpoint not found"}`;
+  malformed JSON → 400; 120 kB body → 413; `?page=abc&limit=abc` → 200 (not the
+  old 500); `channel[$ne]=x` is stripped by the sanitizer and returns the
+  unfiltered feed (5 posts either way — no bypass, no 500).
+- **Auth gates** — `/api/account`, `/notifications`, `/admin/metrics`,
+  `/invitations/inbox`, `/squad-chats/:id`, `POST /api/posts` and
+  `/posts/preview?url=http://127.0.0.1:5000/api/health` all 401 anonymously.
+- **Projection** — 3 feed posts; author keys are exactly `_id, username, role,
+  level`; `passwordHash, email, savedPosts, followers, following,
+  authIdentities, sessionVersion, preferences, blockedUsers, mutedUsers` absent.
+- **CORS** — `http://localhost:3000` echoed; `https://attacker-xyz.vercel.app`
+  gets **no** `Access-Control-Allow-Origin`; preflight 204.
+- **Headers** — CSP, `nosniff`, `RateLimit-Policy` present; `x-powered-by` absent.
+- **Load** — 40 concurrent feed requests → 40 × 200, server stderr clean.
+- **Adversarial** — `__proto__` role-injection in a login body → 401;
+  `Authorization: Bearer` with an unsigned token and no cookie → 401 (REST reads
+  the cookie only); `%2e%2e` / encoded traversal to `.env` and `server.js` → 404;
+  duplicate `limit` parameters → 200 and clamped; 12 kB query string → 200;
+  20 kB request header → 431; `text/plain` login body → 400; `GET` on a
+  POST-only route → 404; anonymous `DELETE /api/posts/:id` → 401.
+- **Browser** — real feed renders with 5 posts, socket connects, console has only
+  the React Router v7 warnings; 404 names `/this/path/does-not-exist?ref=smoke`;
+  signed-out session renders the feed (no `/login` bounce) while `/settings`
+  redirects to `/login`; the danger panel renders its freeze/deletion controls;
+  at 360 px settings is 354 px wide, login has no clipped labels, and the feed
+  reports no element crossing the viewport edge.
+
+Two probes initially read as failures because they addressed paths that do not
+exist (`GET /api/invitations` and `GET /api/squad-chats`); the real endpoints
+(`/invitations/inbox`, `/squad-chats/:id`) both answer 401. That was a probe
+error, not a finding.
+
+Not verified here: a live Google credential, Cloudinary uploads (no credentials),
+the Render/Vercel deployment, and multi-instance behaviour — all unchanged from
+the open-findings table.
 
 ### Pass 7 (5 Nov) — loading states, 404, hardening
 
@@ -279,6 +336,10 @@ Locate the check with `grep -n "<keyword>" scripts/e2e*.js server/tests/*.js`.
 | Settings — UI | five rails each render their panel, the active tab is URL-addressable (`?tab=`), `/api/account` answers 200, no console error on any tab | manual DOM pass (5 Nov), `SettingsPage` |
 | Load safety — budgets | search refused at 429 after its per-account budget while another account keeps working, socket joins refused with `RATE_LIMITED`, a third live socket refused with `TOO_MANY_CONNECTIONS` | `e2e-phase10.js`, `hardening.test.js` |
 | Visibility privacy | LFG board projects an invisible leader as offline and never exposes account status; a freeze removes the author from search on the very next request (cache invalidation) and unfreezing restores it | `e2e-phase10.js` |
+| DM consent matrix | mutual inbox, follower/following/community/squad/stranger request rules, trusted graph wins over a shared room, verified-only gate, self/blocked/none refusals, public profile exposes only the viewer's row | `dmPolicy.test.js`, `e2e-phase11.js` |
+| DM request lifecycle | one plain-text opener, no push while pending, accept turns the opener into message one, decline/ignore cooldowns, 14-day expiry, 5/day + 20/week + one per recipient per 30 days, new accounts one/day | `dmPolicy.test.js`, `e2e-phase11.js` |
+| DM safety | participant-only REST reads (404 for outsiders), participant-only socket rooms, no read receipts/presence before acceptance, block and report-and-block, report record stored, self/anon guards | `e2e-phase11.js` |
+| DM settings | partial matrix patch, per-row persistence, digest/read-receipt/hidden-word validation, hidden words deduped case-insensitively, full matrix never serialised on a public profile | `dmPolicy.test.js`, `e2e-phase11.js` |
 | Secret gate | detects Mongo/AWS/Google/Stripe/private-key/quoted-secret/bearer shapes, ignores placeholders and `process.env` references, redacts its own output, and scans `client/src` + `client/dist` for real | `hardening.test.js`, `scripts/scan-secrets.js` |
 | Loading & 404 | skeleton compositions render one labelled status region, the right card count and no readable placeholder text; unknown routes render NotFound with the requested path | `Skeleton.test.jsx` (3), build + DOM pass (5 Nov), `NotFound.jsx` |
 | CI | both suites, the client build and the emoji gate on every push/PR; e2e + `migrate:status` + `migrate:domains:status` whenever `MONGO_URI`/`JWT_SECRET` resolve, and a failing check step (not a quiet skip) when they do not, except on fork PRs | `.github/workflows/ci.yml` |
@@ -434,6 +495,20 @@ Verification of the above: `npm run build --prefix client` → pass, `npm test` 
 | Secret gate plus index migration for the symmetric block lookup | new `scripts/scan-secrets.js`, `scripts/lib/secretPatterns.js`, `migrations/20261105090000-hardening-visibility-indexes.js`; CI step |
 | 15 new unit checks, 13 new e2e checks | new `server/tests/hardening.test.js`, `scripts/e2e-phase10.js`, `package.json` |
 
+## 4f. Changes made in pass 9 (Phase 11 consent core)
+
+| Change | Files |
+|---|---|
+| Pure consent engine: six relationship rows, inbox/request/verified/none, trusted-graph precedence, link-free request validation, rolling quotas and cooldowns | new `server/utils/dmPolicy.js`, `server/tests/dmPolicy.test.js` |
+| Thread state machine: one `pairKey` row per pair, request/active/declined/expired/blocked/erased, opener preserved as the first message on accept, unread counters, archive/mute | new `server/models/{Conversation,DirectMessage,DmReport}.js`, `server/utils/dmService.js` |
+| REST surface at `/api/messages` with per-surface limiters, notification on acceptance/first message (never on a pending request), report-and-block | new `server/controllers/dmController.js`, `server/routes/dmRoutes.js`; `server/app.js` |
+| Socket rooms: `join_conversation` re-checks participant + active state; no client-published message path | `server/config/socket.js` |
+| Privacy integration: `dmSettings` on User, session fields, account projection/patch, per-viewer profile summary, block/unblock thread transitions, erasure tombstones and retention sweeps | `server/models/User.js`, `middleware/auth.js`, `controllers/{account,user}Controller.js`, `routes/accountRoutes.js`, `utils/accountErasure.js`, `jobs/retention.js` |
+| Inbox UI: rail with Inbox/Requests/Sent/Archived, request card, accept/decline, thread composer, report dialog, profile Message button and request composer, navbar badge | new `pages/MessagesPage.jsx`, `components/messages/{DmThread,MessageRequestModal}.jsx`, `hooks/useDmSummary.js`, `phase11.css`; `App.jsx`, `Navbar.jsx`, `ProfilePage.jsx` |
+| Settings matrix with six rows, digest, read receipts and hidden words | `components/settings/PrivacyPanel.jsx` |
+| Migration for `dmSettings` backfill + conversation/message/report indexes | new `migrations/20261106090000-dm-consent-core.js` |
+| 20 new unit checks + 44 new e2e checks | `server/tests/dmPolicy.test.js`, `scripts/e2e-phase11.js`, `package.json` |
+
 ---
 
 ## 5. Open findings
@@ -449,12 +524,15 @@ Verification of the above: `npm run build --prefix client` → pass, `npm test` 
 | Low | Squad chat has no file attachments (text only) | Phase 3 attachment model exists; wiring it to squad chat is a follow-up |
 | Low | A squad's temporary chat is not deleted when the Party TTL removes the squad | Chat expires on its own within 15 days; the sweeper then purges it |
 | Medium | Rate-limit counters (REST and sockets) are per process | Fine for one Render instance; a shared store is required before scaling out (roadmap 9) |
-| Low | Skeleton layouts were verified by build and by opening a page, not measured at phone widths | Optional visual pass before the next public push |
+| Low | Skeleton layouts are proven in their loaded state at 360 px (settings, login, feed), not while the placeholders are on screen | Placeholder composition is covered by `Skeleton.test.jsx`; a throttled-network visual pass is still optional |
 | Low | Phase-8 UI other than `/settings` (squad chat drawer, invitation inbox) has had no browser pass | Build + component checks only; ask for a screenshot pass |
 | Low | Segmented tab rail clips its last tray at ≤360 px (scrollable, mask-faded) | Intentional; revisit if a tray is added |
 | Medium | Cloudinary upload is only verified for its auth/validation branches — there are no credentials in the local environment | Run `scripts/e2e-phase7.js` with Cloudinary env set before relying on uploads in production |
 | Low | EXIF stripping depends on `sharp`; if it fails to install the upload still works but metadata is kept | `require('sharp')` is lazy and non-fatal by design |
 | Low | Deferred from the Discord blueprint: full per-role channel overwrites, message threads, malware scanning | Documented as out of scope for this milestone |
+| Low | The new inbox, request modal and DM settings matrix have no live browser pass | API/socket/build checks only; ask for a screenshot and click-through before calling the visual layer done |
+| Low | The Phase 11 migration has not been applied to the configured Atlas database | Schema defaults keep new and existing accounts working; run `npm run migrate:up` before relying on the backfill and indexes in a long-lived environment |
+| Low | Phase A ships the consent core only: the filtered lane, business-account mode, verification and paid priority are still proposal work | See the plan's phase gates before exposing a business surface |
 | Info | `npm audit` reports 9 advisories in transitive deps | Pre-existing |
 | Info | Screenshots unavailable in this session; visual review still owed on the sigil and the new icon controls | Ask for a screenshot pass when the window is visible |
 
@@ -470,6 +548,7 @@ Full detail in [ROADMAP.md](ROADMAP.md); the order and trigger are what matter:
 | — | ~~**8F — Foundation pack**~~ | **Delivered in pass 5.** Domain connections + migration tracks, identity governance, consent/invitations, squad lifecycle, 15-day chat, privacy/data rights. 117 server + 434 e2e checks. | done |
 | — | ~~**8G — Account & settings hub**~~ | **Delivered in pass 6.** One `/settings` page and the backend that backs it: handle change, feed reset, freeze, session revocation, Google link surface, succession preview and immediate erasure. 133 server + 496 e2e checks. | done |
 | — | ~~**8H — Hardening & resilience**~~ | **Delivered in pass 7.** Skeletons, a real 404, per-surface rate limits, socket caps, search-cost fixes, the LFG presence leak and the secret gate. 148 server + 509 e2e checks. | done |
+| — | ~~**11A — DM consent core**~~ | **Delivered in pass 9.** Request/accept threads, six-row matrix, quotas, expiry/cooldown, blocks/reports, socket rooms, profile summary, inbox and settings UI. 168 server + 31 client + 553 e2e checks defined. | done |
 | 1 | **8 — Inbox** | Notifications are the cheapest retention win and the data exists; add comment/follow/like pings, `nextCursor` paging, per-category mute, and surface squad invitations in the bell. | 1.5 d |
 | 2 | **12 — Operability** | `/api/health/ready` already splits per domain; add request IDs, structured logs and error reporting before a public push. | 1.5 d |
 | 3 | **11 — Account lifecycle** | Verification and password reset are the remaining account gaps; the session/revocation and deletion halves are done. | 2–3 d |
@@ -486,9 +565,9 @@ npm run dev            # API :5000
 npm run dev --prefix client   # Vite :3000
 
 # 2. automated tiers (see §1 for when to skip)
-npm test                      # server units, 148 checks, no database
-npm test --prefix client      # client components, 28 checks, jsdom
-npm run test:e2e              # seven suites, 509 checks, throwaway DB
+npm test                      # server units, 168 checks, no database
+npm test --prefix client      # client components, 31 checks, jsdom
+npm run test:e2e              # eight suites, 553 checks, throwaway DB
 npm run scan:secrets           # must print "0 hit(s)"
 npm run build --prefix client
 npm run migrate:status

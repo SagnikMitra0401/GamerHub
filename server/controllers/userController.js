@@ -10,6 +10,7 @@ const { badRequest, notFound, forbidden } = require('../utils/httpError');
 const { getIO } = require('../config/socket');
 const { publicPresence } = require('../utils/presence');
 const { blockedIdsFor, hiddenAccountIds } = require('../utils/visibility');
+const { describeDmPolicy } = require('../utils/dmPolicy');
 
 const USER_PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 const PRESENCE_STATUSES = ['online', 'in_game', 'offline', 'invisible'];
@@ -86,6 +87,7 @@ const getProfile = async (req, res, next) => {
       .sort((a, b) => roleLevel(b.role) - roleLevel(a.role))
       .slice(0, 20);
 
+    const dm = describeDmPolicy({ recipient: user, viewer: req.user });
     const profile = {
       ...user,
       // A frozen account reads offline even to itself and staff.
@@ -94,8 +96,13 @@ const getProfile = async (req, res, next) => {
         : publicPresence(user.presence),
       postCount,
       isFollowing,
+      dm,
       communities
     };
+
+    // The policy matrix is a private contact surface; the viewer only receives
+    // the one row that applies to them in `dm`.
+    delete profile.dmSettings;
 
     // Bookmarks, followed channels and discovery preferences are private.
     if (!isSelf) {

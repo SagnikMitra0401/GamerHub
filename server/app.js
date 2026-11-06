@@ -18,6 +18,7 @@ const squadChatRoutes = require('./routes/squadChatRoutes');
 const gameRoutes      = require('./routes/gameRoutes');
 const adminRoutes     = require('./routes/adminRoutes');
 const botRoutes       = require('./routes/botRoutes');
+const dmRoutes        = require('./routes/dmRoutes');
 const errorHandler    = require('./middleware/errorHandler');
 const { corsOrigin }  = require('./utils/origins');
 const { metricsMiddleware } = require('./utils/metrics');
@@ -80,6 +81,7 @@ app.use('/api/squad-chats', squadChatRoutes);
 app.use('/api/games',       gameRoutes);
 app.use('/api/admin',       adminRoutes);
 app.use('/api/bot',         botRoutes);
+app.use('/api/messages',    dmRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'Endpoint not found' });

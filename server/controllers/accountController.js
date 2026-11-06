@@ -10,6 +10,7 @@ const Invitation = require('../models/Invitation');
 const Notification = require('../models/Notification');
 const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
+const Conversation = require('../models/Conversation');
 
 const generateToken = require('../utils/generateToken');
 const { normalizeUsername, usernameFilter } = require('../utils/username');
@@ -18,6 +19,7 @@ const { eraseAccount } = require('../utils/accountErasure');
 const { clearAuthCookie } = require('./authController');
 const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
 const { idOf, isBlockedBetween } = require('../utils/privacy');
+const { normalizeDmSettings, sanitizeDmSettingsPatch, REQUEST_LIMITS, DAY_MS } = require('../utils/dmPolicy');
 const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
 const { invalidateVisibility } = require('../utils/visibility');
 
@@ -31,7 +33,7 @@ const getAccount = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id)
       .select(
-        'username email profileType status privacySettings blockedUsers deletionRequestedAt ' +
+        'username email profileType status privacySettings dmSettings blockedUsers deletionRequestedAt ' +
         'createdAt authIdentities hasLocalPassword frozenAt feedResetAt preferences favoriteChannels'
       )
       .lean();
@@ -52,6 +54,7 @@ const getAccount = async (req, res, next) => {
       feedResetAt: user.feedResetAt,
       providers: [...new Set((user.authIdentities || []).map((identity) => identity.provider))],
       privacySettings: user.privacySettings,
+      dmSettings: normalizeDmSettings(user.dmSettings),
       deletionRequestedAt: user.deletionRequestedAt,
       deletionGraceDays: DELETION_GRACE_DAYS,
       blockedUsers: blocked.map((u) => ({ _id: String(u._id), username: u.username, level: u.level })),
@@ -62,6 +65,44 @@ const getAccount = async (req, res, next) => {
         platforms: user.preferences?.platforms || []
       }
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/account/dm-settings
+ *
+ * Partial patch: only the matrix rows the client actually sent are written, so
+ * an older client cannot reset rows it does not know about.
+ */
+const updateDmSettings = async (req, res, next) => {
+  try {
+    const parsed = sanitizeDmSettingsPatch(req.body);
+    if (!parsed.ok) throw badRequest(parsed.errors[0]);
+
+    const update = {};
+    for (const [context, mode] of Object.entries(parsed.value.policy || {})) {
+      update[`dmSettings.policy.${context}`] = mode;
+    }
+    if (parsed.value.digest !== undefined) update['dmSettings.digest'] = parsed.value.digest;
+    if (parsed.value.readReceipts !== undefined) {
+      update['dmSettings.readReceipts'] = parsed.value.readReceipts;
+    }
+    if (parsed.value.hiddenWords !== undefined) {
+      update['dmSettings.hiddenWords'] = parsed.value.hiddenWords;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: update },
+      { new: true, runValidators: true }
+    )
+      .select('dmSettings')
+      .lean();
+    if (!user) throw notFound('User not found');
+
+    res.status(200).json({ dmSettings: normalizeDmSettings(user.dmSettings) });
   } catch (err) {
     next(err);
   }
@@ -338,6 +379,23 @@ const blockUser = async (req, res, next) => {
       { $pull: { followers: req.user._id, following: req.user._id } }
     );
 
+    // A block is also a conversation decision: stop delivery both ways and
+    // leave a cooldown so unblocking cannot be used to instantly resume.
+    await Conversation.updateMany(
+      {
+        participantIds: { $all: [req.user._id, target._id] },
+        state: { $in: ['request', 'active'] }
+      },
+      {
+        $set: {
+          state: 'blocked',
+          blockedBy: req.user._id,
+          blockedAt: new Date(),
+          retryAfter: new Date(Date.now() + REQUEST_LIMITS.cooldownDays * DAY_MS)
+        }
+      }
+    );
+
     invalidateVisibility();
     res.status(200).json({ blocked: true, userId: targetId });
   } catch (err) {
@@ -352,6 +410,16 @@ const unblockUser = async (req, res, next) => {
     if (!isId(targetId)) throw badRequest('Invalid user id');
 
     await User.updateOne({ _id: req.user._id }, { $pull: { blockedUsers: targetId } });
+    await Conversation.updateMany(
+      { participantIds: { $all: [req.user._id, targetId] }, state: 'blocked' },
+      {
+        $set: {
+          state: 'declined',
+          declinedAt: new Date(),
+          retryAfter: new Date(Date.now() + REQUEST_LIMITS.cooldownDays * DAY_MS)
+        }
+      }
+    );
     invalidateVisibility();
     res.status(200).json({ blocked: false, userId: targetId });
   } catch (err) {
@@ -566,6 +634,7 @@ const isBlockedPair = (a, b) => isBlockedBetween(a, b);
 module.exports = {
   DELETION_GRACE_DAYS,
   getAccount,
+  updateDmSettings,
   changeUsername,
   resetFeedRecommendations,
   setFreeze,

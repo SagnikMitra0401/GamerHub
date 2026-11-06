@@ -6,6 +6,7 @@ const User = require('../models/User');
 
 const { getIO } = require('../config/socket');
 const { eraseAccount } = require('../utils/accountErasure');
+const { purgeExpiredDmRequests } = require('../utils/dmService');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
@@ -121,6 +122,17 @@ function startRetentionWorker() {
     }
 
     try {
+      const dm = await purgeExpiredDmRequests();
+      if (dm.expired > 0 || dm.clearedDeclined > 0) {
+        console.log(
+          `[Retention] expired ${dm.expired} message request(s), cleared ${dm.clearedDeclined} declined opener(s)`
+        );
+      }
+    } catch (err) {
+      console.error('[Retention] message request purge failed:', err.message);
+    }
+
+    try {
       const erased = await eraseDeletionPendingUsers();
       if (erased > 0) console.log(`[Retention] erased ${erased} account(s) past the grace period`);
     } catch (err) {
@@ -139,6 +151,7 @@ module.exports = {
   purgeExpiredSquadChats,
   eraseDeletionPendingUsers,
   startRetentionWorker,
+  purgeExpiredDmRequests,
   DELETION_GRACE_DAYS,
   RUN_INTERVAL_MS
 };

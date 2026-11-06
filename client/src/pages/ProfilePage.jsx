@@ -7,9 +7,10 @@ import FollowButton from '../components/common/FollowButton';
 import GamerPassportCard from '../components/profile/GamerPassportCard';
 import EditPassportModal from '../components/profile/EditPassportModal';
 import { ROLE_LABELS } from '../utils/permissions';
-import { FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon } from '../components/common/icons';
+import { FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon, MailIcon } from '../components/common/icons';
 import CommunitySigil from '../components/communities/CommunitySigil';
 import InvitationInbox from '../components/invitations/InvitationInbox';
+import MessageRequestModal from '../components/messages/MessageRequestModal';
 import { PostListSkeleton, ProfileSkeleton } from '../components/common/Skeleton';
 
 const ProfilePage = () => {
@@ -26,6 +27,7 @@ const ProfilePage = () => {
   const [activeModal, setActiveModal]       = useState(null); // 'followers' | 'following' | null
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [invitesOpen, setInvitesOpen] = useState(false);
+  const [dmOpen, setDmOpen] = useState(false);
 
   const isOwnProfile = me?.username === username;
   const isBlocked = Boolean(
@@ -65,6 +67,7 @@ const ProfilePage = () => {
     load();
     setTab('posts');
     setActiveModal(null);
+    setDmOpen(false);
   }, [username]);
 
   useEffect(() => {
@@ -158,6 +161,23 @@ const ProfilePage = () => {
                       initialFollowing={profile.isFollowing}
                       onToggle={handleFollowToggle}
                     />
+
+                    {!isOwnProfile && me && !isBlocked && profile.dm?.mode !== 'none' && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm profile-message-btn"
+                        onClick={() => setDmOpen(true)}
+                        title={profile.dm?.label || 'Send a private message'}
+                      >
+                        <MailIcon size={14} /> Message
+                      </button>
+                    )}
+
+                    {!isOwnProfile && profile.dm?.mode === 'none' && (
+                      <span className="profile-dm-closed" title={profile.dm?.label}>
+                        Not accepting messages
+                      </span>
+                    )}
 
                     {!isOwnProfile && me && (
                       <button type="button" className="btn btn-ghost btn-sm" onClick={toggleBlock}>
@@ -410,6 +430,14 @@ const ProfilePage = () => {
           isOpen={invitesOpen}
           onClose={() => setInvitesOpen(false)}
           onAccepted={() => navigate('/lfg')}
+        />
+      )}
+
+      {!isOwnProfile && me && (
+        <MessageRequestModal
+          open={dmOpen}
+          profile={profile}
+          onClose={() => setDmOpen(false)}
         />
       )}
     </main>

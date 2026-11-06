@@ -41,6 +41,13 @@ export const UsersIcon = props => (
   </Svg>
 );
 
+export const MailIcon = props => (
+  <Svg {...props}>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    <path d="m4 7 8 6 8-6" />
+  </Svg>
+);
+
 export const SparklesIcon = props => (
   <Svg {...props}>
     <path d="M11.5 3.2l1.6 4.2 4.2 1.6-4.2 1.6-1.6 4.2-1.6-4.2L5.7 9l4.2-1.6 1.6-4.2z" />

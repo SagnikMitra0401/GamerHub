@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '../../api/axiosInstance';
-import { AlertIcon, DownloadIcon, UsersIcon } from '../common/icons';
+import { AlertIcon, DownloadIcon, MailIcon, UsersIcon } from '../common/icons';
 
 const INVITE_OPTIONS = [
   { value: 'anyone', label: 'Anyone' },
@@ -8,25 +8,66 @@ const INVITE_OPTIONS = [
   { value: 'none', label: 'Nobody' }
 ];
 
-const DM_OPTIONS = [
-  { value: 'anyone', label: 'Anyone' },
-  { value: 'mutual_follows', label: 'Mutual follows' },
+const DM_ACTION_OPTIONS = [
+  { value: 'inbox', label: 'Open inbox' },
+  { value: 'request', label: 'Request first' },
+  { value: 'verified', label: 'Verified only' },
   { value: 'none', label: 'Nobody' }
 ];
+
+const DM_POLICY_ROWS = [
+  { key: 'mutual', label: 'Mutual follows', hint: 'You follow each other' },
+  { key: 'follower', label: 'People who follow you', hint: 'They follow you; you may not follow back' },
+  { key: 'following', label: 'People you follow', hint: 'You follow them' },
+  { key: 'community', label: 'Shared server members', hint: 'Outside your follow graph' },
+  { key: 'squad', label: 'Squad mates', hint: 'Outside your follow graph' },
+  { key: 'stranger', label: 'Everyone else', hint: 'No shared server, squad or follow' }
+];
+
+const DM_DEFAULTS = {
+  policy: {
+    mutual: 'inbox',
+    follower: 'request',
+    following: 'request',
+    community: 'request',
+    squad: 'request',
+    stranger: 'request'
+  },
+  digest: 'daily',
+  readReceipts: false,
+  hiddenWords: []
+};
 
 const PrivacyPanel = ({ account, refresh, notify }) => {
   const [settings, setSettings] = useState(account.privacySettings || {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null);
+  const [dmSettings, setDmSettings] = useState(account.dmSettings || DM_DEFAULTS);
+  const [hiddenWordsText, setHiddenWordsText] = useState('');
+  const [savingDm, setSavingDm] = useState(false);
+  const [dmError, setDmError] = useState('');
 
   useEffect(() => {
     setSettings(account.privacySettings || {});
   }, [account.privacySettings]);
 
+  useEffect(() => {
+    const next = account.dmSettings || DM_DEFAULTS;
+    setDmSettings(next);
+    setHiddenWordsText((next.hiddenWords || []).join(', '));
+  }, [account.dmSettings]);
+
   const patch = (key, value) => setSettings((previous) => ({ ...previous, [key]: value }));
+  const patchDmPolicy = (key, value) => setDmSettings((previous) => ({
+    ...previous,
+    policy: { ...(previous.policy || DM_DEFAULTS.policy), [key]: value }
+  }));
 
   const dirty = JSON.stringify(settings) !== JSON.stringify(account.privacySettings || {});
+  const dmDirty =
+    JSON.stringify(dmSettings) !== JSON.stringify(account.dmSettings || DM_DEFAULTS) ||
+    hiddenWordsText !== ((account.dmSettings || DM_DEFAULTS).hiddenWords || []).join(', ');
 
   const save = async () => {
     setSaving(true);
@@ -40,6 +81,26 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
       setError(err.response?.data?.message || 'Could not save your settings.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveDm = async () => {
+    setSavingDm(true);
+    setDmError('');
+    try {
+      const payload = {
+        ...dmSettings,
+        hiddenWords: hiddenWordsText.split(',').map((word) => word.trim()).filter(Boolean)
+      };
+      const { data } = await axiosInstance.patch('/account/dm-settings', payload);
+      setDmSettings(data.dmSettings);
+      setHiddenWordsText((data.dmSettings?.hiddenWords || []).join(', '));
+      await refresh();
+      notify('success', 'Message rules saved.');
+    } catch (err) {
+      setDmError(err.response?.data?.message || 'Could not save your message rules.');
+    } finally {
+      setSavingDm(false);
     }
   };
 
@@ -131,19 +192,6 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
             </select>
           </label>
 
-          <label className="form-group" htmlFor="settings-dm">
-            <span className="form-label">Direct messages</span>
-            <select
-              id="settings-dm"
-              className="form-input"
-              value={settings.allowDirectMessages || 'mutual_follows'}
-              onChange={(event) => patch('allowDirectMessages', event.target.value)}
-            >
-              {DM_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
         </div>
 
         <label className="checkbox-row">
@@ -177,6 +225,104 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
             disabled={saving || !dirty}
           >
             {saving ? 'Saving…' : 'Save privacy settings'}
+          </button>
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3>
+            <MailIcon size={15} /> Direct messages
+          </h3>
+          <p>
+            First contact is a request unless you open the inbox for that relationship. These
+            rules are checked on the server before a conversation is created.
+          </p>
+        </div>
+
+        <div className="dm-matrix">
+          <div className="dm-matrix-head" aria-hidden="true">
+            <span>Relationship</span>
+            <span>First contact</span>
+          </div>
+          {DM_POLICY_ROWS.map((row) => (
+            <label className="dm-matrix-row" key={row.key} htmlFor={`dm-policy-${row.key}`}>
+              <span className="dm-matrix-label">
+                <strong>{row.label}</strong>
+                <small>{row.hint}</small>
+              </span>
+              <select
+                id={`dm-policy-${row.key}`}
+                className="form-input"
+                value={(dmSettings.policy || DM_DEFAULTS.policy)[row.key] || DM_DEFAULTS.policy[row.key]}
+                onChange={(event) => patchDmPolicy(row.key, event.target.value)}
+              >
+                {DM_ACTION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+        <p className="settings-help">
+          Verified means a linked Google account with a verified email. Requests expire after 14
+          days; a declined or ignored request starts a 90-day cooldown.
+        </p>
+
+        <div className="settings-grid-2 dm-settings-grid">
+          <label className="form-group" htmlFor="dm-digest">
+            <span className="form-label">Message digest</span>
+            <select
+              id="dm-digest"
+              className="form-input"
+              value={dmSettings.digest || 'daily'}
+              onChange={(event) => setDmSettings((previous) => ({ ...previous, digest: event.target.value }))}
+            >
+              <option value="off">Off</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+          <label className="checkbox-row dm-checkbox-card" htmlFor="dm-read-receipts">
+            <input
+              id="dm-read-receipts"
+              type="checkbox"
+              checked={dmSettings.readReceipts === true}
+              onChange={(event) => setDmSettings((previous) => ({ ...previous, readReceipts: event.target.checked }))}
+            />
+            Read receipts after acceptance
+          </label>
+        </div>
+
+        <label className="form-group" htmlFor="dm-hidden-words">
+          <span className="form-label">Hidden words</span>
+          <input
+            id="dm-hidden-words"
+            className="form-input"
+            value={hiddenWordsText}
+            onChange={(event) => setHiddenWordsText(event.target.value)}
+            placeholder="spam, crypto, discord.gg"
+          />
+          <span className="settings-help">
+            Comma separated, up to 50. A message containing one is hidden from your inbox view;
+            the sender is not told.
+          </span>
+        </label>
+
+        {dmError && (
+          <span className="settings-inline-error">
+            <AlertIcon size={13} /> {dmError}
+          </span>
+        )}
+
+        <div className="settings-actions">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={saveDm}
+            disabled={savingDm || !dmDirty}
+          >
+            {savingDm ? 'Saving…' : 'Save message rules'}
           </button>
         </div>
       </section>

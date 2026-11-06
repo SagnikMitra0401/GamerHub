@@ -145,9 +145,27 @@ const UserSchema = new mongoose.Schema({
   privacySettings: {
     allowSquadInvites:  { type: String, enum: ['anyone', 'followers', 'none'], default: 'anyone' },
     allowServerInvites: { type: String, enum: ['anyone', 'followers', 'none'], default: 'anyone' },
+    // Legacy switch, kept for one release so old clients and exports keep
+    // working. New code reads dmSettings; the migration maps this value once.
     allowDirectMessages: { type: String, enum: ['anyone', 'mutual_follows', 'none'], default: 'mutual_follows' },
     discoverableInSearch: { type: Boolean, default: true },
     showActivityStatus:   { type: Boolean, default: true }
+  },
+
+  // Consent matrix for 1:1 messaging. A missing subdocument is treated as the
+  // defaults by dmPolicy, so pre-migration users stay reachable via requests.
+  dmSettings: {
+    policy: {
+      mutual:    { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'inbox' },
+      follower:  { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
+      following: { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
+      community: { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
+      squad:     { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
+      stranger:  { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' }
+    },
+    digest: { type: String, enum: ['off', 'daily', 'weekly'], default: 'daily' },
+    readReceipts: { type: Boolean, default: false },
+    hiddenWords: { type: [String], default: [] }
   },
 
   // People this user never wants to hear from. Enforced server-side for

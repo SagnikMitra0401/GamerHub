@@ -3,6 +3,7 @@ const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/auth');
 const {
   getAccount,
+  updateDmSettings,
   changeUsername,
   resetFeedRecommendations,
   setFreeze,
@@ -55,12 +56,21 @@ const feedResetLimiter = rateLimit({
   message: { message: 'Feed reset is limited a few times an hour.' }
 });
 
+const dmSettingsLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: Number(process.env.DM_SETTINGS_RATE_LIMIT_MAX) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'You are changing message settings very often. Try again later.' }
+});
+
 router.get('/', protect, getAccount);
 router.get('/blocked', protect, listBlocked);
 router.get('/data-export', protect, exportLimiter, exportData);
 router.get('/succession-preview', protect, getSuccessionPreview);
 
 router.patch('/username', protect, usernameLimiter, changeUsername);
+router.patch('/dm-settings', protect, dmSettingsLimiter, updateDmSettings);
 router.post('/feed-reset', protect, feedResetLimiter, resetFeedRecommendations);
 router.post('/freeze', protect, confirmLimiter, setFreeze);
 

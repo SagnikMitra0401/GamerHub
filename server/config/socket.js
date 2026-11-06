@@ -7,6 +7,7 @@ const Channel   = require('../models/Channel');
 const Message   = require('../models/Message');
 const User      = require('../models/User');
 const Attachment = require('../models/Attachment');
+const Conversation = require('../models/Conversation');
 
 const { CHAT_POLICY } = require('./chatPolicy');
 const {
@@ -619,6 +620,47 @@ function initSocket(httpServer) {
         console.error('[Socket] delete_message error:', err.message);
         fail(socket, 'Could not delete that message.', 'INTERNAL');
       }
+    });
+
+    // ── direct-message rooms ────────────────────────────────────────────────
+    // The room is only a delivery channel. It never grants read access: REST
+    // checks membership on every call, and this join checks it again so a
+    // guessed id cannot subscribe to live messages.
+    socket.on('join_conversation', async (payload = {}) => {
+      try {
+        if (!userId) return fail(socket, 'Sign in to open this conversation.', 'UNAUTHENTICATED');
+
+        const joins = joinLimiter.consume(userId);
+        if (!joins.allowed) {
+          return fail(socket, 'You are opening conversations too quickly. Slow down.', 'RATE_LIMITED');
+        }
+
+        const conversationId = String(payload.conversationId || '');
+        if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+          return fail(socket, 'Conversation not found.', 'NOT_FOUND');
+        }
+
+        const conversation = await Conversation.findById(conversationId)
+          .select('participantIds state')
+          .lean();
+        const isParticipant = conversation?.participantIds?.some((id) => String(id) === userId);
+        if (!conversation || !isParticipant) {
+          return fail(socket, 'Conversation not found.', 'NOT_FOUND');
+        }
+        if (conversation.state !== 'active') {
+          return fail(socket, 'Accept this request before opening the conversation.', 'FORBIDDEN');
+        }
+
+        socket.join(`dm:${conversation._id}`);
+        socket.emit('joined_conversation', { conversationId: String(conversation._id) });
+      } catch (err) {
+        console.error('[Socket] join_conversation error:', err.message);
+        fail(socket, 'Could not open that conversation.', 'INTERNAL');
+      }
+    });
+
+    socket.on('leave_conversation', (payload = {}) => {
+      if (payload.conversationId) socket.leave(`dm:${String(payload.conversationId)}`);
     });
 
     // ── squad chat (temporary, 15 days) ─────────────────────────────────────

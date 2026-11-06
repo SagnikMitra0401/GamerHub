@@ -27,6 +27,7 @@ const Attachment = require('../models/Attachment');
 
 const { erasurePatch } = require('./privacy');
 const { transferAllForUser } = require('./succession');
+const { tombstoneUserDm } = require('./dmService');
 
 const idOf = (value) => String(value?._id || value || '');
 
@@ -89,6 +90,9 @@ async function eraseAccount(user) {
     Party.updateMany({ 'members.userId': userId }, { $pull: { members: { userId } } }),
     Party.updateMany({ 'requests.userId': userId }, { $pull: { requests: { userId } } }),
     SquadChat.updateMany({ memberIds: userId }, { $pull: { memberIds: userId } }),
+    // Keep the other participant's thread shape, but never their private copy
+    // of this person's words after erasure.
+    tombstoneUserDm(userId),
 
     User.updateMany(
       { _id: { $ne: userId } },
