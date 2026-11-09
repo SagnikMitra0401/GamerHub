@@ -7,7 +7,7 @@ import FollowButton from '../components/common/FollowButton';
 import GamerPassportCard from '../components/profile/GamerPassportCard';
 import EditPassportModal from '../components/profile/EditPassportModal';
 import { ROLE_LABELS } from '../utils/permissions';
-import { FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon, MailIcon } from '../components/common/icons';
+import { BriefcaseIcon, FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon, LinkIcon, MailIcon } from '../components/common/icons';
 import CommunitySigil from '../components/communities/CommunitySigil';
 import InvitationInbox from '../components/invitations/InvitationInbox';
 import MessageRequestModal from '../components/messages/MessageRequestModal';
@@ -155,6 +155,9 @@ const ProfilePage = () => {
                     {profile.role === 'admin' && <span className="role-badge admin">Admin</span>}
                     {profile.role === 'moderator' && <span className="role-badge mod">Mod</span>}
                     {(!profile.role || profile.role === 'user') && <span className="role-badge user">Gamer</span>}
+                    {profile.profileType === 'creator_business' && (
+                      <span className="role-badge business">Business</span>
+                    )}
 
                     <FollowButton
                       username={profile.username}
@@ -162,7 +165,7 @@ const ProfilePage = () => {
                       onToggle={handleFollowToggle}
                     />
 
-                    {!isOwnProfile && me && !isBlocked && profile.dm?.mode !== 'none' && (
+                    {!isOwnProfile && me && !isBlocked && profile.dm?.allowed !== false && (
                       <button
                         type="button"
                         className="btn btn-primary btn-sm profile-message-btn"
@@ -173,9 +176,9 @@ const ProfilePage = () => {
                       </button>
                     )}
 
-                    {!isOwnProfile && profile.dm?.mode === 'none' && (
+                    {!isOwnProfile && profile.dm?.allowed === false && (
                       <span className="profile-dm-closed" title={profile.dm?.label}>
-                        Not accepting messages
+                        {profile.dm?.mode === 'paused' ? 'Inbox paused' : 'Not accepting messages'}
                       </span>
                     )}
 
@@ -257,6 +260,58 @@ const ProfilePage = () => {
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                       {profile.bio}
                     </p>
+                  )}
+
+                  {profile.business && (
+                    <section className="profile-business-card" aria-label="Business profile">
+                      <div className="profile-business-head">
+                        <span className="profile-business-icon" aria-hidden="true">
+                          <BriefcaseIcon size={17} />
+                        </span>
+                        <div>
+                          <span className="profile-business-kicker">Business profile</span>
+                          <strong>{profile.business.displayName}</strong>
+                        </div>
+                        <span className={`business-verification${profile.business.verificationStatus === 'verified' ? ' is-verified' : ''}`}>
+                          {profile.business.verificationStatus === 'verified' ? 'Verified business' : 'Unverified'}
+                        </span>
+                      </div>
+                      {profile.business.description && (
+                        <p>{profile.business.description}</p>
+                      )}
+                      <div className="profile-business-meta">
+                        {profile.business.category && <span>{profile.business.category}</span>}
+                        {profile.business.responseExpectation && <span>{profile.business.responseExpectation}</span>}
+                        {profile.business.timezone && <span>{profile.business.timezone}</span>}
+                      </div>
+                      {(profile.business.website || profile.business.supportEmail) && (
+                        <div className="profile-business-links">
+                          {profile.business.website && (
+                            <a href={profile.business.website} target="_blank" rel="noreferrer noopener">
+                              <LinkIcon size={12} /> {profile.business.website.replace(/^https:\/\//, '')}
+                            </a>
+                          )}
+                          {profile.business.supportEmail && (
+                            <a href={`mailto:${profile.business.supportEmail}`}>
+                              <MailIcon size={12} /> {profile.business.supportEmail}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                      {profile.business.links?.length > 0 && (
+                        <div className="profile-business-links">
+                          {profile.business.links.map((link) => (
+                            <a key={link} href={link} target="_blank" rel="noreferrer noopener">
+                              <LinkIcon size={12} /> {link.replace(/^https:\/\//, '')}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {!isOwnProfile && profile.dm?.availability === 'away' && profile.dm?.awayMessage && (
+                    <p className="profile-dm-away">{profile.dm.awayMessage}</p>
                   )}
 
                   {/* Server memberships + the role held in each */}

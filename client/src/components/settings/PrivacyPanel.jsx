@@ -21,6 +21,7 @@ const DM_POLICY_ROWS = [
   { key: 'following', label: 'People you follow', hint: 'You follow them' },
   { key: 'community', label: 'Shared server members', hint: 'Outside your follow graph' },
   { key: 'squad', label: 'Squad mates', hint: 'Outside your follow graph' },
+  { key: 'business', label: 'Business accounts', hint: 'Disclosed business profiles' },
   { key: 'stranger', label: 'Everyone else', hint: 'No shared server, squad or follow' }
 ];
 
@@ -31,11 +32,16 @@ const DM_DEFAULTS = {
     following: 'request',
     community: 'request',
     squad: 'request',
+    business: 'request',
     stranger: 'request'
   },
   digest: 'daily',
+  quietHours: { enabled: false, start: '22:00', end: '07:00', timezone: 'UTC' },
   readReceipts: false,
-  hiddenWords: []
+  hiddenWords: [],
+  availability: 'open',
+  awayMessage: '',
+  quickReplies: []
 };
 
 const PrivacyPanel = ({ account, refresh, notify }) => {
@@ -45,6 +51,7 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
   const [busy, setBusy] = useState(null);
   const [dmSettings, setDmSettings] = useState(account.dmSettings || DM_DEFAULTS);
   const [hiddenWordsText, setHiddenWordsText] = useState('');
+  const [quickRepliesText, setQuickRepliesText] = useState('');
   const [savingDm, setSavingDm] = useState(false);
   const [dmError, setDmError] = useState('');
 
@@ -56,6 +63,7 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
     const next = account.dmSettings || DM_DEFAULTS;
     setDmSettings(next);
     setHiddenWordsText((next.hiddenWords || []).join(', '));
+    setQuickRepliesText((next.quickReplies || []).join('\n'));
   }, [account.dmSettings]);
 
   const patch = (key, value) => setSettings((previous) => ({ ...previous, [key]: value }));
@@ -63,11 +71,20 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
     ...previous,
     policy: { ...(previous.policy || DM_DEFAULTS.policy), [key]: value }
   }));
+  const patchQuietHours = (key, value) => setDmSettings((previous) => ({
+    ...previous,
+    quietHours: {
+      ...DM_DEFAULTS.quietHours,
+      ...(previous.quietHours || {}),
+      [key]: value
+    }
+  }));
 
   const dirty = JSON.stringify(settings) !== JSON.stringify(account.privacySettings || {});
   const dmDirty =
     JSON.stringify(dmSettings) !== JSON.stringify(account.dmSettings || DM_DEFAULTS) ||
-    hiddenWordsText !== ((account.dmSettings || DM_DEFAULTS).hiddenWords || []).join(', ');
+    hiddenWordsText !== ((account.dmSettings || DM_DEFAULTS).hiddenWords || []).join(', ') ||
+    quickRepliesText !== ((account.dmSettings || DM_DEFAULTS).quickReplies || []).join('\n');
 
   const save = async () => {
     setSaving(true);
@@ -90,11 +107,13 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
     try {
       const payload = {
         ...dmSettings,
-        hiddenWords: hiddenWordsText.split(',').map((word) => word.trim()).filter(Boolean)
+        hiddenWords: hiddenWordsText.split(',').map((word) => word.trim()).filter(Boolean),
+        quickReplies: quickRepliesText.split('\n').map((reply) => reply.trim()).filter(Boolean)
       };
       const { data } = await axiosInstance.patch('/account/dm-settings', payload);
       setDmSettings(data.dmSettings);
       setHiddenWordsText((data.dmSettings?.hiddenWords || []).join(', '));
+      setQuickRepliesText((data.dmSettings?.quickReplies || []).join('\n'));
       await refresh();
       notify('success', 'Message rules saved.');
     } catch (err) {
@@ -270,6 +289,52 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
         </p>
 
         <div className="settings-grid-2 dm-settings-grid">
+          <label className="form-group" htmlFor="dm-availability">
+            <span className="form-label">Inbox availability</span>
+            <select
+              id="dm-availability"
+              className="form-input"
+              value={dmSettings.availability || 'open'}
+              onChange={(event) => setDmSettings((previous) => ({ ...previous, availability: event.target.value }))}
+            >
+              <option value="open">Open</option>
+              <option value="away">Away notice</option>
+              <option value="paused">Paused</option>
+            </select>
+          </label>
+          <label className="form-group" htmlFor="dm-away-message">
+            <span className="form-label">Away message</span>
+            <input
+              id="dm-away-message"
+              className="form-input"
+              value={dmSettings.awayMessage || ''}
+              onChange={(event) => setDmSettings((previous) => ({ ...previous, awayMessage: event.target.value.slice(0, 200) }))}
+              placeholder="Back after the weekend"
+              maxLength={200}
+            />
+          </label>
+        </div>
+        <p className="settings-help">
+          Paused refuses new requests but leaves every accepted conversation open. Away keeps
+          requests open and shows your note on your profile and in the request composer.
+        </p>
+
+        <label className="form-group" htmlFor="dm-quick-replies">
+          <span className="form-label">Quick replies</span>
+          <textarea
+            id="dm-quick-replies"
+            className="form-input"
+            value={quickRepliesText}
+            onChange={(event) => setQuickRepliesText(event.target.value)}
+            placeholder={'Thanks, I will take a look.\nNot taking collabs this month.\nSend your brief through the business email.'}
+            rows={4}
+          />
+          <span className="settings-help">
+            One per line, up to five. They appear above the composer in accepted threads.
+          </span>
+        </label>
+
+        <div className="settings-grid-2 dm-settings-grid">
           <label className="form-group" htmlFor="dm-digest">
             <span className="form-label">Message digest</span>
             <select
@@ -294,6 +359,54 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
           </label>
         </div>
 
+        <div className="settings-grid-2 dm-settings-grid">
+          <label className="checkbox-row dm-checkbox-card" htmlFor="dm-quiet-enabled">
+            <input
+              id="dm-quiet-enabled"
+              type="checkbox"
+              checked={dmSettings.quietHours?.enabled === true}
+              onChange={(event) => patchQuietHours('enabled', event.target.checked)}
+            />
+            Quiet hours
+          </label>
+          <label className="form-group" htmlFor="dm-quiet-timezone">
+            <span className="form-label">Quiet-hours timezone</span>
+            <input
+              id="dm-quiet-timezone"
+              className="form-input"
+              value={dmSettings.quietHours?.timezone || 'UTC'}
+              onChange={(event) => patchQuietHours('timezone', event.target.value.slice(0, 60))}
+              placeholder="Europe/London"
+              maxLength={60}
+            />
+          </label>
+          <label className="form-group" htmlFor="dm-quiet-start">
+            <span className="form-label">Quiet from</span>
+            <input
+              id="dm-quiet-start"
+              className="form-input"
+              type="time"
+              value={dmSettings.quietHours?.start || '22:00'}
+              onChange={(event) => patchQuietHours('start', event.target.value)}
+            />
+          </label>
+          <label className="form-group" htmlFor="dm-quiet-end">
+            <span className="form-label">Quiet until</span>
+            <input
+              id="dm-quiet-end"
+              className="form-input"
+              type="time"
+              value={dmSettings.quietHours?.end || '07:00'}
+              onChange={(event) => patchQuietHours('end', event.target.value)}
+            />
+          </label>
+        </div>
+        <p className="settings-help">
+          During quiet hours a new message is still stored, but no live notification is pushed.
+          An overnight window such as 22:00–07:00 works as expected. Invalid timezones fall back
+          to UTC when saved.
+        </p>
+
         <label className="form-group" htmlFor="dm-hidden-words">
           <span className="form-label">Hidden words</span>
           <input
@@ -304,8 +417,8 @@ const PrivacyPanel = ({ account, refresh, notify }) => {
             placeholder="spam, crypto, discord.gg"
           />
           <span className="settings-help">
-            Comma separated, up to 50. A message containing one is hidden from your inbox view;
-            the sender is not told.
+            Comma separated, up to 50. A first message containing one goes to Filtered instead
+            of Requests; the sender is not told.
           </span>
         </label>
 

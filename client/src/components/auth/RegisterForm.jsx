@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { safeRedirect } from '../../utils/redirect';
 
 const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 
 const RegisterForm = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirect = safeRedirect(location.search);
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [platforms, setPlatforms] = useState([]);
   const [error, setError] = useState('');
@@ -23,7 +26,7 @@ const RegisterForm = () => {
     setLoading(true);
     try {
       await register(form.username, form.email, form.password, platforms);
-      navigate('/');
+      navigate(redirect, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.');
     } finally {

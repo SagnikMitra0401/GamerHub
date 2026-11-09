@@ -29,6 +29,7 @@ yarn-error.log*
 # Test and tool output
 coverage/
 client/coverage/
+responsive-artifacts/
 
 # Deploy and editor state
 .vercel/

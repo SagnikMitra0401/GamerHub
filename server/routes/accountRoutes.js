@@ -16,6 +16,19 @@ const {
   requestDeletion,
   cancelDeletion
 } = require('../controllers/accountController');
+const {
+  saveBusinessProfile,
+  downgradeBusiness,
+  requestBusinessVerification,
+  checkBusinessVerification,
+  getBusinessAnalytics
+} = require('../controllers/businessController');
+const {
+  getBusinessTeam,
+  inviteMember,
+  changeMemberRole,
+  removeMember
+} = require('../controllers/teamController');
 
 const router = express.Router();
 
@@ -71,6 +84,15 @@ router.get('/succession-preview', protect, getSuccessionPreview);
 
 router.patch('/username', protect, usernameLimiter, changeUsername);
 router.patch('/dm-settings', protect, dmSettingsLimiter, updateDmSettings);
+router.get('/business/analytics', protect, getBusinessAnalytics);
+router.get('/business/team', protect, getBusinessTeam);
+router.post('/business/team', protect, dmSettingsLimiter, inviteMember);
+router.patch('/business/team/:memberId', protect, dmSettingsLimiter, changeMemberRole);
+router.delete('/business/team/:memberId', protect, dmSettingsLimiter, removeMember);
+router.post('/business-profile', protect, dmSettingsLimiter, saveBusinessProfile);
+router.delete('/business-profile', protect, dmSettingsLimiter, downgradeBusiness);
+router.post('/business-verification', protect, dmSettingsLimiter, requestBusinessVerification);
+router.post('/business-verification/check', protect, dmSettingsLimiter, checkBusinessVerification);
 router.post('/feed-reset', protect, feedResetLimiter, resetFeedRecommendations);
 router.post('/freeze', protect, confirmLimiter, setFreeze);
 

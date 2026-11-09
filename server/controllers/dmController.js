@@ -7,6 +7,7 @@ const {
   declineRequest,
   archiveConversation,
   setMuted,
+  setLabels,
   postMessage,
   markRead,
   reportConversation,
@@ -15,12 +16,14 @@ const {
 const { getIO } = require('../config/socket');
 
 const readLimiter = createLimiter({
+  name: 'dm-read',
   windowMs: 60 * 1000,
   max: Number(process.env.DM_READ_RATE_LIMIT_MAX) || 180,
   message: 'You are refreshing your inbox very quickly. Give it a minute.'
 });
 
 const writeLimiter = createLimiter({
+  name: 'dm-write',
   windowMs: 60 * 1000,
   max: Number(process.env.DM_WRITE_RATE_LIMIT_MAX) || 60,
   message: 'You are sending messages very quickly. Slow down for a moment.'
@@ -29,6 +32,7 @@ const writeLimiter = createLimiter({
 // The daily and weekly product quotas live in dmPolicy; this is only a coarse
 // anti-script limit so one account cannot enumerate every profile.
 const requestLimiter = createLimiter({
+  name: 'dm-request',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.DM_REQUEST_RATE_LIMIT_MAX) || 15,
   message: 'Too many message requests. Try again later.'
@@ -53,6 +57,8 @@ const getConversations = async (req, res, next) => {
     const result = await listConversations({
       userId: req.user._id,
       folder: req.query.folder || 'inbox',
+      scope: req.query.scope || 'all',
+      unreadOnly: req.query.unread === '1',
       before: req.query.before || null,
       limit: req.query.limit
     });
@@ -79,7 +85,12 @@ const startRequest = async (req, res, next) => {
       sender: req.user,
       recipientId: req.body?.recipientId,
       text: req.body?.text,
-      context: req.body?.context
+      context: req.body?.context,
+      intent: req.body?.intent,
+      company: req.body?.company,
+      website: req.body?.website,
+      budgetBand: req.body?.budgetBand,
+      timeline: req.body?.timeline
     });
     res.status(201).json(result);
   } catch (err) {
@@ -121,6 +132,12 @@ const sendMessage = async (req, res, next) => {
       text: req.body?.text
     });
     emitToParticipants(req.params.id, 'dm_message', result);
+    if (result.autoReply) {
+      emitToParticipants(req.params.id, 'dm_message', {
+        message: result.autoReply,
+        conversation: result.conversation
+      });
+    }
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -165,6 +182,20 @@ const mute = async (req, res, next) => {
   }
 };
 
+/** PATCH /api/messages/conversations/:id/labels */
+const updateLabels = async (req, res, next) => {
+  try {
+    const result = await setLabels({
+      conversationId: req.params.id,
+      userId: req.user._id,
+      labels: req.body?.labels
+    });
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 /** POST /api/messages/conversations/:id/report */
 const report = async (req, res, next) => {
   try {
@@ -196,6 +227,7 @@ module.exports = {
   read,
   archive,
   mute,
+  updateLabels,
   report,
   readLimiter,
   writeLimiter,

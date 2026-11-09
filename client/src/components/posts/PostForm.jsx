@@ -9,12 +9,13 @@ const COMMON_TAGS = ['FPS', 'RPG', 'MOBA', 'Battle Royale', 'Strategy', 'Sports'
 // Detect any URL (with or without https://) in a block of text
 const URL_PATTERN = /(?:https?:\/\/|www\.)[^\s"'<>]+|(?<!\w)[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\/[^\s]*/i;
 
-const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
+const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }) => {
   const editing = !!initialData;
 
   const [form, setForm] = useState({
     title:   initialData?.title   || '',
-    content: initialData?.content || '',
+    // A prefilled opener (for example a shared server invite) is still a new post.
+    content: initialData?.content || draftContent || '',
     tags:    initialData?.tags?.join(', ') || ''
   });
   const [file, setFile]               = useState(null);
@@ -160,8 +161,9 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
   };
 
   const addTag = tag => {
+    const key = value => value.toLowerCase().replace(/^#+/, '').replace(/[^a-z0-9]+/g, '');
     const existing = form.tags.split(',').map(t => t.trim()).filter(Boolean);
-    if (!existing.includes(tag.toLowerCase())) {
+    if (!existing.some(t => key(t) === key(tag))) {
       setForm({ ...form, tags: [...existing, tag].join(', ') });
     }
   };
@@ -287,7 +289,7 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
 
         {/* Tags */}
         <div className="form-group">
-          <label className="form-label" htmlFor="post-tags">Tags (comma separated)</label>
+          <label className="form-label" htmlFor="post-tags">Tags</label>
           <input
             id="post-tags"
             className="form-input"
@@ -296,6 +298,10 @@ const PostForm = ({ onSuccess, initialData = null, onCancel }) => {
             value={form.tags}
             onChange={handleChange}
           />
+          <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+            Separate tags with commas, or just write #hashtags in your title or description.
+            They are lowercased, deduped and become clickable.
+          </span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
             {COMMON_TAGS.map(tag => (
               <button key={tag} type="button" className="tag" style={{ cursor: 'pointer' }}

@@ -10,7 +10,6 @@ const { sanitizeLine, isHttpUrl } = require('./sanitize');
 const MIN_SLOTS = 2;
 const MAX_SLOTS = 6;
 const DEFAULT_SLOTS = 5;
-const PARTY_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_REQUEST_MESSAGE = 200;
 
 const idOf = (value) => {
@@ -135,7 +134,6 @@ module.exports = {
   MIN_SLOTS,
   MAX_SLOTS,
   DEFAULT_SLOTS,
-  PARTY_TTL_MS,
   MAX_REQUEST_MESSAGE,
   idOf,
   openSlots,

@@ -11,7 +11,13 @@ const ACTION_META = {
   CHANNEL_UPDATE:  { label: 'Channel updated' },
   CHANNEL_DELETE:  { label: 'Channel deleted' },
   MESSAGE_PURGE:   { label: 'Message purged' },
-  SETTINGS_UPDATE: { label: 'Server settings changed' }
+  SETTINGS_UPDATE: { label: 'Server settings changed' },
+  INVITE_CREATE:   { label: 'Invite link created' },
+  INVITE_REVOKE:   { label: 'Invite link revoked' },
+  INVITE_JOIN:     { label: 'Joined via invite link' },
+  INVITE_REQUEST:  { label: 'Requested to join via invite' },
+  INVITE_APPROVE:  { label: 'Join request approved' },
+  INVITE_DENY:     { label: 'Join request declined' }
 };
 
 const describe = (entry) => {
@@ -38,6 +44,16 @@ const describe = (entry) => {
       return Array.isArray(meta.changes) ? meta.changes.join(', ') : '';
     case 'MESSAGE_PURGE':
       return meta.channelId ? `channel ${String(meta.channelId).slice(-6)}` : '';
+    case 'INVITE_CREATE':
+      return `link ${meta.code || '—'}${meta.requiresApproval ? ' · approval required' : ' · instant join'}`;
+    case 'INVITE_REVOKE':
+      return meta.code ? `link ${meta.code}` : '';
+    case 'INVITE_JOIN':
+      return `${meta.username || 'member'} · link ${meta.code || '—'}`;
+    case 'INVITE_REQUEST':
+    case 'INVITE_APPROVE':
+    case 'INVITE_DENY':
+      return `${meta.username || 'someone'}${meta.code ? ` · link ${meta.code}` : ''}`;
     default:
       return '';
   }
@@ -56,6 +72,8 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
+  // "Invites" narrows the log to who created links and who joined through them.
+  const [scope, setScope] = useState('');
 
   const load = useCallback(async (before = null) => {
     if (!communityId) return;
@@ -64,6 +82,7 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
     try {
       const params = new URLSearchParams({ limit: '30' });
       if (before) params.set('before', before);
+      if (scope) params.set('scope', scope);
       const { data } = await axiosInstance.get(`/communities/${communityId}/audit?${params}`);
       setEntries(prev => (before ? [...prev, ...(data.entries || [])] : (data.entries || [])));
       setHasMore(!!data.hasMore);
@@ -72,7 +91,7 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
     } finally {
       setLoading(false);
     }
-  }, [communityId]);
+  }, [communityId, scope]);
 
   useEffect(() => {
     if (isOpen) {
@@ -100,6 +119,23 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
             </p>
           </div>
           <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${scope ? 'btn-ghost' : 'btn-primary'}`}
+            onClick={() => setScope('')}
+          >
+            All activity
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${scope ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setScope('invites')}
+          >
+            Invites
+          </button>
         </div>
 
         {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}

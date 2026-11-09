@@ -10,9 +10,8 @@ const mongoose = require('mongoose');
 
 const ForumPost = require('../models/ForumPost');
 const ForumReply = require('../models/ForumReply');
-const Channel = require('../models/Channel');
 
-const { CAP, communityPermissions, roleAtLeast } = require('../utils/permissions');
+const { CAP, roleAtLeast } = require('../utils/permissions');
 const { loadChannelAccess } = require('../utils/channelAccess');
 const { sanitizeLine, normalizeTags } = require('../utils/sanitize');
 const { recordAudit } = require('../utils/audit');
@@ -470,17 +469,6 @@ const deleteForumReply = async (req, res, next) => {
   }
 };
 
-/**
- * Forum channels do not use the live message stream. The socket refuses to
- * deliver into them, and the REST history endpoint returns this marker so the
- * client knows to render the forum surface instead.
- */
-const assertNotForum = async (channelId) => {
-  if (!mongoose.Types.ObjectId.isValid(String(channelId))) return;
-  const channel = await Channel.findById(channelId).select('type').lean();
-  return channel?.type === 'forum';
-};
-
 module.exports = {
   listForumPosts,
   createForumPost,
@@ -490,6 +478,5 @@ module.exports = {
   setForumPostStatus,
   createForumReply,
   updateForumReply,
-  deleteForumReply,
-  assertNotForum
+  deleteForumReply
 };

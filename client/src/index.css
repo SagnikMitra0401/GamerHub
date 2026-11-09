@@ -849,6 +849,12 @@ img { max-width: 100%; }
   padding: 2rem;
   width: 100%;
   max-width: 520px;
+  /* Tall invite/audit modals must scroll inside the viewport on laptops and
+     tablets instead of running off the bottom of the screen. */
+  max-height: calc(100vh - 2.5rem);
+  max-height: calc(100dvh - 2.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 0 24px 80px rgba(0,0,0,0.7);
   animation: slideUp 0.2s ease;
 }
@@ -859,6 +865,9 @@ img { max-width: 100%; }
   font-size: 1.3rem;
   font-weight: 700;
   margin-bottom: 1.25rem;
+  /* Server names can be long; wrapping beats pushing the close button off-screen. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .modal-footer {

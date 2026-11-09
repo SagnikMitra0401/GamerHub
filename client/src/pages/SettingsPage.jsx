@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import ProfilePanel from '../components/settings/ProfilePanel';
 import FeedPanel from '../components/settings/FeedPanel';
 import PrivacyPanel from '../components/settings/PrivacyPanel';
+import BusinessPanel from '../components/settings/BusinessPanel';
 import SecurityPanel from '../components/settings/SecurityPanel';
 import DangerPanel from '../components/settings/DangerPanel';
 import { SettingsSkeleton } from '../components/common/Skeleton';
 import {
-  AlertIcon, CompassIcon, CloseIcon, LockIcon, PencilIcon, UsersIcon
+  AlertIcon, BriefcaseIcon, CompassIcon, CloseIcon, LockIcon, PencilIcon, UsersIcon
 } from '../components/common/icons';
 
 const TABS = [
@@ -18,6 +19,12 @@ const TABS = [
     label: 'Profile & identity',
     hint: 'Handle, bio, passport',
     icon: PencilIcon
+  },
+  {
+    key: 'business',
+    label: 'Business account',
+    hint: 'Disclosure and verification',
+    icon: BriefcaseIcon
   },
   {
     key: 'feed',
@@ -173,6 +180,7 @@ const SettingsPage = () => {
 
             <section className="settings-panel" aria-live="polite">
               {activeTab === 'profile' && <ProfilePanel {...panelProps} />}
+              {activeTab === 'business' && <BusinessPanel {...panelProps} />}
               {activeTab === 'feed' && <FeedPanel {...panelProps} />}
               {activeTab === 'privacy' && <PrivacyPanel {...panelProps} />}
               {activeTab === 'security' && <SecurityPanel {...panelProps} />}

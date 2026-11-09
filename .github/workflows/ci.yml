@@ -56,6 +56,49 @@ jobs:
       - name: Secret-leak gate
         run: node scripts/scan-secrets.js
 
+  responsive:
+    name: Responsive smoke (phone, tablet, desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix client
+
+      # The smoke test drives the built SPA with a stubbed API, so it needs no
+      # database, Mongo secret or running backend. The socket is pointed at the
+      # preview server so the page makes no outbound connections.
+      - name: Build client
+        env:
+          VITE_SOCKET_URL: http://127.0.0.1:4173
+        run: npm run build --prefix client
+
+      # playwright-core drives the Google Chrome already installed on the
+      # ubuntu runner; no browser download step is needed.
+      - name: Responsive smoke
+        run: npm run test:responsive
+
+      # On failure the runner writes a full-page screenshot per failed surface
+      # plus a Playwright trace and failures.txt for the whole run.
+      - name: Upload responsive failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-failure-artifacts
+          path: responsive-artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
   e2e:
     name: End-to-end suites
     runs-on: ubuntu-latest

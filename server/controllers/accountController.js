@@ -11,6 +11,7 @@ const Notification = require('../models/Notification');
 const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
 const Conversation = require('../models/Conversation');
+const BusinessProfile = require('../models/BusinessProfile');
 
 const generateToken = require('../utils/generateToken');
 const { normalizeUsername, usernameFilter } = require('../utils/username');
@@ -18,8 +19,9 @@ const { planSuccessionForUser } = require('../utils/succession');
 const { eraseAccount } = require('../utils/accountErasure');
 const { clearAuthCookie } = require('./authController');
 const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
-const { idOf, isBlockedBetween } = require('../utils/privacy');
+const { idOf } = require('../utils/privacy');
 const { normalizeDmSettings, sanitizeDmSettingsPatch, REQUEST_LIMITS, DAY_MS } = require('../utils/dmPolicy');
+const { publicBusinessProfile } = require('../utils/business');
 const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
 const { invalidateVisibility } = require('../utils/visibility');
 
@@ -39,15 +41,27 @@ const getAccount = async (req, res, next) => {
       .lean();
     if (!user) throw notFound('User not found');
 
-    const blocked = await User.find({ _id: { $in: user.blockedUsers || [] } })
-      .select('username level')
-      .lean();
+    const [blocked, businessProfile] = await Promise.all([
+      User.find({ _id: { $in: user.blockedUsers || [] } })
+        .select('username level')
+        .lean(),
+      BusinessProfile.findOne({ userId: user._id }).lean()
+    ]);
 
     res.status(200).json({
       username: user.username,
       email: user.email,
       status: user.status,
       profileType: user.profileType,
+      businessProfile: businessProfile
+        ? {
+            ...publicBusinessProfile(businessProfile),
+            verificationMethod: businessProfile.verificationMethod || null,
+            verificationDomain: businessProfile.verificationDomain || '',
+            verificationToken: businessProfile.verificationToken || '',
+            verificationRequestedAt: businessProfile.verificationRequestedAt || null
+          }
+        : null,
       createdAt: user.createdAt,
       hasLocalPassword: user.hasLocalPassword !== false,
       frozenAt: user.frozenAt,
@@ -86,11 +100,28 @@ const updateDmSettings = async (req, res, next) => {
       update[`dmSettings.policy.${context}`] = mode;
     }
     if (parsed.value.digest !== undefined) update['dmSettings.digest'] = parsed.value.digest;
+    if (parsed.value.quietHours !== undefined) {
+      for (const [key, entry] of Object.entries(parsed.value.quietHours)) {
+        update[`dmSettings.quietHours.${key}`] = entry;
+      }
+    }
     if (parsed.value.readReceipts !== undefined) {
       update['dmSettings.readReceipts'] = parsed.value.readReceipts;
     }
     if (parsed.value.hiddenWords !== undefined) {
       update['dmSettings.hiddenWords'] = parsed.value.hiddenWords;
+    }
+    if (parsed.value.availability !== undefined) {
+      update['dmSettings.availability'] = parsed.value.availability;
+    }
+    if (parsed.value.awayMessage !== undefined) {
+      update['dmSettings.awayMessage'] = parsed.value.awayMessage;
+    }
+    if (parsed.value.quickReplies !== undefined) {
+      update['dmSettings.quickReplies'] = parsed.value.quickReplies;
+    }
+    if (parsed.value.savedFilters !== undefined) {
+      update['dmSettings.savedFilters'] = parsed.value.savedFilters;
     }
 
     const user = await User.findByIdAndUpdate(
@@ -628,9 +659,6 @@ const cancelDeletion = async (req, res, next) => {
   }
 };
 
-/** Shared helper used by the invitation controller (symmetric block check). */
-const isBlockedPair = (a, b) => isBlockedBetween(a, b);
-
 module.exports = {
   DELETION_GRACE_DAYS,
   getAccount,
@@ -647,6 +675,5 @@ module.exports = {
   exportData,
   requestDeletion,
   cancelDeletion,
-  isBlockedPair,
   idOf
 };

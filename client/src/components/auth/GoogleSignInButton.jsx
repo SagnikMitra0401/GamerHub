@@ -45,10 +45,21 @@ const Spinner = () => (
  * can be triggered programmatically — unlike the GIS renderButton iframe which
  * cannot. On a completed swipe, requestAccessToken() is called; the resulting
  * access_token is exchanged for a session via POST /auth/google { accessToken }.
+ * Settings reuses the same control with mode="link" to POST /auth/link-google.
  */
-const GoogleSignInButton = ({ onError }) => {
+const GoogleSignInButton = ({
+  onError,
+  mode = 'signin',
+  showDivider = true,
+  unavailableMessage = null,
+  onLinked
+}) => {
   const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const isLink = mode === 'link';
+
+  const onLinkedRef = useRef(onLinked);
+  useEffect(() => { onLinkedRef.current = onLinked; }, [onLinked]);
 
   /* ── Provider config ───────────────────────────────────────────────── */
   const [config, setConfig] = useState(null);
@@ -83,12 +94,22 @@ const GoogleSignInButton = ({ onError }) => {
     if (tokenResponse.error) {
       setUiState('error');
       snapBack();
-      onError?.('Google sign-in was cancelled or failed.');
+      onError?.(isLink
+        ? 'Google connection was cancelled or failed.'
+        : 'Google sign-in was cancelled or failed.');
       setTimeout(() => setUiState('idle'), 1800);
       return;
     }
     setUiState('loading');
     try {
+      if (isLink) {
+        const { data } = await axiosInstance.post('/auth/link-google', {
+          accessToken: tokenResponse.access_token
+        });
+        setUiState('success');
+        onLinkedRef.current?.(data.providers || []);
+        return;
+      }
       await loginWithGoogle(null, tokenResponse.access_token);
       setUiState('success');
       setTimeout(() => {
@@ -97,11 +118,13 @@ const GoogleSignInButton = ({ onError }) => {
     } catch (err) {
       setUiState('error');
       snapBack();
-      onError?.(err.response?.data?.message || 'Google sign-in failed.');
+      onError?.(err.response?.data?.message || (isLink
+        ? 'Could not link that Google account.'
+        : 'Google sign-in failed.'));
       setTimeout(() => setUiState('idle'), 1800);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loginWithGoogle, onError, navigate]);
+  }, [loginWithGoogle, onError, navigate, isLink]);
 
   useEffect(() => {
     if (!config?.enabled || !config.clientId) return;
@@ -231,31 +254,36 @@ const GoogleSignInButton = ({ onError }) => {
 
   /* ── Nothing to render if not configured ──────────────────────────── */
   if (config === null) return null;  // still loading provider config
-  if (!config.enabled) return null;
+  if (!config.enabled) {
+    return unavailableMessage
+      ? <p className="settings-help">{unavailableMessage}</p>
+      : null;
+  }
 
   /* ── Label text ────────────────────────────────────────────────────── */
   const labelMap = {
-    idle:    'Slide to continue with Google',
+    idle:    isLink ? 'Slide to connect Google' : 'Slide to continue with Google',
     loading: 'Connecting…',
-    success: 'Signed in!',
+    success: isLink ? 'Connected!' : 'Signed in!',
     error:   'Try again',
   };
 
   return (
     <div className="gslider-wrap">
-      {/* Divider */}
-      <div className="gslider-divider">
-        <span className="gslider-divider-line" />
-        <span className="gslider-divider-text">or</span>
-        <span className="gslider-divider-line" />
-      </div>
+      {showDivider && (
+        <div className="gslider-divider">
+          <span className="gslider-divider-line" />
+          <span className="gslider-divider-text">or</span>
+          <span className="gslider-divider-line" />
+        </div>
+      )}
 
       {/* Track */}
       <div
         className={`gslider-track gslider-track--${uiState}`}
         ref={trackRef}
         style={{ '--slider-progress': progress }}
-        aria-label="Slide to sign in with Google"
+        aria-label={isLink ? 'Slide to connect Google' : 'Slide to sign in with Google'}
         role="button"
         tabIndex={0}
       >

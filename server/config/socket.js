@@ -8,6 +8,7 @@ const Message   = require('../models/Message');
 const User      = require('../models/User');
 const Attachment = require('../models/Attachment');
 const Conversation = require('../models/Conversation');
+const BusinessTeamMember = require('../models/BusinessTeamMember');
 
 const { CHAT_POLICY } = require('./chatPolicy');
 const {
@@ -63,6 +64,29 @@ function evictUserFromCommunity(userId, communityId) {
 
     socket.leave(`community:${target}`);
     socket.emit('membership_revoked', { communityId: target });
+  }
+}
+
+/**
+ * Remove a user's live sockets from a business owner's shared threads.
+ * REST and the join check enforce revocation; this stops an already-open tab
+ * from receiving more messages before its next request.
+ */
+async function evictUserFromBusinessThreads(userId, businessOwnerId) {
+  if (!ioInstance) return;
+
+  const conversations = await Conversation.find({
+    businessThread: true,
+    participantIds: businessOwnerId
+  }).select('_id').lean();
+  if (!conversations.length) return;
+
+  for (const socket of ioInstance.sockets.sockets.values()) {
+    if (!socket.user || String(socket.user._id) !== String(userId)) continue;
+    for (const conversation of conversations) {
+      socket.leave(`dm:${conversation._id}`);
+    }
+    socket.emit('team_access_revoked', { ownerId: String(businessOwnerId) });
   }
 }
 
@@ -256,11 +280,6 @@ async function markPresenceOnDisconnect(io, userId) {
   } catch (err) {
     console.error('[Socket] presence disconnect error:', err.message);
   }
-}
-
-/** Test helper. */
-function resetPresenceTracking() {
-  presenceSockets.clear();
 }
 
 /**
@@ -641,10 +660,19 @@ function initSocket(httpServer) {
         }
 
         const conversation = await Conversation.findById(conversationId)
-          .select('participantIds state')
+          .select('participantIds state businessThread')
           .lean();
         const isParticipant = conversation?.participantIds?.some((id) => String(id) === userId);
-        if (!conversation || !isParticipant) {
+        // An active shared-inbox teammate may open the business thread even
+        // though the owner, not the teammate, is the conversation participant.
+        const isTeamMember = !isParticipant && conversation?.businessThread
+          ? Boolean(await BusinessTeamMember.exists({
+              memberId: userId,
+              businessOwnerId: { $in: conversation.participantIds },
+              status: 'active'
+            }))
+          : false;
+        if (!conversation || (!isParticipant && !isTeamMember)) {
           return fail(socket, 'Conversation not found.', 'NOT_FOUND');
         }
         if (conversation.state !== 'active') {
@@ -765,9 +793,9 @@ module.exports = {
   emitToChannel,
   emitToCommunity,
   evictUserFromCommunity,
+  evictUserFromBusinessThreads,
   evictUserFromSquadChat,
   disconnectUser,
   setUserFrozenState,
-  resetChatTrackers,
-  resetPresenceTracking
+  resetChatTrackers
 };

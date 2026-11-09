@@ -270,5 +270,3 @@ export const SettingsSkeleton = () => (
     </div>
   </Frame>
 );
-
-export { Block as SkeletonBlock };

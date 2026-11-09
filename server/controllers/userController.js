@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Community = require('../models/Community');
+const BusinessProfile = require('../models/BusinessProfile');
 const { awardXp } = require('../utils/gamification');
 const { resolveCommunityRole, roleLevel } = require('../utils/permissions');
 const { sanitizeLine, escapeRegex } = require('../utils/sanitize');
@@ -11,6 +12,7 @@ const { getIO } = require('../config/socket');
 const { publicPresence } = require('../utils/presence');
 const { blockedIdsFor, hiddenAccountIds } = require('../utils/visibility');
 const { describeDmPolicy } = require('../utils/dmPolicy');
+const { publicBusinessProfile } = require('../utils/business');
 
 const USER_PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 const PRESENCE_STATUSES = ['online', 'in_game', 'offline', 'invisible'];
@@ -87,13 +89,26 @@ const getProfile = async (req, res, next) => {
       .sort((a, b) => roleLevel(b.role) - roleLevel(a.role))
       .slice(0, 20);
 
-    const dm = describeDmPolicy({ recipient: user, viewer: req.user });
+    const [recipientBusiness, viewerBusiness] = await Promise.all([
+      user.profileType === 'creator_business'
+        ? BusinessProfile.findOne({ userId: user._id }).lean()
+        : null,
+      req.user?.profileType === 'creator_business'
+        ? BusinessProfile.findOne({ userId: req.user._id }).select('verificationStatus').lean()
+        : null
+    ]);
+    const dm = describeDmPolicy({
+      recipient: user,
+      viewer: req.user,
+      viewerIsBusiness: viewerBusiness?.verificationStatus === 'verified'
+    });
     const profile = {
       ...user,
       // A frozen account reads offline even to itself and staff.
       presence: user.status === 'frozen'
         ? { status: 'offline', activeGame: '', lastActive: null }
         : publicPresence(user.presence),
+      business: publicBusinessProfile(recipientBusiness),
       postCount,
       isFollowing,
       dm,
@@ -133,7 +148,7 @@ const getUserPosts = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('userId', 'username level role')
+      .populate('userId', 'username level role profileType')
       .lean();
 
     res.status(200).json(posts);
@@ -297,7 +312,7 @@ const searchAll = async (req, res, next) => {
       Post.find(postFilter, { score: { $meta: 'textScore' } })
         .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
         .limit(15)
-        .populate('userId', 'username level role status')
+        .populate('userId', 'username level role profileType status')
         .lean(),
 
       // Anchored prefix, not an unanchored scan: the unique username index can

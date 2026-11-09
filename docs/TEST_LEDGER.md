@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 6 November 2026 · **Branch:** `main` · **Head:** Phase 11 consent core implementation
+**Last updated:** 7 November 2026 · **Branch:** `main` · **Head:** Phase C team inbox implementation
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,8 +14,8 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **168 / 168 pass** | 6 Nov |
-| Unit — client components | `npm test --prefix client` | **31 / 31 pass** | 6 Nov |
+| Unit / contract — server | `npm test` | **193 / 193 pass** | 7 Nov |
+| Unit — client components | `npm test --prefix client` | **31 / 31 pass** | 7 Nov |
 | E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 6 Nov |
 | E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 6 Nov |
 | E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 6 Nov |
@@ -24,19 +24,21 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **62 / 62 pass** | 6 Nov |
 | E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 6 Nov |
 | E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 6 Nov |
-| Client production build | `npm run build --prefix client` | **pass** — 130 kB CSS / 559 kB JS (uncompressed) | 6 Nov |
-| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 6 Nov |
+| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 7 Nov |
+| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 7 Nov |
+| Client production build | `npm run build --prefix client` | **pass** — 195 modules, 140.46 kB CSS / 598.00 kB JS (25.46 / 170.68 kB gzip) | 7 Nov |
+| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 7 Nov |
 | UI smoke — pass 5 | browser + live API: feed, 404, settings, anonymous session, 360 px | **pass** — 25 HTTP probes (2 mis-aimed paths re-checked at the real ones), no overflow, no console errors | 6 Nov |
 | UI smoke — pass 4 | browser, 404 + settings skeleton | **pass** — 404 renders the requested path, no console errors | 5 Nov |
 | UI smoke — pass 3 | browser, `/settings` × 5 tabs | **pass** — every panel renders, `?tab=` addressable, no console errors | 5 Nov |
 | UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** (pre-phase-8 pages only) | 25 Oct (that pass) |
-| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 6 Nov |
+| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 7 Nov |
 | Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied (incl. hardening indexes); auth 1, squads 1; feed/communities still empty | 6 Nov |
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**752 automated checks defined** (168 server + 31 client + 553 e2e across eight suites), plus the secret and design-system gates.
-Pass 9 re-ran 388 of them against the changed tree: all server units, all client units, and the phase 8/9/10/11 e2e suites. The phase 4/6/7 suites were last green in pass 8; their surfaces were not changed beyond the additive DM fields and the account-erasure/block hooks re-covered by phase 9.
+**853 automated checks defined** (193 server + 31 client + 629 e2e across ten suites), plus the secret and design-system gates.
+Pass 13 re-ran all 853 against the Phase C team-inbox tree: the complete ten-suite e2e chain, all server units and all client units.
 CI has not been re-run since the community milestone; no workflow step had to be
 added, because the `quality` job calls `npm test` and the `e2e` job calls
 `npm run test:e2e`, both of which now include the new suites. The one workflow
@@ -264,15 +266,143 @@ checks, build, emoji gate).
 | `scripts/e2e-phase8.js` | `middleware/auth.js`, `utils/generateToken.js`, `controllers/{auth,account,invitation,squadChat,lfg}Controller.js`, `utils/{privacy,squadLifecycle,squadChatService}.js`, `config/{connections,socket}.js`, `jobs/retention.js`, or the `User`/`Party`/`Invitation`/`SquadChat*` models change |
 | `scripts/e2e-phase9.js` | `controllers/{account,auth,user,post,comment,lfg,community}Controller.js`, `utils/{username,succession,accountErasure,privacy}.js`, `middleware/auth.js`, `config/socket.js`, `jobs/retention.js`, or the `User`/`Community`/`Party`/`SquadChat` models change |
 | `scripts/e2e-phase10.js` | `middleware/limiters.js`, `utils/visibility.js`, `controllers/{user,lfg}Controller.js`, `config/socket.js`, or anything that changes how a user document is projected |
+| `scripts/e2e-phase11.js` | `utils/{dmPolicy,dmService}.js`, `models/{Conversation,DirectMessage,DmReport}.js`, `controllers/dmController.js`, `routes/dmRoutes.js`, `config/socket.js`, `dmSettings`, or the retention/erasure DM hooks change |
 | `npm run scan:secrets` | any new source file, dependency, or build output — it is cheap, run it every pass |
 | `migrate:domains:status` | a file under `migrations/{auth,feed,communities,squads}/` is added, or after any schema change to the models those tracks index |
 | Client build | any file under `client/src/` changes |
 | The CI suite | never by hand — a push to `main` runs it; read the run instead |
 | UI smoke | a `*.jsx` or `*.css` file under `client/src/` changes **and** the change touches layout, a nav element, a modal, or the design tokens |
-| `scripts/lib/e2e-harness.js` | **always** re-run all seven e2e suites — every check goes through it |
+| `scripts/lib/e2e-harness.js` | **always** re-run all eight e2e suites — every check goes through it |
 
 A doc-only, test-only or server-logic-only change does not need a UI pass. A
 CSS token change does.
+
+### Pass 9 (6 Nov) — DM consent core
+
+Phase A of [DM_AND_BUSINESS_ACCOUNTS_PLAN.md](DM_AND_BUSINESS_ACCOUNTS_PLAN.md)
+was implemented. The request lane, consent matrix, quotas, socket rooms and
+profile projection were exercised against a throwaway database.
+
+| Tier | Result |
+|---|---|
+| `npm test` | 168 / 168 (+20 DM policy checks) |
+| `npm test --prefix client` | 31 / 31 |
+| `node scripts/e2e-phase11.js` | 44 / 44 |
+| `node scripts/e2e-phase8.js` | 70 / 70 (blocking/privacy regression) |
+| `node scripts/e2e-phase9.js` | 62 / 62 (erasure/account integration) |
+| `node scripts/e2e-phase10.js` | 13 / 13 (socket caps/visibility regression) |
+| `npm run build --prefix client` | pass — 193 modules, 129.78 kB CSS / 559.28 kB JS (23.85 / 161.26 kB gzip) |
+| `npm run scan:secrets` | 0 hit(s) |
+| `node scripts/scan-emoji.js` | 0 line(s), +8 allowlisted reaction glyphs |
+
+Not re-run in this pass: phase 4/6/7 e2e, the full eight-suite chain, and a live
+browser click-through of the inbox. The new surfaces are covered by API, socket,
+build and component checks; the visual pass is still owed.
+
+### Pass 10 (7 Nov) — DM creator-scale core
+
+Phase B core was implemented. Hidden words route requests to a real Filtered
+lane, labels and quick replies are private to their owner, pause/away controls
+are server-enforced, campaign/reputation filtering is silent to the sender, and
+admins can resolve reports with a platform audit row. The complete e2e chain
+was re-run because policy, service, projections and UI all changed.
+
+| Tier | Result |
+|---|---|
+| `npm test` | 175 / 175 (+7 DM policy checks) |
+| `npm test --prefix client` | 31 / 31 |
+| `npm run test:e2e` | 581 / 581 across nine suites (59 + 66 + 159 + 80 + 70 + 62 + 13 + 44 + 28) |
+| `node scripts/e2e-phase12.js` | 28 / 28 (filtered lane, labels, pause/away, campaign, reputation, admin resolution) |
+| `npm run build --prefix client` | pass — 193 modules, 132.48 kB CSS / 566.41 kB JS (24.27 / 163.13 kB gzip) |
+| `npm run scan:secrets` | 0 hit(s) |
+| `node scripts/scan-emoji.js` | 0 line(s), +8 allowlisted reaction glyphs |
+
+Not verified in this pass: a live browser click-through of the new Filtered,
+label, quick-reply and admin-report surfaces; and the Phase 11/Phase B
+migrations were not applied to the configured Atlas database. Saved filters,
+digest delivery, quiet hours, rate-limit telemetry and away auto-reply remain
+Phase B follow-ups.
+
+### Pass 11 (7 Nov) — DM business accounts
+
+Phase C core was implemented. A business is a disclosed mode of the same
+account; cold outreach requires admin-reviewed verification; structured briefs
+carry intent, company, verified-domain website, budget band and timeline; the
+recipient's separate `business` policy still wins; three open reports pause
+outreach; and the inbox can be scoped to Personal or Business. The complete
+e2e chain was re-run because the business row, post/comment projections and
+conversation listing changed.
+
+| Tier | Result |
+|---|---|
+| `npm test` | 178 / 178 (+3 business policy/brief checks) |
+| `npm test --prefix client` | 31 / 31 |
+| `npm run test:e2e` | 613 / 613 across ten suites (59 + 66 + 159 + 80 + 70 + 62 + 13 + 44 + 28 + 32) |
+| `node scripts/e2e-phase13.js` | 32 / 32 (upgrade, public card, verification/audit, briefs, scope, pause/recovery, manual review) |
+| `npm run build --prefix client` | pass — 195 modules, 138.09 kB CSS / 585.96 kB JS (25.08 / 167.64 kB gzip) |
+| `npm run scan:secrets` | 0 hit(s) |
+| `node scripts/scan-emoji.js` | 0 line(s), +8 allowlisted reaction glyphs |
+| `git diff --check` | pass |
+
+Not verified in this pass: a live browser click-through of the Business tab,
+public business card, structured composer and admin verification queue; the
+Phase 11, Phase B and Phase C migrations were not applied to the configured
+Atlas database. At the time of this pass, automatic DNS lookup and a team inbox
+with roles remained unbuilt; both shipped in Passes 12–13. Paid priority remains
+proposal and needs a payment-provider decision.
+
+### Pass 12 (7 Nov) — creator follow-ups and automatic DNS
+
+Closed the Phase B follow-ups and the automatic half of business verification.
+Quiet hours suppress live pushes without losing the notification, the digest
+worker sends at most one summary per local day/week, saved views persist on the
+account, away replies are bounded to one per thread per day, rate-limit hits
+appear in the admin snapshot, and a matching DNS TXT record verifies without
+admin action.
+
+| Tier | Result |
+|---|---|
+| `npm test` | 193 / 193 (+15 DNS, digest, telemetry, quiet-hours and saved-filter checks) |
+| `npm test --prefix client` | 31 / 31 |
+| `npm run test:e2e` | 617 / 617 across ten suites (59 + 66 + 159 + 80 + 70 + 62 + 13 + 44 + 30 + 34) |
+| `node scripts/e2e-phase12.js` | 30 / 30 (+2 away auto-reply checks) |
+| `node scripts/e2e-phase13.js` | 34 / 34 (+2 saved-view checks) |
+| `npm run build --prefix client` | pass — 195 modules, 138.85 kB CSS / 591.03 kB JS (25.23 / 168.81 kB gzip) |
+| `npm run scan:secrets` | 0 hit(s) |
+| `node scripts/scan-emoji.js` | 0 line(s), +8 allowlisted reaction glyphs |
+| `git diff --check` | pass |
+
+Not verified in this pass: browser interaction with quiet hours, saved views,
+the digest notification and the admin telemetry table; automatic DNS was
+unit-tested with an injected resolver and not against a real hosted zone. The
+new migrations remain unapplied. At the time of this pass, a team inbox with
+roles and paid priority remained proposal; the team inbox shipped in Pass 13.
+Paid priority needs a payment-provider and compliance decision.
+
+### Pass 13 (7 Nov) — Phase C team inbox
+
+Closed the team-visibility half of Phase C. A business owner invites an exact
+handle; the invitee must accept before any workspace appears; viewer access is
+read-only at the API and in the UI; agents can reply and answer requests; only
+`businessThread` conversations are queried, so a personal thread between the
+owner and the teammate is unreachable. Removing a member revokes access on the
+next request.
+
+| Tier | Result |
+|---|---|
+| `npm test` | 193 / 193 |
+| `npm test --prefix client` | 31 / 31 |
+| `npm run test:e2e` | 629 / 629 across ten suites (59 + 66 + 159 + 80 + 70 + 62 + 13 + 44 + 30 + 46) |
+| `node scripts/e2e-phase13.js` | 46 / 46 (+12 team invite, role, scope, removal checks) |
+| `npm run build --prefix client` | pass — 195 modules, 140.46 kB CSS / 598.00 kB JS (25.46 / 170.68 kB gzip) |
+| `npm run scan:secrets` | 0 hit(s) |
+| `node scripts/scan-emoji.js` | 0 line(s), +8 allowlisted reaction glyphs |
+| `git diff --check` | pass |
+
+Not verified in this pass: no browser click-through of the owner Team tab or the
+shared-inbox switcher; the Phase 11, Phase B and Phase C migrations are still
+unapplied. Paid priority remains proposal. The team access rules are covered at
+the API level, including a personal-thread exclusion and immediate removal.
 
 ---
 
@@ -340,6 +470,10 @@ Locate the check with `grep -n "<keyword>" scripts/e2e*.js server/tests/*.js`.
 | DM request lifecycle | one plain-text opener, no push while pending, accept turns the opener into message one, decline/ignore cooldowns, 14-day expiry, 5/day + 20/week + one per recipient per 30 days, new accounts one/day | `dmPolicy.test.js`, `e2e-phase11.js` |
 | DM safety | participant-only REST reads (404 for outsiders), participant-only socket rooms, no read receipts/presence before acceptance, block and report-and-block, report record stored, self/anon guards | `e2e-phase11.js` |
 | DM settings | partial matrix patch, per-row persistence, digest/read-receipt/hidden-word validation, hidden words deduped case-insensitively, full matrix never serialised on a public profile | `dmPolicy.test.js`, `e2e-phase11.js` |
+| Filtered requests | whole-word/phrase hidden words, third-recipient campaign detection, restricted-reputation filtering, sender never learns the request was filtered, filtered rows stay out of Requests and its count | `dmPolicy.test.js`, `e2e-phase12.js` |
+| Creator tools | labels scoped to one owner, only the owner's quick replies in the summary, public away note, paused inbox refuses new requests but leaves active threads working | `dmPolicy.test.js`, `e2e-phase12.js` |
+| DM moderation | open report queue with reporter/reported identities, resolved status, review note and a durable platform audit row | `e2e-phase12.js` |
+| Business team inbox | invite/accept consent, viewer read-only at API and UI, agent reply and request acceptance, only business threads exposed, personal-thread exclusion, non-member 404 and immediate removal | `e2e-phase13.js` |
 | Secret gate | detects Mongo/AWS/Google/Stripe/private-key/quoted-secret/bearer shapes, ignores placeholders and `process.env` references, redacts its own output, and scans `client/src` + `client/dist` for real | `hardening.test.js`, `scripts/scan-secrets.js` |
 | Loading & 404 | skeleton compositions render one labelled status region, the right card count and no readable placeholder text; unknown routes render NotFound with the requested path | `Skeleton.test.jsx` (3), build + DOM pass (5 Nov), `NotFound.jsx` |
 | CI | both suites, the client build and the emoji gate on every push/PR; e2e + `migrate:status` + `migrate:domains:status` whenever `MONGO_URI`/`JWT_SECRET` resolve, and a failing check step (not a quiet skip) when they do not, except on fork PRs | `.github/workflows/ci.yml` |
@@ -509,6 +643,50 @@ Verification of the above: `npm run build --prefix client` → pass, `npm test` 
 | Migration for `dmSettings` backfill + conversation/message/report indexes | new `migrations/20261106090000-dm-consent-core.js` |
 | 20 new unit checks + 44 new e2e checks | `server/tests/dmPolicy.test.js`, `scripts/e2e-phase11.js`, `package.json` |
 
+## 4g. Changes made in pass 10 (Phase B creator-scale core)
+
+| Change | Files |
+|---|---|
+| Hidden-word filters, SHA-256 campaign fingerprints and silent reputation tiers move suspicious requests to a Filtered lane without telling the sender | `server/utils/dmPolicy.js`, `server/utils/dmService.js`, `server/models/{Conversation,DmSenderReputation}.js` |
+| Owner-scoped labels and saved quick replies; public away note; paused inbox refuses new requests but not active threads | `server/models/User.js`, `server/controllers/accountController.js`, `server/controllers/dmController.js`, `server/routes/dmRoutes.js`, `client/src/components/settings/PrivacyPanel.jsx` |
+| Admin report queue with status resolution, review note and platform audit | new `server/controllers/dmAdminController.js`, `server/models/DmModerationAudit.js`; `server/routes/adminRoutes.js`, `client/src/pages/AdminDashboard.jsx` |
+| Inbox UI: Filtered tab, filter reason, labels, quick replies, pause/away copy, disabled composer for a paused recipient | `client/src/pages/{MessagesPage,ProfilePage}.jsx`, `client/src/components/messages/{DmThread,MessageRequestModal}.jsx`, `client/src/phase11.css` |
+| Migration for the new settings fields and filtered/reputation/audit indexes | new `migrations/20261107090000-dm-creator-scale.js` |
+| 7 new unit checks + 28 new e2e checks | `server/tests/dmPolicy.test.js`, `scripts/e2e-phase12.js`, `package.json` |
+
+### 4h. Changes made in pass 11 (Phase C business accounts)
+
+| Change | Files |
+|---|---|
+| Business profile, public card, verification token and complaint pause on one account | new `server/models/BusinessProfile.js`, `server/models/BusinessVerificationAudit.js`, `server/utils/business.js`, `server/controllers/businessController.js`, `server/routes/businessRoutes.js` |
+| Admin verification queue with approve/reject notes, audit rows and pause recovery | `server/controllers/businessController.js`, `server/routes/adminRoutes.js`, `client/src/pages/AdminDashboard.jsx` |
+| Separate `business` consent row, verified-only outreach and structured brief validation | `server/utils/{dmPolicy,dmService}.js`, `server/models/{User,Conversation}.js`, `server/controllers/dmController.js` |
+| Business profile editor, structured composer, brief card and Business labels | `client/src/components/settings/BusinessPanel.jsx`, `client/src/components/messages/{MessageRequestModal,DmThread}.jsx`, `client/src/pages/{ProfilePage,SettingsPage}.jsx`, `client/src/components/posts/PostCard.jsx` |
+| All / Personal / Business inbox scopes with a consistent server filter and owner analytics | `server/utils/dmService.js`, `client/src/pages/MessagesPage.jsx`, `client/src/phase13.css` |
+| Migration for business profiles, audits, conversation brief fields and indexes | new `migrations/20261108090000-business-accounts.js` |
+| 3 new unit checks + 32 new e2e checks | `server/tests/dmPolicy.test.js`, `scripts/e2e-phase13.js`, `package.json` |
+
+### 4i. Changes made in pass 12 (creator follow-ups)
+
+| Change | Files |
+|---|---|
+| Automatic DNS TXT verification with bounded lookup and an audit row | new `server/utils/domainVerification.js`, `server/controllers/businessController.js`, `server/routes/accountRoutes.js`, `client/src/components/settings/BusinessPanel.jsx` |
+| Timezone-aware quiet hours and silent persisted notifications | `server/models/User.js`, `server/utils/{dmPolicy,notify,dmService}.js`, `client/src/components/settings/PrivacyPanel.jsx` |
+| Hourly daily/weekly digest worker with per-period dedupe | new `server/jobs/dmDigest.js`, `server/server.js` |
+| Saved inbox views (folder, scope, unread-only) stored on the account | `server/models/User.js`, `server/utils/{dmPolicy,dmService}.js`, `server/controllers/{accountController,dmController}.js`, `client/src/pages/MessagesPage.jsx`, `client/src/phase13.css` |
+| Away auto-reply once per thread per day and rate-limit telemetry | `server/models/Conversation.js`, `server/utils/dmService.js`, `server/controllers/dmController.js`, `server/utils/metrics.js`, `server/middleware/limiters.js`, `client/src/pages/{AdminDashboard,MessagesPage}.jsx` |
+| 15 new unit checks + 4 new e2e checks | `server/tests/{domainVerification,dmDigest,rateLimitTelemetry,dmPolicy}.test.js`, `scripts/e2e-phase12.js`, `scripts/e2e-phase13.js`, `package.json` |
+
+### 4j. Changes made in pass 13 (Phase C team inbox)
+
+| Change | Files |
+|---|---|
+| Consent-based team membership with viewer/agent roles and immediate removal | new `server/models/BusinessTeamMember.js`, new `server/utils/businessTeam.js`, new `migrations/20261108130000-business-team.js` |
+| Owner team management and invitee workspace/invitation API | new `server/controllers/teamController.js`, `server/routes/{accountRoutes,dmRoutes}.js` |
+| Shared-inbox queries and writes restricted to business threads | `server/utils/dmService.js` |
+| Owner Team tab and Messages shared-inbox switcher with read-only viewer state | `client/src/components/settings/BusinessPanel.jsx`, `client/src/pages/MessagesPage.jsx`, `client/src/components/messages/DmThread.jsx`, `client/src/phase13.css` |
+| 12 new e2e checks | `scripts/e2e-phase13.js` |
+
 ---
 
 ## 5. Open findings
@@ -530,9 +708,11 @@ Verification of the above: `npm run build --prefix client` → pass, `npm test` 
 | Medium | Cloudinary upload is only verified for its auth/validation branches — there are no credentials in the local environment | Run `scripts/e2e-phase7.js` with Cloudinary env set before relying on uploads in production |
 | Low | EXIF stripping depends on `sharp`; if it fails to install the upload still works but metadata is kept | `require('sharp')` is lazy and non-fatal by design |
 | Low | Deferred from the Discord blueprint: full per-role channel overwrites, message threads, malware scanning | Documented as out of scope for this milestone |
-| Low | The new inbox, request modal and DM settings matrix have no live browser pass | API/socket/build checks only; ask for a screenshot and click-through before calling the visual layer done |
-| Low | The Phase 11 migration has not been applied to the configured Atlas database | Schema defaults keep new and existing accounts working; run `npm run migrate:up` before relying on the backfill and indexes in a long-lived environment |
-| Low | Phase A ships the consent core only: the filtered lane, business-account mode, verification and paid priority are still proposal work | See the plan's phase gates before exposing a business surface |
+| Low | The inbox, Filtered lane, labels, quick replies, business surfaces and admin queues have no live browser pass | API/socket/build checks only; ask for a screenshot and click-through before calling the visual layer done |
+| Low | The Phase 11, Phase B and Phase C migrations have not been applied to the configured Atlas database | Schema defaults keep new and existing accounts working; run `npm run migrate:up` before relying on the backfill and indexes in a long-lived environment |
+| Low | Paid priority (Phase D) is not built | Needs a payment-provider choice, credentials and a refund/compliance decision before implementation |
+| Info | Automatic DNS verification was unit-tested with an injected resolver, not a live hosted zone | Add a real TXT record and run the check endpoint before relying on it in production |
+| Info | The digest worker runs hourly in-process; dedupe prevents duplicate notifications, but multi-instance scheduling is eventually consistent | Fine for one instance; move to a shared scheduler before horizontal scaling |
 | Info | `npm audit` reports 9 advisories in transitive deps | Pre-existing |
 | Info | Screenshots unavailable in this session; visual review still owed on the sigil and the new icon controls | Ask for a screenshot pass when the window is visible |
 
@@ -549,6 +729,7 @@ Full detail in [ROADMAP.md](ROADMAP.md); the order and trigger are what matter:
 | — | ~~**8G — Account & settings hub**~~ | **Delivered in pass 6.** One `/settings` page and the backend that backs it: handle change, feed reset, freeze, session revocation, Google link surface, succession preview and immediate erasure. 133 server + 496 e2e checks. | done |
 | — | ~~**8H — Hardening & resilience**~~ | **Delivered in pass 7.** Skeletons, a real 404, per-surface rate limits, socket caps, search-cost fixes, the LFG presence leak and the secret gate. 148 server + 509 e2e checks. | done |
 | — | ~~**11A — DM consent core**~~ | **Delivered in pass 9.** Request/accept threads, six-row matrix, quotas, expiry/cooldown, blocks/reports, socket rooms, profile summary, inbox and settings UI. 168 server + 31 client + 553 e2e checks defined. | done |
+| — | ~~**11B — DM creator-scale core**~~ | **Delivered in pass 10.** Filtered lane, labels, quick replies, pause/away, reputation/campaign detection and audited admin resolution. Remaining Phase B: saved filters, digest/quiet hours, telemetry and away auto-reply. 175 server + 31 client + 581 e2e checks defined. | core done |
 | 1 | **8 — Inbox** | Notifications are the cheapest retention win and the data exists; add comment/follow/like pings, `nextCursor` paging, per-category mute, and surface squad invitations in the bell. | 1.5 d |
 | 2 | **12 — Operability** | `/api/health/ready` already splits per domain; add request IDs, structured logs and error reporting before a public push. | 1.5 d |
 | 3 | **11 — Account lifecycle** | Verification and password reset are the remaining account gaps; the session/revocation and deletion halves are done. | 2–3 d |
@@ -565,9 +746,9 @@ npm run dev            # API :5000
 npm run dev --prefix client   # Vite :3000
 
 # 2. automated tiers (see §1 for when to skip)
-npm test                      # server units, 168 checks, no database
+npm test                      # server units, 175 checks, no database
 npm test --prefix client      # client components, 31 checks, jsdom
-npm run test:e2e              # eight suites, 553 checks, throwaway DB
+npm run test:e2e              # nine suites, 581 checks, throwaway DB
 npm run scan:secrets           # must print "0 hit(s)"
 npm run build --prefix client
 npm run migrate:status

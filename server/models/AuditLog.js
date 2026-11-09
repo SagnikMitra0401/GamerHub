@@ -34,7 +34,13 @@ const AuditLogSchema = new mongoose.Schema({
       'FORUM_POST_ARCHIVE',
       'FORUM_POST_REOPEN',
       'FORUM_POST_DELETE',
-      'OWNER_TRANSFER'
+      'OWNER_TRANSFER',
+      'INVITE_CREATE',
+      'INVITE_REVOKE',
+      'INVITE_JOIN',
+      'INVITE_REQUEST',
+      'INVITE_APPROVE',
+      'INVITE_DENY'
     ],
     required: true
   },
@@ -44,7 +50,7 @@ const AuditLogSchema = new mongoose.Schema({
   },
   targetModel: {
     type: String,
-    enum: ['User', 'Channel', 'Message', 'Community', 'ForumPost', 'Report', null],
+    enum: ['User', 'Channel', 'Message', 'Community', 'ForumPost', 'Report', 'CommunityInvite', null],
     default: null
   },
   metadata: {

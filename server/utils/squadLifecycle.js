@@ -14,7 +14,6 @@
 
 const CHAT_TTL_DAYS = 15;
 const CHAT_TTL_MS = CHAT_TTL_DAYS * 24 * 60 * 60 * 1000;
-const MAX_MESSAGE_LENGTH = 1000;
 
 const idOf = (value) => {
   if (!value) return null;
@@ -89,7 +88,6 @@ function formatRemaining(chat, now = new Date()) {
 module.exports = {
   CHAT_TTL_DAYS,
   CHAT_TTL_MS,
-  MAX_MESSAGE_LENGTH,
   expiryFrom,
   msRemaining,
   isExpired,

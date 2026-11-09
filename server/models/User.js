@@ -161,11 +161,38 @@ const UserSchema = new mongoose.Schema({
       following: { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
       community: { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
       squad:     { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
+      business:  { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' },
       stranger:  { type: String, enum: ['inbox', 'request', 'verified', 'none'], default: 'request' }
     },
     digest: { type: String, enum: ['off', 'daily', 'weekly'], default: 'daily' },
+    // No live notification is pushed during this local window. The message is
+    // still persisted for the inbox and the next digest.
+    quietHours: {
+      enabled: { type: Boolean, default: false },
+      start: { type: String, default: '22:00' },
+      end: { type: String, default: '07:00' },
+      timezone: { type: String, default: 'UTC', maxlength: 60 }
+    },
     readReceipts: { type: Boolean, default: false },
-    hiddenWords: { type: [String], default: [] }
+    hiddenWords: { type: [String], default: [] },
+    // Creator-scale inbox controls. A paused inbox refuses *new* requests but
+    // leaves every active thread and the account itself untouched.
+    availability: { type: String, enum: ['open', 'away', 'paused'], default: 'open' },
+    awayMessage: { type: String, default: '', trim: true, maxlength: 200 },
+    quickReplies: {
+      type: [String],
+      default: [],
+      set: (arr) => (Array.isArray(arr)
+        ? arr.map((entry) => String(entry).trim().slice(0, 300)).filter(Boolean).slice(0, 5)
+        : [])
+    },
+    savedFilters: [{
+      _id: false,
+      name: { type: String, trim: true, maxlength: 24 },
+      folder: { type: String, enum: ['inbox', 'requests', 'filtered', 'sent', 'archived'] },
+      scope: { type: String, enum: ['all', 'personal', 'business'], default: 'all' },
+      unreadOnly: { type: Boolean, default: false }
+    }]
   },
 
   // People this user never wants to hear from. Enforced server-side for

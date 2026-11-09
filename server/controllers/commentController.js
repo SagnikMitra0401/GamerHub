@@ -26,7 +26,7 @@ const createComment = async (req, res, next) => {
 
     awardXp(req.user._id, 5, 'gamer_critic');
 
-    const populated = await comment.populate('userId', 'username level role');
+    const populated = await comment.populate('userId', 'username level role profileType');
     res.status(201).json(populated);
   } catch (err) {
     next(err);

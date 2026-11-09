@@ -6,7 +6,9 @@ const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
-const { sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags, escapeRegex } = require('../utils/sanitize');
+const {
+  sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags, extractHashtags, escapeRegex
+} = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { rankPostsForUser } = require('../utils/feedRanking');
@@ -23,12 +25,19 @@ const cleanupTempFile = (path) => {
   if (path) fs.unlink(path, () => {});
 };
 
+/**
+ * Tags come from two places: the explicit tag field and inline #hashtags in
+ * the title/body. Both normalise to the same stored form and dedupe together.
+ */
+const collectTags = (rawTags, ...texts) =>
+  normalizeTags([...normalizeTags(rawTags), ...extractHashtags(...texts)]);
+
 const createPost = async (req, res, next) => {
   let tempFilePath = null;
   try {
     const title = sanitizeLine(req.body.title, MAX_TITLE);
     const content = sanitizeText(req.body.content, MAX_CONTENT);
-    const tags = normalizeTags(req.body.tags);
+    const tags = collectTags(req.body.tags, title, content);
 
     // Media fields are server-derived only — never read them from the body.
     let mediaUrl = null;
@@ -88,7 +97,7 @@ const createPost = async (req, res, next) => {
     const isMediaPost = !!post.mediaUrl;
     awardXp(req.user._id, isMediaPost ? 10 : 5, isMediaPost ? 'highlight_poster' : null);
 
-    const populatedPost = await Post.findById(post._id).populate('userId', 'username level role');
+    const populatedPost = await Post.findById(post._id).populate('userId', 'username level role profileType');
     res.status(201).json(populatedPost);
   } catch (err) {
     cleanupTempFile(tempFilePath);
@@ -166,7 +175,7 @@ const getPosts = async (req, res, next) => {
             },
             // ⚠️ Never widen this projection: emails and password hashes must
             // never be reachable from an unauthenticated feed request.
-            { $project: { _id: 1, username: 1, level: 1, role: 1 } }
+            { $project: { _id: 1, username: 1, level: 1, role: 1, profileType: 1 } }
           ],
           as: 'author'
         }
@@ -198,7 +207,8 @@ const getPosts = async (req, res, next) => {
       const ranked = rankPostsForUser(posts, {
         favoriteGames: prefs?.preferences?.favoriteGames || [],
         favoriteGenres: prefs?.preferences?.favoriteGenres || [],
-        favoriteChannels: prefs?.favoriteChannels || []
+        favoriteChannels: prefs?.favoriteChannels || [],
+        following: req.user.following || []
       });
 
       return res.status(200).json(ranked.slice(skip, skip + limit));
@@ -216,7 +226,7 @@ const getPostById = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
 
     const post = await Post.findById(id)
-      .populate('userId', 'username level role status')
+      .populate('userId', 'username level role profileType status')
       .lean({ virtuals: true });
     if (!post) throw notFound('Post not found');
 
@@ -248,8 +258,13 @@ const updatePost = async (req, res, next) => {
     if (req.body.content !== undefined) {
       updates.content = sanitizeText(req.body.content, MAX_CONTENT);
     }
-    if (req.body.tags !== undefined) {
-      updates.tags = normalizeTags(req.body.tags);
+    // Tags follow the text: a new inline #hashtag is added on edit. Existing
+    // tags are kept unless the caller replaced the tag field explicitly.
+    if (req.body.tags !== undefined || updates.title !== undefined || updates.content !== undefined) {
+      const title = updates.title ?? req.resource.title;
+      const content = updates.content ?? req.resource.content;
+      const baseTags = req.body.tags !== undefined ? normalizeTags(req.body.tags) : req.resource.tags;
+      updates.tags = normalizeTags([...baseTags, ...extractHashtags(title, content)]);
     }
 
     if (!Object.keys(updates).length) throw badRequest('No updatable fields provided.');

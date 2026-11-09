@@ -8,9 +8,6 @@
 
 const INVITE_POLICIES = Object.freeze(['anyone', 'followers', 'none']);
 const DM_POLICIES = Object.freeze(['anyone', 'mutual_follows', 'none']);
-const ACCOUNT_STATUSES = Object.freeze([
-  'active', 'restricted', 'frozen', 'suspended', 'deletion_pending', 'deleted'
-]);
 
 // Frozen accounts may sign in (to unfreeze) and read, but must not create,
 // message, invite or react while their content is hidden.
@@ -233,7 +230,6 @@ function erasurePatch(user) {
 module.exports = {
   INVITE_POLICIES,
   DM_POLICIES,
-  ACCOUNT_STATUSES,
   ERASURE_USERNAME_PREFIX,
   idOf,
   containsId,

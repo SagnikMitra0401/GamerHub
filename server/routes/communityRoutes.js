@@ -24,6 +24,17 @@ const {
 } = require('../controllers/communityController');
 
 const {
+  createInvite,
+  listInvites,
+  revokeInvite,
+  listJoinRequests,
+  approveJoinRequest,
+  denyJoinRequest,
+  getInvitePreview,
+  joinWithInvite
+} = require('../controllers/inviteController');
+
+const {
   toggleReaction,
   togglePin,
   getPinnedMessages,
@@ -90,6 +101,20 @@ router.patch('/:id/channels/:channelId/forum/:postId/status', protect, activeOnl
 router.post('/:id/channels/:channelId/forum/:postId/replies', protect, activeOnly, createForumReply);
 router.put('/:id/channels/:channelId/forum/:postId/replies/:replyId', protect, activeOnly, updateForumReply);
 router.delete('/:id/channels/:channelId/forum/:postId/replies/:replyId', protect, activeOnly, deleteForumReply);
+
+// ── Invite links ────────────────────────────────────────────────────────────
+// The preview is public (the code is the capability); joining still needs an
+// account. These static paths must be declared before the /:id and /:slug ones.
+router.get('/invites/:code',           optionalProtect, browseLimiter, getInvitePreview);
+router.post('/invites/:code/join',     protect, activeOnly, browseLimiter, joinWithInvite);
+router.get('/:id/invites',             protect, listInvites);
+router.post('/:id/invites',            protect, activeOnly, createInvite);
+router.delete('/:id/invites/:inviteId', protect, activeOnly, revokeInvite);
+
+// Approval-gated links: managers review the queue before anyone is added.
+router.get('/:id/join-requests',                       protect, listJoinRequests);
+router.post('/:id/join-requests/:requestId/approve',    protect, activeOnly, approveJoinRequest);
+router.post('/:id/join-requests/:requestId/deny',       protect, activeOnly, denyJoinRequest);
 
 // ── Server administration ───────────────────────────────────────────────────
 router.get('/:id/members',            protect, getCommunityMembers);

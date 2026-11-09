@@ -70,6 +70,34 @@ test('age applies a penalty when scores are otherwise equal', () => {
   assert.equal(ranked[1].rankScore < ranked[0].rankScore, true);
 });
 
+test('tag matching ignores separators and a leading #', () => {
+  const ranked = rankPostsForUser(
+    [post({ id: 'hashtag', tags: ['eldenring'] }), post({ id: 'plain', tags: ['elden ring'] })],
+    { favoriteGames: ['Elden Ring'], favoriteChannels: ['#elden-ring'] },
+    { now: NOW }
+  );
+
+  assert.deepEqual(ranked.map((entry) => entry.rankScore), [80, 80]);
+  assert.equal(ranked.every((entry) => entry.matchedTags.length === 1), true);
+});
+
+test('following the author adds a modest boost but does not beat a genre match', () => {
+  const author = '507f1f77bcf86cd799439011';
+  const followedAuthorPost = { ...post({ id: 'followed', hours: 1 }), userId: author };
+  const genrePost = post({ id: 'genre', tags: ['shooter'], hours: 1 });
+
+  const ranked = rankPostsForUser(
+    [followedAuthorPost, genrePost],
+    { favoriteGenres: ['Shooter'], following: [author] },
+    { now: NOW }
+  );
+
+  assert.equal(ranked[0]._id, 'genre');
+  assert.equal(ranked[1]._id, 'followed');
+  // 15 follow boost + 2 engagement-free age penalty (1 hour) = 14.5
+  assert.equal(ranked[1].rankScore, 14.5);
+});
+
 test('missing or empty input is handled', () => {
   assert.deepEqual(rankPostsForUser(null, { favoriteGames: ['a'] }), []);
   assert.deepEqual(rankPostsForUser([], {}), []);

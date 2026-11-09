@@ -122,19 +122,12 @@ async function getGameDetail(id) {
   }, DETAIL_TTL_SECONDS);
 }
 
-/** Test helper. */
-function clearCatalogCache() {
-  cache.clear();
-  lastGood = null;
-}
-
 module.exports = {
   getCatalog,
   searchGames,
   distinctGenres,
   getGameDetail,
   normalizeGame,
-  clearCatalogCache,
   CACHE_TTL_MS,
   MAX_RESULTS
 };

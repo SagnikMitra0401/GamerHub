@@ -105,10 +105,6 @@ const isCommunityRole = (role) => COMMUNITY_ROLES.includes(role);
 
 const capabilitiesForRole = (role) => ROLE_CAPABILITIES[role] || [];
 
-function roleHasCapability(role, capability) {
-  return capabilitiesForRole(role).includes(capability);
-}
-
 /** Works with plain docs, lean docs and populated docs. */
 const idOf = (value) => {
   if (!value) return null;
@@ -148,9 +144,6 @@ function communityPermissions(community, userId) {
     permissions: role ? [...capabilitiesForRole(role)] : []
   };
 }
-
-const canInCommunity = (community, userId, capability) =>
-  communityPermissions(community, userId).permissions.includes(capability);
 
 /** Application-level capabilities for a platform role. */
 function appCapabilitiesForRole(role) {
@@ -249,12 +242,10 @@ module.exports = {
   roleAtLeast,
   isCommunityRole,
   capabilitiesForRole,
-  roleHasCapability,
   idOf,
   findMember,
   resolveCommunityRole,
   communityPermissions,
-  canInCommunity,
   appCapabilitiesForRole,
   isAppStaff,
   isPlatformAdmin,

@@ -50,6 +50,12 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastLoaded, setLastLoaded] = useState(null);
+  const [reports, setReports] = useState([]);
+  const [reportsError, setReportsError] = useState('');
+  const [reportBusy, setReportBusy] = useState(null);
+  const [verifications, setVerifications] = useState([]);
+  const [verificationsError, setVerificationsError] = useState('');
+  const [verificationBusy, setVerificationBusy] = useState(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -64,12 +70,64 @@ const AdminDashboard = () => {
     }
   }, []);
 
+  const loadReports = useCallback(async () => {
+    try {
+      const { data: payload } = await axiosInstance.get('/admin/dm-reports?status=open');
+      setReports(Array.isArray(payload.items) ? payload.items : []);
+      setReportsError('');
+    } catch (err) {
+      setReportsError(describeFailure(err));
+    }
+  }, []);
+
+  const resolveReport = async (reportId, status) => {
+    setReportBusy(reportId);
+    setReportsError('');
+    try {
+      await axiosInstance.post(`/admin/dm-reports/${reportId}/resolve`, { status });
+      await loadReports();
+    } catch (err) {
+      setReportsError(describeFailure(err));
+    } finally {
+      setReportBusy(null);
+    }
+  };
+
+  const loadVerifications = useCallback(async () => {
+    try {
+      const { data: payload } = await axiosInstance.get('/admin/business-verifications?status=pending');
+      setVerifications(Array.isArray(payload.items) ? payload.items : []);
+      setVerificationsError('');
+    } catch (err) {
+      setVerificationsError(describeFailure(err));
+    }
+  }, []);
+
+  const resolveVerification = async (profileId, status) => {
+    setVerificationBusy(profileId);
+    setVerificationsError('');
+    try {
+      await axiosInstance.post(`/admin/business-verifications/${profileId}/resolve`, { status });
+      await loadVerifications();
+    } catch (err) {
+      setVerificationsError(describeFailure(err));
+    } finally {
+      setVerificationBusy(null);
+    }
+  };
+
   useEffect(() => {
     if (user?.role !== 'admin') { setLoading(false); return undefined; }
     load();
-    const timer = setInterval(load, 30_000);
+    loadReports();
+    loadVerifications();
+    const timer = setInterval(() => {
+      load();
+      loadReports();
+      loadVerifications();
+    }, 30_000);
     return () => clearInterval(timer);
-  }, [user?.role, load]);
+  }, [user?.role, load, loadReports, loadVerifications]);
 
   if (!user) {
     return (
@@ -215,6 +273,25 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
+                {traffic?.rateLimits?.length > 0 && (
+                  <>
+                    <h3 className="admin-subhead">Rate-limit hits</h3>
+                    <table className="admin-table">
+                      <thead>
+                        <tr><th>Limiter</th><th>Hits</th></tr>
+                      </thead>
+                      <tbody>
+                        {traffic.rateLimits.map((entry) => (
+                          <tr key={entry.name}>
+                            <td className="mono">{entry.name}</td>
+                            <td>{entry.hits}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+
                 {traffic?.topRoutes?.length > 0 && (
                   <table className="admin-table">
                     <thead>
@@ -250,6 +327,135 @@ const AdminDashboard = () => {
                 <Stat label="Notifications" value={counts.notifications ?? 0} />
                 <Stat label="Audit events" value={counts.auditEvents ?? 0} />
               </div>
+            </section>
+
+            <section className="admin-card">
+              <div className="admin-card-head">
+                <h2>Message reports</h2>
+                <span className={`admin-badge ${reports.length > 0 ? 'warn' : 'muted'}`}>
+                  {reports.length} open
+                </span>
+              </div>
+              {reportsError && <p className="admin-warn">{reportsError}</p>}
+              {reports.length === 0 ? (
+                <p className="admin-note">No open message reports.</p>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Reporter</th>
+                      <th>Reported</th>
+                      <th>Reason</th>
+                      <th>Report</th>
+                      <th>Received</th>
+                      <th>Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map((report) => (
+                      <tr key={report._id}>
+                        <td>@{report.reporter?.username || 'deleted'}</td>
+                        <td>@{report.reported?.username || 'deleted'}</td>
+                        <td>{String(report.reason || '').replace(/_/g, ' ')}</td>
+                        <td className="admin-report-note">
+                          {report.note || 'No note'}
+                          {report.messages?.length > 0 && (
+                            <details>
+                              <summary>
+                                {report.messages.length} reported message{report.messages.length === 1 ? '' : 's'}
+                              </summary>
+                              {report.messages.map((message) => (
+                                <p key={message._id}>{message.text}</p>
+                              ))}
+                            </details>
+                          )}
+                        </td>
+                        <td>{formatTime(report.createdAt)}</td>
+                        <td>
+                          <div className="admin-report-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => resolveReport(report._id, 'dismissed')}
+                              disabled={reportBusy === report._id}
+                            >
+                              Dismiss
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => resolveReport(report._id, 'actioned')}
+                              disabled={reportBusy === report._id}
+                            >
+                              Actioned
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+
+            <section className="admin-card">
+              <div className="admin-card-head">
+                <h2>Business verification</h2>
+                <span className={`admin-badge ${verifications.length > 0 ? 'warn' : 'muted'}`}>
+                  {verifications.length} need review
+                </span>
+              </div>
+              {verificationsError && <p className="admin-warn">{verificationsError}</p>}
+              {verifications.length === 0 ? (
+                <p className="admin-note">No business verification requests are waiting.</p>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Account</th>
+                      <th>Business</th>
+                      <th>Domain</th>
+                      <th>Method</th>
+                      <th>Requested</th>
+                      <th>Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {verifications.map((item) => (
+                      <tr key={item._id}>
+                        <td>@{item.user?.username || 'deleted'}</td>
+                        <td>
+                          <strong>{item.business?.displayName || 'Business'}</strong>
+                          <div className="admin-report-note">{item.business?.website || 'No website'}</div>
+                        </td>
+                        <td className="mono">{item.business?.verificationDomain || '—'}</td>
+                        <td>{item.business?.verificationMethod || 'manual'}</td>
+                        <td>{formatTime(item.requestedAt)}</td>
+                        <td>
+                          <div className="admin-report-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => resolveVerification(item._id, 'rejected')}
+                              disabled={verificationBusy === item._id}
+                            >
+                              Reject
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => resolveVerification(item._id, 'verified')}
+                              disabled={verificationBusy === item._id}
+                            >
+                              {item.business?.verificationStatus === 'verified' ? 'Clear pause' : 'Verify'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </section>
 
             <section className="admin-card">

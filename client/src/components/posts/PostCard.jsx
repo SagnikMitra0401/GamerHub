@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
 import LinkPreviewCard from './LinkPreviewCard';
+import HashtagText from './HashtagText';
 import PostActions from './PostActions';
 
 const PostCard = ({ post, onDelete, onLikeToggle }) => {
@@ -115,13 +116,35 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         </span>
         {post.userId?.role === 'admin' && <span className="role-badge admin">Admin</span>}
         {post.userId?.role === 'moderator' && <span className="role-badge mod">Mod</span>}
+        {post.userId?.profileType === 'creator_business' && (
+          <span className="business-badge">Business</span>
+        )}
 
         <span>·</span>
         <span>{timeAgo(post.createdAt)}</span>
       </div>
 
-      <h2 className="post-card-title">{post.title}</h2>
-      {post.content && <p className="post-card-content">{post.content}</p>}
+      <h2 className="post-card-title"><HashtagText text={post.title} /></h2>
+      {post.content && <p className="post-card-content"><HashtagText text={post.content} /></p>}
+
+      {/* For You only: name the interest that surfaced this post. */}
+      {post.matchedTags?.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem', marginBottom: '0.6rem' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Because you like</span>
+          {post.matchedTags.slice(0, 3).map(tag => (
+            <button
+              key={tag}
+              type="button"
+              className="tag"
+              style={{ cursor: 'pointer', fontSize: '0.68rem' }}
+              onClick={e => handleTagClick(e, tag)}
+              title={`Browse #${tag}`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Media Rendering */}
       {post.mediaUrl && post.mediaType && post.mediaType !== 'none' && (

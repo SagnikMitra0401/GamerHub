@@ -26,6 +26,7 @@ GamerHub is a full-stack gaming social platform built on the MERN stack. It comb
 13. [Deployment](#13-deployment)
 14. [Environment Variables](#14-environment-variables)
 15. [Testing](#15-testing)
+16. [Server Invite Links](#16-server-invite-links)
 
 ---
 
@@ -384,7 +385,7 @@ MERN_INTERNSHIP_Proj/
 │   │   └── generateToken.js        # JWT sign + set HttpOnly cookie
 │   ├── jobs/
 │   │   └── retention.js            # Periodic cleanup worker (stale data)
-│   └── tests/                      # 148 unit checks across 18 suites (Node native test runner)
+│   └── tests/                      # 211 unit checks across 25 suites (Node native test runner)
 │       ├── permissions.test.js
 │       ├── sanitize.test.js
 │       ├── ssrf.test.js
@@ -1100,6 +1101,41 @@ Creates: a sample community with channels, three LFG squads, and three notificat
 3. Start command: `node server/server.js`
 4. Add all environment variables (see §14)
 
+### Production checklist
+
+Run this list before pointing real users at a deployment — every item that
+involves an origin is also what makes invite links and credentialed requests
+work from a browser.
+
+- [ ] **Set `CLIENT_URL` on the API** to the deployed web origin (for example
+      `https://gamerhub.app`). It drives CORS and is the canonical base for
+      server invite links. Put extra preview domains in
+      `EXTRA_ALLOWED_ORIGINS`; never use wildcards.
+- [ ] If the site is reachable on both apex and `www`, list both in
+      `CLIENT_URL` (first non-loopback entry becomes the invite-link base).
+- [ ] **Vercel**: root directory `client`, build `npm run build`, output `dist`,
+      and keep `client/vercel.json` rewriting `/api/*` to the Render service.
+- [ ] **Render**: root directory `server`/repo root, start
+      `node server/server.js`, health check path `/api/health`, `TRUST_PROXY`
+      left at `1` so secure cookies and rate-limit IPs are correct.
+- [ ] **MongoDB Atlas**: `MONGO_URI` with the database name, network access for
+      Render, and `MONGO_URI_SQUADS` only if squad chat uses a separate cluster.
+- [ ] **Secrets**: `JWT_SECRET`, Cloudinary credentials, optional
+      `GOOGLE_CLIENT_ID` / `YOUTUBE_API_KEY`, optional Redis pair. Keep them in
+      the Render dashboard, never in git.
+- [ ] **Migrations**: `npm run migrate:domains:status`, then
+      `npm run migrate:domains` against Atlas; never run them from a request.
+- [ ] **Cookies/HTTPS**: production uses `Secure` + `SameSite=None` for the
+      cross-site Vercel → Render call, so both origins must be HTTPS.
+- [ ] **Pre-deploy gate**: `npm test`, `npm test --prefix client`,
+      `npm run build --prefix client`, `npm run scan:secrets`.
+- [ ] **Invite smoke test after deploy**: create a private server with an
+      approval-required link, copy it, open it on a phone or incognito window
+      (not the same browser profile), request to join, approve from the server's
+      **Invite people** modal, and confirm the invite appears under the audit
+      log's **Invites** filter. The copied URL must show the public domain, not
+      `localhost`.
+
 ### Database Migrations on Deploy
 
 Run migrations against Atlas before or immediately after deploying a new server version:
@@ -1139,6 +1175,7 @@ Run `npm run migrate:domains:status` first; each track records itself in its own
 | `UPSTASH_REDIS_REST_URL` | — | Upstash Redis endpoint; required only when `REDIS_ENABLED=1` |
 | `UPSTASH_REDIS_REST_TOKEN` | — | Upstash Redis token; required only when `REDIS_ENABLED=1` |
 | `DISABLE_LIKE_BUFFER` | `0` | Set to `1` to force direct DB writes even when Redis is up |
+| `CLIENT_URL` | — | Public origin of the web app (comma-separated list allowed). The first non-loopback entry is also used to build shareable invite links, so set this to the deployed domain in production. |
 | `ALLOWED_ORIGINS` | built-in list | Comma-separated exact origins for CORS |
 | `GOOGLE_CLIENT_ID` | — | OAuth client id for Google Sign-In; the button is hidden without it |
 | `MONGO_URI_SQUADS` | `MONGO_URI` | Optional separate cluster for the temporary squad-chat domain |
@@ -1161,12 +1198,13 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 148 checks, no database needed
-npm test --prefix client      # client components: 31 checks in jsdom
+npm test                      # server: 211 checks, no database needed
+npm test --prefix client      # client components: 35 checks in jsdom
+npm run test:responsive       # headless Chrome layout smoke at 7 device sizes
 npm run scan:secrets          # credential-leak gate
 ```
 
-**148 server checks across 18 suites — all passing.**
+**211 server checks across 25 suites — all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -1174,6 +1212,8 @@ npm run scan:secrets          # credential-leak gate
 | `sanitize.test.js` | Input sanitizers, HTML entity decode, tag normalisation, regex escape |
 | `ssrf.test.js` | Private IPv4/IPv6 range blocking, redirect chain inspection |
 | `origins.test.js` | CORS allow-list: production exact match, development loopback, comma list |
+| `communityInvites.test.js` | Invite option bounds, approval flag normalisation, code entropy, status transitions |
+| `appUrl.test.js` | Canonical share-link origin: `CLIENT_URL` precedence, loopback development, request fallback |
 | `lfg.test.js` | Party creation rules, join/leave constraints, TTL expiry, board filters |
 | `feedRanking.test.js` | Personalized score: favourites, engagement, recency penalty, determinism |
 | `cache.test.js` | TTL eviction, concurrent miss collapsing, maxEntries LRU behaviour |
@@ -1193,12 +1233,38 @@ Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
 deterministic, and exercise the real feature switch and key prefix.
 
-**31 client checks across 5 files** — `SegmentedTabs` (aria state, keyboard,
+**35 client checks across 6 files** — `SegmentedTabs` (aria state, keyboard,
 indicator), `PostActions` (label/pressed state, spark burst gated on pointer and
 reduced-motion), `PostCard` (like and bookmark requests, failure path, signed-out
 redirect), `NotificationBell` (dropdown vs portalled sheet at the 640 px
-breakpoint, badge count, mark-read) and `Skeleton` (one labelled status region,
-card count, placeholders hidden from the accessibility tree).
+breakpoint, badge count, mark-read), `Skeleton` (one labelled status region,
+card count, placeholders hidden from the accessibility tree) and `HashtagText`
+(hashtag channel links, invite-URL linkification with trailing punctuation, and
+squad-chat mode that keeps hashtags plain).
+
+### Responsive smoke test
+
+`scripts/responsive-smoke.mjs` serves the production client build on
+`127.0.0.1:4173`, stubs the REST API with invite, member and admin fixtures, and
+drives the installed Chrome/Edge through `playwright-core` (no browser download).
+It opens the **join page**, the **Invite people modal** (with pending requests),
+the **Audit Log with the Invites filter**, **Server Settings**, **Members & Roles**
+(member rows plus the banned-user list) and the **admin monitor** (stat cards,
+long report/verification tables and action buttons) at iPhone SE/13, Pixel 7,
+iPad portrait and landscape, 1024×768 and 1280×900. A surface fails on
+horizontal page overflow, a modal that leaves the viewport or clips sideways, a
+non-scrollable tall modal, a table that clips instead of scrolling, or a sub-36
+px button on a touch viewport. Point `CHROME_PATH` at a browser if it is not installed in a
+standard location.
+
+A failed run writes `responsive-artifacts/<device>/<surface>.png`, a
+`trace.zip` for that device and a top-level `failures.txt`; CI uploads the
+folder as the `responsive-failure-artifacts` artifact. Open a trace at
+[trace.playwright.dev](https://trace.playwright.dev) or with
+`npx playwright show-trace <path>`. Successful runs leave no artifacts.
+
+This runs in CI's `responsive` job. It covers responsive layout only — physical
+iOS/Android keyboard and safe-area behaviour still needs a real-device pass.
 
 End-to-end smoke tests (requires a running backend):
 
@@ -1237,11 +1303,87 @@ pull request:
 | Job | Steps |
 |---|---|
 | quality | `npm ci` → `npm test` → `npm test --prefix client` → `npm run build --prefix client` → emoji gate |
+| responsive | build client with a local socket URL → `npm run test:responsive` (Playwright layout smoke at 7 viewports) → upload failure screenshots/traces |
 | e2e | all five suites against a throwaway database, then `migrate:status` and `migrate:domains:status` |
 
 The e2e job needs `MONGO_URI` and `JWT_SECRET` repository secrets; without them it
 reports a notice and skips instead of failing, so forks stay green. It never runs
 `migrate:up` — a push must not mutate the database a deploy is about to use.
+
+---
+
+## 16. Server Invite Links
+
+Shareable links are the way people outside a community get in — including
+friends from another platform who have no account yet. A link looks like
+`https://<web-origin>/join/<code>` and is deliberately a **bearer capability**:
+knowing the code authorises a request to join.
+
+### Behaviour
+
+- **Public vs private** comes from the server's existing `isPrivate` flag. A
+  private server stays `404` for everyone without a valid code; the code reveals
+  only its public card (name, icon, description, member count) to a visitor.
+- **Member only.** An invite can only ever grant `member`; the API rejects any
+  other role. Moderator/admin powers still require the normal role flow.
+- **Bounded.** Each link can expire (1–30 days or never), be capped at 1–100 uses
+  or unlimited, and be revoked at any time. The use count is consumed with an
+  atomic `$inc` re-checking expiry and the cap, so concurrent joins cannot exceed
+  the limit.
+- **Optional approval.** With *Require my approval* enabled, following the link
+  files a pending request (HTTP `202`) instead of adding the person. Owners and
+  admins see it in **Invite people**, get a notification, and approve or decline.
+  Approval consumes a use, re-checks bans and the member cap, and refuses a link
+  revoked or exhausted while the request was waiting (the request goes back to
+  the queue). Requesters are notified of the decision.
+- **Canonical URLs.** The server builds the share URL from the first non-loopback
+  `CLIENT_URL` entry, falling back to the browser's Origin and then the request
+  host. Copying a link from a preview deployment therefore still points at the
+  deployed domain rather than `localhost`.
+- **Sharing.** Links can be copied, shared into a new post (the composer is
+  prefilled), and pasted into post bodies or squad chats, where they render as
+  clickable URLs.
+
+### API
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| `GET` | `/api/communities/invites/:code` | public | Server card + invite state (`requiresApproval`, `pendingRequest`, `alreadyMember`) |
+| `POST` | `/api/communities/invites/:code/join` | signed in | Join (`200`) or file a request (`202` with `pending: true`) |
+| `GET` | `/api/communities/:id/invites` | `ADD_MEMBERS` | List active links and the pending-request count |
+| `POST` | `/api/communities/:id/invites` | `ADD_MEMBERS` | Create a link (`expiresInDays`, `maxUses`, `requiresApproval`) |
+| `DELETE` | `/api/communities/:id/invites/:inviteId` | `ADD_MEMBERS` | Revoke a link |
+| `GET` | `/api/communities/:id/join-requests` | `ADD_MEMBERS` | Pending requests with their link code |
+| `POST` | `/api/communities/:id/join-requests/:requestId/approve` | `ADD_MEMBERS` | Add the requester as a member |
+| `POST` | `/api/communities/:id/join-requests/:requestId/deny` | `ADD_MEMBERS` | Decline the request |
+
+### Data models
+
+- `CommunityInvite` — `code` (unique, 72-bit URL-safe), `communityId`,
+  `createdBy`, `uses`, `maxUses` (0 = unlimited, capped at 100), `expiresAt`,
+  `revokedAt`, `requiresApproval`.
+- `CommunityJoinRequest` — `communityId`, `inviteId`, `userId` (plus a username
+  snapshot), `status` (`pending`/`approved`/`denied`/`cancelled`/`expired`),
+  `decidedBy`, `decidedAt`. A partial unique index allows only one pending
+  request per person per server, while still letting a declined person retry.
+
+Both collections cascade-delete with their community.
+
+### Audit trail
+
+Creating, revoking, joining, requesting, approving and declining are written to
+`AuditLog` as `INVITE_CREATE`, `INVITE_REVOKE`, `INVITE_JOIN`, `INVITE_REQUEST`,
+`INVITE_APPROVE` and `INVITE_DENY`, with the link code and the player's name in
+`metadata`. The audit log's **Invites** filter (`?scope=invites`) shows exactly
+who generated each link and who was added through it.
+
+### Client surfaces
+
+- `/join/:code` — public landing page; signed-out visitors are sent through
+  login/register with a sanitised `?redirect=` back to the invite.
+- **Invite people** in the server sidebar (managers) — create/copy/share/revoke
+  links, toggle approval, and work the pending-request queue.
+- The post composer and squad chat linkify pasted invite URLs.
 
 ---
 

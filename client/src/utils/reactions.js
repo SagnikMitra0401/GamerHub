@@ -6,7 +6,7 @@
  * unknown code sent by an old client is rejected, not rendered.
  */
 
-export const REACTIONS = Object.freeze([
+const REACTIONS = Object.freeze([
   { code: 'gg',     glyph: '🎮', label: 'GG' },
   { code: 'fire',   glyph: '🔥', label: 'Fire' },
   { code: 'heart',  glyph: '💜', label: 'Love' },

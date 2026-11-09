@@ -8,6 +8,7 @@ import MessageInput from '../components/communities/MessageInput';
 import CreateChannelModal from '../components/communities/CreateChannelModal';
 import RoleManagerModal from '../components/communities/RoleManagerModal';
 import ChannelSettingsModal from '../components/communities/ChannelSettingsModal';
+import InviteModal from '../components/communities/InviteModal';
 import AuditLogModal from '../components/communities/AuditLogModal';
 import CommunitySettingsModal from '../components/communities/CommunitySettingsModal';
 import CommunitySigil from '../components/communities/CommunitySigil';
@@ -55,6 +56,7 @@ const CommunityPage = () => {
   const [modal, setModal] = useState(null); // 'roles' | 'audit' | 'settings' | 'channel'
   const [channelToEdit, setChannelToEdit] = useState(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const [socketReady, setSocketReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // userId -> { status, activeGame } from live presence events
@@ -404,6 +406,7 @@ const CommunityPage = () => {
   const canViewAudit = hasCapability(permissions, CAP.VIEW_AUDIT_LOG);
   const canViewReports = hasCapability(permissions, CAP.VIEW_REPORTS);
   const canManageServer = hasCapability(permissions, CAP.MANAGE_SERVER);
+  const canInvite = hasCapability(permissions, CAP.ADD_MEMBERS);
   const isMember = !!callerRole;
 
   // Personal mutes hide content from this view only — the server still
@@ -489,6 +492,16 @@ const CommunityPage = () => {
           )
         )}
 
+        {isMember && canInvite && (
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ margin: '0.5rem 0.75rem', width: 'calc(100% - 1.5rem)' }}
+            onClick={() => setShowInvite(true)}
+          >
+            Invite people
+          </button>
+        )}
+
         {isMember && callerRole !== 'owner' && (
           <button
             className="btn btn-ghost btn-sm"
@@ -500,7 +513,7 @@ const CommunityPage = () => {
         )}
 
         <div className="community-section-label">
-          <span>TEXT CHANNELS</span>
+          <span>CHANNELS</span>
           {canManageChannel && (
             <button
               className="channel-add-btn"
@@ -788,12 +801,21 @@ const CommunityPage = () => {
         }}
       />
 
+      <InviteModal
+        isOpen={showInvite}
+        onClose={() => setShowInvite(false)}
+        community={community}
+        onNotice={setNotice}
+      />
+
       <CreateChannelModal
         isOpen={showCreateChannel}
         onClose={() => setShowCreateChannel(false)}
         communityId={community._id}
         onCreated={(channel) => {
-          setChannels(prev => [...prev, channel]);
+          // The socket broadcast usually arrives before the POST response, so
+          // append only when this channel is not already in the sidebar.
+          setChannels(prev => (prev.some(c => c._id === channel._id) ? prev : [...prev, channel]));
           setActiveChannelId(channel._id);
         }}
       />

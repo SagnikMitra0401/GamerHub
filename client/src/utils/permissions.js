@@ -32,7 +32,7 @@ export const CAP = Object.freeze({
   VIEW_REPORTS: 'VIEW_REPORTS'
 });
 
-export const ROLE_LEVELS = Object.freeze({ member: 0, moderator: 1, admin: 2, owner: 3 });
+const ROLE_LEVELS = Object.freeze({ member: 0, moderator: 1, admin: 2, owner: 3 });
 
 export const ROLE_LABELS = Object.freeze({
   owner: 'Owner',
@@ -48,7 +48,7 @@ export const ROLE_COLORS = Object.freeze({
   member: 'var(--text-muted)'
 });
 
-export const roleLevel = (role) => ROLE_LEVELS[role] ?? -1;
+const roleLevel = (role) => ROLE_LEVELS[role] ?? -1;
 
 export const roleAtLeast = (role, minRole) => {
   if (!minRole) return true;

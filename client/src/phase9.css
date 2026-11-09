@@ -738,17 +738,16 @@
 .settings-auth-row .settings-chip.is-good { color: #a7f3d0; }
 
 .google-link-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
+  flex: 0 1 320px;
+  width: min(320px, 100%);
   min-width: 0;
 }
 
-.google-link-slot {
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-}
+.google-link-wrap .gslider-wrap { margin-top: 0; }
+.google-link-wrap .gslider-track { height: 48px; }
+.google-link-wrap .gslider-thumb { width: 40px; height: 40px; }
+.google-link-wrap .gslider-label { padding: 0 48px; font-size: 0.72rem; }
+.google-link-wrap .gslider-track::after { right: 14px; }
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 1024px) {
@@ -811,6 +810,7 @@
   .settings-preview-kind { margin-bottom: 0.1rem; }
   .settings-actions { width: 100%; }
   .settings-actions .btn { flex: 1 1 auto; }
+  .google-link-wrap { flex: 1 1 100%; width: 100%; }
   .navbar-icon-btn { width: 38px; height: 38px; }
 }
 

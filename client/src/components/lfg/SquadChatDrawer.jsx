@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axiosInstance from '../../api/axiosInstance';
 import { getSocket } from '../../api/socket';
 import { CloseIcon, SendIcon, ClockIcon, LockIcon } from '../common/icons';
+import HashtagText from '../posts/HashtagText';
 
 const TTL_DAYS = 15;
 
@@ -212,7 +213,9 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
                         {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="squad-message-text">{message.text}</p>
+                    <p className="squad-message-text">
+                      <HashtagText text={message.text} hashtags={false} />
+                    </p>
                   </div>
                 </li>
               ))}

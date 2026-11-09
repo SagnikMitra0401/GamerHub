@@ -39,6 +39,7 @@ const Feed = () => {
   const [layout, setLayout]     = useState('list');   // 'list' | 'clips'
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [draftContent, setDraftContent] = useState('');
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(true);
   const [showPrefs, setShowPrefs] = useState(false);
@@ -54,8 +55,10 @@ const Feed = () => {
   useEffect(() => {
     if (searchParams.get('create') === '1') {
       setShowForm(true);
+      // An invite link's "Share in post" action prefills the opener.
+      setDraftContent(searchParams.get('draft') || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // clean up query param
+      // clean up query params
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -103,6 +106,7 @@ const Feed = () => {
     }
     setPosts(prev => [newPost, ...prev]);
     setShowForm(false);
+    setDraftContent('');
   };
 
   const handleDelete = id => setPosts(prev => prev.filter(p => p._id !== id));
@@ -171,8 +175,42 @@ const Feed = () => {
           </div>
         </div>
 
+        {sort === 'foryou' && user && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.6rem',
+              padding: '0.7rem 0.95rem',
+              marginBottom: '1rem',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(255, 255, 255, 0.02)',
+              fontSize: '0.8rem',
+              color: 'var(--text-muted)'
+            }}
+          >
+            <span>
+              Ranked by{' '}
+              <strong>{(user.preferences?.favoriteGames || []).length} favourite games</strong>,{' '}
+              <strong>{(user.preferences?.favoriteGenres || []).length} genres</strong> and{' '}
+              <strong>{(user.favoriteChannels || []).length} followed channels</strong>, then
+              likes, comments and recency. Each card names the interest that matched.
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
+              Edit interests
+            </button>
+          </div>
+        )}
+
         {showForm && (
-          <PostForm onSuccess={handlePostCreated} onCancel={() => setShowForm(false)} />
+          <PostForm
+            draftContent={draftContent}
+            onSuccess={handlePostCreated}
+            onCancel={() => { setShowForm(false); setDraftContent(''); }}
+          />
         )}
 
         {loading && page === 1 ? (

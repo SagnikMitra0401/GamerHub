@@ -98,6 +98,7 @@ test('tags are normalised, deduped and capped', () => {
   assert.equal(many.length, 10);
 
   assert.deepEqual(normalizeTags('A, b ,, c'), ['a', 'b', 'c']);
+  assert.deepEqual(normalizeTags('["Livestream", "co-op"]'), ['livestream', 'co-op']);
 });
 
 test('escapeRegex neutralises user input', () => {

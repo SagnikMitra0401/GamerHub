@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
 import PostForm from '../components/posts/PostForm';
@@ -7,6 +7,7 @@ import CommentForm from '../components/comments/CommentForm';
 import CommentThread from '../components/comments/CommentThread';
 import ConfirmModal from '../components/common/ConfirmModal';
 import LinkPreviewCard from '../components/posts/LinkPreviewCard';
+import HashtagText from '../components/posts/HashtagText';
 import PostActions from '../components/posts/PostActions';
 import { ArrowLeftIcon } from '../components/common/icons';
 import { PostDetailSkeleton } from '../components/common/Skeleton';
@@ -158,15 +159,19 @@ const PostDetail = () => {
             </div>
 
             {/* Title & Content */}
-            <h1 className="post-detail-title">{post.title}</h1>
+            <h1 className="post-detail-title"><HashtagText text={post.title} /></h1>
 
             {post.tags?.length > 0 && (
               <div className="post-tags">
-                {post.tags.map(tag => <span key={tag} className="tag">{tag}</span>)}
+                {post.tags.map(tag => (
+                  <Link key={tag} to={`/c/${encodeURIComponent(tag)}`} className="tag" title={`Browse #${tag}`}>
+                    #{tag}
+                  </Link>
+                ))}
               </div>
             )}
 
-            {post.content && <p className="post-detail-content">{post.content}</p>}
+            {post.content && <p className="post-detail-content"><HashtagText text={post.content} /></p>}
 
             {/* Media Rendering */}
             {post.mediaUrl && post.mediaType && post.mediaType !== 'none' && (

@@ -9,6 +9,9 @@ const ForumPost   = require('../models/ForumPost');
 const ForumReply  = require('../models/ForumReply');
 const Attachment  = require('../models/Attachment');
 const Report      = require('../models/Report');
+const CommunityInvite = require('../models/CommunityInvite');
+const CommunityJoinRequest = require('../models/CommunityJoinRequest');
+const { INVITE_AUDIT_SCOPE } = require('./inviteController');
 
 const { CHAT_POLICY } = require('../config/chatPolicy');
 const {
@@ -192,8 +195,10 @@ const getCommunityBySlug = async (req, res, next) => {
     // Private servers are invisible to non-members — including their owner
     // detection, which works on populated docs because resolveCommunityRole
     // unwraps `_id`.
+    // Private servers are indistinguishable from missing ones to outsiders,
+    // matching the 404 every subroute returns for a hidden server.
     if (community.isPrivate && !role) {
-      throw forbidden('This is a private community.');
+      throw notFound('Community not found.');
     }
 
     const allChannels = await Channel.find({ communityId: community._id })
@@ -537,6 +542,8 @@ const deleteCommunity = async (req, res, next) => {
     await ForumReply.deleteMany({ communityId: community._id });
     await Attachment.deleteMany({ communityId: community._id });
     await Report.deleteMany({ communityId: community._id });
+    await CommunityInvite.deleteMany({ communityId: community._id });
+    await CommunityJoinRequest.deleteMany({ communityId: community._id });
     await AuditLog.deleteMany({ communityId: community._id });
     await community.deleteOne();
 
@@ -787,6 +794,8 @@ const getChannelMessages = async (req, res, next) => {
     if (!community) throw notFound('Community not found.');
 
     const { role, permissions } = communityPermissions(community, req.user?._id);
+    // Never reveal a private server through one of its channels.
+    if (community.isPrivate && !role) throw notFound('Community not found.');
     if (!permissions.includes(CAP.VIEW_CHANNEL) || !roleAtLeast(role, channel.minRoleToRead)) {
       throw forbidden('You do not have permission to read this channel.');
     }
@@ -851,6 +860,11 @@ const getAuditLog = async (req, res, next) => {
     });
 
     const query = { communityId: community._id };
+    // "Invites" in the audit UI: who made links, who joined through them and
+    // who asked to join an approval-gated one.
+    if (req.query.scope === 'invites') {
+      query.actionType = { $in: INVITE_AUDIT_SCOPE };
+    }
     if (req.query.before) {
       if (!mongoose.Types.ObjectId.isValid(String(req.query.before))) {
         throw badRequest('Invalid cursor');

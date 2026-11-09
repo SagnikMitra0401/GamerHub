@@ -12,6 +12,7 @@ import ProfilePage from './pages/ProfilePage';
 import ChannelPage from './pages/ChannelPage';
 import CommunitiesHome from './pages/CommunitiesHome';
 import CommunityPage from './pages/CommunityPage';
+import JoinInvite from './pages/JoinInvite';
 import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
 import AdminDashboard from './pages/AdminDashboard';
@@ -24,6 +25,7 @@ import TermsOfService from './pages/TermsOfService';
 import './index.css';
 import './phase10.css';
 import './phase11.css';
+import './phase13.css';
 
 /**
  * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
@@ -86,6 +88,7 @@ function App() {
           <Route path="/c/:tag"                 element={<ChannelPage />} />
           <Route path="/communities"            element={<CommunitiesHome />} />
           <Route path="/communities/:slug"      element={<CommunityPage />} />
+          <Route path="/join/:code"             element={<JoinInvite />} />
           <Route path="/lfg"                    element={<LfgPage />} />
           <Route path="/games"                  element={<GameCatalog />} />
           <Route path="/admin"                  element={<AdminDashboard />} />

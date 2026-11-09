@@ -1,9 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
+import { useAuth } from '../../context/AuthContext';
 import { AlertIcon, CloseIcon, MailIcon } from '../common/icons';
 
-const MAX = 300;
+const INTENTS = [
+  { value: 'collab', label: 'Collaboration' },
+  { value: 'sponsorship', label: 'Sponsorship' },
+  { value: 'support', label: 'Support' },
+  { value: 'press', label: 'Press' },
+  { value: 'partnership', label: 'Partnership' },
+  { value: 'other', label: 'Other' }
+];
+
+const BUDGETS = [
+  { value: '', label: 'Not specified' },
+  { value: 'under_500', label: 'Under $500' },
+  { value: '500_2000', label: '$500 - $2,000' },
+  { value: '2000_plus', label: '$2,000+' }
+];
 
 /**
  * First contact from a profile. The server decides whether this becomes a
@@ -11,8 +26,16 @@ const MAX = 300;
  */
 const MessageRequestModal = ({ open, profile, onClose }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const textareaRef = useRef(null);
+  const isBusinessSender = user?.profileType === 'creator_business';
+  const maxLength = isBusinessSender ? 600 : 300;
   const [text, setText] = useState('');
+  const [intent, setIntent] = useState('collab');
+  const [company, setCompany] = useState('');
+  const [website, setWebsite] = useState('');
+  const [budgetBand, setBudgetBand] = useState('');
+  const [timeline, setTimeline] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState(null);
@@ -20,6 +43,11 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
   useEffect(() => {
     if (!open) return undefined;
     setText('');
+    setIntent('collab');
+    setCompany('');
+    setWebsite('');
+    setBudgetBand('');
+    setTimeline('');
     setError('');
     setSent(null);
     const timer = window.setTimeout(() => textareaRef.current?.focus(), 30);
@@ -41,8 +69,11 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
   if (!open || !profile) return null;
 
   const mode = profile.dm?.mode || 'request';
-  const allowed = profile.dm?.allowed !== false && mode !== 'none';
-  const remaining = MAX - text.length;
+  const paused = mode === 'paused' || profile.dm?.availability === 'paused';
+  const away = profile.dm?.availability === 'away';
+  const allowed = !paused && profile.dm?.allowed !== false && mode !== 'none';
+  const remaining = maxLength - text.length;
+  const businessReady = !isBusinessSender || Boolean(intent && company.trim());
 
   const send = async (event) => {
     event.preventDefault();
@@ -53,7 +84,16 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
       const { data } = await axiosInstance.post('/messages/requests', {
         recipientId: profile._id,
         text,
-        context: { type: 'profile' }
+        context: { type: 'profile' },
+        ...(isBusinessSender
+          ? {
+              intent,
+              company: company.trim(),
+              website: website.trim(),
+              budgetBand: budgetBand || null,
+              timeline: timeline.trim()
+            }
+          : {})
       });
       if (data?.direct) {
         navigate(`/messages?thread=${data.conversation._id}`);
@@ -109,10 +149,87 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                 ? 'This player accepts requests from verified accounts.'
                 : 'This player only accepts messages from verified accounts.')}
               {mode === 'none' && 'This player is not accepting messages.'}
+              {paused && 'This player has paused new messages. Existing conversations are unaffected.'}
             </p>
+
+            {away && profile.dm?.awayMessage && (
+              <p className="dm-modal-away">{profile.dm.awayMessage}</p>
+            )}
 
             {allowed ? (
               <>
+                {isBusinessSender && (
+                  <div className="dm-biz-fields">
+                    <div className="dm-biz-fields-head">
+                      <span className="business-badge">Business</span>
+                      <span>Your verified business brief is shown before the message.</span>
+                    </div>
+                    <div className="dm-biz-fields-grid">
+                      <label className="form-group" htmlFor="dm-business-intent">
+                        <span className="form-label">Intent</span>
+                        <select
+                          id="dm-business-intent"
+                          className="form-input"
+                          value={intent}
+                          onChange={(event) => setIntent(event.target.value)}
+                        >
+                          {INTENTS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="form-group" htmlFor="dm-business-company">
+                        <span className="form-label">Company or brand</span>
+                        <input
+                          id="dm-business-company"
+                          className="form-input"
+                          value={company}
+                          onChange={(event) => setCompany(event.target.value.slice(0, 80))}
+                          placeholder="Studio name"
+                          maxLength={80}
+                          required
+                        />
+                      </label>
+                      <label className="form-group" htmlFor="dm-business-budget">
+                        <span className="form-label">Budget</span>
+                        <select
+                          id="dm-business-budget"
+                          className="form-input"
+                          value={budgetBand}
+                          onChange={(event) => setBudgetBand(event.target.value)}
+                        >
+                          {BUDGETS.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="form-group" htmlFor="dm-business-timeline">
+                        <span className="form-label">Timeline</span>
+                        <input
+                          id="dm-business-timeline"
+                          className="form-input"
+                          value={timeline}
+                          onChange={(event) => setTimeline(event.target.value.slice(0, 40))}
+                          placeholder="Next month"
+                          maxLength={40}
+                        />
+                      </label>
+                    </div>
+                    <label className="form-group" htmlFor="dm-business-website">
+                      <span className="form-label">Website (optional)</span>
+                      <input
+                        id="dm-business-website"
+                        className="form-input"
+                        value={website}
+                        onChange={(event) => setWebsite(event.target.value)}
+                        placeholder="https://studio.example"
+                        maxLength={200}
+                      />
+                      <span className="settings-help">If supplied, it must match your verified domain.</span>
+                    </label>
+                  </div>
+                )}
+
                 <label className="form-group" htmlFor="dm-first-message">
                   <span className="form-label">First message</span>
                   <textarea
@@ -120,15 +237,21 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                     ref={textareaRef}
                     className="form-input dm-modal-textarea"
                     value={text}
-                    onChange={(event) => setText(event.target.value.slice(0, MAX))}
-                    placeholder="Say what you play, or why you are reaching out. Keep it short."
+                    onChange={(event) => setText(event.target.value.slice(0, maxLength))}
+                    placeholder={isBusinessSender
+                      ? 'Give the creator the short version of the brief.'
+                      : 'Say what you play, or why you are reaching out. Keep it short.'}
                     rows={4}
-                    maxLength={MAX}
+                    maxLength={maxLength}
                     required
                   />
                 </label>
                 <div className="dm-modal-meta">
-                  <span>No links, media or read receipts. Requests expire in 14 days.</span>
+                  <span>
+                    {isBusinessSender
+                      ? 'No links in the message. Requests expire in 14 days.'
+                      : 'No links, media or read receipts. Requests expire in 14 days.'}
+                  </span>
                   <span className={remaining < 30 ? 'is-low' : ''}>{remaining} left</span>
                 </div>
                 {error && (
@@ -137,7 +260,7 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                   </p>
                 )}
                 <div className="dm-modal-actions">
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={sending || !text.trim()}>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={sending || !text.trim() || !businessReady}>
                     {sending ? 'Sending…' : 'Send request'}
                   </button>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>

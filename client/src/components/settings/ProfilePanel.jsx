@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
 import EditPassportModal from '../profile/EditPassportModal';
 import { PencilIcon, AlertIcon } from '../common/icons';
 

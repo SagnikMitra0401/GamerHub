@@ -48,6 +48,14 @@ export const MailIcon = props => (
   </Svg>
 );
 
+export const BriefcaseIcon = props => (
+  <Svg {...props}>
+    <rect x="3.2" y="7.2" width="17.6" height="12.6" rx="2.2" />
+    <path d="M8.8 7.2V5.6a1.8 1.8 0 0 1 1.8-1.8h2.8a1.8 1.8 0 0 1 1.8 1.8v1.6" />
+    <path d="M3.2 12.2h17.6M10.2 12.2v2.2h3.6v-2.2" />
+  </Svg>
+);
+
 export const SparklesIcon = props => (
   <Svg {...props}>
     <path d="M11.5 3.2l1.6 4.2 4.2 1.6-4.2 1.6-1.6 4.2-1.6-4.2L5.7 9l4.2-1.6 1.6-4.2z" />
@@ -190,33 +198,11 @@ export const MicIcon = props => (
   </Svg>
 );
 
-export const TrophyIcon = props => (
-  <Svg {...props}>
-    <path d="M8.2 4.4h7.6v4.4a3.8 3.8 0 0 1-7.6 0V4.4z" />
-    <path d="M8.2 6H5.4v1.6a3 3 0 0 0 3 3M15.8 6h2.8v1.6a3 3 0 0 1-3 3" />
-    <path d="M12 12.8v3.4M8.6 20h6.8l-.8-3.8H9.4L8.6 20z" />
-  </Svg>
-);
-
-export const BellIcon = props => (
-  <Svg {...props}>
-    <path d="M6.4 10.2a5.6 5.6 0 0 1 11.2 0c0 4 1.4 5.3 1.4 5.3H5s1.4-1.3 1.4-5.3z" />
-    <path d="M10.2 18.7a2 2 0 0 0 3.6 0" />
-  </Svg>
-);
-
 export const LinkIcon = props => (
   <Svg {...props}>
     <path d="M9.6 14.4 14.4 9.6" />
     <path d="M11.3 7.4l1.5-1.5a3.9 3.9 0 0 1 5.5 5.5l-1.5 1.5" />
     <path d="M12.7 16.6 11.2 18a3.9 3.9 0 0 1-5.5-5.5l1.5-1.5" />
-  </Svg>
-);
-
-export const CopyIcon = props => (
-  <Svg {...props}>
-    <rect x="9" y="9" width="10.6" height="10.6" rx="2" />
-    <path d="M15 6.4V5.8a1.8 1.8 0 0 0-1.8-1.8H5.8A1.8 1.8 0 0 0 4 5.8v7.4A1.8 1.8 0 0 0 5.8 15h.6" />
   </Svg>
 );
 

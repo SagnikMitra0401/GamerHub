@@ -1,18 +1,21 @@
 import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import RegisterForm from '../components/auth/RegisterForm';
 import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 import { useAuth } from '../context/AuthContext';
+import { safeRedirect, withRedirect } from '../utils/redirect';
 
 const Register = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirect = safeRedirect(location.search);
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/', { replace: true });
+      navigate(redirect, { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, redirect]);
 
   return (
     <div className="auth-page">
@@ -22,7 +25,7 @@ const Register = () => {
         <RegisterForm />
         <GoogleSignInButton />
         <p className="auth-footer">
-          Already a member? <Link to="/login">Sign in</Link>
+          Already a member? <Link to={withRedirect('/login', location.search)}>Sign in</Link>
         </p>
       </div>
     </div>

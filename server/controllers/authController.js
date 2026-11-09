@@ -309,7 +309,9 @@ const getMe = async (req, res, next) => {
  *
  * Link a Google identity to the signed-in local account. Deliberately strict:
  * the Google email must match the account email (no silent mixing of two
- * identities), and a subject already linked elsewhere is refused.
+ * identities), and a subject already linked elsewhere is refused. The settings
+ * slide control uses the same OAuth token flow as sign-in, so both credential
+ * shapes are verified under the same audience and email checks.
  */
 const linkGoogle = async (req, res, next) => {
   try {
@@ -319,8 +321,11 @@ const linkGoogle = async (req, res, next) => {
     }
 
     const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
-    if (!credential) return res.status(400).json({ message: 'Missing Google credential' });
-    if (credential.length > 8000) return res.status(400).json({ message: 'Invalid Google credential' });
+    const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
+    if (!credential && !accessToken) return res.status(400).json({ message: 'Missing Google credential' });
+    if (credential.length > 8000 || accessToken.length > 2000) {
+      return res.status(400).json({ message: 'Invalid Google credential' });
+    }
 
     let OAuth2Client;
     try {
@@ -330,21 +335,44 @@ const linkGoogle = async (req, res, next) => {
     }
 
     const client = new OAuth2Client(clientId);
-    let payload;
-    try {
-      const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
-      payload = ticket.getPayload();
-    } catch {
-      return res.status(401).json({ message: 'Google credential could not be verified' });
+    let subject;
+    let email;
+
+    if (credential) {
+      let payload;
+      try {
+        const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+        payload = ticket.getPayload();
+      } catch {
+        return res.status(401).json({ message: 'Google credential could not be verified' });
+      }
+
+      subject = payload?.sub;
+      email = sanitizeLine(payload?.email, 254).toLowerCase();
+      if (payload?.email_verified === false) {
+        return res.status(403).json({ message: 'That Google account has no verified email.' });
+      }
+    } else {
+      let tokenInfo;
+      try {
+        tokenInfo = await client.getTokenInfo(accessToken);
+      } catch {
+        return res.status(401).json({ message: 'Google credential could not be verified' });
+      }
+
+      if (tokenInfo.aud && tokenInfo.aud !== clientId && tokenInfo.issued_to !== clientId) {
+        return res.status(401).json({ message: 'Google token audience mismatch' });
+      }
+
+      subject = tokenInfo.sub || tokenInfo.user_id;
+      email = sanitizeLine(tokenInfo.email, 254).toLowerCase();
+      if (tokenInfo.email_verified === false || tokenInfo.verified_email === false) {
+        return res.status(403).json({ message: 'That Google account has no verified email.' });
+      }
     }
 
-    const subject = payload?.sub;
-    const email = sanitizeLine(payload?.email, 254).toLowerCase();
     if (!subject || !email) {
       return res.status(401).json({ message: 'Google credential could not be verified' });
-    }
-    if (payload?.email_verified === false) {
-      return res.status(403).json({ message: 'That Google account has no verified email.' });
     }
     if (email !== String(req.user.email).toLowerCase()) {
       return res.status(409).json({

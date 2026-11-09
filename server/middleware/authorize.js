@@ -1,4 +1,4 @@
-const { isPlatformAdmin, isAppStaff } = require('../utils/permissions');
+const { isPlatformAdmin } = require('../utils/permissions');
 
 /**
  * Platform-level gates. These use the APPLICATION role (user/moderator/admin),
@@ -15,12 +15,4 @@ const requirePlatformAdmin = (req, res, next) => {
   return next();
 };
 
-const requireAppStaff = (req, res, next) => {
-  if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
-  if (!isAppStaff(req.user)) {
-    return res.status(403).json({ message: 'Moderator access required.' });
-  }
-  return next();
-};
-
-module.exports = { requirePlatformAdmin, requireAppStaff };
+module.exports = { requirePlatformAdmin };

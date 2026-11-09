@@ -24,9 +24,6 @@ const { createSlidingWindowLimiter } = require('../utils/rateLimiter');
 
 const reactionLimiter = createSlidingWindowLimiter({ windowMs: 10_000, max: 40 });
 
-/** Reset the in-memory reaction budget (tests). */
-const resetReactionLimiter = () => reactionLimiter.reset();
-
 // ─── POST /api/communities/channels/:channelId/messages/:messageId/react ────
 const toggleReaction = async (req, res, next) => {
   try {
@@ -260,6 +257,5 @@ module.exports = {
   toggleReaction,
   togglePin,
   getPinnedMessages,
-  searchMessages,
-  resetReactionLimiter
+  searchMessages
 };

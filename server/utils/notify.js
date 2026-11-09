@@ -39,7 +39,8 @@ async function notifyUser({
   actionUrl = null,
   mediaThumbnail = null,
   metadata = {},
-  dedupeKey
+  dedupeKey,
+  silent = false
 }) {
   try {
     if (!userId) return null;
@@ -67,10 +68,12 @@ async function notifyUser({
 
     const notification = await Notification.create(doc);
 
-    getIO()?.to(`user:${String(userId)}`).emit('notification', {
-      ...notification.toObject(),
-      unread: true
-    });
+    if (!silent) {
+      getIO()?.to(`user:${String(userId)}`).emit('notification', {
+        ...notification.toObject(),
+        unread: true
+      });
+    }
 
     return notification;
   } catch (err) {

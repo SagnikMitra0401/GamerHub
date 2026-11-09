@@ -357,6 +357,11 @@ const LfgPage = () => {
     load(filters);
   };
 
+  // A squad you lead or play in already has its own card above; showing it
+  // again under "Open squads" made the board look like it had duplicates.
+  const mineIds = new Set(mine.map(party => String(party._id)));
+  const openParties = parties.filter(party => !mineIds.has(String(party._id)));
+
   return (
     <main className="page" ref={glowRef}>
       <div className="container">
@@ -430,14 +435,14 @@ const LfgPage = () => {
           <h2 className="section-heading">Open squads</h2>
           {loading ? (
             <LfgSkeleton />
-          ) : parties.length === 0 ? (
+          ) : openParties.length === 0 ? (
             <div className="post-list-empty">
-              <h3>No squads recruiting</h3>
-              <p>Be the first to post one — it takes ten seconds.</p>
+              <h3>No other squads recruiting</h3>
+              <p>{mine.length ? 'Your squads are above — create another to fill more slots.' : 'Be the first to post one — it takes ten seconds.'}</p>
             </div>
           ) : (
             <div className="lfg-grid">
-              {parties.map(party => (
+              {openParties.map(party => (
                 <PartyCard
                   key={party._id}
                   party={party}

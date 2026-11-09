@@ -297,6 +297,12 @@
   white-space: pre-wrap;
 }
 
+/* A pasted invite URL is one unbroken token; let it wrap inside the bubble. */
+.squad-message-text a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .squad-composer {
   display: flex;
   align-items: flex-end;

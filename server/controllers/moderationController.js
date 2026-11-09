@@ -31,7 +31,6 @@ const { REPORT_REASONS, REPORT_TARGETS } = require('../models/Report');
 
 /** Report bombing guard: per reporter, per community, per hour. */
 const reportLimiter = createSlidingWindowLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
-const resetReportLimiter = () => reportLimiter.reset();
 
 /** Client picks a duration; the server owns the allowed set. */
 const TIMEOUT_DURATIONS_MINUTES = Object.freeze([5, 10, 60, 1440]);
@@ -506,6 +505,5 @@ module.exports = {
   listBans,
   toggleMute,
   getMutedUsers,
-  resetReportLimiter,
   TIMEOUT_DURATIONS_MINUTES
 };

@@ -81,7 +81,7 @@ async function scenarios(ctx) {
   const feed = await api('/api/posts?limit=1');
   check('anonymous feed is 200', () => assert.equal(feed.status, 200));
   check('feed author projection is minimal', () =>
-    assert.deepEqual(Object.keys(feed.data[0].userId).sort(), ['_id', 'level', 'role', 'username']));
+    assert.deepEqual(Object.keys(feed.data[0].userId).sort(), ['_id', 'level', 'profileType', 'role', 'username']));
   check('feed never leaks email or passwordHash', () => {
     const blob = JSON.stringify(feed.data);
     assert.equal(blob.includes('passwordHash'), false);

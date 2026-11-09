@@ -1,14 +1,22 @@
 # GamerHub — Private Messaging & Business Accounts
 
-**Status:** Phase A (consent core) implemented 6 Nov 2026; business accounts and paid priority remain proposal · **Date:** 6 November 2026
+**Status:** Phases A–C and the creator follow-ups implemented 6–7 Nov 2026; paid priority remains proposal · **Date:** 7 November 2026
 **Scope:** 1:1 private threads, creator/stranger boundaries, business accounts
 **Audience:** product owner + implementer
 
-> **Implementation status (6 Nov 2026):** Phase A is live in the tree — the
-> request/accept protocol, six-row consent matrix, quotas and cooldowns, reports
-> and blocks, socket rooms, retention/erasure hooks, inbox UI and settings
-> matrix. The filtered lane, business-account mode, verification and paid
-> priority are still proposal work; do not read §6–§9 as shipped behaviour.
+> **Implementation status (7 Nov 2026):** Phase A is live — request/accept,
+> six-row consent matrix, quotas/cooldowns, reports/blocks, socket rooms,
+> retention/erasure and the inbox. Phase B core adds the Filtered lane with
+> hidden words, silent campaign/reputation filtering, owner-scoped labels, quick
+> replies, pause/away controls and an audited admin report queue. Phase C core
+> adds business profiles and disclosure, DNS/manual admin verification with an
+> audit, structured 600-character briefs, verified-only cold outreach,
+> personal/business inbox scoping, owner analytics, a three-report outreach
+> pause and an admin recovery path. The creator follow-ups now ship too: saved
+> inbox views, quiet hours, scheduled daily/weekly digests, rate-limit telemetry,
+> away auto-replies, automatic DNS verification and a consent-based team inbox
+> with viewer/agent roles. Still proposal: paid priority; do not read §8–§9 as
+> shipped behaviour.
 
 ---
 
@@ -227,14 +235,16 @@ decision in the consent engine, so a badge can never grant access.
 
 - One login, one handle, one follower graph. Upgrading does not create a second account and
   does not lose posts, followers or server memberships.
-- The account is labelled **Business** beside the handle everywhere (feed, profile,
-  requests, threads). The label is disclosure, not endorsement.
+- The account is labelled **Business** beside the handle on the profile, feed posts, request
+  rows and threads. The label is disclosure, not endorsement.
 - **Verification is separate.** A business can be self-declared (label only) or verified
-  (domain email or DNS TXT plus review, with a manual path for known brands). The verified
-  badge is never self-serve.
-- **Privacy separation:** personal threads live in a *Personal* folder that a future team
-  inbox cannot see. Business threads live in the business inbox. The two datasets are never
-  merged in an export, an analytics view or a team member's screen.
+  through a DNS TXT token or a manual review path. The verified badge is never self-serve.
+  A matching TXT record verifies automatically; manual review remains available when DNS
+  is impractical.
+- **Privacy separation:** the inbox has All / Personal / Business scopes, and business
+  threads are never merged into the personal lane. A team inbox is consent-based: the
+  owner invites an exact handle, the invitee accepts, viewers read and agents reply; only
+  `businessThread` conversations are ever queried.
 - A linked second profile (Instagram-style multi-account) is deliberately deferred; it
   doubles the auth, block and erasure surface for a benefit that a badge plus a display name
   already delivers.
@@ -260,8 +270,8 @@ Instead of free text, a business request is a brief:
 The recipient sees a card, not a wall of text. This is better for the creator (triage in
 seconds) and better for the business (higher acceptance because the intent is legible).
 
-**Triage tools:** labels, quick replies, away mode, analytics (requests, acceptance rate,
-median response time), and later a team inbox with roles.
+**Triage tools:** labels, quick replies, away mode, analytics (sent requests, acceptance
+rate, active business threads), and a consent-based team inbox with viewer/agent roles.
 
 **Guardrails**
 
@@ -530,25 +540,35 @@ both sides; an erased account leaves tombstones.
 
 ### Phase B — Creator scale (3–4 days)
 
-- Filters (verified, business, creator, follower band, shared server, has link).
-- Labels, quick replies, away mode, digest, quiet hours.
-- Sender reputation v1 and the identical-text campaign detector.
-- Hidden words and a real Filtered lane.
-- Admin report resolution with audit and rate-limit telemetry.
+**Delivered 7 Nov:** hidden words and a real Filtered lane; owner-scoped labels;
+quick replies; pause/away controls; sender reputation v1 and the identical-text
+campaign detector; admin report resolution with a platform audit row; saved
+inbox views; timezone-aware quiet hours; scheduled daily/weekly digests;
+rate-limit telemetry; and once-per-day away auto-replies.
+
+**Still open:** none in the Phase B scope.
 
 **Exit criteria:** a creator can clear 50 requests in a few minutes with labels and quick
 replies, and can pause the inbox without losing the account.
 
 ### Phase C — Business accounts (4–5 days)
 
-- Business profile, disclosure label, upgrade/downgrade flow.
-- Verification (domain email/DNS + manual review), badge, audit.
-- Structured intent form, business inbox tools, analytics, complaint-rate throttle.
-- Personal vs business folder separation.
+**Delivered 7 Nov:** business profile and disclosure, one-account upgrade/downgrade,
+DNS-token or manual admin verification with an audit row, structured briefs (intent,
+company, website, budget band, timeline, 600-character message), verified-only cold
+outreach, recipient policy for the separate `business` row, public business card,
+owner analytics, personal/business inbox scoping, a three-open-report outreach pause,
+an admin path to clear the pause, and a consent-based team inbox. Team invitations
+require acceptance; viewers are read-only, agents can reply and answer requests, and
+only business threads are exposed to the shared workspace.
+
+**Still open:** richer review notes/evidence in the admin queue. Automatic DNS lookup
+and the team inbox are implemented.
 
 **Exit criteria:** a business cannot cold-contact anyone without verification; a recipient
 sees the label, the intent and the verified domain before accepting; personal threads are not
-visible to a business team view.
+mixed into the business scope or a team workspace; a removed teammate loses access
+immediately.
 
 ### Phase D — Paid priority (3–5 days, optional)
 

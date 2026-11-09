@@ -11,6 +11,7 @@ const MAX_ROUTES = 60;
 
 const startedAt = Date.now();
 const routes = new Map();
+const rateLimits = new Map();
 const latencies = [];
 let totalRequests = 0;
 let serverErrors = 0;
@@ -41,6 +42,11 @@ function record(method, path, statusCode, durationMs) {
 
   latencies.push(durationMs);
   if (latencies.length > MAX_LATENCY_SAMPLES) latencies.shift();
+}
+
+function recordRateLimit(name = 'rate-limit') {
+  const key = String(name).slice(0, 60);
+  rateLimits.set(key, (rateLimits.get(key) || 0) + 1);
 }
 
 function metricsMiddleware(req, res, next) {
@@ -81,16 +87,26 @@ function snapshot() {
     avgLatencyMs: sorted.length ? Math.round((sum / sorted.length) * 100) / 100 : 0,
     p95LatencyMs: Math.round(percentile(sorted, 95) * 100) / 100,
     samples: sorted.length,
-    topRoutes
+    topRoutes,
+    rateLimits: [...rateLimits.entries()]
+      .map(([name, hits]) => ({ name, hits }))
+      .sort((a, b) => b.hits - a.hits)
   };
 }
 
 /** Test helper. */
 function resetMetrics() {
   routes.clear();
+  rateLimits.clear();
   latencies.length = 0;
   totalRequests = 0;
   serverErrors = 0;
 }
 
-module.exports = { metricsMiddleware, snapshot, resetMetrics, normalizePath };
+module.exports = {
+  metricsMiddleware,
+  snapshot,
+  resetMetrics,
+  normalizePath,
+  recordRateLimit
+};

@@ -127,22 +127,92 @@ function sanitizeLinkPreview(payload) {
   };
 }
 
-/** Normalise a list of post tags. */
+/**
+ * Hashtag-style tags, the way Instagram treats them:
+ *   - a tag is `#` + letters/numbers/underscores, so it never contains spaces
+ *   - case is not significant: #EldenRing and #eldenring are one tag
+ *   - a post carries at most 10 tags, each at most 24 characters
+ *   - the stored value never includes the leading `#`
+ */
+const TAG_MAX_LENGTH = 24;
+const MAX_TAGS = 10;
+
+const URL_PATTERN = /\bhttps?:\/\/\S+/gi;
+const HASHTAG_PATTERN = /(^|[^\p{L}\p{N}_#])#([\p{L}\p{N}_][\p{L}\p{N}_-]{0,23})/gu;
+
+/** Case- and separator-insensitive identity: "Battle Royale" === "#battleroyale". */
+function tagKey(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/^#+/, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+/** Canonical stored form of one tag: lowercase, no `#`, spaces kept between words. */
+function cleanTag(value) {
+  return sanitizeLine(String(value ?? ''), TAG_MAX_LENGTH)
+    .toLowerCase()
+    .replace(/^#+/, '')
+    .replace(/[^\p{L}\p{N}_ -]/gu, '')
+    .replace(/[\s_]+/g, ' ')
+    .trim()
+    .slice(0, TAG_MAX_LENGTH)
+    .trim();
+}
+
+/** Every inline #tag in the supplied text blocks (URLs are ignored). */
+function extractHashtags(...texts) {
+  const found = [];
+  for (const raw of texts) {
+    if (typeof raw !== 'string' || !raw) continue;
+    const text = raw.replace(URL_PATTERN, ' ');
+    for (const match of text.matchAll(HASHTAG_PATTERN)) {
+      const tag = cleanTag(match[2]);
+      if (tag) found.push(tag);
+    }
+  }
+  return found;
+}
+
+/** Normalise a list of post tags (input may already contain inline #tags). */
 function normalizeTags(input) {
-  const list = Array.isArray(input)
-    ? input
-    : typeof input === 'string'
-      ? input.split(',')
+  let source = input;
+
+  // Multipart post creation sends the array as a JSON string because FormData
+  // has no array field. Accept that form as well as a plain comma list.
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) source = parsed;
+      } catch {
+        // Not JSON: keep the comma-separated fallback.
+      }
+    }
+  }
+
+  const list = Array.isArray(source)
+    ? source
+    : typeof source === 'string'
+      ? source.split(',')
       : [];
 
   const seen = new Set();
   const tags = [];
   for (const raw of list) {
-    const tag = sanitizeLine(String(raw ?? ''), 24).toLowerCase().replace(/^#/, '');
-    if (!tag || seen.has(tag)) continue;
-    seen.add(tag);
-    tags.push(tag);
-    if (tags.length >= 10) break;
+    // A single input entry may itself be a sentence with several hashtags;
+    // when it is, only the hashtags are tags — never the surrounding words.
+    const inline = typeof raw === 'string' && raw.includes('#') ? extractHashtags(raw) : [];
+    const candidates = inline.length ? inline : [raw];
+    for (const candidate of candidates) {
+      const tag = cleanTag(candidate);
+      const key = tagKey(tag);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      tags.push(tag);
+      if (tags.length >= MAX_TAGS) return tags;
+    }
   }
   return tags;
 }
@@ -155,5 +225,8 @@ module.exports = {
   escapeRegex,
   isHttpUrl,
   sanitizeLinkPreview,
-  normalizeTags
+  normalizeTags,
+  extractHashtags,
+  tagKey,
+  cleanTag
 };

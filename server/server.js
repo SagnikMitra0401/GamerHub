@@ -5,6 +5,7 @@ const connectDB  = require('./config/db');
 const { initSocket } = require('./config/socket');
 const { startRetentionWorker } = require('./jobs/retention');
 const { startLikeFlushWorker } = require('./utils/likeBuffer');
+const { startDmDigestWorker } = require('./jobs/dmDigest');
 
 /**
  * Port from the environment, or 5000.
@@ -33,6 +34,7 @@ async function start() {
   startRetentionWorker();
   // No-op without Upstash env vars: toggles write straight to MongoDB then.
   startLikeFlushWorker();
+  startDmDigestWorker();
 
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);

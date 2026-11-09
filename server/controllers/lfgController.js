@@ -10,7 +10,6 @@ const {
   removeMemberFromChat,
   toChatView
 } = require('../utils/squadChatService');
-const { msRemaining } = require('../utils/squadLifecycle');
 const { notifyUser } = require('../utils/notify');
 const {
   openSlots,
