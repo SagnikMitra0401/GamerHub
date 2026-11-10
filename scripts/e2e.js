@@ -143,7 +143,9 @@ async function scenarios(ctx) {
   check('owner can make server private', () => assert.equal(madePrivate.status, 200));
 
   const outsiderView = await api(`/api/communities/${slug}`, { cookie: bob.cookie });
-  check('non-member cannot view private server', () => assert.equal(outsiderView.status, 403));
+  // A private server is indistinguishable from a missing one: a 403 would
+  // confirm that the slug exists.
+  check('non-member gets 404 for private server', () => assert.equal(outsiderView.status, 404));
 
   const ownerView = await api(`/api/communities/${slug}`, { cookie: alice.cookie });
   check('owner can still view private server', () => assert.equal(ownerView.status, 200));
@@ -248,7 +250,9 @@ async function scenarios(ctx) {
   check('admin kicks a member', () => assert.equal(kickCarol.status, 200));
 
   const carolAfterKick = await api(`/api/communities/${slug}`, { cookie: carol.cookie });
-  check('kicked member loses access', () => assert.equal(carolAfterKick.status, 403));
+  // Kicked from a private server, she is an outsider and gets the same 404 as
+  // someone guessing the slug.
+  check('kicked member loses access', () => assert.equal(carolAfterKick.status, 404));
 
   console.log('\n[channels]');
   const channel = await api(`/api/communities/${serverId}/channels`, {

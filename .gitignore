@@ -8,10 +8,10 @@ client/dist/
 dist/
 
 # Environment variables. The template (.env.example) stays tracked — README
-# tells people to copy it; only real values are ignored.
+# tells people to copy it; every other .env file is ignored.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
 # Local credentials notes — never commit
 ADMIN_CREDENTIALS.txt

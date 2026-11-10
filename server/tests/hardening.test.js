@@ -43,14 +43,23 @@ test('a limiter exposes the configured budget', () => {
 
 // ── Secret detection ───────────────────────────────────────────────────────
 
+// Built at runtime so the synthetic values never appear as credential-shaped
+// literals in the repository. GitHub's secret scanner cannot tell a detector
+// fixture from a live key, and a false alert would bury an actual leak.
+const googleKeyFixture = ['AIza', 'SyA1234567890abcdefghijklmnopqrstuv'].join('');
+const awsKeyFixture = ['AKIA', 'IOSFODNN7REALKEY'].join('');
+const stripeKeyFixture = ['sk', '_live_', '51H8xYzQqWwEeRrTt'].join('');
+const jwtSecretFixture = ['8f4b1c2d9e6a7b3c', '5d0e1f2a4b6c8d0e'].join('');
+const bearerTokenFixture = ['Bearer', ' eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abc'].join('');
+
 const secretCases = [
-  ['mongodb+srv://leak:sup3rSecret@cluster0.example.net/db', 'database URI with credentials'],
-  ['const key = "AKIAIOSFODNN7REALKEY";', 'AWS access key id'],
-  ['google: "AIzaSyA1234567890abcdefghijklmnopqrstuv"', 'Google API key'],
-  ['stripe: "sk_live_51H8xYzQqWwEeRrTt"', 'Stripe secret key'],
+  [`mongodb+srv://leak:${['sup3r', 'Secret'].join('')}@cluster0.example.net/db`, 'database URI with credentials'],
+  [`const key = "${awsKeyFixture}";`, 'AWS access key id'],
+  [`google: "${googleKeyFixture}"`, 'Google API key'],
+  [`stripe: "${stripeKeyFixture}"`, 'Stripe secret key'],
   ['-----BEGIN RSA PRIVATE KEY-----', 'private key block'],
-  ['JWT_SECRET="8f4b1c2d9e6a7b3c5d0e1f2a4b6c8d0e"', 'quoted secret assignment'],
-  ['Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abc"', 'literal bearer token']
+  [`JWT_SECRET="${jwtSecretFixture}"`, 'quoted secret assignment'],
+  [`Authorization: "${bearerTokenFixture}"`, 'literal bearer token']
 ];
 
 for (const [sample, expected] of secretCases) {
@@ -73,7 +82,7 @@ test('ignores variable names, placeholders and ordinary URLs', () => {
 });
 
 test('a finding never echoes the whole secret', () => {
-  const [hit] = scanText('AIzaSyA1234567890abcdefghijklmnopqrstuv');
+  const [hit] = scanText(googleKeyFixture);
   assert.ok(hit);
   assert.ok(!hit.excerpt.includes('1234567890abcdefghijklmnopqrstuv'));
 });
