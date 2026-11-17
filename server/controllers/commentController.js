@@ -5,6 +5,8 @@ const { awardXp } = require('../utils/gamification');
 const { sanitizeText } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, notFound } = require('../utils/httpError');
+const { notifyPostComment } = require('../utils/socialNotifications');
+const { recordFirstEvent } = require('../utils/productEvents');
 
 const MAX_COMMENT = 2000;
 
@@ -22,7 +24,12 @@ const createComment = async (req, res, next) => {
     if (post.userId?.status === 'frozen') throw notFound('Post not found');
 
     const comment = await Comment.create({ postId, userId: req.user._id, text });
+    recordFirstEvent('first_comment', req.user._id, { surface: 'post' });
     await Post.findByIdAndUpdate(postId, { $inc: { commentCount: 1 } });
+
+    // The author is the only recipient. Self-comments, blocked pairs and a
+    // switched-off comments preference are handled by notifyUser.
+    await notifyPostComment({ post, comment, actor: req.user });
 
     awardXp(req.user._id, 5, 'gamer_critic');
 

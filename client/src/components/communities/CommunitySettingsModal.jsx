@@ -6,7 +6,7 @@ import { CloseIcon } from '../common/icons';
 import CommunitySigil from './CommunitySigil';
 
 const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted }) => {
-  const [form, setForm] = useState({ name: '', description: '', icon: '', isPrivate: false });
+  const [form, setForm] = useState({ name: '', description: '', icon: '', games: '', isPrivate: false });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -18,6 +18,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
       name: community.name || '',
       description: community.description || '',
       icon: community.icon || '',
+      games: (community.games || []).join(', '),
       isPrivate: !!community.isPrivate
     });
     setError('');
@@ -31,7 +32,11 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
     setSaving(true);
     setError('');
     try {
-      const { data } = await axiosInstance.patch(`/communities/${community._id}`, form);
+      const payload = {
+        ...form,
+        games: form.games.split(',').map((game) => game.trim()).filter(Boolean)
+      };
+      const { data } = await axiosInstance.patch(`/communities/${community._id}`, payload);
       onSaved?.(data);
       onClose();
     } catch (err) {
@@ -94,6 +99,21 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
               value={form.description}
               onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="server-games">Games</label>
+            <input
+              id="server-games"
+              className="form-input"
+              maxLength={200}
+              value={form.games}
+              placeholder="Valorant, Apex Legends"
+              onChange={e => setForm(prev => ({ ...prev, games: e.target.value }))}
+            />
+            <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+              Up to 5 comma-separated games used by Discover suggestions.
+            </span>
           </div>
 
           <label className="checkbox-row">

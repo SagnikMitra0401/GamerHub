@@ -21,6 +21,7 @@ const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const { getRedis, redisKey } = require('../config/redis');
 const { awardXp } = require('./gamification');
+const { notifyLikeMilestone } = require('./socialNotifications');
 
 const BUFFER_KEY = 'likebuf';   // hash: "<postId>:<userId>" -> "like" | "unlike"
 const VIRAL_KEY = 'viral:10';   // set of posts already granted the 10-like medal
@@ -149,6 +150,7 @@ async function flushLikeBuffer() {
       await Post.bulkWrite(ops, { ordered: false });
 
       await awardViralMedals(buffer, [...byPost.keys()]);
+      await notifyBufferedLikeMilestones(byPost);
     }
 
     await buffer.redis.hdel(buffer.key, ...batch);
@@ -158,6 +160,39 @@ async function flushLikeBuffer() {
     return -1;
   } finally {
     flushing = false;
+  }
+}
+
+/**
+ * A buffered batch can cross a like milestone before the controller ever sees
+ * the new count. Read the posts once after the bulk write and let the shared
+ * dedupe key make repeated flushes idempotent. A net-negative batch never
+ * triggers a milestone.
+ */
+async function notifyBufferedLikeMilestones(byPost) {
+  const ids = [...byPost.keys()]
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+  if (!ids.length) return;
+
+  try {
+    const posts = await Post.find({ _id: { $in: ids } })
+      .select('userId likeCount')
+      .lean();
+    const byId = new Map(posts.map((post) => [String(post._id), post]));
+
+    for (const [postId, group] of byPost.entries()) {
+      if (group.adds.length <= group.removes.length) continue;
+      const post = byId.get(postId);
+      if (!post) continue;
+      await notifyLikeMilestone({
+        post,
+        actor: group.adds.length === 1 ? group.adds[0] : null,
+        likeCount: post.likeCount
+      });
+    }
+  } catch (err) {
+    // A notification failure must never roll back a like write.
+    console.error('[likeBuffer] milestone notification failed:', err.message);
   }
 }
 

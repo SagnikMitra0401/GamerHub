@@ -22,6 +22,11 @@ const Login = () => {
       <div className="auth-box">
         <h1 className="auth-title">Welcome Back</h1>
         <p className="auth-subtitle">Sign in to continue to GamingHub</p>
+        {location.state?.notice && (
+          <div className="notice notice-success auth-notice" role="status">
+            {location.state.notice}
+          </div>
+        )}
         <LoginForm />
         <GoogleSignInButton />
         <p className="auth-footer">

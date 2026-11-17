@@ -12,6 +12,7 @@
  */
 const rateLimit = require('express-rate-limit');
 const { recordRateLimit } = require('../utils/metrics');
+const { createRateLimitStore, rateLimitStoreStatus } = require('../utils/rateLimitStore');
 
 function clientKey(req) {
   const userId = req.user?._id || req.user?.id;
@@ -39,6 +40,10 @@ function createLimiter({ windowMs, max, message, name = 'rate-limit' }) {
     max,
     standardHeaders: true,
     legacyHeaders: false,
+    // One store per limiter: express-rate-limit rejects reusing a store across
+    // middleware instances, and each store needs its own key prefix.
+    store: createRateLimitStore(name),
+    passOnStoreError: true,
     // The handler below is checked before any request is served; the key
     // generator is ours, so the library's IPv6 heuristic does not apply.
     validate: false,
@@ -86,11 +91,23 @@ const browseLimiter = createLimiter({
   message: 'Too many requests. Please slow down.'
 });
 
+// Engagement breadcrumbs are cheap to send but unbounded to store. A real user
+// opens/clicks a notification a handful of times a minute; 60/min still leaves
+// room for retries while stopping a script from inflating the analytics.
+const notificationEngagementLimiter = createLimiter({
+  name: 'notification-engagement',
+  windowMs: 60 * 1000,
+  max: Number(process.env.NOTIFICATION_ENGAGEMENT_RATE_LIMIT_MAX) || 60,
+  message: 'Too many notification engagement events. Please slow down.'
+});
+
 module.exports = {
   clientKey,
   createLimiter,
+  rateLimitStoreStatus,
   searchLimiter,
   catalogLimiter,
   adminLimiter,
-  browseLimiter
+  browseLimiter,
+  notificationEngagementLimiter
 };

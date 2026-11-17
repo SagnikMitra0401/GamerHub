@@ -31,6 +31,18 @@ const CommunitySchema = new mongoose.Schema({
   },
 
   description: { type: String, default: '', trim: true, maxlength: 200 },
+  // Optional game tags used by game-first discovery. Existing communities
+  // without tags fall back to name/description matching.
+  games: {
+    type: [String],
+    default: [],
+    set: (arr) => (Array.isArray(arr)
+      ? [...new Map(arr
+        .map((game) => String(game).trim().slice(0, 60))
+        .filter(Boolean)
+        .map((game) => [game.toLowerCase(), game])).values()].slice(0, 5)
+      : [])
+  },
   icon:        { type: String, default: '🎮', trim: true, maxlength: 100 },  // emoji or image URL
   banner:      { type: String, default: '', trim: true },                     // optional image URL
 
@@ -58,6 +70,7 @@ const CommunitySchema = new mongoose.Schema({
 // Member lookups ("which servers am I in", member lists) hit this index.
 CommunitySchema.index({ 'members.userId': 1 });
 CommunitySchema.index({ 'bannedUsers.userId': 1 });
+CommunitySchema.index({ games: 1 });
 
 // Helper: get a member's role (returns null if not a member)
 CommunitySchema.methods.getMemberRole = function(userId) {

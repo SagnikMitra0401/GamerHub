@@ -5,9 +5,19 @@ milestones. Each phase is sized to ship independently; nothing here is required
 for the app to keep working as it does today.
 
 Current state: MERN monolith (Express + Mongoose + Socket.io, React 18 + Vite),
-688 automated checks passing (148 server unit, 31 client component, 509 e2e
-across seven suites) plus a secret-leak gate, CI on every push, Redis implemented
-but switched off, single Render instance, all migration tracks applied on Atlas.
+1,013 automated checks passing (258 server unit, 44 client component, 711 e2e
+across eleven suites) plus a secret-leak gate, 63 responsive checks, CI on every
+push, Redis implemented but switched off, single Render instance, all migration
+tracks applied on Atlas.
+
+> **Latest increment (17 November 2026):**
+> [Phase 14 — Activation, Recovery & Retention](PHASE14_ACTIVATION.md) is
+> delivered: account recovery, game-first onboarding, the social notification
+> loop with 15-day retention, and 14D activation telemetry with an admin funnel,
+> request IDs and structured launch instrumentation. Phase 12 operability is also
+> delivered: readiness, optional Sentry reporting, shared REST quotas when Redis
+> is on, and a documented Atlas restore drill. The next product increment is the
+> inbox work in Phase 8.
 
 ---
 
@@ -138,8 +148,8 @@ inconsistent presence.
 **Scope**
 - `@socket.io/redis-adapter` bound to the existing Upstash client (requires Redis
   enabled; document the quota cost first).
-- Move REST rate limiting to a shared store or accept per-instance budgets
-  explicitly and document it.
+- REST per-surface/auth/account quotas now use a shared store when Redis is on;
+  add distributed counters for the socket engine and remaining bot/flood guards.
 - Make the like flush worker single-owner (Redis `SET NX` lock with TTL) so two
   instances cannot flush the same batch concurrently.
 - Presence heartbeat with TTL keys instead of process-local state.
@@ -200,14 +210,22 @@ post reaches the admin queue and can be actioned with an audit trail.
 
 ---
 
-## Phase 12 — Operability
+## Phase 12 — Operability — ✅ delivered 17 November 2026
 
 **Why:** the admin dashboard is a good start but there is no readiness probe,
 structured logging, alerting or backup drill.
 
+**Delivered:** `/api/health/ready` pings MongoDB and Redis when enabled;
+structured JSON logs and request IDs were already in 14D; optional Sentry
+exception reporting is release-tagged and PII-scrubbed; system health reports
+the error-reporting provider and rate-limit store mode; and the Atlas restore
+drill is documented with a bounded `npm run backup:drill`. REST per-surface,
+auth and account quotas share an Upstash store when Redis is enabled, with a
+local fallback.
+
 **Scope**
-- `/api/health/ready` that pings Mongo (and Redis when enabled); keep `/health`
-  as the liveness probe Render uses.
+- Add `/api/health/ready` that pings Mongo (and Redis when enabled); keep the
+  existing `/api/health` per-domain check as the liveness probe Render uses.
 - Request IDs + JSON logs; redact cookies/tokens at the logger.
 - Error reporting (Sentry or equivalent) with release tagging.
 - Admin panel row for Redis/buffer state (the API already returns it).
@@ -221,20 +239,38 @@ not as a user report.
 
 ---
 
+## Phase 14 — Activation, recovery & retention — ✅ delivered
+
+**Plan:** [PHASE14_ACTIVATION.md](PHASE14_ACTIVATION.md)
+
+Account recovery and a first successful session were the two gaps that actually
+lose users. **All four workstreams are delivered:** 14A verification/reset and
+password change; 14B `/welcome`, `/discover`, game tags and privacy-safe
+squad/server/player/tag suggestions; 14C a cursor-paged `/notifications` page,
+five server-enforced categories, comment/follow/like-milestone triggers and
+15-day retention with durable-notice exemptions; 14D first-party product
+events, the admin-only activation funnel, request IDs and structured launch
+instrumentation. Phase 14 absorbs the verification/reset half of Phase 11; the
+remaining account-lifecycle work is a per-device session list and the platform
+report queue.
+
+---
+
 ## Suggested order
 
 | Order | Phase | Trigger |
 |---|---|---|
-| 1 | **8 — Inbox** | Next product increment, low risk |
-| 2 | **12 — Operability** | Before any public push |
-| 3 | **11 — Account lifecycle** | When onboarding real users (session revocation and deletion already ship) |
-| 4 | **10 — Discovery** | Once there are thousands of posts |
-| 5 | **9 — Multi-instance** | Only when a second instance is actually needed |
+| 1 | **14 — Activation, recovery & retention** | Next increment; see the plan above |
+| 2 | **8 — Inbox** | 14C social triggers have landed; extend with digest tuning and inbox analytics |
+| 3 | ~~**12 — Operability**~~ | **Delivered 17 Nov:** readiness, optional Sentry, shared REST quotas and the restore drill. | done |
+| 4 | **11 — Remaining account lifecycle** | Per-device sessions and the platform report queue; verification/reset ship in 14A |
+| 5 | **10 — Discovery** | Once there are thousands of posts |
+| 6 | **9 — Multi-instance** | Only when a second instance is actually needed |
 
-Phases 7, 8F, 8G and 8H are done: 688 checks and a CI gate stand between a
-regression and `main`, identity/consent is no longer the weak spot, every
-account-level promise (rename, reset, freeze, erase, succeed) has a server rule
-behind it, and the cheap-query surfaces now have a budget of their own.
+Phases 7, 8F, 8G, 8H and 12 are done: a CI gate and more than 1,000 checks stand
+between a regression and `main`, identity/consent is no longer the weak spot,
+every account-level promise (rename, reset, freeze, erase, succeed) has a server
+rule behind it, and the cheap-query surfaces now have a budget of their own.
 
 ## Deliberately deferred
 

@@ -49,6 +49,12 @@ that; treat any such paste as burned and rotate it.
   `GOOGLE_CLIENT_ID`). An existing local account is **never** merged on an
   unverified email match; linking requires the authenticated session *and* an
   email match.
+- Email verification and recovery: 32-byte tokens are stored only as SHA-256
+  digests, single-use, with a 24-hour verification / 30-minute reset lifetime.
+  Forgot-password is enumeration-safe; reset bumps `sessionVersion`, clears the
+  cookie and disconnects live sockets. Existing accounts were grandfathered as
+  verified by the account-recovery migration; new local registrations start
+  unverified. Password changes require a verified email.
 - Socket handshake: cookie or `auth.token` only (never a query string, which
   lands in proxy logs). The user is re-read from the database on connect, so a
   revoked session cannot open a socket after revocation (the token is still
@@ -102,6 +108,40 @@ Checked and found correct (no change needed):
 - JSON bodies are capped at 100 kB; multer caps uploads; `entity.too.large`
   returns 413.
 
+### Activation telemetry and request logs
+
+- `ProductEvent` stores only a user id, an allowlisted event name and a small,
+  sanitised property object. Message text, email addresses, tokens, IP addresses
+  and nested values are dropped before the write. Events are retained for 180
+  days, included in the owner's data export and deleted by account erasure.
+- The activation funnel is an admin-only aggregate of distinct user ids. It is
+  cached for 60 seconds, contains no content and is rate limited with the other
+  admin endpoints. Day 7 is explicitly labelled an approximation and ignores
+  notification-open/click events.
+- Every response carries an `x-request-id`; access logs record method, path,
+  status and duration but deliberately omit the query string, so reset and
+  verification tokens never enter log storage. Server errors log a redacted
+  message/stack and return the request id to the client.
+- Notification opens and clicks are recorded only for the caller's own
+  notification row; the click endpoint checks ownership before writing. Both
+  share a 60/min per-user budget so a script cannot inflate the counters without
+  bound.
+- Hosted error reporting is optional and server-side only. `SENTRY_DSN` enables
+  release-tagged exception reports; request bodies, cookies, query strings and
+  common credential/PII shapes are removed before the event leaves the process.
+  No browser SDK or session replay is installed. Without a DSN the structured
+  JSON log remains the only error record.
+
+Known limits, deliberately not hidden:
+
+- Notification engagement events are repeatable within the per-user budget. They
+  remain directional counters, not unique-user engagement.
+- Funnel steps use one first-signup cohort and nest connection under onboarding
+  completion and contribution under connection. Day-7 is still an approximation
+  based on event timestamps, not a warehouse-grade retention calculation.
+- A caller-supplied `x-request-id` is accepted when it is short and
+  character-safe, for client correlation. It is not an authorization signal.
+
 ---
 
 ## 5. Load-safety controls
@@ -116,7 +156,10 @@ the connection pool and make authentication fail for everyone.
 | Game catalog | 90 / min | `middleware/limiters.js` |
 | Admin dashboards | 120 / min | `middleware/limiters.js` |
 | Community browse | 180 / min | `middleware/limiters.js` |
+| Notification open/click telemetry | 60 / min per account | `middleware/limiters.js` |
 | Auth attempts | 20 / 15 min | `routes/authRoutes.js` |
+| Account email (verify/reset) | 3 / hour per IP or account | `routes/authRoutes.js` |
+| Password change | 10 / 15 min per account | `routes/authRoutes.js` |
 | Data export | 5 / hour | `routes/accountRoutes.js` |
 | Handle change | 5 / hour | `routes/accountRoutes.js` |
 | Password-confirmed actions | 12 / 15 min | `routes/accountRoutes.js` |
@@ -131,17 +174,21 @@ the connection pool and make authentication fail for everyone.
 | Search cost | anchored prefix, cached block/frozen lists, author-status filtering after populate | `controllers/userController.js`, `utils/visibility.js` |
 | Admin aggregates | cached; no unbounded collection walk per refresh | `controllers/adminController.js` |
 
-**Known limit:** rate-limit counters are in-process. A second Render instance
-means each has its own budget; move the store to Redis before scaling out
-(roadmap phase 9). This is documented rather than hidden.
+**Shared quotas:** with `REDIS_ENABLED=1`, per-surface, auth and account quotas
+use an Upstash-backed counter store, so multiple API instances enforce one
+budget. The store degrades to a per-process window for 30 seconds if Redis is
+unreachable. The coarse global limiter and socket-engine counters remain
+per-process; the global limiter is a process-protection guard, not an account
+quota.
 
 ---
 
 ## 6. Data subject rights
 
 - Export: `GET /account/data-export` returns the caller's own profile, posts,
-  comments, memberships, squads, chat messages, invitations and notifications as
-  a JSON attachment. Rate limited; never includes other users' private fields.
+  comments, memberships, squads, chat messages, invitations, notifications and
+  product events as a JSON attachment. Rate limited; never includes other users'
+  private fields.
 - Deletion: scheduled (`/account/deletion-request`, 30-day grace, cancellable) or
   immediate (`/account/delete-now`, handle + password). Both use the same erasure
   path. Succession runs **before** anonymisation; a server is never left pointing
@@ -160,10 +207,9 @@ means each has its own budget; move the store to Redis before scaling out
 |---|---|
 | End-to-end encryption of messages | Breaks search and moderation; TLS + encryption at rest is the correct level for v1. Do not claim E2EE anywhere. |
 | Malware scanning of uploads | Allowlist + magic-byte check + EXIF strip only. ClamAV is the free upgrade path. |
-| Email verification / password reset | Not built yet (roadmap phase 11). Accounts are usable with an email the owner has not proven. |
 | Per-device session list | Requires a session table; `logout-all` covers the urgent case. |
 | Per-role channel overwrites | `minRoleToRead` / `minRoleToWrite` only. |
-| Shared rate-limit store | Needed only for multi-instance; see §5. |
+| Shared socket-engine counters | REST quotas are shared when Redis is enabled; socket flood/join counters remain per process until the Redis socket adapter is added. |
 | Secret scanning of commit messages / issues | Impossible from inside the repo. |
 
 ---
@@ -184,7 +230,7 @@ means each has its own budget; move the store to Redis before scaling out
 
 | Tier | What proves this document |
 |---|---|
-| `npm test` | 148 checks, including `hardening.test.js` (limit keying, secret patterns, the live client-source gate) |
-| `npm run test:e2e` | seven suites; `e2e-phase10.js` covers the four behaviours in §4 that need a database and a socket |
+| `npm test` | 258 checks, including `hardening.test.js` (limit keying, secret patterns, the live client-source gate), `accountRecovery.test.js`, `productEvents.test.js` (allowlist, prop redaction, funnel arithmetic, log redaction), `rateLimitStore.test.js` and `errorReporting.test.js` |
+| `npm run test:e2e` | eleven suites; `e2e-phase14.js` covers verification/reset, onboarding, notification preferences, activation telemetry, cohort/day-7 funnel, engagement budgets, readiness and data export, and `e2e-phase10.js` covers the four behaviours in §4 that need a database and a socket |
 | `npm run scan:secrets` | credential-shaped literals and tracked env files |
 | `node scripts/scan-emoji.js` | design-system gate (unrelated, but it runs in CI on every push) |

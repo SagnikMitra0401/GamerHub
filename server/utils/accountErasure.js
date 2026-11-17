@@ -24,6 +24,7 @@ const Notification = require('../models/Notification');
 const ForumPost = require('../models/ForumPost');
 const ForumReply = require('../models/ForumReply');
 const Attachment = require('../models/Attachment');
+const ProductEvent = require('../models/ProductEvent');
 
 const { erasurePatch } = require('./privacy');
 const { transferAllForUser } = require('./succession');
@@ -80,6 +81,7 @@ async function eraseAccount(user) {
       ]
     }),
     Notification.deleteMany({ userId }),
+    ProductEvent.deleteMany({ userId }),
     SquadChatMessage.deleteMany({ authorUserId: userId }),
     Invitation.deleteMany({ $or: [{ inviterUserId: userId }, { recipientUserId: userId }] }),
     ForumPost.deleteMany({ authorId: userId }),

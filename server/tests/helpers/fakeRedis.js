@@ -25,12 +25,14 @@ function createStore() {
     calls: [],            // every command name, in order
     failCommands: new Set(),
     ttl: new Map(),       // key -> number of seconds from the last SET
+    expiry: new Map(),    // key -> absolute ms timestamp for PEXPIRE
 
     reset() {
       this.strings.clear();
       this.hashes.clear();
       this.sets.clear();
       this.ttl.clear();
+      this.expiry.clear();
       this.calls.length = 0;
       this.failCommands.clear();
     },
@@ -79,8 +81,47 @@ class FakeRedis {
     return run('set', () => {
       store.strings.set(key, value);
       if (options && Number.isFinite(options.ex)) store.ttl.set(key, options.ex);
+      if (options && Number.isFinite(options.px)) {
+        store.expiry.set(key, Date.now() + options.px);
+      }
       return 'OK';
     });
+  }
+
+  incr(key) {
+    return run('incr', () => {
+      const next = Number(store.strings.get(key) || 0) + 1;
+      store.strings.set(key, next);
+      return next;
+    });
+  }
+
+  decr(key) {
+    return run('decr', () => {
+      const next = Number(store.strings.get(key) || 0) - 1;
+      store.strings.set(key, next);
+      return next;
+    });
+  }
+
+  pexpire(key, milliseconds) {
+    return run('pexpire', () => {
+      if (!store.strings.has(key)) return 0;
+      store.expiry.set(key, Date.now() + Number(milliseconds));
+      return 1;
+    });
+  }
+
+  pttl(key) {
+    return run('pttl', () => {
+      if (!store.strings.has(key)) return -2;
+      if (!store.expiry.has(key)) return -1;
+      return Math.max(0, store.expiry.get(key) - Date.now());
+    });
+  }
+
+  ping() {
+    return run('ping', () => 'PONG');
   }
 
   del(...keys) {
@@ -90,6 +131,8 @@ class FakeRedis {
         if (store.strings.delete(key)) removed += 1;
         if (store.hashes.delete(key)) removed += 1;
         if (store.sets.delete(key)) removed += 1;
+        store.ttl.delete(key);
+        store.expiry.delete(key);
       }
       return removed;
     });

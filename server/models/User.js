@@ -18,6 +18,14 @@ const UserSchema = new mongoose.Schema({
     trim: true,
     match: /^\S+@\S+\.\S+$/
   },
+  // Top-level because local accounts have no authIdentities row. Existing
+  // accounts are grandfathered by the account-recovery migration; new local
+  // registrations start null and must confirm the address.
+  emailVerifiedAt: { type: Date, default: null },
+  // New local accounts start null and are routed to /welcome. Existing
+  // accounts are grandfathered by the onboarding migration, which sets this to
+  // their createdAt timestamp.
+  onboardingCompletedAt: { type: Date, default: null },
   passwordHash: {
     type: String,
     required: true
@@ -193,6 +201,17 @@ const UserSchema = new mongoose.Schema({
       scope: { type: String, enum: ['all', 'personal', 'business'], default: 'all' },
       unreadOnly: { type: Boolean, default: false }
     }]
+  },
+
+  // Notification categories the owner has switched off. `notifyUser` checks
+  // these before writing, so switching a category off stops new pings rather
+  // than merely hiding them from one client.
+  notificationSettings: {
+    comments: { type: Boolean, default: true },
+    follows:  { type: Boolean, default: true },
+    likes:    { type: Boolean, default: true },
+    lfg:      { type: Boolean, default: true },
+    bot:      { type: Boolean, default: true }
   },
 
   // People this user never wants to hear from. Enforced server-side for

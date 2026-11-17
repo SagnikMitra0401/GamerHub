@@ -1,0 +1,190 @@
+const { publicBaseUrl } = require('./appUrl');
+
+/**
+ * Transactional email transport.
+ *
+ * The Gmail Apps Script bridge sends over HTTPS, so it works on hosts which
+ * block outbound SMTP. Development can use the console transport, and tests
+ * use an in-memory outbox so CI never touches the network. The rest of the
+ * server only knows about `sendEmail`.
+ */
+const outbox = [];
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function transportMode() {
+  const explicit = String(process.env.EMAIL_TRANSPORT || '').trim().toLowerCase();
+  if (explicit) return explicit;
+
+  if (process.env.NODE_ENV === 'test') return 'memory';
+  if (process.env.EMAIL_PROVIDER === 'console') return 'console';
+  if (process.env.GMAIL_BRIDGE_URL) return 'apps-script';
+
+  // Production must fail closed rather than print a token to the logs.
+  return process.env.NODE_ENV === 'production' ? 'unconfigured' : 'console';
+}
+
+async function sendWithAppsScript({ to, subject, text, html }) {
+  const url = String(process.env.GMAIL_BRIDGE_URL || '').trim();
+  const secret = String(process.env.GMAIL_BRIDGE_SECRET || '').trim();
+  if (!url) throw new Error('GMAIL_BRIDGE_URL is not configured.');
+  if (!secret) throw new Error('GMAIL_BRIDGE_SECRET is not configured.');
+
+  if (process.env.NODE_ENV === 'production' && !url.startsWith('https://')) {
+    throw new Error('GMAIL_BRIDGE_URL must use HTTPS in production.');
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({ secret, to, subject, text, html }),
+      signal: controller.signal
+    });
+
+    const raw = await res.text();
+    let result = {};
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      // Apps Script can return an HTML login page when access is misconfigured.
+    }
+
+    if (!res.ok || result.ok !== true) {
+      const reason = result.error ? `: ${String(result.error).slice(0, 40)}` : '';
+      throw new Error(`Email bridge rejected the message (${res.status}${reason}).`);
+    }
+
+    return { id: result.id || 'apps-script' };
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Email bridge timed out.');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function sendEmail({ to, subject, text, html }) {
+  const mode = transportMode();
+
+  if (mode === 'memory') {
+    // Push synchronously so a test can read the outbox immediately after the
+    // endpoint responds, even when delivery is fire-and-forget.
+    outbox.push({ to, subject, text, html, createdAt: new Date() });
+    return { id: 'memory' };
+  }
+
+  if (mode === 'console') {
+    // Local development only. This is the one place a link may be printed.
+    console.log(`\n[Email:console] To: ${to}\nSubject: ${subject}\n${text}\n`);
+    return { id: 'console' };
+  }
+
+  if (mode === 'unconfigured') {
+    throw new Error('Email transport is not configured.');
+  }
+
+  if (mode === 'apps-script') {
+    return sendWithAppsScript({ to, subject, text, html });
+  }
+
+  throw new Error(`Unsupported EMAIL_TRANSPORT: ${mode}`);
+}
+
+function verificationUrl(req, token) {
+  return `${publicBaseUrl(req)}/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+function resetUrl(req, token) {
+  return `${publicBaseUrl(req)}/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+async function sendVerificationEmail({ to, username, url }) {
+  const name = username ? `@${username}` : 'there';
+  const subject = 'Confirm your GamerHub email';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Confirm this email address to finish securing your GamerHub account:',
+    url,
+    '',
+    'This link expires in 24 hours. If you did not create an account, ignore this email.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">Confirm your email</h2>
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Confirm this email address to finish securing your GamerHub account.</p>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(url)}" style="background:#6366f1;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Verify email</a>
+      </p>
+      <p>This link expires in 24 hours. If you did not create an account, ignore this email.</p>
+      <p style="color:#6b7280;font-size:12px;word-break:break-all">${escapeHtml(url)}</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+async function sendPasswordResetEmail({ to, username, url }) {
+  const name = username ? `@${username}` : 'there';
+  const subject = 'Reset your GamerHub password';
+  const text = [
+    `Hi ${name},`,
+    '',
+    'Use this link to choose a new password:',
+    url,
+    '',
+    'This link expires in 30 minutes and can only be used once.',
+    'If you did not ask for a reset, ignore this email; your password has not changed.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">Reset your password</h2>
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Use the button below to choose a new password.</p>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(url)}" style="background:#6366f1;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700">Choose a new password</a>
+      </p>
+      <p>This link expires in 30 minutes and can only be used once. If you did not ask for a reset, ignore this email; your password has not changed.</p>
+      <p style="color:#6b7280;font-size:12px;word-break:break-all">${escapeHtml(url)}</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+/** Test-only helpers. The outbox is process-local and never persisted. */
+function getOutbox() {
+  return [...outbox];
+}
+
+function resetOutbox() {
+  outbox.length = 0;
+}
+
+module.exports = {
+  sendEmail,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  verificationUrl,
+  resetUrl,
+  getOutbox,
+  resetOutbox,
+  transportMode
+};

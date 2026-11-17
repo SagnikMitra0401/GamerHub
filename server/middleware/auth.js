@@ -3,7 +3,7 @@ const User = require('../models/User');
 const { accountGate, canParticipate } = require('../utils/privacy');
 
 const SESSION_FIELDS =
-  '_id username email following favoriteChannels savedPosts role ' +
+  '_id username email emailVerifiedAt following favoriteChannels savedPosts role ' +
   'sessionVersion status profileType privacySettings blockedUsers mutedUsers ' +
   'createdAt authIdentities dmSettings';
 

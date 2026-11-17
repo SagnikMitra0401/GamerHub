@@ -2,6 +2,11 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { getIO } = require('../config/socket');
 const { sanitizeLine, isHttpUrl } = require('./sanitize');
+const { isBlockedBetween } = require('./privacy');
+const {
+  notificationCategory,
+  isNotificationCategoryEnabled
+} = require('./notificationPreferences');
 
 const MAX_TITLE = 120;
 const MAX_MESSAGE = 300;
@@ -28,12 +33,14 @@ const safeThumbnail = (value) => {
  * @param {object} input
  * @param {string|import('mongoose').Types.ObjectId} input.userId
  * @param {'lfg_request'|'lfg_accepted'|'gaming_bot'|'social'} [input.type]
+ * @param {string} [input.actorId] the account that caused the ping, for block checks
  * @param {string} [input.dedupeKey] when set, the same ping is never stored twice
  * @returns {Promise<object|null>} the created notification, or null
  */
 async function notifyUser({
   userId,
   type = 'social',
+  actorId = null,
   title,
   message = '',
   actionUrl = null,
@@ -45,9 +52,34 @@ async function notifyUser({
   try {
     if (!userId) return null;
 
-    // Stealth mode silences pings: nothing is written or pushed while frozen.
-    const recipient = await User.findById(userId).select('status').lean();
-    if (recipient?.status === 'frozen') return null;
+    // Stealth mode silences pings: nothing is written or pushed while frozen,
+    // suspended or deleted.
+    const recipient = await User.findById(userId)
+      .select('status notificationSettings blockedUsers')
+      .lean();
+    if (!recipient || ['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(recipient.status)) {
+      return null;
+    }
+
+    // Social actions must not leak through a block in either direction. Calls
+    // without an actor (system-generated pings, bot finds) skip this read.
+    if (actorId) {
+      const actor = await User.findById(actorId).select('status blockedUsers').lean();
+      if (
+        !actor ||
+        ['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(actor.status) ||
+        isBlockedBetween(recipient, actor)
+      ) {
+        return null;
+      }
+    }
+
+    // A switched-off category stops the ping at the source. Existing history
+    // stays readable, and uncategorised pings (DMs, invitations) are untouched.
+    const category = notificationCategory({ type, metadata });
+    if (category && !isNotificationCategoryEnabled(recipient?.notificationSettings, category)) {
+      return null;
+    }
 
     const doc = {
       userId,

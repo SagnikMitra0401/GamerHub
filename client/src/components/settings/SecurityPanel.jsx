@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 import GoogleLinkButton from './GoogleLinkButton';
-import { AlertIcon, CheckIcon, LockIcon } from '../common/icons';
+import { AlertIcon, CheckIcon, LockIcon, MailIcon } from '../common/icons';
 
 const formatDate = (value) => {
   if (!value) return null;
@@ -18,9 +18,19 @@ const SecurityPanel = ({ account, refresh, notify }) => {
 
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
+  const [verifyNotice, setVerifyNotice] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    password: '',
+    confirm: ''
+  });
 
   const googleLinked = (account.providers || []).includes('google');
   const lastReset = formatDate(account.feedResetAt);
+  const emailVerified = account.emailVerified === true;
+  const hasLocalPassword = account.hasLocalPassword !== false;
 
   const unlinkGoogle = async () => {
     if (!window.confirm('Unlink Google from this account? You can link it again later.')) return;
@@ -50,6 +60,56 @@ const SecurityPanel = ({ account, refresh, notify }) => {
     }
   };
 
+  const resendVerification = async () => {
+    setBusy('verify');
+    setVerifyNotice('');
+    try {
+      await axiosInstance.post('/auth/verify-email/resend');
+      setVerifyNotice('Verification email sent. Check your inbox.');
+    } catch (err) {
+      setVerifyNotice(err.response?.data?.message || 'Could not send that email right now.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const updatePasswordField = (event) => {
+    setPasswordForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  };
+
+  const changePassword = async (event) => {
+    event.preventDefault();
+    setPasswordError('');
+    if (!emailVerified) {
+      setPasswordError('Verify your email before changing your password.');
+      return;
+    }
+    if (passwordForm.password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
+      return;
+    }
+    if (passwordForm.password !== passwordForm.confirm) {
+      setPasswordError('Those passwords do not match.');
+      return;
+    }
+
+    setPasswordBusy(true);
+    try {
+      await axiosInstance.patch('/auth/password', {
+        ...(hasLocalPassword ? { currentPassword: passwordForm.currentPassword } : {}),
+        password: passwordForm.password
+      });
+      await logout();
+      navigate('/login', {
+        state: { notice: 'Password changed. Sign in again with your new password.' }
+      });
+    } catch (err) {
+      setPasswordError(err.response?.data?.message || 'Could not change the password.');
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
   return (
     <>
       <header className="settings-panel-head">
@@ -71,6 +131,44 @@ const SecurityPanel = ({ account, refresh, notify }) => {
           </span>
         </div>
       )}
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3><MailIcon size={15} /> Email verification</h3>
+          <p>
+            Confirming your email proves you own the address and lets you change your
+            password. Existing accounts were verified when this feature launched.
+          </p>
+        </div>
+
+        <div className="settings-auth-row">
+          <div>
+            <strong>{account.email}</strong>
+            <span>
+              {emailVerified
+                ? 'Verified. Password changes are unlocked.'
+                : 'Not verified. Check your inbox for the confirmation link.'}
+            </span>
+          </div>
+          <div className="settings-actions">
+            <span className={`settings-chip${emailVerified ? ' is-good' : ''}`}>
+              {emailVerified ? <><CheckIcon size={13} /> Verified</> : 'Unverified'}
+            </span>
+            {!emailVerified && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={resendVerification}
+                disabled={busy === 'verify'}
+              >
+                {busy === 'verify' ? 'Sending…' : 'Resend email'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {verifyNotice && <p className="settings-help-text">{verifyNotice}</p>}
+      </section>
 
       <section className="settings-section">
         <div className="settings-section-head">
@@ -132,6 +230,80 @@ const SecurityPanel = ({ account, refresh, notify }) => {
             />
           )}
         </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3><LockIcon size={15} /> {hasLocalPassword ? 'Change password' : 'Set a password'}</h3>
+          <p>
+            {hasLocalPassword
+              ? 'Changing your password signs out every other device. Your current session is closed too, so sign in again with the new password.'
+              : 'This account signs in with Google. After verifying your email you can add a password as a second sign-in method.'}
+          </p>
+        </div>
+
+        {!emailVerified && (
+          <div className="notice notice-error settings-inline-notice">
+            <span className="settings-inline-error">
+              <AlertIcon size={13} /> Verify your email to unlock this form.
+            </span>
+          </div>
+        )}
+
+        <form className="settings-password-form" onSubmit={changePassword}>
+          {hasLocalPassword && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="settings-current-password">Current password</label>
+              <input
+                id="settings-current-password"
+                className="form-input"
+                type="password"
+                name="currentPassword"
+                autoComplete="current-password"
+                value={passwordForm.currentPassword}
+                onChange={updatePasswordField}
+                required
+              />
+            </div>
+          )}
+          <div className="form-group">
+            <label className="form-label" htmlFor="settings-new-password">New password</label>
+            <input
+              id="settings-new-password"
+              className="form-input"
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              value={passwordForm.password}
+              onChange={updatePasswordField}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="settings-confirm-password">Confirm new password</label>
+            <input
+              id="settings-confirm-password"
+              className="form-input"
+              type="password"
+              name="confirm"
+              autoComplete="new-password"
+              value={passwordForm.confirm}
+              onChange={updatePasswordField}
+              required
+            />
+          </div>
+          {passwordError && <div className="form-error">{passwordError}</div>}
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+            disabled={!emailVerified || passwordBusy}
+          >
+            {passwordBusy
+              ? 'Saving…'
+              : hasLocalPassword ? 'Change password' : 'Set password'}
+          </button>
+        </form>
       </section>
 
       <section className="settings-section">

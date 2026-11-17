@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { retentionAtFor } = require('../utils/notificationRetention');
 const { Schema } = mongoose;
 
 const NOTIFICATION_TYPES = ['lfg_request', 'lfg_accepted', 'gaming_bot', 'social'];
@@ -54,8 +55,35 @@ const NotificationSchema = new Schema({
     type: String,
     default: undefined,
     maxlength: 200
+  },
+  // Set to createdAt + 15 days for ordinary pings. Important notices keep a
+  // null value so the TTL index never removes them.
+  retentionAt: {
+    type: Date,
+    default: null
   }
 }, { timestamps: true });
+
+// A TTL index on a nullable date only expires documents where the field is a
+// real date. Durable notices therefore stay in place with `retentionAt: null`.
+NotificationSchema.index(
+  { retentionAt: 1 },
+  { expireAfterSeconds: 0, name: 'notification_retention_ttl' }
+);
+
+NotificationSchema.pre('save', function setRetentionAt(next) {
+  if (this.isNew && !this.retentionAt) this.retentionAt = retentionAtFor(this);
+  next();
+});
+
+NotificationSchema.pre('insertMany', function setRetentionAtForMany(next, docs) {
+  if (Array.isArray(docs)) {
+    for (const doc of docs) {
+      if (!doc.retentionAt) doc.retentionAt = retentionAtFor(doc);
+    }
+  }
+  next();
+});
 
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 NotificationSchema.index(

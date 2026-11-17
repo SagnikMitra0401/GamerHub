@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }) => {
     });
     if (data.token) setToken(data.token);
     await fetchMe();
+    return data.user;
   };
 
   const logout = async () => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { safeRedirect } from '../../utils/redirect';
 
 const LoginForm = () => {
@@ -56,6 +56,9 @@ const LoginForm = () => {
           onChange={handleChange}
           required
         />
+      </div>
+      <div className="auth-inline-link">
+        <Link to="/forgot-password">Forgot password?</Link>
       </div>
       <button id="login-submit" className="btn btn-primary btn-full" disabled={loading}>
         {loading ? 'Signing in...' : 'Sign In'}

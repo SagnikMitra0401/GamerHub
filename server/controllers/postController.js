@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
+const { recordFirstEvent } = require('../utils/productEvents');
 const {
   sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags, extractHashtags, escapeRegex
 } = require('../utils/sanitize');
@@ -13,6 +14,7 @@ const { parsePagination } = require('../utils/pagination');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { rankPostsForUser } = require('../utils/feedRanking');
 const { bufferLikeEvent, readPendingLike, likePipeline } = require('../utils/likeBuffer');
+const { notifyLikeMilestone } = require('../utils/socialNotifications');
 
 // "For You" ranks this many recent posts in memory, then paginates the ranking.
 const FOR_YOU_POOL = 100;
@@ -95,6 +97,7 @@ const createPost = async (req, res, next) => {
     });
 
     const isMediaPost = !!post.mediaUrl;
+    recordFirstEvent('first_post', req.user._id, { media: isMediaPost });
     awardXp(req.user._id, isMediaPost ? 10 : 5, isMediaPost ? 'highlight_poster' : null);
 
     const populatedPost = await Post.findById(post._id).populate('userId', 'username level role profileType');
@@ -366,6 +369,10 @@ const toggleLike = async (req, res, next) => {
 
     if (liked && updated.likeCount === 10) {
       awardXp(updated.userId, 50, 'viral_gamer');
+    }
+
+    if (liked) {
+      await notifyLikeMilestone({ post: updated, actor: req.user, likeCount: updated.likeCount });
     }
 
     res.status(200).json({ likeCount: updated.likeCount, liked });

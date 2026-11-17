@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
 import PostList from '../components/posts/PostList';
@@ -219,10 +219,15 @@ const Feed = () => {
             : <PostListSkeleton />
         ) : (
           <>
-            {feedMode === 'following' && !loading && posts.length === 0 ? (
-              <div className="post-list-empty">
-                <h3>Nothing here yet</h3>
-                <p>Follow some users to see their posts in your feed!</p>
+            {!loading && posts.length === 0 ? (
+              <div className="post-list-empty feed-empty-discovery">
+                <h3>{feedMode === 'following' ? 'Your following feed is quiet' : 'Your feed is waiting for you'}</h3>
+                <p>
+                  {feedMode === 'following'
+                    ? 'Follow a player or join a server and their posts will show up here.'
+                    : 'Pick the games you play and we will point you at real squads, servers and players.'}
+                </p>
+                <Link to="/discover" className="btn btn-primary">Find your people</Link>
               </div>
             ) : layout === 'clips' ? (
               mediaPosts.length === 0 ? (

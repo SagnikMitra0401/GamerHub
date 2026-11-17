@@ -20,10 +20,13 @@ const adminRoutes     = require('./routes/adminRoutes');
 const botRoutes       = require('./routes/botRoutes');
 const dmRoutes        = require('./routes/dmRoutes');
 const businessRoutes  = require('./routes/businessRoutes');
+const discoverRoutes  = require('./routes/discoverRoutes');
 const errorHandler    = require('./middleware/errorHandler');
+const requestContext  = require('./middleware/requestContext');
 const { corsOrigin }  = require('./utils/origins');
 const { metricsMiddleware } = require('./utils/metrics');
 const { domainStatus } = require('./config/connections');
+const { readinessSnapshot } = require('./utils/readiness');
 
 const app = express();
 
@@ -32,6 +35,10 @@ const app = express();
 // ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
 app.disable('x-powered-by');
+
+// Every request gets an id early, so the access log and any later error share
+// the same correlation key. Response bodies never contain request bodies.
+app.use(requestContext);
 
 app.use(helmet());
 
@@ -59,6 +66,17 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
+// Liveness stays cheap; readiness actually pings Mongo (and Redis when on).
+app.get('/api/health/ready', async (req, res, next) => {
+  try {
+    const payload = await readinessSnapshot();
+    res.set('Cache-Control', 'no-store');
+    res.status(payload.ready ? 200 : 503).json(payload);
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/api/health', (req, res) => {
   const domains = domainStatus();
   const healthy = domains.auth === 'connected' && domains.squads === 'connected';
@@ -84,6 +102,7 @@ app.use('/api/admin',       adminRoutes);
 app.use('/api/bot',         botRoutes);
 app.use('/api/messages',    dmRoutes);
 app.use('/api/business',    businessRoutes);
+app.use('/api/discover',    discoverRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'Endpoint not found' });

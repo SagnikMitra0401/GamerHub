@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
 import ProfilePanel from '../components/settings/ProfilePanel';
 import FeedPanel from '../components/settings/FeedPanel';
 import PrivacyPanel from '../components/settings/PrivacyPanel';
+import NotificationPanel from '../components/settings/NotificationPanel';
 import BusinessPanel from '../components/settings/BusinessPanel';
 import SecurityPanel from '../components/settings/SecurityPanel';
 import DangerPanel from '../components/settings/DangerPanel';
 import { SettingsSkeleton } from '../components/common/Skeleton';
 import {
-  AlertIcon, BriefcaseIcon, CompassIcon, CloseIcon, LockIcon, PencilIcon, UsersIcon
+  AlertIcon, BellIcon, BriefcaseIcon, CompassIcon, CloseIcon, LockIcon, PencilIcon, UsersIcon
 } from '../components/common/icons';
 
 const TABS = [
@@ -37,6 +38,12 @@ const TABS = [
     label: 'Privacy & safety',
     hint: 'Invites, blocks, export',
     icon: UsersIcon
+  },
+  {
+    key: 'notifications',
+    label: 'Notifications',
+    hint: 'Activity and squads',
+    icon: BellIcon
   },
   {
     key: 'security',
@@ -122,6 +129,9 @@ const SettingsPage = () => {
             One place for your handle, how the feed finds posts for you, who can reach you,
             every signed-in session, and the irreversible switches.
           </p>
+          <Link to="/welcome" className="btn btn-ghost btn-sm settings-tune-link">
+            {user?.onboardingCompletedAt === null ? 'Finish setting up' : 'Tune my feed'}
+          </Link>
         </header>
 
         {toast && (
@@ -183,6 +193,7 @@ const SettingsPage = () => {
               {activeTab === 'business' && <BusinessPanel {...panelProps} />}
               {activeTab === 'feed' && <FeedPanel {...panelProps} />}
               {activeTab === 'privacy' && <PrivacyPanel {...panelProps} />}
+              {activeTab === 'notifications' && <NotificationPanel {...panelProps} />}
               {activeTab === 'security' && <SecurityPanel {...panelProps} />}
               {activeTab === 'danger' && <DangerPanel {...panelProps} />}
             </section>

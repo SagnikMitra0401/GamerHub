@@ -56,6 +56,8 @@ const AdminDashboard = () => {
   const [verifications, setVerifications] = useState([]);
   const [verificationsError, setVerificationsError] = useState('');
   const [verificationBusy, setVerificationBusy] = useState(null);
+  const [funnel, setFunnel] = useState(null);
+  const [funnelError, setFunnelError] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -67,6 +69,16 @@ const AdminDashboard = () => {
       setError(describeFailure(err));
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const loadFunnel = useCallback(async () => {
+    try {
+      const { data: payload } = await axiosInstance.get('/admin/funnel?days=28');
+      setFunnel(payload);
+      setFunnelError('');
+    } catch (err) {
+      setFunnelError(describeFailure(err));
     }
   }, []);
 
@@ -116,18 +128,19 @@ const AdminDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    if (user?.role !== 'admin') { setLoading(false); return undefined; }
+  const refreshAll = useCallback(() => {
     load();
+    loadFunnel();
     loadReports();
     loadVerifications();
-    const timer = setInterval(() => {
-      load();
-      loadReports();
-      loadVerifications();
-    }, 30_000);
+  }, [load, loadFunnel, loadReports, loadVerifications]);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') { setLoading(false); return undefined; }
+    refreshAll();
+    const timer = setInterval(refreshAll, 30_000);
     return () => clearInterval(timer);
-  }, [user?.role, load, loadReports, loadVerifications]);
+  }, [user?.role, refreshAll]);
 
   if (!user) {
     return (
@@ -160,6 +173,8 @@ const AdminDashboard = () => {
   const counts = data?.database?.counts || {};
   const traffic = health?.traffic;
   const youtube = health?.services?.youtube;
+  const observability = data?.observability;
+  const funnelSteps = funnel?.steps || [];
 
   return (
     <main className="page">
@@ -172,7 +187,7 @@ const AdminDashboard = () => {
               {lastLoaded && ` Updated ${lastLoaded.toLocaleTimeString()}.`}
             </p>
           </div>
-          <button className="btn btn-ghost" onClick={load} disabled={loading}>
+          <button className="btn btn-ghost" onClick={refreshAll} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>
@@ -273,6 +288,37 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
+                <h3 className="admin-subhead">Launch instrumentation</h3>
+                <div className="admin-services">
+                  <div className="service-row">
+                    <span>Request IDs</span>
+                    <span className={observability?.requestIds ? 'ok' : 'warn'}>
+                      {observability?.requestIds ? 'enabled' : 'missing'}
+                    </span>
+                  </div>
+                  <div className="service-row">
+                    <span>Error reporting</span>
+                    <span className={observability?.errorReportingConfigured ? 'ok' : 'muted'}>
+                      {observability?.errorReporting === 'sentry' ? 'Sentry' : 'structured JSON'}
+                    </span>
+                  </div>
+                  <div className="service-row">
+                    <span>Rate-limit store</span>
+                    <span className={data?.rateLimits?.shared ? 'ok' : 'muted'}>
+                      {data?.rateLimits?.mode || 'memory'}
+                      {data?.rateLimits?.shared ? ' (shared)' : ' (local)'}
+                    </span>
+                  </div>
+                  <div className="service-row">
+                    <span>Release</span>
+                    <span className="mono">{observability?.release || '—'}</span>
+                  </div>
+                  <div className="service-row">
+                    <span>Product event retention</span>
+                    <span className="muted">{observability?.productEventRetentionDays ?? 180} days</span>
+                  </div>
+                </div>
+
                 {traffic?.rateLimits?.length > 0 && (
                   <>
                     <h3 className="admin-subhead">Rate-limit hits</h3>
@@ -314,6 +360,49 @@ const AdminDashboard = () => {
 
             <section className="admin-card">
               <div className="admin-card-head">
+                <h2>Activation funnel</h2>
+                <span className="admin-badge muted">
+                  {funnel ? `${funnel.windowDays} days` : 'loading'}
+                </span>
+              </div>
+              {funnelError && <p className="admin-warn">{funnelError}</p>}
+              {!funnel && !funnelError && <p className="admin-note">Loading the funnel…</p>}
+              {funnel && (
+                <>
+                  <p className="admin-note">
+                    Distinct accounts per step. Day-7 is a cohort approximation from event timestamps,
+                    not a warehouse-grade retention calculation.
+                  </p>
+                  <table className="admin-table">
+                    <thead>
+                      <tr><th>Step</th><th>Users</th><th>From previous</th><th>From signup</th></tr>
+                    </thead>
+                    <tbody>
+                      {funnelSteps.map((step) => (
+                        <tr key={step.key}>
+                          <td>
+                            {step.label}
+                            {step.eligibleUsers !== undefined && (
+                              <span className="admin-stat-hint"> · {step.eligibleUsers} eligible</span>
+                            )}
+                          </td>
+                          <td>{step.users}</td>
+                          <td>{step.rateFromPrevious === null ? '—' : `${step.rateFromPrevious}%`}</td>
+                          <td>{step.rateFromSignup}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="admin-note">
+                    {funnel.skippedOnboarding} account{funnel.skippedOnboarding === 1 ? '' : 's'} skipped onboarding ·{' '}
+                    Day-7: {funnel.day7.returned} of {funnel.day7.cohort} eligible ({funnel.day7.rate}%).
+                  </p>
+                </>
+              )}
+            </section>
+
+            <section className="admin-card">
+              <div className="admin-card-head">
                 <h2>Database</h2>
                 <span className="admin-badge muted">{formatTime(data.generatedAt)}</span>
               </div>
@@ -326,6 +415,7 @@ const AdminDashboard = () => {
                 <Stat label="Open squads" value={counts.activeParties ?? 0} />
                 <Stat label="Notifications" value={counts.notifications ?? 0} />
                 <Stat label="Audit events" value={counts.auditEvents ?? 0} />
+                <Stat label="Product events" value={counts.productEvents ?? 0} />
               </div>
             </section>
 

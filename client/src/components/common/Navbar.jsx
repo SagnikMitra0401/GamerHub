@@ -8,6 +8,7 @@ import useDmSummary from '../../hooks/useDmSummary';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Feed', icon: 'home', end: true },
+  { to: '/discover', label: 'Discover', icon: 'compass' },
   { to: '/communities', label: 'Servers', icon: 'servers' },
   { to: '/lfg', label: 'LFG', icon: 'target' },
   { to: '/games', label: 'Games', icon: 'gamepad' }
@@ -18,6 +19,7 @@ const PATHS = {
   servers: <><rect x="3.5" y="4" width="17" height="6" rx="2" /><rect x="3.5" y="14" width="17" height="6" rx="2" /><path d="M7 7h.01M7 17h.01" /></>,
   target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></>,
   gamepad: <><rect x="2.5" y="7" width="19" height="10" rx="5" /><path d="M7 10v4M5 12h4" /><circle cx="16" cy="11" r="0.9" fill="currentColor" stroke="none" /><circle cx="18.5" cy="13.5" r="0.9" fill="currentColor" stroke="none" /></>,
+  compass: <><circle cx="12" cy="12" r="8.4" /><path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2z" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6.2 8-6.2s8 2.2 8 6.2" /></>,
   admin: <><path d="M12 3l8 3v6c0 5-3.8 8.2-8 9-4.2-.8-8-4-8-9V6z" /><path d="m9 12 2 2 4-4" /></>
 };
@@ -39,6 +41,10 @@ const Glyph = ({ name, className = 'glyph' }) => (
     {PATHS[name] || PATHS.home}
   </svg>
 );
+
+// Discover is a full navbar/drawer destination but not a fifth bottom-dock
+// slot; the dock is already at its comfortable width on a phone.
+const DOCK_ITEMS = NAV_ITEMS.filter((item) => item.to !== '/discover');
 
 const navClass = ({ isActive }) => `navbar-link${isActive ? ' active' : ''}`;
 const drawerClass = ({ isActive }) => `drawer-link${isActive ? ' active' : ''}`;
@@ -227,7 +233,7 @@ const Navbar = () => {
       </aside>
 
       <nav className="bottom-dock" aria-label="Primary navigation">
-        {NAV_ITEMS.map(item => (
+        {DOCK_ITEMS.map(item => (
           <NavLink key={item.to} to={item.to} end={item.end} className={dockClass}>
             <Glyph name={item.icon} className="dock-icon" />
             <span className="dock-label">{item.label}</span>

@@ -26,6 +26,7 @@ const { createSlidingWindowLimiter, createRecentEventTracker } = require('../uti
 const { recordAudit } = require('../utils/audit');
 const { canParticipate } = require('../utils/privacy');
 const { corsOrigin } = require('../utils/origins');
+const { recordFirstEvent } = require('../utils/productEvents');
 
 /** Live Socket.io instance (controllers broadcast channel/member changes). */
 let ioInstance = null;
@@ -539,6 +540,7 @@ function initSocket(httpServer) {
           mentions,
           attachments: attachmentIds
         });
+        recordFirstEvent('first_message', userId, { surface: 'community' });
 
         if (attachmentIds.length) {
           await Attachment.updateMany(

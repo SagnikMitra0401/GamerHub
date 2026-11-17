@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 7 November 2026 · **Branch:** `main` · **Head:** Phase C team inbox implementation
+**Last updated:** 17 November 2026 · **Branch:** `main` · **Head:** Phase 14D follow-ups and Phase 12 operability
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,36 +14,259 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **193 / 193 pass** | 7 Nov |
-| Unit — client components | `npm test --prefix client` | **31 / 31 pass** | 7 Nov |
-| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 6 Nov |
-| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 6 Nov |
-| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 6 Nov |
-| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 6 Nov |
-| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 6 Nov |
-| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **62 / 62 pass** | 6 Nov |
-| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 6 Nov |
-| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 6 Nov |
-| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 7 Nov |
-| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 7 Nov |
-| Client production build | `npm run build --prefix client` | **pass** — 195 modules, 140.46 kB CSS / 598.00 kB JS (25.46 / 170.68 kB gzip) | 7 Nov |
-| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 7 Nov |
+| Unit / contract — server | `npm test` | **258 / 258 pass** | 17 Nov |
+| Unit — client components | `npm test --prefix client` | **44 / 44 pass** | 16 Nov |
+| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 15 Nov |
+| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 15 Nov |
+| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 15 Nov |
+| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 15 Nov |
+| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 15 Nov |
+| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **62 / 62 pass** | 15 Nov |
+| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 15 Nov |
+| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 15 Nov |
+| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 15 Nov |
+| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 15 Nov |
+| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **82 / 82 pass** | 17 Nov |
+| Client production build | `npm run build --prefix client` | **pass** — 210 modules, 154.79 kB CSS / 660.83 kB JS (186.29 kB gzip) | 17 Nov |
+| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 16 Nov |
+| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 15 Nov |
+| UI smoke — pass 7 | browser + live API: admin notification bell → open/click, `/admin` activation funnel and Refresh | **pass** — temporary admin/actor accounts and their data deleted afterwards | 16 Nov |
+| UI smoke — pass 8 | browser + live API: temporary admin login, bell open → notification row click → read state, `/admin` cohort funnel and Refresh | **pass** — temporary account, product events and notification deleted afterwards | 16 Nov |
+| UI smoke — pass 6 | browser: new account registration → `/welcome` → join/follow → completion, `/discover`, mobile drawer, feed | **pass** — temporary account deleted afterwards, no overflow or console errors | 15 Nov |
 | UI smoke — pass 5 | browser + live API: feed, 404, settings, anonymous session, 360 px | **pass** — 25 HTTP probes (2 mis-aimed paths re-checked at the real ones), no overflow, no console errors | 6 Nov |
 | UI smoke — pass 4 | browser, 404 + settings skeleton | **pass** — 404 renders the requested path, no console errors | 5 Nov |
 | UI smoke — pass 3 | browser, `/settings` × 5 tabs | **pass** — every panel renders, `?tab=` addressable, no console errors | 5 Nov |
 | UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** (pre-phase-8 pages only) | 25 Oct (that pass) |
-| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 7 Nov |
-| Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied (incl. hardening indexes); auth 1, squads 1; feed/communities still empty | 6 Nov |
+| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 15 Nov |
+| Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied; auth 5 (incl. onboarding and notification-settings backfills); communities 1 (game tags); squads 1; feed 2 (notification retention TTL, product events) | 16 Nov |
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**853 automated checks defined** (193 server + 31 client + 629 e2e across ten suites), plus the secret and design-system gates.
-Pass 13 re-ran all 853 against the Phase C team-inbox tree: the complete ten-suite e2e chain, all server units and all client units.
+**1,013 automated checks defined** (258 server + 44 client + 711 e2e across eleven suites), plus 63 responsive checks and the secret/design-system gates.
+Pass 21 re-ran the full e2e chain and all server units after the operability follow-ups: 711/711 e2e checks (including 82/82 Phase 14) and 258/258 server checks. Client units are unchanged from Pass 20.
+
+### Pass 21 (17 Nov) — funnel scale, day-7 quality, shared quotas and operability
+
+The cohort funnel now groups events per account in MongoDB instead of loading
+cohort ids into a growing `$in` array. Connection remains nested under onboarding
+completion and contribution under connection. Day-7 returns now exclude
+notification opens/clicks; a fixture proves an account whose only day-7 action
+was opening the bell is not counted, while an account with a first post is.
+
+Per-surface, auth and account quotas use a shared Upstash counter store when
+Redis is enabled, with a 30-second local fallback. `/api/health/ready` pings
+MongoDB and Redis (disabled Redis reports `disabled`), optional Sentry reporting
+is release-tagged and PII-scrubbed, and system health reports both states. The
+Atlas restore drill is documented in `docs/BACKUP_RESTORE.md`; the bounded sample
+drill restored 33 collections, 124 documents and 135 indexes into a throwaway
+database, verified them and dropped it.
+
+- **Server:** 258/258, including new shared-store and error-reporting checks.
+- **E2E:** 711/711 across all eleven suites; Phase 14 is 82/82, adding the day-7
+  engagement exclusion and readiness checks.
+- **Restore drill:** pass — 33 collections, 124 sample documents, 135 indexes.
+- **Gmail:** not sent; `GMAIL_BRIDGE_URL` / `GMAIL_BRIDGE_SECRET` are not present
+  in this environment. The transport tests still pass; the live send remains the
+  operator step in `docs/GMAIL_BRIDGE.md`.
+- **Client/build:** 210 modules, 660.83 kB JS (186.29 kB gzip), 154.79 kB
+  CSS. The admin panel now shows the error-reporting provider and whether the
+  rate-limit store is shared or local.
+
+### Pass 20 (16 Nov) — cohort funnel and engagement budget
+
+The activation funnel now derives one first-signup cohort per request, keeps the
+first signup timestamp per account, and counts every step as a distinct member of
+that cohort. Connection is nested under onboarding completion and contribution
+under connection, so one user cannot make a downstream rate exceed 100%. A
+stale-signup fixture proves an onboarding event outside the window cannot leak
+into the cohort.
+
+Notification opens and clicks now share a per-user rate limit (default 60/min,
+configurable with `NOTIFICATION_ENGAGEMENT_RATE_LIMIT_MAX`). The endpoints still
+record repeatable engagement breadcrumbs, but a script can no longer inflate
+them without bound.
+
+- **Server:** 248/248 at the time of the pass (historical; current 258/258).
+- **Phase 14 E2E:** 80/80 at the time of the pass (historical; current 82/82),
+  adding the stale-cohort fixture and the per-user engagement-limit check.
+- **Live browser:** temporary admin saw the bell notification, clicked the row
+  (notification became read and `/notifications` showed it), then loaded
+  `/admin`, saw the cohort funnel and clicked Refresh. The temporary account,
+  events and notification were deleted.
+- **Client/build:** unchanged from Pass 19; no client source changed.
+
+### Pass 19 (16 Nov) — 14D review and privacy completion
+
+Audited the Phase 14D telemetry surface for unnecessary code, privacy gaps and
+correctness drift. The admin Refresh button now reloads the funnel and the
+moderation queues instead of only system health. Account export now includes the
+caller's `ProductEvent` rows, matching the erasure/TTL policy. Log redaction also
+covers quoted JSON credentials and bearer tokens containing URL-safe characters.
+Removed duplicated constants, unused exports and an unused logging parameter;
+request-ID and funnel response shapes are unchanged.
+
+The review documented two deliberate limits rather than changing measured
+semantics: funnel steps remain independent distinct-user counts (so a downstream
+rate can exceed its denominator), and notification engagement events are
+repeatable and only coarsely rate limited.
+
+- **Server:** 248/248, including the expanded redaction assertions.
+- **Client:** 44/44.
+- **E2E:** 707/707; `e2e-phase14.js` is now 78 checks after asserting product
+events appear in the data export.
+- **Build:** 210 modules, 660.43 kB JS (186.22 kB gzip), 154.79 kB CSS.
+- **Docs:** SECURITY.md now records the telemetry controls and known limits;
+the privacy policy discloses product events, 180-day retention, export and
+erasure.
+
+### Pass 18 (16 Nov) — activation telemetry and launch instrumentation
+
+Added the first-party `ProductEvent` collection with a 180-day TTL, an explicit
+event allowlist, prop redaction and a unique partial index so each one-time
+milestone is recorded at most once per account. Signup, verification, password
+reset, onboarding start/completion/skip, first join/follow/post/comment/message
+and notification opens/clicks are wired through fire-and-forget recorders; the
+account-erasure path deletes that account's events.
+
+Admins now get `GET /api/admin/funnel?days=28`, cached for 60 seconds and built
+from distinct-user counts with a labelled day-7 cohort approximation. Every
+response carries `x-request-id`, requests and server errors are written as
+structured JSON with cookie/token/email redaction and a release tag, and the
+admin monitor renders the funnel plus launch-instrumentation rows.
+
+- **Server:** 248/248, including 8 new checks for the event allowlist, prop
+  sanitisation, funnel arithmetic and request-ID/redaction helpers.
+- **Client:** 44/44. The Welcome completion assertion now includes
+  `skipped: false`; a NotificationBell inside-portal guard was added after the
+  live mobile-width click exposed that a row tap could dismiss the sheet before
+  its click handler ran.
+- **E2E:** the complete 706-check chain passes. `e2e-phase14.js` grew from 60 to
+  77 checks covering signup/onboarding/skip events, first-action milestones,
+  notification open/click, erasure cleanup, request IDs, admin-only funnel,
+  distinct signup counts and system-health instrumentation.
+- **Build:** production client build passes at 210 modules, 659.45 kB JS
+  (185.87 kB gzip); CSS is unchanged at 154.79 kB.
+- **Live browser:** registered a temporary admin and actor, generated a real
+  follow notification, opened the bell and clicked the row (writing
+  `notification_opened` and `notification_clicked` and marking it read), then
+  opened `/admin` and clicked Refresh. The funnel showed 2 signed up, 2 onboarded,
+  1 connected and 1 contributing. Both temporary accounts, their post, follow,
+  notifications and product events were deleted afterwards.
+- **Migration:** feed 2 (`product-events`) applied on the working database.
+- **Secret gate:** 0 hits.
+
+Not verified in this pass: a hosted error-reporting backend (the structured
+logger and request IDs are local), a live Gmail bridge send (still deferred),
+and CI. No new responsive or responsive-layout checks were run.
+
+### Pass 17 (15–16 Nov) — social triggers, 15-day retention and the block guard
+
+Comments now ping the post author, new follows ping the followed player, and
+like milestones (1/5/10/25/50/100) ping the author once per threshold. Self-pings
+and blocked pairs are excluded, category preferences still suppress at write
+time, and `dedupeKey` makes follow/unfollow and unlike/re-like idempotent.
+
+Ordinary notifications carry `retentionAt = createdAt + 15 days`; invitations,
+follow requests, account/security notices, community join decisions and explicit
+important notices carry `null`. A TTL index and the six-hourly retention sweep
+remove only the dated rows.
+
+- **Server:** 240/240, including 4 retention-policy checks and 2 milestone
+  checks; the existing 234 checks are unchanged.
+- **Client:** 44/44, unchanged from Pass 16; no client source changed.
+- **E2E:** the complete 689-check chain passes. `e2e-phase14.js` grew from 40 to
+  60 checks for comment/follow/like triggers, self/preference exclusion, dedupe
+  idempotence, the paired-account block guard, the retention date and the
+  filtered sweep. A blocked peer's follow, comment and like are accepted but
+  create no social notifications, while an unblocked control peer creates one of
+  each; the block guard itself lives in `notifyUser`.
+- **Live data:** the feed migration stamped 35 existing notifications (14
+  ordinary, 21 durable). The TTL index `notification_retention_ttl` exists with
+  `expireAfterSeconds: 0`; the API restarted cleanly and `/api/health` returned
+  200.
+- **Migration:** feed 1 (`notification-retention`) applied on the working
+  database.
+
+Not verified in this pass: 14D activation telemetry; threaded comment replies
+(the Comment model has no parent link); a live Gmail bridge send (still
+deferred); and a fresh client build/responsive run (no client source changed).
+The notification bell and `/notifications` history were click-tested live on
+16 Nov: only the three allowed social pings appeared, with no blocked-peer
+entry, and the temporary accounts were deleted afterwards.
+
+### Pass 16 (15 Nov) — notification history and preferences
+
+Added `/notifications` with cursor paging, an unread divider, mark-read on open,
+mark-all-read and a bell hand-off, plus five per-category preferences in
+Settings. `notifyUser` now checks the recipient's category before writing, so an
+opt-out is enforced at the source rather than hidden in one client.
+
+- **Server:** 234/234, including 5 new notification-preference checks for
+  defaults, partial patch validation and category mapping.
+- **Client:** 44/44, including 3 new history checks for paging, unread/read-all
+  state and one panel save check.
+- **E2E:** the complete 669-check chain passes. `e2e-phase14.js` grew from 29 to
+  40 checks for cursor continuity, ownership, partial preferences and
+  server-side opt-out/re-enable.
+- **Responsive:** 63/63 across 7 viewports; `/notifications` is the ninth
+  surface.
+- **Live browser:** seeded three temporary notifications, verified labels,
+  unread divider, badge and long-page overflow; saved the Likes preference off
+  and back on. All three temporary pings were deleted and the preference
+  restored to all-on; unread returned to 0.
+- **Migration:** auth 5 (`notification-settings` defaults) applied on the
+  working database.
+
+Not verified in this pass: 14C comment/follow/like triggers and 14D activation
+telemetry (not implemented yet), and a live Gmail bridge send (still deferred).
 CI has not been re-run since the community milestone; no workflow step had to be
 added, because the `quality` job calls `npm test` and the `e2e` job calls
 `npm run test:e2e`, both of which now include the new suites. The one workflow
 edit (adding `migrate:domains:status` next to `migrate:status`) only extends the
 last step. The next push therefore exercises every check above.
+
+### Pass 15 (15 Nov) — game-first onboarding (14B)
+
+Added `/welcome`, `/discover`, the authenticated discovery API, optional game
+tags on communities, and `onboardingCompletedAt` routing. Existing accounts are
+grandfathered at their creation time by the auth migration; new accounts are
+sent to the three-step flow and can skip it.
+
+- **Server:** 229/229, including 8 new onboarding-helper checks. Discovery
+  covers prefix game matching, private-server exclusion, blocked players/leaders,
+  joined-server exclusion, tag matching and the popularity fallback.
+- **Client:** 40/40, including 2 new `/welcome` checks for step navigation,
+  explicit join, completion and the tuned state.
+- **E2E:** the complete 658-check chain passes. `e2e-phase14.js` grew from 18 to
+  29 checks for the discovery contract and completion.
+- **Responsive:** 56/56 across 7 viewports, with `/welcome` and `/discover`
+  added to the matrix.
+- **Live browser:** registered a fresh account, landed on `/welcome`, selected
+  Valorant, kept PC, joined a public server, followed a suggested player, and
+  finished setup. `/discover`, the mobile drawer and the feed all loaded without
+  a bounce or overflow. The temporary account and its membership/follow were
+  removed afterwards.
+- **Migrations:** auth 4 (onboarding backfill + favourite-game/passport indexes)
+  and communities 1 (game tags + index) are applied on the working database.
+
+Not verified in this pass: a live Gmail bridge send (still deferred), 14C social
+notifications and 14D activation telemetry (not implemented yet).
+
+### Pass 14 (10 Nov) — account recovery
+
+Added email verification, password reset and verified-email password changes.
+The complete server (221), client (38) and e2e (647) suites pass, including 18
+new recovery checks, 3 new form checks and 4 new email-transport checks. The auth
+migration was applied to the working database: all 24 existing accounts were
+grandfathered as verified and the token indexes were created. The new pages
+compile but were not visually smoke-tested in this pass; add them to the next
+browser smoke matrix.
+
+A free Gmail Apps Script bridge was added as the `apps-script` transport. Its
+request payload, automatic selection, rejection handling and missing-secret
+handling are covered by local HTTP tests. A live bridge send is pending the
+owner deploying the script and supplying `GMAIL_BRIDGE_URL` and
+`GMAIL_BRIDGE_SECRET`; see [`GMAIL_BRIDGE.md`](GMAIL_BRIDGE.md).
 
 ### Pass 8 (6 Nov) — full-system verification
 
@@ -266,6 +489,7 @@ checks, build, emoji gate).
 | `scripts/e2e-phase8.js` | `middleware/auth.js`, `utils/generateToken.js`, `controllers/{auth,account,invitation,squadChat,lfg}Controller.js`, `utils/{privacy,squadLifecycle,squadChatService}.js`, `config/{connections,socket}.js`, `jobs/retention.js`, or the `User`/`Party`/`Invitation`/`SquadChat*` models change |
 | `scripts/e2e-phase9.js` | `controllers/{account,auth,user,post,comment,lfg,community}Controller.js`, `utils/{username,succession,accountErasure,privacy}.js`, `middleware/auth.js`, `config/socket.js`, `jobs/retention.js`, or the `User`/`Community`/`Party`/`SquadChat` models change |
 | `scripts/e2e-phase10.js` | `middleware/limiters.js`, `utils/visibility.js`, `controllers/{user,lfg}Controller.js`, `config/socket.js`, or anything that changes how a user document is projected |
+| `scripts/e2e-phase14.js` | recovery, onboarding, notification history/preferences, social triggers, retention, activation telemetry, funnel, request IDs, `utils/notify.js`, `utils/socialNotifications.js`, `utils/productEvents.js`, `utils/funnel.js` or `utils/observability.js` change |
 | `scripts/e2e-phase11.js` | `utils/{dmPolicy,dmService}.js`, `models/{Conversation,DirectMessage,DmReport}.js`, `controllers/dmController.js`, `routes/dmRoutes.js`, `config/socket.js`, `dmSettings`, or the retention/erasure DM hooks change |
 | `npm run scan:secrets` | any new source file, dependency, or build output — it is cheap, run it every pass |
 | `migrate:domains:status` | a file under `migrations/{auth,feed,communities,squads}/` is added, or after any schema change to the models those tracks index |
@@ -436,7 +660,7 @@ Locate the check with `grep -n "<keyword>" scripts/e2e*.js server/tests/*.js`.
 | Reports | member report accepted, duplicate is a silent no-op, non-member 403, member cannot read the queue, moderator sees preview + reporter, resolution audited | `e2e-phase7.js` |
 | Channel config | `forumConfig` normalised, `requireTag` enforced, `attachmentsEnabled` persisted, forum type present in the sidebar payload | `e2e-phase7.js` |
 | Moderation | role hierarchy, kick/assign rules, capability resolution, escalation attempts rejected | `server/tests/*`, `e2e.js` |
-| Notifications | cursor shape, page continuity without overlap, invalid cursor, unread filter, single read, cross-user read denied, mark-all-read | `e2e-phase6.js` |
+| Notifications | cursor shape, page continuity without overlap, invalid cursor, unread filter, single read, cross-user read denied, mark-all-read; phase 14 adds history paging, ownership, category preferences and write-time opt-out | `e2e-phase6.js`, `e2e-phase14.js` |
 | LFG | creation, 6-hour expiry, slot accounting, filters, join requests, leader-only respond/close, accept fills and delists | `e2e-phase4.js`, `e2e-phase6.js` |
 | Game catalog | normalised payload, detail, invalid id, 1-hour cache | `e2e-phase4.js`, `e2e-phase6.js` |
 | Admin | 403 for users, health payload, DB state, Redis truthfully reported off, secrets never returned, counts, metrics | `e2e-phase4.js`, `e2e-phase6.js` |
@@ -701,7 +925,7 @@ Verification of the above: `npm run build --prefix client` → pass, `npm test` 
 | Low | Settings actions are proven at the API level only; no browser flow submitted the freeze, rename or deletion forms | Panels render clean (§3b); a click-through is a nice-to-have, not a gap in the rules |
 | Low | Squad chat has no file attachments (text only) | Phase 3 attachment model exists; wiring it to squad chat is a follow-up |
 | Low | A squad's temporary chat is not deleted when the Party TTL removes the squad | Chat expires on its own within 15 days; the sweeper then purges it |
-| Medium | Rate-limit counters (REST and sockets) are per process | Fine for one Render instance; a shared store is required before scaling out (roadmap 9) |
+| Medium | Socket-engine rate-limit and flood counters are per process | REST per-surface/auth/account quotas are shared when Redis is enabled; the socket engine still needs the Redis adapter before horizontal scale-out |
 | Low | Skeleton layouts are proven in their loaded state at 360 px (settings, login, feed), not while the placeholders are on screen | Placeholder composition is covered by `Skeleton.test.jsx`; a throttled-network visual pass is still optional |
 | Low | Phase-8 UI other than `/settings` (squad chat drawer, invitation inbox) has had no browser pass | Build + component checks only; ask for a screenshot pass |
 | Low | Segmented tab rail clips its last tray at ≤360 px (scrollable, mask-faded) | Intentional; revisit if a tray is added |
@@ -730,11 +954,12 @@ Full detail in [ROADMAP.md](ROADMAP.md); the order and trigger are what matter:
 | — | ~~**8H — Hardening & resilience**~~ | **Delivered in pass 7.** Skeletons, a real 404, per-surface rate limits, socket caps, search-cost fixes, the LFG presence leak and the secret gate. 148 server + 509 e2e checks. | done |
 | — | ~~**11A — DM consent core**~~ | **Delivered in pass 9.** Request/accept threads, six-row matrix, quotas, expiry/cooldown, blocks/reports, socket rooms, profile summary, inbox and settings UI. 168 server + 31 client + 553 e2e checks defined. | done |
 | — | ~~**11B — DM creator-scale core**~~ | **Delivered in pass 10.** Filtered lane, labels, quick replies, pause/away, reputation/campaign detection and audited admin resolution. Remaining Phase B: saved filters, digest/quiet hours, telemetry and away auto-reply. 175 server + 31 client + 581 e2e checks defined. | core done |
-| 1 | **8 — Inbox** | Notifications are the cheapest retention win and the data exists; add comment/follow/like pings, `nextCursor` paging, per-category mute, and surface squad invitations in the bell. | 1.5 d |
-| 2 | **12 — Operability** | `/api/health/ready` already splits per domain; add request IDs, structured logs and error reporting before a public push. | 1.5 d |
-| 3 | **11 — Account lifecycle** | Verification and password reset are the remaining account gaps; the session/revocation and deletion halves are done. | 2–3 d |
-| 4 | **10 — Discovery** | Atlas Search, tag pages, trending; only once content volume justifies it. | 2–3 d |
-| 5 | **9 — Multi-instance** | Only when a second instance is actually required; costs Upstash quota. | 2–3 d |
+| 1 | **14 — Activation, recovery & retention** | [Plan](PHASE14_ACTIVATION.md). Account recovery, game-first onboarding, social notifications and the activation funnel. This absorbs the verification/reset half of Phase 11 and supersedes the order below until it ships. | 7–9 d |
+| 2 | **8 — Inbox** | Notifications are the cheapest retention win and the data exists; 14C has landed the social triggers and history, this extends the bell with digest tuning and inbox analytics. | 1.5 d |
+| 3 | **12 — Operability** | `/api/health` already reports every domain; add a Mongo/Redis readiness variant, request IDs, structured logs, alerting and error reporting before a public push. 14D covers the minimum launch slice. | 1.5 d |
+| 4 | **11 — Remaining account lifecycle** | Per-device session list and the platform report queue; verification and password reset ship in 14A. | 2–3 d |
+| 5 | **10 — Discovery** | Atlas Search, tag pages, trending; only once content volume justifies it. | 2–3 d |
+| 6 | **9 — Multi-instance** | Only when a second instance is actually required; costs Upstash quota. | 2–3 d |
 
 ---
 

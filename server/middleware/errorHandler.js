@@ -1,4 +1,6 @@
 const { HttpError } = require('../utils/httpError');
+const { logServerError } = require('../utils/observability');
+const { captureServerError } = require('../utils/errorReporting');
 
 /**
  * Single JSON error responder.
@@ -52,8 +54,13 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ message: 'Malformed JSON body' });
   }
 
-  console.error('[API] unhandled error:', err);
-  return res.status(500).json({ message: 'Internal server error' });
+  logServerError(err, req);
+  // Hosted reporting is optional; the structured log above always lands.
+  captureServerError(err, req);
+  return res.status(500).json({
+    message: 'Internal server error',
+    ...(req.id ? { requestId: req.id } : {})
+  });
 };
 
 module.exports = errorHandler;

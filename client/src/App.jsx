@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import FloatingToolbar from './components/common/FloatingToolbar';
 import SearchModal from './components/search/SearchModal';
@@ -8,6 +8,10 @@ import Feed from './pages/Feed';
 import PostDetail from './pages/PostDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
+import EmailVerificationBanner from './components/auth/EmailVerificationBanner';
 import ProfilePage from './pages/ProfilePage';
 import ChannelPage from './pages/ChannelPage';
 import CommunitiesHome from './pages/CommunitiesHome';
@@ -15,9 +19,12 @@ import CommunityPage from './pages/CommunityPage';
 import JoinInvite from './pages/JoinInvite';
 import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
+import Welcome from './pages/Welcome';
+import Discover from './pages/Discover';
 import AdminDashboard from './pages/AdminDashboard';
 import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
+import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
 import PrivateRoute from './components/common/PrivateRoute';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -26,6 +33,7 @@ import './index.css';
 import './phase10.css';
 import './phase11.css';
 import './phase13.css';
+import './phase14.css';
 
 /**
  * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
@@ -59,6 +67,32 @@ const AtmosphereSync = () => {
  * The floating toolbar belongs to the social feed. Inside a server the chat
  * composer owns the bottom of the screen, so the toolbar would sit on top of it.
  */
+/**
+ * New accounts finish game-first onboarding before the rest of the app. The
+ * field is only `null` for accounts created after 14B; existing accounts have a
+ * timestamp from the migration and are never interrupted.
+ */
+const ONBOARDING_ALLOWED = [
+  '/welcome', '/discover', '/verify-email', '/settings',
+  '/login', '/register', '/forgot-password', '/reset-password',
+  '/privacy', '/terms'
+];
+
+const OnboardingGate = () => {
+  const { user, loading } = useAuth();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (loading || !user || user.onboardingCompletedAt !== null) return;
+    const allowed = pathname.startsWith('/join/')
+      || ONBOARDING_ALLOWED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    if (!allowed) navigate('/welcome', { replace: true });
+  }, [user, loading, pathname, navigate]);
+
+  return null;
+};
+
 const GlobalToolbar = ({ onSearchOpen, onCreateOpen }) => {
   const { pathname } = useLocation();
   if (/^\/communities\/[^/]+/.test(pathname)) return null;
@@ -77,13 +111,18 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AtmosphereSync />
+        <OnboardingGate />
         <div className="hero-glow" aria-hidden="true" />
         <Navbar />
+        <EmailVerificationBanner />
         <Routes>
           <Route path="/"                       element={<Feed />} />
           <Route path="/posts/:id"              element={<PostDetail />} />
           <Route path="/login"                  element={<Login />} />
           <Route path="/register"               element={<Register />} />
+          <Route path="/forgot-password"        element={<ForgotPassword />} />
+          <Route path="/reset-password"         element={<ResetPassword />} />
+          <Route path="/verify-email"           element={<VerifyEmail />} />
           <Route path="/u/:username"            element={<ProfilePage />} />
           <Route path="/c/:tag"                 element={<ChannelPage />} />
           <Route path="/communities"            element={<CommunitiesHome />} />
@@ -91,9 +130,12 @@ function App() {
           <Route path="/join/:code"             element={<JoinInvite />} />
           <Route path="/lfg"                    element={<LfgPage />} />
           <Route path="/games"                  element={<GameCatalog />} />
+          <Route path="/welcome"                element={<PrivateRoute><Welcome /></PrivateRoute>} />
+          <Route path="/discover"               element={<PrivateRoute><Discover /></PrivateRoute>} />
           <Route path="/admin"                  element={<AdminDashboard />} />
           <Route path="/settings"               element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
           <Route path="/messages"               element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
+          <Route path="/notifications"          element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/privacy"                element={<PrivacyPolicy />} />
           <Route path="/terms"                  element={<TermsOfService />} />
           {/* A wrong URL shows a real 404 instead of redirecting: a silent

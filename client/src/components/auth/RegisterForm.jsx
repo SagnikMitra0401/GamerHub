@@ -26,7 +26,10 @@ const RegisterForm = () => {
     setLoading(true);
     try {
       await register(form.username, form.email, form.password, platforms);
-      navigate(redirect, { replace: true });
+      // Every new account starts on the game-first onboarding flow. An invite
+      // link still wins: it is carried through the flow instead of discarded.
+      const target = redirect && redirect !== '/' ? `?next=${encodeURIComponent(redirect)}` : '';
+      navigate(`/welcome${target}`, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.');
     } finally {

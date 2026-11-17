@@ -1,5 +1,11 @@
 require('dotenv').config();
 const http = require('http');
+const { initErrorReporting, captureServerError } = require('./utils/errorReporting');
+
+// Initialise hosted reporting before the app loads so early module errors are
+// covered. No DSN means no-op; structured logs remain the default.
+initErrorReporting();
+
 const app        = require('./app');
 const connectDB  = require('./config/db');
 const { initSocket } = require('./config/socket');
@@ -53,7 +59,9 @@ async function start() {
 }
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[Process] Unhandled rejection:', reason);
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  console.error('[Process] Unhandled rejection:', err);
+  captureServerError(err, null);
 });
 
 start();

@@ -3,6 +3,7 @@ const Message = require('../models/Message');
 const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 const { getIO } = require('../config/socket');
 const { eraseAccount } = require('../utils/accountErasure');
@@ -71,6 +72,19 @@ async function purgeExpiredSquadChats({ now = new Date() } = {}) {
 }
 
 /**
+ * Remove ordinary notifications whose 15-day retention date has passed.
+ * Durable notices have `retentionAt: null` and are deliberately untouched.
+ * The Mongo TTL index performs the same deletion in the background; this sweep
+ * makes the policy deterministic at startup and every six hours.
+ */
+async function purgeExpiredNotifications({ now = new Date() } = {}) {
+  const result = await Notification.deleteMany({
+    retentionAt: { $ne: null, $lte: now }
+  });
+  return result.deletedCount || 0;
+}
+
+/**
  * Hard-erase accounts whose deletion grace period has ended.
  *
  * The account document is anonymised in place (ids stay stable so old
@@ -133,6 +147,15 @@ function startRetentionWorker() {
     }
 
     try {
+      const notifications = await purgeExpiredNotifications();
+      if (notifications > 0) {
+        console.log(`[Retention] purged ${notifications} expired notification(s)`);
+      }
+    } catch (err) {
+      console.error('[Retention] notification purge failed:', err.message);
+    }
+
+    try {
       const erased = await eraseDeletionPendingUsers();
       if (erased > 0) console.log(`[Retention] erased ${erased} account(s) past the grace period`);
     } catch (err) {
@@ -149,6 +172,7 @@ function startRetentionWorker() {
 module.exports = {
   purgeExpiredMessages,
   purgeExpiredSquadChats,
+  purgeExpiredNotifications,
   eraseDeletionPendingUsers,
   startRetentionWorker,
   purgeExpiredDmRequests,

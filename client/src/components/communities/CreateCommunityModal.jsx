@@ -7,6 +7,7 @@ import CommunitySigil from './CommunitySigil';
 const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
   const [name, setName]             = useState('');
   const [description, setDescription] = useState('');
+  const [games, setGames]           = useState('');
   const [isPrivate, setIsPrivate]   = useState(false);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState('');
@@ -23,11 +24,12 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
       const { data } = await axiosInstance.post('/communities', {
         name: name.trim(),
         description: description.trim(),
+        games: games.split(',').map((game) => game.trim()).filter(Boolean),
         isPrivate
       });
       onCreated(data);
       onClose();
-      setName(''); setDescription(''); setIsPrivate(false);
+      setName(''); setDescription(''); setGames(''); setIsPrivate(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create community.');
     } finally {
@@ -77,6 +79,21 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
               onChange={e => setDescription(e.target.value)}
             />
             <span className="text-muted" style={{ fontSize: '0.75rem' }}>{description.length}/200</span>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="community-games">Games (optional)</label>
+            <input
+              id="community-games"
+              className="form-input"
+              placeholder="Valorant, Apex Legends"
+              value={games}
+              maxLength={200}
+              onChange={e => setGames(e.target.value)}
+            />
+            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+              Up to 5 comma-separated games. They help new players find this server.
+            </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>

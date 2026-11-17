@@ -73,7 +73,9 @@ need. The other three share the default connection on purpose: Mongoose
 `populate()` only resolves models registered on the same connection, and
 identity is populated from posts, members and party leaders everywhere —
 splitting those pools would trade a real outage risk for a theoretical one.
-`GET /api/health` reports each domain's readiness.
+`GET /api/health` is the cheap liveness probe for each domain;
+`GET /api/health/ready` pings MongoDB (and Redis when enabled) before returning
+`200`.
 
 ### Request Flow (REST)
 
@@ -89,7 +91,7 @@ Express app.js
   ├── Helmet (security headers)
   ├── CORS (exact origin allow-list)
   ├── mongoSanitize (NoSQL injection strip)
-  ├── express-rate-limit (1 000 req / 5 min global; stricter on auth routes)
+  ├── express-rate-limit (1 000 req / 5 min global; per-surface quotas share Redis when enabled)
   ├── metricsMiddleware (p50/p95 latency counters, no PII)
   └── postRoutes → toggleLike controller
         ├── verifyToken middleware (HttpOnly cookie JWT)
@@ -152,6 +154,16 @@ Express app.js
 - Email/password accounts plus optional Google Sign-In (OpenID Connect via
   `google-auth-library`; the ID token's signature, issuer and audience are
   verified server-side, and an existing local account is never merged by email)
+- Email verification and password recovery: new registrations receive a
+  24-hour, single-use link; reset links expire in 30 minutes and revoke every
+  existing session. Accounts created before the flow were grandfathered as
+  verified. Password changes require a verified email.
+- Game-first onboarding: new accounts can pick up to three games and their
+  platforms in `/welcome`, then join a public server or follow a player before
+  seeing an empty feed. `/discover` keeps the same privacy-safe suggestions
+  available later; servers can carry up to five game tags. Every join and follow
+  is an explicit click, and private servers, blocked accounts and frozen users
+  are never suggested.
 - Session version on every JWT: "sign out everywhere" and account deletion
   revoke every cookie already in the wild, with no session table
 - Account states: active, restricted, suspended, deletion_pending, deleted
@@ -209,6 +221,20 @@ a server rule rather than a client check:
 ### Notifications
 - Four types: `social`, `lfg_request`, `lfg_accepted`, `gaming_bot`
 - Unread badge count driven by a compound index on `(userId, read, createdAt)`
+- Full history at `/notifications` with opaque cursor paging, an unread divider,
+  mark-read on open and a load-older control; the bell keeps its newest-page
+  preview and links to the full page
+- Five per-category preferences (comments, follows, likes, squad activity and
+  gaming-bot picks) saved under `User.notificationSettings` and enforced by
+  `notifyUser` before a ping is written
+- Social triggers: comments reach the post author, new follows reach the
+  followed player, and likes create one ping at 1/5/10/25/50/100. Self-pings,
+  blocked pairs and opaque dedupe repeats are suppressed
+- Ordinary notifications auto-delete after **15 days** through a `retentionAt`
+  TTL index plus a six-hourly sweep. Invitations, follow requests,
+  account/security notices, community membership notices and explicit
+  `important`/`retention: important` notices keep `retentionAt: null` and are
+  retained until their own lifecycle removes them
 - Action URL validation: only internal routes or `https://` links accepted
 
 ### Admin Dashboard
@@ -443,6 +469,7 @@ Notification ──── User (recipient) ────────────�
 |---|---|---|
 | `username` | String | Unique, 3–20 chars, alphanumeric + underscore |
 | `email` | String | Unique, lowercase |
+| `emailVerifiedAt` | Date | Null for new local accounts; set by verification, reset or Google |
 | `passwordHash` | String | bcrypt, never returned by any endpoint |
 | `role` | Enum | `user` / `moderator` / `admin` |
 | `xp` / `level` | Number | Gamification; level derived from cumulative XP |
@@ -555,6 +582,12 @@ One live invitation per recipient + target (partial unique index on `pending`).
 | `actionUrl` | Validated: internal route or `https://` only |
 | `dedupeKey` | Partial unique index prevents bot duplicate pings |
 | `read` | Boolean; compound index `{ userId, read, createdAt }` |
+| `retentionAt` | Ordinary pings: `createdAt + 15 days`; durable notices: `null` |
+
+A TTL index on `retentionAt` (`expireAfterSeconds: 0`) deletes only ordinary
+pings. Durable notices have no date in that field and are never selected by the
+index; the retention worker runs the same filtered delete at startup and every
+six hours.
 
 ---
 
@@ -568,6 +601,11 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 |---|---|---|---|
 | POST | `/auth/register` | — | Create account |
 | POST | `/auth/login` | — | Login, set cookie |
+| POST | `/auth/verify-email` | — | Consume a 24-hour verification token |
+| POST | `/auth/verify-email/resend` | Required | Send a fresh verification link (rate limited) |
+| POST | `/auth/forgot-password` | — | Request a reset link; always `202` |
+| POST | `/auth/reset-password` | — | Consume a reset token and revoke every session |
+| PATCH | `/auth/password` | Required | Change/set a password after email verification |
 | GET | `/auth/providers` | — | Public sign-in config (Google enabled + client id) |
 | POST | `/auth/google` | — | Exchange a Google ID token for a session |
 | POST | `/auth/logout` | Required | Clear cookie |
@@ -687,7 +725,8 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/account` | Account state, privacy settings, blocked list, affinity counts |
+| GET | `/account` | Account state, privacy/DM/notification settings, blocked list, affinity counts |
+| PATCH | `/account/notification-settings` | Five boolean notification categories; partial patches only |
 | PATCH | `/account/username` | Change handle (reserved names, case-insensitive uniqueness, rate limited) |
 | POST | `/account/feed-reset` | Clear tag/channel/genre affinities to a fresh baseline |
 | POST | `/account/freeze` | Password-confirmed stealth mode on/off (`{ frozen, password }`) |
@@ -709,15 +748,16 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 |---|---|---|
 | GET | `/games` | Game catalog (search, genre, platform) |
 | GET | `/games/:id` | Game detail |
-| GET | `/notifications` | User notification list |
-| POST | `/notifications/read/:id` | Mark read |
+| GET | `/notifications` | Cursor-paged history (`before`, `unread=1`, `limit`) |
+| PATCH | `/notifications/:id/read` | Mark one owned notification read |
 | POST | `/notifications/read-all` | Mark all read |
 | POST | `/bot/sync` | Trigger YouTube sync (admin) |
 | GET | `/bot/status` | Bot health and last sync |
 | GET | `/admin/metrics` | Dashboard metrics snapshot (admin) |
 | GET | `/admin/users` | User list with roles (admin) |
 | PUT | `/admin/users/:id/role` | Change global role (admin) |
-| GET | `/api/health` | Readiness: uptime + per-domain connection state (200 / 503) |
+| GET | `/api/health` | Liveness: uptime + per-domain connection state (200 / 503) |
+| GET | `/api/health/ready` | Readiness: pings MongoDB and Redis when enabled (200 / 503) |
 
 ---
 
@@ -781,7 +821,7 @@ Socket events:
 
 Redis is **fully implemented** in the codebase but switched **off by default**: the Upstash free tier has a daily command quota, and an idle instance should not spend it. The client is always present; `server/config/redis.js` is a feature switch over `server/config/redisClient.js`, so enabling Redis is an environment change — no code edits, no file restores.
 
-With the switch off, every caller degrades to its in-process path: likes write straight to MongoDB, and the cache is memory-only (lost on restart). Nothing is lost except cross-restart durability.
+With the switch off, every caller degrades to its in-process path: likes write straight to MongoDB, the cache is memory-only (lost on restart), and per-surface rate-limit counters stay in the process. With Redis on, those quotas use shared counters across instances; the coarse global limiter deliberately remains local to protect the process without spending Upstash commands on every request.
 
 ### Design
 
@@ -976,7 +1016,7 @@ Middleware chain for a protected route:
 | NoSQL injection | `express-mongo-sanitize` strips `$` and `.` from all body/query inputs |
 | SSRF | `safeFetch.js`: DNS resolution + private IP range check on every outbound URL; max 3 redirects |
 | Stored XSS | `sanitize.js` strips control characters; HTML entity decode is one-pass only |
-| Rate limiting | 1000 req/5 min global (REST); per-surface limits on search/catalog/admin/browse; sliding window on Socket.io per userId |
+| Rate limiting | 1000 req/5 min global (REST); per-surface limits on search/catalog/admin/browse/notification engagement; sliding window on Socket.io per userId |
 | Socket resource caps | 8 live sockets per account, 60 room joins/min, 100 kB frame ceiling |
 | Projection discipline | `passwordHash` and `__v` never appear in any API response; presence is always projected through `publicPresence` |
 | Secret leakage | `npm run scan:secrets` fails on a tracked `.env` or a credential-shaped literal in source **or** in `client/dist`; runs in `npm test` and CI |
@@ -1052,7 +1092,7 @@ cd client && npm install && cd ..
 
 # Create environment file
 cp .env.example .env
-# Fill in MONGO_URI, JWT_SECRET, CLOUDINARY_* (see §14)
+# Fill in MONGO_URI, JWT_SECRET, CLOUDINARY_*, and the Gmail bridge (see §14)
 ```
 
 ### Running
@@ -1116,19 +1156,22 @@ work from a browser.
 - [ ] **Vercel**: root directory `client`, build `npm run build`, output `dist`,
       and keep `client/vercel.json` rewriting `/api/*` to the Render service.
 - [ ] **Render**: root directory `server`/repo root, start
-      `node server/server.js`, health check path `/api/health`, `TRUST_PROXY`
-      left at `1` so secure cookies and rate-limit IPs are correct.
+      `node server/server.js`, liveness path `/api/health`, readiness path
+      `/api/health/ready`, `TRUST_PROXY` left at `1` so secure cookies and
+      rate-limit IPs are correct.
 - [ ] **MongoDB Atlas**: `MONGO_URI` with the database name, network access for
       Render, and `MONGO_URI_SQUADS` only if squad chat uses a separate cluster.
 - [ ] **Secrets**: `JWT_SECRET`, Cloudinary credentials, optional
-      `GOOGLE_CLIENT_ID` / `YOUTUBE_API_KEY`, optional Redis pair. Keep them in
-      the Render dashboard, never in git.
+      `GOOGLE_CLIENT_ID` / `YOUTUBE_API_KEY`, optional Redis pair and optional
+      `SENTRY_DSN`. Keep them in the Render dashboard, never in git.
 - [ ] **Migrations**: `npm run migrate:domains:status`, then
       `npm run migrate:domains` against Atlas; never run them from a request.
 - [ ] **Cookies/HTTPS**: production uses `Secure` + `SameSite=None` for the
       cross-site Vercel → Render call, so both origins must be HTTPS.
 - [ ] **Pre-deploy gate**: `npm test`, `npm test --prefix client`,
-      `npm run build --prefix client`, `npm run scan:secrets`.
+      `npm run build --prefix client`, `npm run scan:secrets`, and the restore
+      drill in [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md) before a risky
+      migration.
 - [ ] **Invite smoke test after deploy**: create a private server with an
       approval-required link, copy it, open it on a phone or incognito window
       (not the same browser profile), request to join, approve from the server's
@@ -1171,13 +1214,19 @@ Run `npm run migrate:domains:status` first; each track records itself in its own
 | `TRUST_PROXY` | `1` | Hop count behind reverse proxy |
 | `RATE_LIMIT_MAX` | `1000` | Global REST rate limit per 5 min window |
 | `YOUTUBE_API_KEY` | — | YouTube Data API v3 key; bot is disabled without this |
-| `REDIS_ENABLED` | `0` | Set to `1` to enable the Redis cache and like buffer |
+| `REDIS_ENABLED` | `0` | Set to `1` to enable the Redis cache, like buffer and shared REST quotas |
 | `UPSTASH_REDIS_REST_URL` | — | Upstash Redis endpoint; required only when `REDIS_ENABLED=1` |
 | `UPSTASH_REDIS_REST_TOKEN` | — | Upstash Redis token; required only when `REDIS_ENABLED=1` |
 | `DISABLE_LIKE_BUFFER` | `0` | Set to `1` to force direct DB writes even when Redis is up |
 | `CLIENT_URL` | — | Public origin of the web app (comma-separated list allowed). The first non-loopback entry is also used to build shareable invite links, so set this to the deployed domain in production. |
 | `ALLOWED_ORIGINS` | built-in list | Comma-separated exact origins for CORS |
 | `GOOGLE_CLIENT_ID` | — | OAuth client id for Google Sign-In; the button is hidden without it |
+| `GMAIL_BRIDGE_URL` | — | Deployed Gmail Apps Script `/exec` URL. Free option that works when SMTP ports are blocked; see [`docs/GMAIL_BRIDGE.md`](docs/GMAIL_BRIDGE.md). |
+| `GMAIL_BRIDGE_SECRET` | — | Shared secret for the Gmail bridge; must match `SECRET` in the Apps Script |
+| `SENTRY_DSN` | — | Optional server-side Sentry DSN. Leave empty for structured JSON logs only; no browser SDK or session replay. |
+| `BACKUP_DRILL_URI` | `MONGO_URI` | Optional restore target for `npm run backup:drill`; its database name must contain drill, restore, test or tmp |
+| `BACKUP_DRILL_DB` | generated | Optional explicit drill database name; the safety guard still requires drill/restore/test/tmp |
+| `EMAIL_TRANSPORT` | auto | `apps-script`, `console` (local) or `memory` (tests). A bridge URL selects `apps-script`; production without it fails closed. |
 | `MONGO_URI_SQUADS` | `MONGO_URI` | Optional separate cluster for the temporary squad-chat domain |
 | `MONGO_MAX_POOL_SIZE_SQUADS` | `20` | Connection ceiling for the isolated squads pool |
 | `INVITE_RATE_LIMIT_MAX` | `30` | Invitations per user per hour |
@@ -1187,6 +1236,8 @@ Run `npm run migrate:domains:status` first; each track records itself in its own
 | `CATALOG_RATE_LIMIT_MAX` | `90` | Game catalog requests per minute |
 | `ADMIN_RATE_LIMIT_MAX` | `120` | Admin dashboard requests per minute |
 | `BROWSE_RATE_LIMIT_MAX` | `180` | Community browse requests per minute |
+| `NOTIFICATION_ENGAGEMENT_RATE_LIMIT_MAX` | `60` | Notification open/click telemetry per account per minute |
+| `BACKUP_DRILL_LIMIT` | `25` | Documents per collection copied by the bounded restore drill |
 | `SOCKET_JOIN_RATE_MAX` | `60` | Channel/chat joins per account per minute |
 | `SOCKET_MAX_PER_USER` | `8` | Live sockets per account |
 
@@ -1198,13 +1249,13 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 211 checks, no database needed
-npm test --prefix client      # client components: 35 checks in jsdom
+npm test                      # server: 258 checks, no database needed
+npm test --prefix client      # client components: 44 checks in jsdom
 npm run test:responsive       # headless Chrome layout smoke at 7 device sizes
 npm run scan:secrets          # credential-leak gate
 ```
 
-**211 server checks across 25 suites — all passing.**
+**258 server checks across 34 suites — all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -1228,19 +1279,25 @@ npm run scan:secrets          # credential-leak gate
 | `connections.test.js` | Domain pooling rules, per-domain URI precedence, test-mode URI pinning, readiness shape |
 | `settings.test.js` | Handle rules (charset, length, reserved names, case-insensitive lookup), frozen/restricted participation matrix, succession ordering and tie-breaks |
 | `hardening.test.js` | Rate-limit keying (user vs IP, IPv6 /64 grouping), secret patterns (each issuer, placeholder exemptions, redacted output) and the live client-source secret gate |
+| `notificationRetention.test.js` | 15-day TTL policy, durable kind allowlist, explicit important markers, retention date calculation |
+| `socialNotifications.test.js` | Like milestones (1/5/10/25/50/100) and threshold matching |
+| `productEvents.test.js` | Product-event allowlist, prop sanitisation, distinct-user funnel arithmetic, day-7 approximation, request IDs and JSON-log redaction |
+| `rateLimitStore.test.js` | Redis-backed shared counters, local fallback, reset and degraded-window behaviour |
+| `errorReporting.test.js` | Optional Sentry initialisation, release tags, request-body exclusion and `beforeSend` redaction |
 
 Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
 deterministic, and exercise the real feature switch and key prefix.
 
-**35 client checks across 6 files** — `SegmentedTabs` (aria state, keyboard,
+**44 client checks across 10 files** — `SegmentedTabs` (aria state, keyboard,
 indicator), `PostActions` (label/pressed state, spark burst gated on pointer and
 reduced-motion), `PostCard` (like and bookmark requests, failure path, signed-out
 redirect), `NotificationBell` (dropdown vs portalled sheet at the 640 px
-breakpoint, badge count, mark-read), `Skeleton` (one labelled status region,
-card count, placeholders hidden from the accessibility tree) and `HashtagText`
-(hashtag channel links, invite-URL linkification with trailing punctuation, and
-squad-chat mode that keeps hashtags plain).
+breakpoint, badge count, mark-read), `Notifications` (cursor paging, unread
+divider, optimistic read), `NotificationPanel` (category save), `Skeleton` (one
+labelled status region, card count, placeholders hidden from the accessibility
+tree) and `HashtagText` (hashtag channel links, invite-URL linkification with
+trailing punctuation, and squad-chat mode that keeps hashtags plain).
 
 ### Responsive smoke test
 
@@ -1249,10 +1306,11 @@ squad-chat mode that keeps hashtags plain).
 drives the installed Chrome/Edge through `playwright-core` (no browser download).
 It opens the **join page**, the **Invite people modal** (with pending requests),
 the **Audit Log with the Invites filter**, **Server Settings**, **Members & Roles**
-(member rows plus the banned-user list) and the **admin monitor** (stat cards,
-long report/verification tables and action buttons) at iPhone SE/13, Pixel 7,
-iPad portrait and landscape, 1024×768 and 1280×900. A surface fails on
-horizontal page overflow, a modal that leaves the viewport or clips sideways, a
+(member rows plus the banned-user list), the **admin monitor** (stat cards, long
+report/verification tables and action buttons), `/welcome`, `/discover` and the
+**notification history** at iPhone SE/13, Pixel 7, iPad portrait and landscape,
+1024×768 and 1280×900. A surface fails on horizontal page overflow, a modal that
+leaves the viewport or clips sideways, a
 non-scrollable tall modal, a table that clips instead of scrolling, or a sub-36
 px button on a touch viewport. Point `CHROME_PATH` at a browser if it is not installed in a
 standard location.
@@ -1269,7 +1327,7 @@ iOS/Android keyboard and safe-area behaviour still needs a real-device pass.
 End-to-end smoke tests (requires a running backend):
 
 ```bash
-npm run test:e2e              # all seven suites below
+npm run test:e2e              # all eleven suites below
 node scripts/e2e.js           # 59 auth/community/chat checks
 node scripts/e2e-phase4.js    # 66 feed/LFG/notification/admin checks
 node scripts/e2e-phase6.js    # 159 lifecycle/search/Redis-off checks
@@ -1277,9 +1335,13 @@ node scripts/e2e-phase7.js    # 80 Discord-interaction checks
 node scripts/e2e-phase8.js    # 70 identity/consent/squad-chat/data-rights checks
 node scripts/e2e-phase9.js    # 62 settings/freeze/succession/erasure checks
 node scripts/e2e-phase10.js   # 13 search-budget/presence/socket-cap checks
+node scripts/e2e-phase11.js   # 44 DM consent checks
+node scripts/e2e-phase12.js   # 30 DM creator-scale checks
+node scripts/e2e-phase13.js   # 46 business/team inbox checks
+node scripts/e2e-phase14.js   # 80 recovery/onboarding/notification/telemetry checks
 ```
 
-All seven run against a throwaway database derived from `MONGO_URI` and drop it
+All eleven run against a throwaway database derived from `MONGO_URI` and drop it
 when they finish. They need no Redis: the degraded path is asserted explicitly,
 so a future Redis re-enable that breaks the fallback fails here. Their shared
 scaffolding (`api`, `check`, `register`, sockets) lives in
@@ -1304,7 +1366,7 @@ pull request:
 |---|---|
 | quality | `npm ci` → `npm test` → `npm test --prefix client` → `npm run build --prefix client` → emoji gate |
 | responsive | build client with a local socket URL → `npm run test:responsive` (Playwright layout smoke at 7 viewports) → upload failure screenshots/traces |
-| e2e | all five suites against a throwaway database, then `migrate:status` and `migrate:domains:status` |
+| e2e | all eleven suites against a throwaway database, then `migrate:status` and `migrate:domains:status` |
 
 The e2e job needs `MONGO_URI` and `JWT_SECRET` repository secrets; without them it
 reports a notice and skips instead of failing, so forks stay green. It never runs

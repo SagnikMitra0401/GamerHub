@@ -25,9 +25,11 @@ const {
   canKickCommunityMember
 } = require('../utils/permissions');
 const { sanitizeLine } = require('../utils/sanitize');
+const { normalizeGames } = require('../utils/onboarding');
 const { serializeReactions } = require('../utils/reactions');
 const { parsePagination } = require('../utils/pagination');
 const { recordAudit } = require('../utils/audit');
+const { recordFirstEvent } = require('../utils/productEvents');
 const { publicPresence } = require('../utils/presence');
 const { badRequest, forbidden, notFound, conflict } = require('../utils/httpError');
 const { emitToCommunity, emitToChannel, evictUserFromCommunity } = require('../config/socket');
@@ -108,6 +110,7 @@ const createCommunity = async (req, res, next) => {
     const description = sanitizeLine(req.body.description, CHAT_POLICY.community.maxDescriptionLength);
     const icon = sanitizeLine(req.body.icon, 100) || '🎮';
     const isPrivate = !!req.body.isPrivate;
+    const games = normalizeGames(req.body.games, { limit: 5 });
 
     if (name.length < CHAT_POLICY.community.minNameLength) {
       throw badRequest(`Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`);
@@ -124,6 +127,7 @@ const createCommunity = async (req, res, next) => {
       slug,
       description,
       icon,
+      games,
       isPrivate,
       ownerId: req.user._id,
       members: [{ userId: req.user._id, role: 'owner' }]
@@ -156,7 +160,7 @@ const getCommunities = async (req, res, next) => {
       : { isPrivate: false };
 
     const communities = await Community.find(filter)
-      .select('name slug description icon banner ownerId members isPrivate createdAt')
+      .select('name slug description icon banner games ownerId members isPrivate createdAt')
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -279,6 +283,7 @@ const joinCommunity = async (req, res, next) => {
 
     community.members.push({ userId: req.user._id, role: 'member' });
     await community.save();
+    recordFirstEvent('first_join', req.user._id, { surface: 'community' });
 
     emitToCommunity(community._id, 'community_updated', {
       communityId: String(community._id),
@@ -491,6 +496,9 @@ const updateCommunity = async (req, res, next) => {
     }
     if (req.body.description !== undefined) {
       changes.description = sanitizeLine(req.body.description, CHAT_POLICY.community.maxDescriptionLength);
+    }
+    if (req.body.games !== undefined) {
+      changes.games = normalizeGames(req.body.games, { limit: 5 });
     }
     if (req.body.icon !== undefined) {
       changes.icon = sanitizeLine(req.body.icon, 100) || '🎮';

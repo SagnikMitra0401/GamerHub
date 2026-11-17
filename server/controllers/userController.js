@@ -4,6 +4,7 @@ const Post = require('../models/Post');
 const Community = require('../models/Community');
 const BusinessProfile = require('../models/BusinessProfile');
 const { awardXp } = require('../utils/gamification');
+const { recordFirstEvent } = require('../utils/productEvents');
 const { resolveCommunityRole, roleLevel } = require('../utils/permissions');
 const { sanitizeLine, escapeRegex } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
@@ -13,6 +14,7 @@ const { publicPresence } = require('../utils/presence');
 const { blockedIdsFor, hiddenAccountIds } = require('../utils/visibility');
 const { describeDmPolicy } = require('../utils/dmPolicy');
 const { publicBusinessProfile } = require('../utils/business');
+const { notifyFollow } = require('../utils/socialNotifications');
 
 const USER_PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 const PRESENCE_STATUSES = ['online', 'in_game', 'offline', 'invisible'];
@@ -181,11 +183,16 @@ const toggleFollow = async (req, res, next) => {
     } else {
       await User.findByIdAndUpdate(req.user._id,  { $addToSet: { following: target._id } });
       await User.findByIdAndUpdate(target._id, { $addToSet: { followers: req.user._id } });
+      recordFirstEvent('first_follow', req.user._id, { surface: 'profile' });
 
       const updatedCaller = await User.findById(req.user._id).select('following').lean();
       if (updatedCaller?.following?.length === 5) {
         awardXp(req.user._id, 20, 'community_builder');
       }
+
+      // Only a new follow creates a ping; unfollowing is silent. The dedupe
+      // key prevents follow/unfollow/re-follow churn from spamming the target.
+      await notifyFollow({ target, actor: req.user });
     }
 
     const updated = await User.findById(target._id)

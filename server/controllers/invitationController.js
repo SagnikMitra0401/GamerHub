@@ -7,6 +7,7 @@ const Invitation = require('../models/Invitation');
 const SquadChat = require('../models/SquadChat');
 
 const { notifyUser } = require('../utils/notify');
+const { recordFirstEvent } = require('../utils/productEvents');
 const { canInvite, containsId } = require('../utils/privacy');
 const { openSlots } = require('../utils/partyRules');
 const { communityPermissions, CAP } = require('../utils/permissions');
@@ -272,6 +273,10 @@ const acceptInvitation = async (req, res, next) => {
     invitation.status = 'accepted';
     invitation.respondedAt = new Date();
     await invitation.save();
+
+    if (invitation.targetType === 'community_server') {
+      recordFirstEvent('first_join', req.user._id, { surface: 'invitation' });
+    }
 
     notifyUser({
       userId: invitation.inviterUserId,

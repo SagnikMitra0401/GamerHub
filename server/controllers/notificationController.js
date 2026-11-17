@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const { parsePagination, parseObjectIdCursor } = require('../utils/pagination');
 const { badRequest, notFound } = require('../utils/httpError');
+const { recordEvent } = require('../utils/productEvents');
 
 const unreadCountFor = (userId) => Notification.countDocuments({ userId, read: false });
+const surfaceFrom = (body) => (body?.surface === 'page' ? 'page' : 'bell');
 
 const MAX_CURSOR_LENGTH = 120;
 
@@ -96,4 +98,35 @@ const markAllRead = async (req, res, next) => {
   }
 };
 
-module.exports = { listNotifications, markRead, markAllRead };
+/** POST /api/notifications/opened — engagement breadcrumb, not a read action. */
+const opened = async (req, res, next) => {
+  try {
+    recordEvent('notification_opened', req.user._id, { surface: surfaceFrom(req.body) });
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /api/notifications/:id/clicked — scoped to the caller's own row. */
+const clicked = async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw badRequest('Invalid notification id');
+
+    const notification = await Notification.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    }).select('type metadata').lean();
+    if (!notification) throw notFound('Notification not found');
+
+    recordEvent('notification_clicked', req.user._id, {
+      surface: surfaceFrom(req.body),
+      kind: notification.metadata?.kind || notification.type || 'social'
+    });
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { listNotifications, markRead, markAllRead, opened, clicked };

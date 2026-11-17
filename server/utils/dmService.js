@@ -22,6 +22,7 @@ const { badRequest, forbidden, notFound, conflict } = require('./httpError');
 const { isBlockedBetween } = require('./privacy');
 const { sanitizeLine } = require('./sanitize');
 const { notifyUser } = require('./notify');
+const { recordFirstEvent } = require('./productEvents');
 const { invalidateVisibility } = require('./visibility');
 const {
   DM_CONTEXT_TYPES,
@@ -489,6 +490,7 @@ async function createRequest({
       text: normalized.text,
       createdAt: now
     });
+    recordFirstEvent('first_message', sender._id, { surface: 'dm' });
     await notifyMessage({ conversation, author: sender, message });
 
     return {
@@ -1191,6 +1193,7 @@ async function postMessage({ conversationId, sender, text }) {
     text: normalized.text,
     createdAt: now
   });
+  recordFirstEvent('first_message', sender._id, { surface: 'dm' });
 
   const otherId = otherParticipant(conversation, sender._id);
   const update = {

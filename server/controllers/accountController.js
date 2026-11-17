@@ -8,6 +8,7 @@ const Community = require('../models/Community');
 const Party = require('../models/Party');
 const Invitation = require('../models/Invitation');
 const Notification = require('../models/Notification');
+const ProductEvent = require('../models/ProductEvent');
 const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
 const Conversation = require('../models/Conversation');
@@ -21,6 +22,10 @@ const { clearAuthCookie } = require('./authController');
 const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
 const { idOf } = require('../utils/privacy');
 const { normalizeDmSettings, sanitizeDmSettingsPatch, REQUEST_LIMITS, DAY_MS } = require('../utils/dmPolicy');
+const {
+  normalizeNotificationSettings,
+  sanitizeNotificationSettingsPatch
+} = require('../utils/notificationPreferences');
 const { publicBusinessProfile } = require('../utils/business');
 const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
 const { invalidateVisibility } = require('../utils/visibility');
@@ -35,8 +40,9 @@ const getAccount = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id)
       .select(
-        'username email profileType status privacySettings dmSettings blockedUsers deletionRequestedAt ' +
-        'createdAt authIdentities hasLocalPassword frozenAt feedResetAt preferences favoriteChannels'
+        'username email emailVerifiedAt profileType status privacySettings dmSettings notificationSettings ' +
+        'blockedUsers deletionRequestedAt createdAt authIdentities hasLocalPassword frozenAt feedResetAt ' +
+        'preferences favoriteChannels'
       )
       .lean();
     if (!user) throw notFound('User not found');
@@ -51,6 +57,7 @@ const getAccount = async (req, res, next) => {
     res.status(200).json({
       username: user.username,
       email: user.email,
+      emailVerified: Boolean(user.emailVerifiedAt),
       status: user.status,
       profileType: user.profileType,
       businessProfile: businessProfile
@@ -69,6 +76,7 @@ const getAccount = async (req, res, next) => {
       providers: [...new Set((user.authIdentities || []).map((identity) => identity.provider))],
       privacySettings: user.privacySettings,
       dmSettings: normalizeDmSettings(user.dmSettings),
+      notificationSettings: normalizeNotificationSettings(user.notificationSettings),
       deletionRequestedAt: user.deletionRequestedAt,
       deletionGraceDays: DELETION_GRACE_DAYS,
       blockedUsers: blocked.map((u) => ({ _id: String(u._id), username: u.username, level: u.level })),
@@ -134,6 +142,34 @@ const updateDmSettings = async (req, res, next) => {
     if (!user) throw notFound('User not found');
 
     res.status(200).json({ dmSettings: normalizeDmSettings(user.dmSettings) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/account/notification-settings
+ *
+ * Partial boolean patch. The settings are consulted by notifyUser when the
+ * notification is created, not only by the history page.
+ */
+const updateNotificationSettings = async (req, res, next) => {
+  try {
+    const parsed = sanitizeNotificationSettingsPatch(req.body);
+    if (!parsed.ok) throw badRequest(parsed.errors[0]);
+
+    const update = Object.fromEntries(
+      Object.entries(parsed.value).map(([key, value]) => [`notificationSettings.${key}`, value])
+    );
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: update },
+      { new: true, runValidators: true, select: 'notificationSettings' }
+    ).lean();
+    if (!user) throw notFound('User not found');
+
+    res.status(200).json({ notificationSettings: normalizeNotificationSettings(user.notificationSettings) });
   } catch (err) {
     next(err);
   }
@@ -485,7 +521,7 @@ const exportData = async (req, res, next) => {
   try {
     const userId = req.user._id;
 
-    const [user, posts, comments, communities, parties, chats, messages, sentInvites, receivedInvites, notifications] =
+    const [user, posts, comments, communities, parties, chats, messages, sentInvites, receivedInvites, notifications, productEvents] =
       await Promise.all([
         User.findById(userId).select('-passwordHash -__v').lean(),
         Post.find({ userId }).select('title content tags createdAt updatedAt').limit(EXPORT_ROW_LIMIT).lean(),
@@ -517,6 +553,11 @@ const exportData = async (req, res, next) => {
         Notification.find({ userId })
           .select('type title message actionUrl createdAt read')
           .limit(1000)
+          .lean(),
+        ProductEvent.find({ userId })
+          .select('name props createdAt')
+          .sort({ createdAt: -1 })
+          .limit(EXPORT_ROW_LIMIT)
           .lean()
       ]);
 
@@ -540,6 +581,7 @@ const exportData = async (req, res, next) => {
         gamerPassport: user?.gamerPassport,
         preferences: user?.preferences,
         privacySettings: user?.privacySettings,
+        notificationSettings: normalizeNotificationSettings(user?.notificationSettings),
         sessionVersion: user?.sessionVersion,
         deletionRequestedAt: user?.deletionRequestedAt
       },
@@ -579,7 +621,8 @@ const exportData = async (req, res, next) => {
         messages
       },
       invitations: { sent: sentInvites, received: receivedInvites },
-      notifications
+      notifications,
+      analytics: { productEvents }
     };
 
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -663,6 +706,7 @@ module.exports = {
   DELETION_GRACE_DAYS,
   getAccount,
   updateDmSettings,
+  updateNotificationSettings,
   changeUsername,
   resetFeedRecommendations,
   setFreeze,

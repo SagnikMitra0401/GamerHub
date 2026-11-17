@@ -43,6 +43,7 @@ const USER = {
   level: 42,
   role: 'admin',
   profileType: 'gamer',
+  onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
   savedPosts: [],
   favoriteChannels: []
 };
@@ -65,6 +66,96 @@ const COMMUNITY = {
   ],
   memberCount: 1,
   createdAt: NOW
+};
+
+const DISCOVERY = {
+  games: ['Valorant'],
+  platforms: ['PC'],
+  squads: [
+    {
+      id: 'squad_layout',
+      gameTitle: 'Valorant',
+      activity: 'Ranked',
+      openSlots: 2,
+      maxSlots: 5,
+      micRequired: true,
+      leader: { id: 'leader_layout', username: 'night_owl_sentinel', level: 12, presence: { status: 'online' } },
+      popular: false
+    },
+    {
+      id: 'squad_layout_two',
+      gameTitle: 'Apex Legends',
+      activity: 'Casual',
+      openSlots: 1,
+      maxSlots: 4,
+      micRequired: false,
+      leader: { id: 'leader_layout_two', username: 'speedrunner_with_a_long_name', level: 7, presence: { status: 'offline' } },
+      popular: true
+    }
+  ],
+  communities: [
+    {
+      id: 'community_layout_discovery',
+      name: 'Responsive Discovery Check',
+      slug: 'demo-server',
+      description: 'A deliberately long description that wraps inside a recommendation card at every width.',
+      icon: 'RD',
+      memberCount: 128,
+      games: ['Valorant', 'Apex Legends'],
+      popular: false
+    }
+  ],
+  players: [
+    {
+      id: 'player_layout',
+      username: 'player_with_a_long_handle',
+      level: 18,
+      presence: { status: 'online' },
+      sharedGames: ['Valorant'],
+      following: false
+    }
+  ],
+  tags: [
+    { tag: 'valorant', postCount: 42 },
+    { tag: 'apex legends', postCount: 17 }
+  ],
+  fallback: { squads: false, communities: false }
+};
+
+const NOTIFICATIONS = {
+  items: [
+    {
+      _id: 'notif_layout_one',
+      type: 'lfg_request',
+      title: 'A player with a deliberately long handle wants to join your Valorant squad',
+      message: 'They left a long request note that must wrap inside the card instead of widening the page.',
+      actionUrl: '/lfg',
+      read: false,
+      createdAt: NOW
+    },
+    {
+      _id: 'notif_layout_two',
+      type: 'social',
+      title: 'Someone commented on your post',
+      message: 'A second line of notification copy to exercise the clamped message area at phone widths.',
+      actionUrl: '/posts/layout-post',
+      read: true,
+      metadata: { kind: 'comment' },
+      createdAt: EARLIER
+    },
+    {
+      _id: 'notif_layout_three',
+      type: 'gaming_bot',
+      title: 'A new pick for one of your games',
+      message: 'A short notification.',
+      actionUrl: '/games',
+      read: true,
+      createdAt: EARLIER
+    }
+  ],
+  unreadCount: 1,
+  nextCursor: 'layout-cursor',
+  hasMore: true
 };
 
 const CHANNEL = {
@@ -395,6 +486,8 @@ async function stubApi(route) {
 
   if (apiPath === '/auth/me') {
     body = { user: USER };
+  } else if (apiPath.startsWith('/discover/onboarding')) {
+    body = DISCOVERY;
   } else if (apiPath === '/admin/system-health') {
     body = ADMIN_HEALTH;
   } else if (apiPath.startsWith('/admin/dm-reports')) {
@@ -424,7 +517,7 @@ async function stubApi(route) {
       memberCount: COMMUNITY.memberCount
     };
   } else if (apiPath.startsWith('/notifications')) {
-    body = { items: [], unreadCount: 0 };
+    body = NOTIFICATIONS;
   } else if (apiPath.startsWith('/users/me/muted')) {
     body = { mutedUsers: [] };
   }
@@ -483,6 +576,23 @@ async function modalMetrics(page) {
       pageOverflow: document.documentElement.scrollWidth > innerWidth + 1,
       scrollable: box.scrollHeight <= box.clientHeight + 1 || ['auto', 'scroll'].includes(style.overflowY),
       minButtonHeight: buttons.length ? Math.round(Math.min(...buttons)) : null
+    };
+  });
+}
+
+async function discoveryMetrics(page) {
+  return page.evaluate(() => {
+    const cards = [...document.querySelectorAll('.discover-card')];
+    const outside = cards.filter((card) => {
+      const rect = card.getBoundingClientRect();
+      return rect.width > 1 && (rect.left < -1 || rect.right > innerWidth + 1);
+    }).length;
+
+    return {
+      viewport: [innerWidth, innerHeight],
+      pageOverflow: document.documentElement.scrollWidth > innerWidth + 1,
+      cards: cards.length,
+      outside
     };
   });
 }
@@ -694,6 +804,69 @@ async function runDevice(browser, device, failures) {
       'admin-page',
       adminOk,
       adminOk ? `${device.width}x${device.height}, no overflow` : JSON.stringify(admin)
+    );
+
+    // 7. Onboarding: three steps ending in real recommendation cards.
+    await page.goto(`${BASE}/welcome`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: /Find your people/i }).waitFor();
+    await page.getByRole('button', { name: 'Valorant', exact: true }).click();
+    await page.getByRole('button', { name: /^Continue/ }).click();
+    await page.getByRole('button', { name: 'PC', exact: true }).click();
+    await page.getByRole('button', { name: /^Continue/ }).click();
+    await page.getByRole('heading', { name: 'Open squads' }).waitFor();
+    await page.locator('.discover-card').first().waitFor();
+    await page.waitForTimeout(250);
+    const welcome = await discoveryMetrics(page);
+    const welcomeOk = welcome.cards >= 2 && !welcome.pageOverflow && welcome.outside === 0;
+    await report(
+      'welcome-page',
+      welcomeOk,
+      welcomeOk ? `${device.width}x${device.height}, no overflow` : JSON.stringify(welcome)
+    );
+
+    // 8. Discover: the same board reachable after onboarding.
+    await page.goto(`${BASE}/discover`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Discover', level: 1 }).waitFor();
+    await page.locator('.discover-card').first().waitFor();
+    await page.waitForTimeout(250);
+    const discovery = await discoveryMetrics(page);
+    const discoveryOk = discovery.cards >= 2 && !discovery.pageOverflow && discovery.outside === 0;
+    await report(
+      'discover-page',
+      discoveryOk,
+      discoveryOk ? `${device.width}x${device.height}, no overflow` : JSON.stringify(discovery)
+    );
+
+    // 9. Notification history: long copy, unread rows and the cursor footer.
+    await page.goto(`${BASE}/notifications`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: /Notifications/ }).waitFor();
+    await page.locator('.notif-item').first().waitFor();
+    await page.waitForTimeout(250);
+    const notifications = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('.notif-item')];
+      const outside = items.filter((item) => {
+        const rect = item.getBoundingClientRect();
+        return rect.width > 1 && (rect.left < -1 || rect.right > innerWidth + 1);
+      }).length;
+      return {
+        viewport: [innerWidth, innerHeight],
+        pageOverflow: document.documentElement.scrollWidth > innerWidth + 1,
+        items: items.length,
+        outside,
+        unread: document.querySelectorAll('.notif-item.unread').length
+      };
+    });
+    const notificationsOk =
+      notifications.items >= 2 &&
+      notifications.unread >= 1 &&
+      !notifications.pageOverflow &&
+      notifications.outside === 0;
+    await report(
+      'notifications-page',
+      notificationsOk,
+      notificationsOk
+        ? `${device.width}x${device.height}, no overflow`
+        : JSON.stringify(notifications)
     );
 
     if (pageErrors.length) {

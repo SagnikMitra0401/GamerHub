@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { connectSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
+import { announceNotificationState, subscribeNotificationState } from '../../utils/notificationEvents';
 import { CloseIcon } from './icons';
 
 const TYPE_META = {
@@ -51,6 +52,17 @@ const NotificationBell = () => {
     }
   }, []);
 
+  useEffect(() => subscribeNotificationState((detail) => {
+    if (detail.type === 'read-all') {
+      setItems(prev => prev.map(n => ({ ...n, read: true })));
+    } else if (detail.type === 'read' && detail.id) {
+      setItems(prev => prev.map(n => (n._id === detail.id ? { ...n, read: true } : n)));
+    }
+    if (detail.unreadCount !== undefined) {
+      setUnread(Math.max(0, Number(detail.unreadCount) || 0));
+    }
+  }), []);
+
   useEffect(() => {
     if (!user) return undefined;
 
@@ -76,8 +88,11 @@ const NotificationBell = () => {
 
     const onDown = (event) => {
       // The sheet is portalled out of this wrapper, so only treat outside
-      // clicks as dismissal for the desktop dropdown.
+      // clicks as dismissal for the desktop dropdown. Check the target as well:
+      // a pointerdown inside the portal must not close it before the row click
+      // runs, even if the sheet state has not reached this listener yet.
       if (sheet) return;
+      if (event.target.closest?.('.notif-sheet, .notif-panel')) return;
       if (wrapRef.current && !wrapRef.current.contains(event.target)) setOpen(false);
     };
     const onKeyDown = (event) => {
@@ -95,8 +110,16 @@ const NotificationBell = () => {
   if (!user) return null;
 
   const toggle = () => {
-    if (!open) setSheet(window.matchMedia(SHEET_QUERY).matches);
+    if (!open) {
+      setSheet(window.matchMedia(SHEET_QUERY).matches);
+      axiosInstance.post('/notifications/opened', { surface: 'bell' }).catch(() => {});
+    }
     setOpen(value => !value);
+  };
+
+  const trackClick = (notification) => {
+    axiosInstance.post(`/notifications/${notification._id}/clicked`, { surface: 'bell' })
+      .catch(() => {});
   };
 
   const markRead = async (notification) => {
@@ -104,7 +127,12 @@ const NotificationBell = () => {
     setItems(prev => prev.map(n => (n._id === notification._id ? { ...n, read: true } : n)));
     setUnread(count => Math.max(0, count - 1));
     try {
-      await axiosInstance.patch(`/notifications/${notification._id}/read`);
+      const { data } = await axiosInstance.patch(`/notifications/${notification._id}/read`);
+      announceNotificationState({
+        type: 'read',
+        id: notification._id,
+        unreadCount: data?.unreadCount
+      });
     } catch {
       // Optimistic UI is fine; the next load reconciles.
     }
@@ -115,6 +143,7 @@ const NotificationBell = () => {
     setUnread(0);
     try {
       await axiosInstance.post('/notifications/read-all');
+      announceNotificationState({ type: 'read-all', unreadCount: 0 });
     } catch {
       load();
     }
@@ -125,6 +154,9 @@ const NotificationBell = () => {
       <div className="notif-head">
         <strong>Notifications</strong>
         <div className="notif-head-actions">
+          <Link to="/notifications" className="notif-link" onClick={() => setOpen(false)}>
+            View all
+          </Link>
           <button type="button" className="notif-link" onClick={markAll} disabled={!unread}>
             Mark all read
           </button>
@@ -139,7 +171,9 @@ const NotificationBell = () => {
       {loading && items.length === 0 && <div className="notif-empty">Loading…</div>}
       {error && <div className="notif-empty">{error}</div>}
       {!loading && !error && items.length === 0 && (
-        <div className="notif-empty">Nothing yet. Squad requests and gaming-bot pings land here.</div>
+        <div className="notif-empty">
+          Nothing yet. Comments, follows, squad requests and gaming-bot picks land here.
+        </div>
       )}
 
       <div className="notif-list">
@@ -166,18 +200,27 @@ const NotificationBell = () => {
             <div
               key={notification._id}
               className={`notif-item${notification.read ? '' : ' unread'}`}
-              onClick={() => markRead(notification)}
+              onClick={() => { trackClick(notification); markRead(notification); }}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') markRead(notification); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { trackClick(notification); markRead(notification); } }}
             >
               {notification.actionUrl ? (
                 isExternal ? (
-                  <a className="notif-row" href={notification.actionUrl} target="_blank" rel="noreferrer noopener">
+                  <a
+                    className="notif-row"
+                    href={notification.actionUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
                     {body}
                   </a>
                 ) : (
-                  <Link className="notif-row" to={notification.actionUrl} onClick={() => setOpen(false)}>
+                  <Link
+                    className="notif-row"
+                    to={notification.actionUrl}
+                    onClick={() => setOpen(false)}
+                  >
                     {body}
                   </Link>
                 )
