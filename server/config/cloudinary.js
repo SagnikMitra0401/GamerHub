@@ -10,13 +10,19 @@ cloudinary.config({
  * Uploads a local file to Cloudinary and returns the upload result.
  * Automatically handles both images and videos.
  */
-const uploadToCloudinary = async (filePath) => {
+const uploadToCloudinary = async (filePath, options = {}) => {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
       filePath,
       {
         resource_type: 'auto', // Detects if it's an image or a video automatically
-        folder: 'gaming-hub-media'
+        // A caller that passes a full public_id (new media scheme) must not
+        // also pass `folder`, so the default only applies when none is given.
+        ...(options.publicId
+          ? { public_id: options.publicId }
+          : { folder: options.folder || 'gaming-hub-media' }),
+        ...(options.resourceType ? { resource_type: options.resourceType } : {}),
+        ...(options.imageMetadata === false ? { image_metadata: false } : {})
       },
       (error, result) => {
         if (error) return reject(error);

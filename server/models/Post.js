@@ -53,6 +53,29 @@ const PostSchema = new Schema({
     type: String,
     default: null
   },
+  // Small delivery derivative derived from mediaPublicId. Cards use this so a
+  // feed view never downloads the original upload.
+  mediaCardUrl: {
+    type: String,
+    default: null
+  },
+  // Shared media ledger row (see models/MediaAsset). Null for legacy posts.
+  mediaAssetId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'MediaAsset',
+    default: null
+  },
+  // Platform moderation hide. Reversible: the row and its comments stay put.
+  hiddenAt: {
+    type: Date,
+    default: null,
+    index: true
+  },
+  hiddenById: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   linkPreview: {
     url:         { type: String, default: null },
     title:       { type: String, default: null },
@@ -64,6 +87,8 @@ const PostSchema = new Schema({
 
 PostSchema.index({ tags: 1 });
 PostSchema.index({ createdAt: -1 });
+// Moderation queue and admin content list.
+PostSchema.index({ hiddenAt: 1, createdAt: -1 });
 // Weighted full-text search. The name matches the index created by the
 // add-compound-indexes migration so both describe the same index.
 PostSchema.index(

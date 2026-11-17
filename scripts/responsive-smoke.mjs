@@ -342,6 +342,22 @@ const ADMIN_HEALTH = {
   ]
 };
 
+// The funnel is a separate request on the same page. Stubbing it keeps the
+// dashboard from rendering a half-filled state (and exercises the step table).
+const FUNNEL = {
+  generatedAt: NOW,
+  windowDays: 28,
+  skippedOnboarding: 3,
+  steps: [
+    { key: 'signup', label: 'Signed up', users: 1284, rateFromPrevious: null, rateFromSignup: 100 },
+    { key: 'onboarding', label: 'Finished onboarding', users: 902, rateFromPrevious: 70, rateFromSignup: 70 },
+    { key: 'connection', label: 'Joined or followed', users: 511, rateFromPrevious: 57, rateFromSignup: 40 },
+    { key: 'contribution', label: 'Posted or replied', users: 233, rateFromPrevious: 46, rateFromSignup: 18 },
+    { key: 'day7', label: 'Returned on day 7', users: 118, eligibleUsers: 640, rateFromPrevious: 51, rateFromSignup: 9 }
+  ],
+  day7: { returned: 118, cohort: 640, rate: 18 }
+};
+
 const DM_REPORTS = {
   items: [
     {
@@ -490,6 +506,8 @@ async function stubApi(route) {
     body = DISCOVERY;
   } else if (apiPath === '/admin/system-health') {
     body = ADMIN_HEALTH;
+  } else if (apiPath === '/admin/funnel') {
+    body = FUNNEL;
   } else if (apiPath.startsWith('/admin/dm-reports')) {
     body = DM_REPORTS;
   } else if (apiPath.startsWith('/admin/business-verifications')) {

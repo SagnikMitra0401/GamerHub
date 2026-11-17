@@ -997,7 +997,8 @@ async function scenarios(ctx) {
       assert.equal(JSON.stringify(catalog.data).includes('FreeToGame'), false));
   }
   const badGame = await api('/api/games/not-a-real-id');
-  check('invalid game id is a 400', () => assert.equal(badGame.status, 400));
+  // Slug routes (phase 15) answer unknown titles with 404; ids are still rejected.
+  check('invalid game id is rejected', () => assert.ok([400, 404].includes(badGame.status), String(badGame.status)));
 
   // ── admin ─────────────────────────────────────────────────────────────────
   console.log('\n[admin observability]');

@@ -5,6 +5,7 @@ import axiosInstance from '../../api/axiosInstance';
 import ConfirmModal from '../common/ConfirmModal';
 import LinkPreviewCard from './LinkPreviewCard';
 import HashtagText from './HashtagText';
+import SafeImage from '../common/SafeImage';
 import PostActions from './PostActions';
 
 const PostCard = ({ post, onDelete, onLikeToggle }) => {
@@ -163,17 +164,18 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         >
           {post.mediaType === 'video' ? (
             <video
-              src={post.mediaUrl}
+              src={post.mediaCardUrl || post.mediaUrl}
               controls
               preload="metadata"
               style={{ width: '100%', maxHeight: '380px', objectFit: 'contain' }}
             />
           ) : (
-            <img
-              src={post.mediaUrl}
+            <SafeImage
+              src={post.mediaCardUrl || post.mediaUrl}
               alt={post.title}
               loading="lazy"
               style={{ width: '100%', maxHeight: '380px', objectFit: 'contain' }}
+              fallback={<span className="media-missing">Image unavailable</span>}
             />
           )}
         </div>

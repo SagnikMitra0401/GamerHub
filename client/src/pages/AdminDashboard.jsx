@@ -3,6 +3,22 @@ import { Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
 import { AdminSkeleton } from '../components/common/Skeleton';
+import SegmentedTabs from '../components/common/SegmentedTabs';
+import AdminPanels from '../components/admin/AdminPanels';
+
+const ADMIN_TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'users', label: 'Users' },
+  { key: 'moderation', label: 'Moderation' },
+  { key: 'content', label: 'Content' },
+  { key: 'catalog', label: 'Catalog' },
+  { key: 'audit', label: 'Audit' }
+];
+const STAFF_TABS = ['moderation', 'content', 'audit'];
+
+const tabsForRole = (role) => (
+  role === 'admin' ? ADMIN_TABS : ADMIN_TABS.filter((entry) => STAFF_TABS.includes(entry.key))
+);
 
 const formatUptime = (seconds) => {
   if (!Number.isFinite(seconds)) return '—';
@@ -58,6 +74,17 @@ const AdminDashboard = () => {
   const [verificationBusy, setVerificationBusy] = useState(null);
   const [funnel, setFunnel] = useState(null);
   const [funnelError, setFunnelError] = useState('');
+  const [tab, setTab] = useState('overview');
+
+  const isAdmin = user?.role === 'admin';
+  const visibleTabs = tabsForRole(user?.role);
+
+  // A moderator lands on the queue, never on an overview they cannot load.
+  useEffect(() => {
+    if (!user) return;
+    const allowed = tabsForRole(user.role).map((entry) => entry.key);
+    if (!allowed.includes(tab)) setTab(allowed[0]);
+  }, [user, tab]);
 
   const load = useCallback(async () => {
     setError('');
@@ -136,11 +163,12 @@ const AdminDashboard = () => {
   }, [load, loadFunnel, loadReports, loadVerifications]);
 
   useEffect(() => {
-    if (user?.role !== 'admin') { setLoading(false); return undefined; }
+    // Overview data is admin-only and only needed while its tab is visible.
+    if (user?.role !== 'admin' || tab !== 'overview') { setLoading(false); return undefined; }
     refreshAll();
     const timer = setInterval(refreshAll, 30_000);
     return () => clearInterval(timer);
-  }, [user?.role, refreshAll]);
+  }, [user?.role, tab, refreshAll]);
 
   if (!user) {
     return (
@@ -155,13 +183,13 @@ const AdminDashboard = () => {
     );
   }
 
-  if (user.role !== 'admin') {
+  if (!['admin', 'moderator'].includes(user.role)) {
     return (
       <main className="page">
         <div className="container">
           <div className="post-list-empty">
-            <h3>Admins only</h3>
-            <p>This dashboard is restricted to platform administrators.</p>
+            <h3>Staff only</h3>
+            <p>This console is restricted to platform administrators and moderators.</p>
           </div>
         </div>
       </main>
@@ -174,7 +202,10 @@ const AdminDashboard = () => {
   const traffic = health?.traffic;
   const youtube = health?.services?.youtube;
   const observability = data?.observability;
-  const funnelSteps = funnel?.steps || [];
+  const funnelSteps = Array.isArray(funnel?.steps) ? funnel.steps : [];
+  // A partial or failed funnel payload must never take the whole dashboard
+  // down: render what exists and treat the missing counters as zero.
+  const funnelDay7 = funnel?.day7 || { returned: 0, cohort: 0, rate: 0 };
 
   return (
     <main className="page">
@@ -187,10 +218,21 @@ const AdminDashboard = () => {
               {lastLoaded && ` Updated ${lastLoaded.toLocaleTimeString()}.`}
             </p>
           </div>
-          <button className="btn btn-ghost" onClick={refreshAll} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </button>
+          {isAdmin && tab === 'overview' && (
+            <button className="btn btn-ghost" onClick={refreshAll} disabled={loading}>
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          )}
         </div>
+
+        <SegmentedTabs
+          ariaLabel="Admin sections"
+          options={visibleTabs}
+          value={tab}
+          onChange={setTab}
+          size="sm"
+          className="admin-tabs"
+        />
 
         {error && (
           <div className="notice notice-error">
@@ -203,7 +245,7 @@ const AdminDashboard = () => {
 
         {!data && loading && <AdminSkeleton />}
 
-        {data && (
+        {tab === 'overview' && data && (
           <>
             <section className="admin-grid">
               <div className="admin-card">
@@ -373,29 +415,33 @@ const AdminDashboard = () => {
                     Distinct accounts per step. Day-7 is a cohort approximation from event timestamps,
                     not a warehouse-grade retention calculation.
                   </p>
-                  <table className="admin-table">
-                    <thead>
-                      <tr><th>Step</th><th>Users</th><th>From previous</th><th>From signup</th></tr>
-                    </thead>
-                    <tbody>
-                      {funnelSteps.map((step) => (
-                        <tr key={step.key}>
-                          <td>
-                            {step.label}
-                            {step.eligibleUsers !== undefined && (
-                              <span className="admin-stat-hint"> · {step.eligibleUsers} eligible</span>
-                            )}
-                          </td>
-                          <td>{step.users}</td>
-                          <td>{step.rateFromPrevious === null ? '—' : `${step.rateFromPrevious}%`}</td>
-                          <td>{step.rateFromSignup}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {funnelSteps.length === 0 ? (
+                    <p className="admin-note">No activation events in this window.</p>
+                  ) : (
+                    <table className="admin-table">
+                      <thead>
+                        <tr><th>Step</th><th>Users</th><th>From previous</th><th>From signup</th></tr>
+                      </thead>
+                      <tbody>
+                        {funnelSteps.map((step) => (
+                          <tr key={step.key}>
+                            <td>
+                              {step.label}
+                              {step.eligibleUsers !== undefined && (
+                                <span className="admin-stat-hint"> · {step.eligibleUsers} eligible</span>
+                              )}
+                            </td>
+                            <td>{step.users}</td>
+                            <td>{step.rateFromPrevious === null ? '—' : `${step.rateFromPrevious}%`}</td>
+                            <td>{step.rateFromSignup}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                   <p className="admin-note">
-                    {funnel.skippedOnboarding} account{funnel.skippedOnboarding === 1 ? '' : 's'} skipped onboarding ·{' '}
-                    Day-7: {funnel.day7.returned} of {funnel.day7.cohort} eligible ({funnel.day7.rate}%).
+                    {funnel.skippedOnboarding ?? 0} account{(funnel.skippedOnboarding ?? 0) === 1 ? '' : 's'} skipped onboarding ·{' '}
+                    Day-7: {funnelDay7.returned} of {funnelDay7.cohort} eligible ({funnelDay7.rate}%).
                   </p>
                 </>
               )}
@@ -570,6 +616,8 @@ const AdminDashboard = () => {
             </section>
           </>
         )}
+
+        {tab !== 'overview' && <AdminPanels tab={tab} />}
       </div>
     </main>
   );

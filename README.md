@@ -208,9 +208,21 @@ a server rule rather than a client check:
 - Viral milestone: 10 likes on a single post awards XP to the author once
 
 ### Game Catalog
-- Backed by FreeToGame public API (500 k+ free-to-play titles, no key required)
-- Server-side search, genre filtering, platform filtering
-- Cached in-process for 10 minutes; cache survives concurrent request bursts
+- MongoDB is the system of record; FreeToGame fills it on first boot and on demand
+  (no key required), and IGDB can enrich it when `IGDB_CLIENT_ID` /
+  `IGDB_CLIENT_SECRET` are set — the catalog stays fully functional without them
+- Provider outages never empty the catalog: the last synced rows keep serving,
+  and an admin sync is a job rather than a deploy
+- Server-side search across titles and aliases, genre/platform filters, sorting
+  and cursor paging over `/games`
+- Home rails: trending, new releases, free-to-play and “popular in your games”
+- Follow a game (up to 20) from the catalog or its page; the stored counter feeds
+  rail ordering while real player/squad/server/post counts are live queries
+- Game pages show screenshots, requirements, links, open squads, servers and
+  recent posts; a free-text title that matches nothing becomes a provisional row
+  instead of being dropped
+- Staff can hide, edit or merge duplicates; merged titles keep answering to their
+  aliases so old searches and follows still resolve
 
 ### YouTube Gaming Bot
 - Queries YouTube Data API v3 for new videos matching a user's favourite games
@@ -238,10 +250,24 @@ a server rule rather than a client check:
 - Action URL validation: only internal routes or `https://` links accepted
 
 ### Admin Dashboard
-- Live metrics: request count, p50/p95 latency, error rate, uptime
-- Collection document counts across all nine collections
-- Recent audit log entries
-- Service status panel: Cloudinary, YouTube, cache backend, Redis state
+- Role-aware console: administrators see **Overview, Users, Moderation, Content,
+  Catalog, Audit**; moderators see **Moderation, Content, Audit** and never call
+  an admin-only endpoint
+- Live metrics: request count, p50/p95 latency, error rate, uptime, collection
+  counts, funnel conversion and day-7 retention
+- **Users** — search, inspect activity, change role, suspend (with reason and
+  optional expiry), reinstate, force sign-out, resend verification or a reset
+- **Moderation** — one queue for DM reports and server reports; dismiss, review,
+  remove the reported content or suspend its author. A platform suspension is
+  separate from a server timeout or ban and can never bypass role checks
+- **Content** — find posts, comments and channel messages, then hide or restore
+  them with a recorded reason; hidden posts leave feeds, search and detail reads
+- **Catalog** — status counts, hide/publish, edit aliases, merge duplicates,
+  trigger a provider sync
+- **Audit** — cursor-paged platform actions (role, status, content, game,
+  report) with actor and target
+- **Storage** — media ledger totals and per-surface usage for posts, avatars,
+  banners, chat and community icons
 
 ### UI Design System
 - Obsidian base canvas with Cyber Silver typography
@@ -330,8 +356,9 @@ MERN_INTERNSHIP_Proj/
 │   │   │   ├── CommunityPage.jsx   # Community with channel sidebar
 │   │   │   ├── ChannelPage.jsx     # Real-time text channel
 │   │   │   ├── LfgPage.jsx         # Looking-for-group board
-│   │   │   ├── GameCatalog.jsx     # FreeToGame-backed game browser
-│   │   │   ├── AdminDashboard.jsx  # Metrics + audit log + service status
+│   │   │   ├── GameCatalog.jsx     # Catalog rails, search, filters, follow
+│   │   │   ├── GameDetail.jsx      # Game page: stats, squads, servers, posts
+│   │   │   ├── AdminDashboard.jsx  # Role-aware console (overview + panels)
 │   │   │   ├── SettingsPage.jsx    # Account & settings hub (5 URL-addressable panels)
 │   │   │   ├── Login.jsx
 │   │   │   └── Register.jsx
@@ -389,7 +416,6 @@ MERN_INTERNSHIP_Proj/
 │   │   ├── likeBuffer.js           # Redis hash buffer for like writes + flush worker
 │   │   ├── feedRanking.js          # Personalized feed scorer (engagement + recency)
 │   │   ├── gamification.js         # XP award, level calculation, medal grant
-│   │   ├── gameCatalog.js          # FreeToGame fetch, normalise, cache, search
 │   │   ├── youtubeBot.js           # YouTube Data API fetch, notify, dedup
 │   │   ├── safeFetch.js            # SSRF-hardened outbound HTTP (DNS + IP checks)
 │   │   ├── sanitize.js             # Input sanitizers: line, text, tags, regex escape
@@ -498,6 +524,9 @@ Notification ──── User (recipient) ────────────�
 | `likes[]` | ObjectId[] | Like array; `likeCount` denormalised field |
 | `commentCount` | Number | Maintained on comment create/delete |
 | `mediaUrl` / `mediaType` | String | Cloudinary URL; `image` / `video` / `none` |
+| `mediaCardUrl` | String | Feed-sized derived image; falls back to `mediaUrl` |
+| `mediaAssetId` | ObjectId | Ledger row that owns the delivery metadata and cleanup |
+| `hiddenAt` / `hiddenById` | Date / ObjectId | Platform hide decision; hidden posts leave feeds, search and detail reads |
 | `linkPreview` | Object | Open Graph metadata scraped server-side |
 
 **Indexes:**
@@ -506,6 +535,38 @@ Notification ──── User (recipient) ────────────�
 - `{ tags: 1 }` — hashtag channel filter
 - `{ title: text, content: text, tags: text }` — weighted text search (title×10, tags×5, content×1)
 - `{ likeCount: -1, createdAt: -1 }` — hot posts sort
+
+### Game
+
+| Field | Notes |
+|---|---|
+| `slug` / `title` | Public identity; slug is unique and stable |
+| `key` / `aliases[]` / `aliasKeys[]` | Canonical lookup key plus merged-title aliases |
+| `summary`, `genres[]`, `platforms[]`, `releaseYear` | Display and facets |
+| `cover`, `screenshots[]`, `requirements`, `links[]` | Media and detail payload |
+| `source` / `externalIds` | `freetogame`, `igdb`, or `provisional` |
+| `status` | `published` / `hidden` / `merged` |
+| `stats.favoriteCount` | Stored follow counter used for rail ordering |
+| `stats.playerCount` etc. | Legacy stored counters; detail pages query live counts |
+| `mergedInto` | Survivor of a duplicate merge |
+
+**Indexes:** unique `slug`, unique `key`, `aliasKeys`, `{ status, 'stats.favoriteCount' }`,
+`{ status, releaseYear }`, `{ status, createdAt }`.
+
+### MediaAsset
+
+| Field | Notes |
+|---|---|
+| `surface` | `post` / `avatar` / `banner` / `chat` / `communityIcon` / `communityBanner` |
+| `publicId`, `resourceType`, `format` | Cloudinary identity |
+| `bytes`, `width`, `height` | Size accounting for the storage panel |
+| `ownerId`, `ownerModel` | Who may delete it |
+| `status` | `pending` / `ready` / `orphaned` / `deleted` |
+| `variants` | Named delivery transformations (never renamed on Cloudinary) |
+| `lastCheckedAt` | Retention sweep watermark |
+
+New uploads use `gamerhub/<env>/<surface>/<yyyy>/<mm>/…`; assets created before
+the ledger keep their original public ids and URLs.
 
 ### Community / Channel / Message
 
@@ -746,16 +807,33 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/games` | Game catalog (search, genre, platform) |
-| GET | `/games/:id` | Game detail |
+| GET | `/games` | Catalog (search, genre, platform, sort, cursor) |
+| GET | `/games/rails` | Home rails; personalised when signed in |
+| GET | `/games/:slug` | Game detail, live counters and viewer follow state |
+| POST | `/games/:slug/follow` | Follow/unfollow (20-game cap) |
 | GET | `/notifications` | Cursor-paged history (`before`, `unread=1`, `limit`) |
 | PATCH | `/notifications/:id/read` | Mark one owned notification read |
 | POST | `/notifications/read-all` | Mark all read |
 | POST | `/bot/sync` | Trigger YouTube sync (admin) |
 | GET | `/bot/status` | Bot health and last sync |
 | GET | `/admin/metrics` | Dashboard metrics snapshot (admin) |
-| GET | `/admin/users` | User list with roles (admin) |
-| PUT | `/admin/users/:id/role` | Change global role (admin) |
+| GET | `/admin/users` | User list, search and role filters (admin) |
+| GET | `/admin/users/:id` | Account detail and activity (admin) |
+| PATCH | `/admin/users/:id/role` | Change platform role (admin) |
+| PATCH | `/admin/users/:id/status` | Suspend/reinstate with reason (admin) |
+| POST | `/admin/users/:id/logout-all` | Force sign-out (admin) |
+| POST | `/admin/users/:id/resend-verification` | Resend verification (admin) |
+| POST | `/admin/users/:id/reset-password` | Send a reset link (admin) |
+| GET | `/admin/cases` | Unified DM + server report queue (staff) |
+| POST | `/admin/cases/:source/:id/resolve` | Dismiss, review, remove content or suspend author (staff) |
+| GET | `/admin/content/{posts,comments,messages}` | Content browser (staff) |
+| PATCH | `/admin/content/{posts,comments,messages}/:id/visibility` | Hide/restore with reason (staff) |
+| GET | `/admin/audit` | Platform audit trail, cursor paged (staff) |
+| GET | `/admin/games` | Catalog with status counts (admin) |
+| PATCH | `/admin/games/:id` | Edit/hide/publish a game (admin) |
+| POST | `/admin/games/:id/merge` | Merge a duplicate into a survivor (admin) |
+| POST | `/admin/games/sync` | Trigger a provider sync (admin) |
+| GET | `/admin/storage` | Media ledger totals by surface (admin) |
 | GET | `/api/health` | Liveness: uptime + per-domain connection state (200 / 503) |
 | GET | `/api/health/ready` | Readiness: pings MongoDB and Redis when enabled (200 / 503) |
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
@@ -19,6 +19,7 @@ import CommunityPage from './pages/CommunityPage';
 import JoinInvite from './pages/JoinInvite';
 import LfgPage from './pages/LfgPage';
 import GameCatalog from './pages/GameCatalog';
+import GameDetail from './pages/GameDetail';
 import Welcome from './pages/Welcome';
 import Discover from './pages/Discover';
 import AdminDashboard from './pages/AdminDashboard';
@@ -34,6 +35,7 @@ import './phase10.css';
 import './phase11.css';
 import './phase13.css';
 import './phase14.css';
+import './phase15.css';
 
 /**
  * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
@@ -49,6 +51,31 @@ const ATMOSPHERES = [
   ['/admin', 'admin'],
   ['/', 'feed']
 ];
+
+/**
+ * Every route starts at its own top. Without this, React Router keeps the
+ * previous page's scroll offset, so a long feed leaves the next page opened
+ * halfway down (and short pages look like a blank window).
+ */
+const RouteScrollReset = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
+  }, []);
+
+  useLayoutEffect(() => {
+    // index.css enables smooth scrolling; temporarily disable it so a route
+    // change is an instant reset rather than an animated journey upward.
+    const root = document.documentElement;
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 0);
+    root.style.scrollBehavior = previous;
+  }, [pathname]);
+
+  return null;
+};
 
 const AtmosphereSync = () => {
   const { pathname } = useLocation();
@@ -110,6 +137,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <RouteScrollReset />
         <AtmosphereSync />
         <OnboardingGate />
         <div className="hero-glow" aria-hidden="true" />
@@ -130,6 +158,7 @@ function App() {
           <Route path="/join/:code"             element={<JoinInvite />} />
           <Route path="/lfg"                    element={<LfgPage />} />
           <Route path="/games"                  element={<GameCatalog />} />
+          <Route path="/games/:slug"            element={<GameDetail />} />
           <Route path="/welcome"                element={<PrivateRoute><Welcome /></PrivateRoute>} />
           <Route path="/discover"               element={<PrivateRoute><Discover /></PrivateRoute>} />
           <Route path="/admin"                  element={<AdminDashboard />} />

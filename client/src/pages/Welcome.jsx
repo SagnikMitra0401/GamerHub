@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
 import DiscoveryBoard from '../components/discover/DiscoveryBoard';
+import SafeImage from '../components/common/SafeImage';
 import {
   ArrowLeftIcon, ArrowRightIcon, CheckIcon, CompassIcon, GamepadIcon, SparklesIcon
 } from '../components/common/icons';
@@ -202,7 +203,7 @@ const Welcome = () => {
                       setResults([]);
                     }}
                   >
-                    {game.thumbnail && <img src={game.thumbnail} alt="" loading="lazy" />}
+                    <SafeImage src={game.thumbnail} alt="" loading="lazy" fallback={null} />
                     <span>{game.title}</span>
                     <small>{game.genre}</small>
                   </button>

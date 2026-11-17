@@ -1,11 +1,12 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { accountGate, canParticipate } = require('../utils/privacy');
+const { releaseExpiredSuspension } = require('../utils/moderation');
 
 const SESSION_FIELDS =
   '_id username email emailVerifiedAt following favoriteChannels savedPosts role ' +
   'sessionVersion status profileType privacySettings blockedUsers mutedUsers ' +
-  'createdAt authIdentities dmSettings';
+  'createdAt authIdentities dmSettings moderation preferences';
 
 /** 401 when the account is deleted, 403 when it is suspended. */
 const denyAccount = (res, user) => {
@@ -37,6 +38,8 @@ const protect = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'User no longer exists' });
     }
+    // A temporary suspension ends on the next authenticated request.
+    await releaseExpiredSuspension(user);
     if (staleSession(decoded, user)) {
       return res.status(401).json({ message: 'Session expired. Please sign in again.' });
     }

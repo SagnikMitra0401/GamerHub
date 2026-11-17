@@ -10,6 +10,7 @@ import LinkPreviewCard from '../components/posts/LinkPreviewCard';
 import HashtagText from '../components/posts/HashtagText';
 import PostActions from '../components/posts/PostActions';
 import { ArrowLeftIcon } from '../components/common/icons';
+import SafeImage from '../components/common/SafeImage';
 import { PostDetailSkeleton } from '../components/common/Skeleton';
 
 const PostDetail = () => {
@@ -197,10 +198,11 @@ const PostDetail = () => {
                     style={{ width: '100%', maxHeight: '500px', objectFit: 'contain' }}
                   />
                 ) : (
-                  <img
+                  <SafeImage
                     src={post.mediaUrl}
                     alt={post.title}
                     style={{ width: '100%', maxHeight: '500px', objectFit: 'contain' }}
+                    fallback={<span className="media-missing">Image unavailable</span>}
                   />
                 )}
               </div>

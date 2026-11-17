@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HeartIcon, CommentIcon } from '../common/icons';
+import SafeImage from '../common/SafeImage';
 
 const ClipCard = ({ post }) => {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ const ClipCard = ({ post }) => {
       {post.mediaType === 'video' ? (
         <video
           ref={videoRef}
-          src={post.mediaUrl}
+          src={post.mediaCardUrl || post.mediaUrl}
           muted
           loop
           playsInline
@@ -45,11 +46,12 @@ const ClipCard = ({ post }) => {
           className="clip-card-media"
         />
       ) : (
-        <img
-          src={post.mediaUrl}
+        <SafeImage
+          src={post.mediaCardUrl || post.mediaUrl}
           alt={post.title}
           loading="lazy"
           className="clip-card-media"
+          fallback={<span className="clip-card-media media-missing">Image unavailable</span>}
         />
       )}
 

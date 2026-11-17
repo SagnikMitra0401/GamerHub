@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import CreatePartyModal from '../components/lfg/CreatePartyModal';
 import SquadChatDrawer from '../components/lfg/SquadChatDrawer';
 import useCursorGlow from '../hooks/useCursorGlow';
+import SafeImage from '../components/common/SafeImage';
 import { LfgSkeleton } from '../components/common/Skeleton';
 
 const userName = (value) => value?.username || 'deleted user';
@@ -51,11 +52,13 @@ const PartyCard = ({
   return (
     <article className={`lfg-card glow-card${isLeader ? ' mine' : ''}`}>
       <div className="lfg-card-top">
-        {party.gameThumbnail ? (
-          <img className="lfg-thumb" src={party.gameThumbnail} alt="" loading="lazy" />
-        ) : (
-          <div className="lfg-thumb lfg-thumb-fallback" aria-hidden="true">LFG</div>
-        )}
+        <SafeImage
+          className="lfg-thumb"
+          src={party.gameThumbnail}
+          alt=""
+          loading="lazy"
+          fallback={<div className="lfg-thumb lfg-thumb-fallback" aria-hidden="true">LFG</div>}
+        />
         <div className="lfg-card-head">
           <h3 className="lfg-game">{party.gameTitle}</h3>
           <p className="lfg-activity">{party.activity || 'Any activity'}</p>

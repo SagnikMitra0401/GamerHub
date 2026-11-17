@@ -4,12 +4,16 @@ const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const MediaAsset = require('../models/MediaAsset');
+const { cloudinary } = require('../config/cloudinary');
 
 const { getIO } = require('../config/socket');
 const { eraseAccount } = require('../utils/accountErasure');
 const { purgeExpiredDmRequests } = require('../utils/dmService');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const PENDING_MEDIA_HOURS = 24;
+const ORPHAN_MEDIA_DAYS = 30;
 const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
 const DELETION_GRACE_DAYS = 30;
 
@@ -114,6 +118,44 @@ async function eraseDeletionPendingUsers({ now = new Date(), graceDays = DELETIO
   return erased;
 }
 
+/**
+ * Reclaim media that no content references.
+ *
+ * Pending rows older than a day mean an upload that never reached a post or
+ * message; rejected rows are failed validation attempts; ready rows with no
+ * ref after 30 days are genuinely orphaned. Each remote delete is best-effort
+ * so one failure cannot stall the sweep.
+ */
+async function purgeOrphanMediaAssets({ now = new Date() } = {}) {
+  const pendingCutoff = new Date(now.getTime() - PENDING_MEDIA_HOURS * 60 * 60 * 1000);
+  const orphanCutoff = new Date(now.getTime() - ORPHAN_MEDIA_DAYS * DAY_MS);
+
+  const rows = await MediaAsset.find({
+    $or: [
+      { status: 'pending', createdAt: { $lt: pendingCutoff } },
+      { status: 'rejected', createdAt: { $lt: pendingCutoff } },
+      { status: 'ready', refType: null, createdAt: { $lt: orphanCutoff } }
+    ]
+  })
+    .select('_id publicId resourceType')
+    .limit(200)
+    .lean();
+
+  let removed = 0;
+  for (const row of rows) {
+    try {
+      await cloudinary.uploader.destroy(row.publicId, {
+        resource_type: row.resourceType || 'image'
+      });
+    } catch {
+      // A missing remote object must not block ledger cleanup.
+    }
+    await MediaAsset.deleteOne({ _id: row._id }).catch(() => {});
+    removed += 1;
+  }
+  return removed;
+}
+
 /** Start the periodic worker. Disable with DISABLE_RETENTION_WORKER=1 (tests). */
 function startRetentionWorker() {
   if (process.env.DISABLE_RETENTION_WORKER === '1') return null;
@@ -161,6 +203,13 @@ function startRetentionWorker() {
     } catch (err) {
       console.error('[Retention] account erasure failed:', err.message);
     }
+
+    try {
+      const media = await purgeOrphanMediaAssets();
+      if (media > 0) console.log(`[Retention] reclaimed ${media} orphaned media asset(s)`);
+    } catch (err) {
+      console.error('[Retention] media sweep failed:', err.message);
+    }
   };
 
   run();
@@ -173,6 +222,7 @@ module.exports = {
   purgeExpiredMessages,
   purgeExpiredSquadChats,
   purgeExpiredNotifications,
+  purgeOrphanMediaAssets,
   eraseDeletionPendingUsers,
   startRetentionWorker,
   purgeExpiredDmRequests,

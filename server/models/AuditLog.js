@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 
 const AuditLogSchema = new mongoose.Schema({
+  // Null for platform-level actions; community moderation always carries it.
   communityId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Community',
-    required: true,
+    default: null,
     index: true
   },
   actorId: {
@@ -40,7 +41,17 @@ const AuditLogSchema = new mongoose.Schema({
       'INVITE_JOIN',
       'INVITE_REQUEST',
       'INVITE_APPROVE',
-      'INVITE_DENY'
+      'INVITE_DENY',
+      'PLATFORM_ROLE_UPDATE',
+      'PLATFORM_STATUS_UPDATE',
+      'PLATFORM_FORCE_LOGOUT',
+      'PLATFORM_REPORT_RESOLVE',
+      'PLATFORM_CONTENT_HIDE',
+      'PLATFORM_CONTENT_RESTORE',
+      'PLATFORM_GAME_UPDATE',
+      'PLATFORM_GAME_MERGE',
+      'PLATFORM_GAME_SYNC',
+      'PLATFORM_EMAIL_RESEND'
     ],
     required: true
   },
@@ -50,7 +61,10 @@ const AuditLogSchema = new mongoose.Schema({
   },
   targetModel: {
     type: String,
-    enum: ['User', 'Channel', 'Message', 'Community', 'ForumPost', 'Report', 'CommunityInvite', null],
+    enum: [
+      'User', 'Channel', 'Message', 'Community', 'ForumPost', 'Report',
+      'CommunityInvite', 'Post', 'Comment', 'DmReport', 'Game', 'MediaAsset', null
+    ],
     default: null
   },
   metadata: {

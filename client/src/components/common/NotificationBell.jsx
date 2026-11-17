@@ -6,6 +6,7 @@ import { connectSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
 import { announceNotificationState, subscribeNotificationState } from '../../utils/notificationEvents';
 import { CloseIcon } from './icons';
+import SafeImage from './SafeImage';
 
 const TYPE_META = {
   lfg_request:  { label: 'Squad request' },
@@ -182,11 +183,13 @@ const NotificationBell = () => {
           const isExternal = /^https?:\/\//i.test(notification.actionUrl || '');
           const body = (
             <>
-              {notification.mediaThumbnail ? (
-                <img className="notif-thumb" src={notification.mediaThumbnail} alt="" loading="lazy" />
-              ) : (
-                <span className={`notif-dot ${notification.type}`} aria-hidden="true" />
-              )}
+              <SafeImage
+                className="notif-thumb"
+                src={notification.mediaThumbnail}
+                alt=""
+                loading="lazy"
+                fallback={<span className={`notif-dot ${notification.type}`} aria-hidden="true" />}
+              />
               <span className="notif-body">
                 <span className="notif-type">{meta.label}</span>
                 <span className="notif-title">{notification.title}</span>

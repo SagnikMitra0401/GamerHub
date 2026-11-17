@@ -22,6 +22,7 @@ const { sanitizeLine } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, notFound, forbidden, conflict } = require('../utils/httpError');
 const { isPlatformAdmin } = require('../utils/permissions');
+const { resolveGame } = require('../utils/gameRegistry');
 
 const LEADER_FIELDS = 'username level role presence status';
 const MEMBER_FIELDS = 'username level role presence';
@@ -207,6 +208,10 @@ const createParty = async (req, res, next) => {
       members: [{ userId: req.user._id, role: 'leader', joinedAt: new Date() }],
       status: 'open'
     });
+
+    // A squad title is a real catalog reference too; an unknown title becomes a
+    // provisional row instead of a dead end.
+    resolveGame(value.gameTitle).catch(() => {});
 
     const populated = await Party.findById(party._id).populate(POPULATE).lean();
     broadcastSlotUpdate(populated);

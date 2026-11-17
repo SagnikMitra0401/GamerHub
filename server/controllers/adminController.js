@@ -19,7 +19,7 @@ const { errorReportingStatus } = require('../utils/errorReporting');
 const { rateLimitStoreStatus } = require('../utils/rateLimitStore');
 const { cacheWrap } = require('../utils/redisCache');
 const youtubeBot = require('../utils/youtubeBot');
-const { CACHE_TTL_MS: GAME_CACHE_TTL_MS } = require('../utils/gameCatalog');
+const { CACHE_TTL_MS: GAME_CACHE_TTL_MS } = require('../utils/gameProviders/freetogame');
 const { isConfigured: redisConfigured } = require('../config/redis');
 const { isLikeWorkerRunning } = require('../utils/likeBuffer');
 

@@ -130,6 +130,16 @@ const UserSchema = new mongoose.Schema({
   },
   frozenAt: { type: Date, default: null },
 
+  // Platform moderation record. `until` is enforced lazily on the next
+  // authenticated request, so lifting a suspension needs no background worker.
+  moderation: {
+    reason: { type: String, default: '', maxlength: 300 },
+    byId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    at: { type: Date, default: null },
+    until: { type: Date, default: null },
+    previousStatus: { type: String, default: null }
+  },
+
   // Google-created accounts have a random, unknowable password hash. They still
   // need a way to confirm a destructive action, so the settings hub asks them
   // to type their username instead of a password they never set.

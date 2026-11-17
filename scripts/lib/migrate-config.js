@@ -23,7 +23,7 @@ function databaseNameFrom(uri) {
   return name || null;
 }
 
-const DOMAINS = ['auth', 'feed', 'communities', 'squads'];
+const DOMAINS = ['auth', 'feed', 'communities', 'squads', 'catalog'];
 
 function domainMigrateConfig(domain) {
   if (!DOMAINS.includes(domain)) {

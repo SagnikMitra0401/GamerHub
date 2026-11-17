@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getGames, getGameById } = require('../controllers/gameController');
+const { getGames, getGameRails, getGame, followGame } = require('../controllers/gameController');
+const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const { catalogLimiter } = require('../middleware/limiters');
 
-// The catalog proxies a third-party API; the limiter protects that quota.
-router.get('/',    catalogLimiter, getGames);
-router.get('/:id', catalogLimiter, getGameById);
+// The catalog reads a provider-backed collection; the limiter protects the
+// shared work, not a per-user quota.
+router.get('/', catalogLimiter, getGames);
+router.get('/rails', catalogLimiter, optionalProtect, getGameRails);
+router.get('/:slug', catalogLimiter, optionalProtect, getGame);
+router.post('/:slug/follow', protect, activeOnly, catalogLimiter, followGame);
 
 module.exports = router;

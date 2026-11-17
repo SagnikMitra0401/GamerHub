@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import SafeImage from '../common/SafeImage';
 
 /**
  * Server identity mark.
@@ -35,11 +36,14 @@ const initialsOf = (name) => {
 const CommunitySigil = ({ name = '', icon = '', size = 40, className = '' }) => {
   const label = name || 'GamingHub';
   const classes = `community-sigil${className ? ` ${className}` : ''}`;
+  const [imageFailed, setImageFailed] = useState(false);
 
-  if (isImage(icon)) {
+  useEffect(() => { setImageFailed(false); }, [icon]);
+
+  if (isImage(icon) && !imageFailed) {
     return (
       <span className={`${classes} community-sigil-image`} style={{ width: size, height: size }} aria-hidden="true">
-        <img src={icon} alt="" loading="lazy" />
+        <SafeImage src={icon} alt="" loading="lazy" fallback={null} onError={() => setImageFailed(true)} />
       </span>
     );
   }

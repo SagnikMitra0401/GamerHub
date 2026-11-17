@@ -1,29 +1,26 @@
-const { getCatalog, searchGames, distinctGenres, getGameDetail, MAX_RESULTS } = require('../utils/gameCatalog');
+const {
+  listGames,
+  getRails,
+  getGameDetail,
+  toggleFollowGame
+} = require('../services/gameService');
+const { badRequest, notFound } = require('../utils/httpError');
 const { UpstreamError } = require('../utils/outbound');
-const { notFound, badRequest } = require('../utils/httpError');
+const { sanitizeLine } = require('../utils/sanitize');
 
-// GET /api/games?q=&genre=&platform=&limit=
+// GET /api/games?q=&genre=&platform=&sort=&cursor=&limit=
 const getGames = async (req, res, next) => {
   try {
-    const { games, fetchedAt, stale } = await getCatalog();
-
-    const limit = Math.min(Math.max(Number(req.query.limit) || MAX_RESULTS, 1), MAX_RESULTS);
-    const results = searchGames(games, {
-      q: req.query.q,
-      genre: req.query.genre,
-      platform: req.query.platform,
-      limit
+    const payload = await listGames({
+      q: sanitizeLine(req.query.q, 60),
+      genre: sanitizeLine(req.query.genre, 40),
+      platform: sanitizeLine(req.query.platform, 40),
+      sort: sanitizeLine(req.query.sort, 20),
+      cursor: typeof req.query.cursor === 'string' ? req.query.cursor.slice(0, 400) : null,
+      limit: req.query.limit
     });
-
-    res.status(200).json({
-      games: results,
-      total: results.length,
-      catalogSize: games.length,
-      genres: distinctGenres(games),
-      platforms: [...new Set(games.map((g) => g.platform).filter(Boolean))].sort(),
-      stale: !!stale,
-      fetchedAt
-    });
+    res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    res.status(200).json(payload);
   } catch (err) {
     if (err instanceof UpstreamError) {
       return res.status(503).json({ message: 'The game catalog is temporarily unavailable. Try again shortly.' });
@@ -32,27 +29,50 @@ const getGames = async (req, res, next) => {
   }
 };
 
-// GET /api/games/:id
-const getGameById = async (req, res, next) => {
+// GET /api/games/rails — signed-out callers get the three public rails.
+const getGameRails = async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) throw badRequest('Invalid game id');
-
-    let game = null;
-    try {
-      game = await getGameDetail(id);
-    } catch (err) {
-      if (err instanceof UpstreamError) {
-        return res.status(503).json({ message: 'Game details are temporarily unavailable.' });
-      }
-      throw err;
-    }
-
-    if (!game) throw notFound('Game not found');
-    res.status(200).json(game);
+    const payload = await getRails(req.user || null);
+    res.set('Cache-Control', req.user ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300');
+    res.status(200).json(payload);
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { getGames, getGameById };
+// GET /api/games/:slug — also accepts a legacy numeric FreeToGame id.
+const getGame = async (req, res, next) => {
+  try {
+    const game = await getGameDetail(req.params.slug);
+    if (!game) throw notFound('Game not found');
+
+    let following = false;
+    if (req.user) {
+      const titles = req.user.preferences?.favoriteGames || [];
+      following = titles.some(
+        (title) => String(title).trim().toLowerCase() === game.title.trim().toLowerCase()
+      );
+    }
+
+    res.set('Cache-Control', req.user ? 'private, no-store' : 'public, max-age=60');
+    res.status(200).json({ ...game, following });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /api/games/:slug/follow
+const followGame = async (req, res, next) => {
+  try {
+    const result = await toggleFollowGame(req.user._id, req.params.slug);
+    if (!result) throw notFound('Game not found');
+    if (result.limitReached) {
+      throw badRequest('You can follow up to 20 games. Remove one first.');
+    }
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getGames, getGameRails, getGame, followGame };

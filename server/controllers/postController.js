@@ -4,6 +4,9 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
+const MediaAsset = require('../models/MediaAsset');
+const { storeImageBuffer, registerVideoAsset } = require('../utils/mediaPipeline');
+const { mediaPublicId: buildMediaPublicId } = require('../utils/mediaPaths');
 const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
 const { recordFirstEvent } = require('../utils/productEvents');
@@ -43,8 +46,10 @@ const createPost = async (req, res, next) => {
 
     // Media fields are server-derived only — never read them from the body.
     let mediaUrl = null;
+    let mediaCardUrl = null;
     let mediaType = 'none';
     let mediaPublicId = null;
+    let mediaAssetId = null;
 
     if (!title) throw badRequest('A title is required.');
 
@@ -61,10 +66,32 @@ const createPost = async (req, res, next) => {
         throw badRequest(isVideo ? 'Videos must be 10MB or less.' : 'Images must be 5MB or less.');
       }
 
-      const cloudinaryResult = await uploadToCloudinary(tempFilePath);
-      mediaUrl = cloudinaryResult.secure_url;
-      mediaType = isVideo ? 'video' : 'image';
-      mediaPublicId = cloudinaryResult.public_id;
+      if (isVideo) {
+        // Video keeps the streamed helper but adopts the new folder scheme.
+        const publicId = buildMediaPublicId({ surface: 'post', ownerId: req.user._id });
+        const result = await uploadToCloudinary(tempFilePath, { publicId, resourceType: 'video' });
+        const asset = await registerVideoAsset({ result, ownerId: req.user._id, surface: 'post' });
+        mediaUrl = result.secure_url;
+        mediaType = 'video';
+        mediaPublicId = result.public_id;
+        mediaAssetId = asset._id;
+      } else {
+        // Images are validated, EXIF-stripped, dimension-capped and recorded in
+        // the shared media ledger before the post exists.
+        const buffer = await fs.promises.readFile(tempFilePath);
+        const { asset, result } = await storeImageBuffer({
+          buffer,
+          mimeType: req.file.mimetype,
+          sizeBytes: req.file.size,
+          surface: 'post',
+          ownerId: req.user._id
+        });
+        mediaUrl = asset.derivatives.full || result.secure_url;
+        mediaCardUrl = asset.derivatives.card;
+        mediaType = 'image';
+        mediaPublicId = result.public_id;
+        mediaAssetId = asset._id;
+      }
 
       cleanupTempFile(tempFilePath);
       tempFilePath = null;
@@ -91,8 +118,10 @@ const createPost = async (req, res, next) => {
       content,
       tags,
       mediaUrl,
+      mediaCardUrl,
       mediaType,
       mediaPublicId,
+      mediaAssetId,
       linkPreview: linkPreview || {}
     });
 
@@ -116,7 +145,7 @@ const getPosts = async (req, res, next) => {
     // Personalized ranking needs a signed-in viewer; anonymous falls back to latest.
     const forYou = req.query.sort === 'foryou' && !!req.user;
 
-    const matchStage = {};
+    const matchStage = { hiddenAt: null };
 
     const tag = sanitizeLine(req.query.channel, 24).toLowerCase();
     if (tag) matchStage.tags = tag;
@@ -193,6 +222,7 @@ const getPosts = async (req, res, next) => {
           likes: 1,
           commentCount: 1,
           mediaUrl: 1,
+          mediaCardUrl: 1,
           mediaType: 1,
           linkPreview: 1,
           createdAt: 1,
@@ -237,6 +267,7 @@ const getPostById = async (req, res, next) => {
     if (post.userId?.status === 'frozen' && String(post.userId._id) !== String(req.user?._id)) {
       throw notFound('Post not found');
     }
+    if (post.hiddenAt && req.user?.role !== 'admin') throw notFound('Post not found');
 
     res.status(200).json(post);
   } catch (err) {
@@ -296,6 +327,9 @@ const deletePost = async (req, res, next) => {
       ).catch((err) => {
         console.error('Failed to delete asset from Cloudinary:', err.message);
       });
+    }
+    if (req.resource.mediaAssetId) {
+      await MediaAsset.deleteOne({ _id: req.resource.mediaAssetId }).catch(() => {});
     }
 
     await Comment.deleteMany({ postId: req.resource._id });
@@ -393,7 +427,7 @@ const suggestTags = async (req, res, next) => {
 
     const prefix = new RegExp(`^${escapeRegex(q)}`);
     const tags = await Post.aggregate([
-      { $match: { tags: prefix } },
+      { $match: { tags: prefix, hiddenAt: null } },
       { $unwind: '$tags' },
       { $match: { tags: prefix } },
       { $group: { _id: '$tags', count: { $sum: 1 } } },

@@ -91,7 +91,7 @@ const Navbar = () => {
     navigate('/login');
   };
 
-  const items = user?.role === 'admin'
+  const items = ['admin', 'moderator'].includes(user?.role)
     ? [...NAV_ITEMS, { to: '/admin', label: 'Admin', icon: 'admin' }]
     : NAV_ITEMS;
 

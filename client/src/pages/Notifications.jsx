@@ -8,6 +8,7 @@ import {
   subscribeNotificationState
 } from '../utils/notificationEvents';
 import { AlertIcon, BellIcon } from '../components/common/icons';
+import SafeImage from '../components/common/SafeImage';
 
 const PAGE_SIZE = 25;
 
@@ -213,11 +214,13 @@ const Notifications = () => {
                   const isExternal = /^https?:\/\//i.test(notification.actionUrl || '');
                   const body = (
                     <>
-                      {notification.mediaThumbnail ? (
-                        <img className="notif-thumb" src={notification.mediaThumbnail} alt="" loading="lazy" />
-                      ) : (
-                        <span className={`notif-dot ${notification.type}`} aria-hidden="true" />
-                      )}
+                      <SafeImage
+                        className="notif-thumb"
+                        src={notification.mediaThumbnail}
+                        alt=""
+                        loading="lazy"
+                        fallback={<span className={`notif-dot ${notification.type}`} aria-hidden="true" />}
+                      />
                       <span className="notif-body">
                         <span className="notif-type">{meta.label}</span>
                         <span className="notif-title">{notification.title}</span>

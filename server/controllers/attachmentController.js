@@ -11,7 +11,10 @@
 const mongoose = require('mongoose');
 
 const Attachment = require('../models/Attachment');
+const MediaAsset = require('../models/MediaAsset');
 const { cloudinary } = require('../config/cloudinary');
+const { mediaPublicId } = require('../utils/mediaPaths');
+const { deliverySet } = require('../utils/mediaDelivery');
 const { CAP } = require('../utils/permissions');
 const { loadChannelAccess } = require('../utils/channelAccess');
 const { validateImageUpload, MAX_ATTACHMENT_BYTES } = require('../utils/fileValidator');
@@ -58,11 +61,12 @@ async function normaliseImage(buffer, mimeType) {
   }
 }
 
-function uploadBuffer(buffer) {
+function uploadBuffer(buffer, ownerId) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: 'gaming-hub/chat',
+        // The full public_id carries the folder in the new media scheme.
+        public_id: mediaPublicId({ surface: 'chat', ownerId }),
         resource_type: 'image',
         // Cloudinary keeps no metadata block for chat images.
         image_metadata: false
@@ -118,10 +122,28 @@ const uploadAttachment = async (req, res, next) => {
       status: 'pending'
     });
 
-    const result = await uploadBuffer(normalised.buffer);
+    const result = await uploadBuffer(normalised.buffer, req.user._id);
+
+    const asset = await MediaAsset.create({
+      surface: 'chat',
+      ownerId: req.user._id,
+      publicId: result.public_id,
+      resourceType: 'image',
+      format: result.format || null,
+      mimeType: validated.mimeType,
+      bytes: result.bytes || normalised.buffer.length,
+      width: normalised.width || result.width || null,
+      height: normalised.height || result.height || null,
+      url: result.secure_url,
+      derivatives: deliverySet(result.public_id, { resourceType: 'image' }),
+      status: 'ready',
+      refType: 'Message',
+      refId: null
+    });
 
     attachment.cloudinaryId = result.public_id;
     attachment.url = result.secure_url;
+    attachment.assetId = asset._id;
     attachment.status = 'ready';
     await attachment.save();
 
@@ -204,6 +226,10 @@ const deleteAttachment = async (req, res, next) => {
 
     await cloudinary.uploader.destroy(attachment.cloudinaryId, { resource_type: 'image' })
       .catch(() => {}); // a missing remote file must not block the local delete
+
+    if (attachment.assetId) {
+      await MediaAsset.deleteOne({ _id: attachment.assetId }).catch(() => {});
+    }
 
     await attachment.deleteOne();
 

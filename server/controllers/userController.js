@@ -15,6 +15,7 @@ const { blockedIdsFor, hiddenAccountIds } = require('../utils/visibility');
 const { describeDmPolicy } = require('../utils/dmPolicy');
 const { publicBusinessProfile } = require('../utils/business');
 const { notifyFollow } = require('../utils/socialNotifications');
+const { resolveGameTitles, applyFavoriteGameChange } = require('../utils/gameRegistry');
 
 const USER_PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 const PRESENCE_STATUSES = ['online', 'in_game', 'offline', 'invisible'];
@@ -146,7 +147,7 @@ const getUserPosts = async (req, res, next) => {
 
     const { skip, limit } = parsePagination(req.query, { defaultLimit: 15, maxLimit: 50 });
 
-    const posts = await Post.find({ userId: target._id })
+    const posts = await Post.find({ userId: target._id, hiddenAt: null })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -447,11 +448,24 @@ const updatePreferences = async (req, res, next) => {
 
     if (!Object.keys(updates).length) throw badRequest('No preferences provided.');
 
+    const previous = await User.findById(req.user._id)
+      .select('preferences.favoriteGames')
+      .lean();
+
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
       { new: true, runValidators: true }
     ).select('preferences');
+
+    // Keep the canonical catalog in step with the free-text titles saved here.
+    if (updates['preferences.favoriteGames']) {
+      await resolveGameTitles(updated.preferences?.favoriteGames || []);
+      await applyFavoriteGameChange(
+        previous?.preferences?.favoriteGames || [],
+        updated.preferences?.favoriteGames || []
+      );
+    }
 
     res.status(200).json({ preferences: updated.preferences });
   } catch (err) {

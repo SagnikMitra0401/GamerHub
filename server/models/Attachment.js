@@ -13,6 +13,9 @@ const AttachmentSchema = new mongoose.Schema({
   communityId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: true },
   uploaderId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
+  // Shared media ledger row (see models/MediaAsset). Legacy rows have none.
+  assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'MediaAsset', default: null },
+
   cloudinaryId: { type: String, required: true },
   url:          { type: String, required: true },
   mimeType:     { type: String, required: true },

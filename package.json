@@ -8,9 +8,9 @@
     "server": "nodemon server/server.js",
     "client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "test": "node --test server/tests/permissions.test.js server/tests/sanitize.test.js server/tests/ssrf.test.js server/tests/origins.test.js server/tests/lfg.test.js server/tests/feedRanking.test.js server/tests/hashtags.test.js server/tests/communityInvites.test.js server/tests/appUrl.test.js server/tests/cache.test.js server/tests/botSecurity.test.js server/tests/likeBuffer.test.js server/tests/redisCache.test.js server/tests/reactions.test.js server/tests/mentions.test.js server/tests/fileValidator.test.js server/tests/privacy.test.js server/tests/squadLifecycle.test.js server/tests/connections.test.js server/tests/settings.test.js server/tests/hardening.test.js server/tests/dmPolicy.test.js server/tests/domainVerification.test.js server/tests/dmDigest.test.js server/tests/rateLimitTelemetry.test.js server/tests/accountRecovery.test.js server/tests/emailTransport.test.js server/tests/onboarding.test.js server/tests/notificationPreferences.test.js server/tests/notificationRetention.test.js server/tests/socialNotifications.test.js server/tests/productEvents.test.js server/tests/rateLimitStore.test.js server/tests/errorReporting.test.js",
+    "test": "node --test server/tests/permissions.test.js server/tests/sanitize.test.js server/tests/ssrf.test.js server/tests/origins.test.js server/tests/lfg.test.js server/tests/feedRanking.test.js server/tests/hashtags.test.js server/tests/communityInvites.test.js server/tests/appUrl.test.js server/tests/cache.test.js server/tests/botSecurity.test.js server/tests/likeBuffer.test.js server/tests/redisCache.test.js server/tests/reactions.test.js server/tests/mentions.test.js server/tests/fileValidator.test.js server/tests/privacy.test.js server/tests/squadLifecycle.test.js server/tests/connections.test.js server/tests/settings.test.js server/tests/hardening.test.js server/tests/dmPolicy.test.js server/tests/domainVerification.test.js server/tests/dmDigest.test.js server/tests/rateLimitTelemetry.test.js server/tests/accountRecovery.test.js server/tests/emailTransport.test.js server/tests/onboarding.test.js server/tests/notificationPreferences.test.js server/tests/notificationRetention.test.js server/tests/socialNotifications.test.js server/tests/productEvents.test.js server/tests/rateLimitStore.test.js server/tests/errorReporting.test.js server/tests/gameRegistry.test.js server/tests/migrationLint.test.js && node scripts/migration-lint.js",
     "test:responsive": "node scripts/responsive-smoke.mjs",
-    "test:e2e": "node scripts/e2e.js && node scripts/e2e-phase4.js && node scripts/e2e-phase6.js && node scripts/e2e-phase7.js && node scripts/e2e-phase8.js && node scripts/e2e-phase9.js && node scripts/e2e-phase10.js && node scripts/e2e-phase11.js && node scripts/e2e-phase12.js && node scripts/e2e-phase13.js && node scripts/e2e-phase14.js",
+    "test:e2e": "node scripts/e2e.js && node scripts/e2e-phase4.js && node scripts/e2e-phase6.js && node scripts/e2e-phase7.js && node scripts/e2e-phase8.js && node scripts/e2e-phase9.js && node scripts/e2e-phase10.js && node scripts/e2e-phase11.js && node scripts/e2e-phase12.js && node scripts/e2e-phase13.js && node scripts/e2e-phase14.js && node scripts/e2e-phase15.js",
     "scan:secrets": "node scripts/scan-secrets.js",
     "backup:drill": "node scripts/backup-drill.js",
     "migrate:up": "migrate-mongo up",
@@ -21,8 +21,13 @@
     "migrate:feed": "migrate-mongo up -f migrate-mongo.feed.config.js",
     "migrate:communities": "migrate-mongo up -f migrate-mongo.communities.config.js",
     "migrate:squads": "migrate-mongo up -f migrate-mongo.squads.config.js",
-    "migrate:domains": "npm run migrate:auth && npm run migrate:feed && npm run migrate:communities && npm run migrate:squads",
-    "migrate:domains:status": "migrate-mongo status -f migrate-mongo.auth.config.js && migrate-mongo status -f migrate-mongo.feed.config.js && migrate-mongo status -f migrate-mongo.communities.config.js && migrate-mongo status -f migrate-mongo.squads.config.js"
+    "migrate:catalog": "migrate-mongo up -f migrate-mongo.catalog.config.js",
+    "migrate:domains": "npm run migrate:auth && npm run migrate:feed && npm run migrate:communities && npm run migrate:squads && npm run migrate:catalog",
+    "migrate:domains:status": "migrate-mongo status -f migrate-mongo.auth.config.js && migrate-mongo status -f migrate-mongo.feed.config.js && migrate-mongo status -f migrate-mongo.communities.config.js && migrate-mongo status -f migrate-mongo.squads.config.js && migrate-mongo status -f migrate-mongo.catalog.config.js",
+    "test:migrations": "node scripts/migration-lint.js",
+    "migration:lint": "node scripts/migration-lint.js",
+    "games:sync": "node scripts/sync-games.js",
+    "db:indexes": "node scripts/db-index-diff.js"
   },
   "dependencies": {
     "@sentry/node": "^10.78.0",

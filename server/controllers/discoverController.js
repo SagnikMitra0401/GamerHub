@@ -16,6 +16,7 @@ const {
   countMatchingTags
 } = require('../utils/onboarding');
 const { recordFirstEvent } = require('../utils/productEvents');
+const { resolveGameTitles, applyFavoriteGameChange } = require('../utils/gameRegistry');
 
 const ACTIVE_STATUS = 'active';
 const HIDDEN_STATUSES = ['frozen', 'suspended', 'deleted'];
@@ -166,7 +167,7 @@ const getOnboardingSuggestions = async (req, res, next) => {
     }
 
     // ── Tags ────────────────────────────────────────────────────────────────
-    const recentPosts = await Post.find({})
+    const recentPosts = await Post.find({ hiddenAt: null })
       .sort({ createdAt: -1 })
       .limit(200)
       .select('tags')
@@ -223,11 +224,26 @@ const completeOnboarding = async (req, res, next) => {
       updates['preferences.platforms'] = normalizePlatforms(req.body.platforms);
     }
 
+    const previous = await User.findById(req.user._id)
+      .select('preferences.favoriteGames')
+      .lean();
+
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
       { new: true, runValidators: true, select: 'onboardingCompletedAt preferences' }
     ).lean();
+
+    // Every chosen game becomes a canonical catalog row (provisional if no
+    // provider knows it), so the profile, LFG board and catalog agree on names.
+    if (updates['preferences.favoriteGames']) {
+      const nextGames = updated.preferences?.favoriteGames || [];
+      await resolveGameTitles(nextGames);
+      await applyFavoriteGameChange(
+        previous?.preferences?.favoriteGames || [],
+        nextGames
+      );
+    }
 
     const skipped = req.body?.skipped === true;
     recordFirstEvent(skipped ? 'onboarding_skipped' : 'onboarding_completed', req.user._id, {

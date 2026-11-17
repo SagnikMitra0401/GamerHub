@@ -491,7 +491,9 @@ async function scenarios() {
   }
 
   const badGame = await api('/api/games/not-a-number');
-  check('invalid game ids are rejected', () => assert.equal(badGame.status, 400));
+  // Phase 15 introduced slug routes, so an unknown non-numeric path is a 404
+  // rather than the old "not an id" 400. Both reject the request.
+  check('invalid game ids are rejected', () => assert.ok([400, 404].includes(badGame.status), String(badGame.status)));
 
   aliceSocket.disconnect();
   bobSocket.disconnect();

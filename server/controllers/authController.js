@@ -21,6 +21,7 @@ const {
   verifyPassword
 } = require('../utils/passwords');
 const { recordEvent } = require('../utils/productEvents');
+const { releaseExpiredSuspension } = require('../utils/moderation');
 
 const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 
@@ -149,6 +150,7 @@ const login = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+    await releaseExpiredSuspension(user);
 
     const match = await verifyPassword(password, user.passwordHash);
     if (!match) {

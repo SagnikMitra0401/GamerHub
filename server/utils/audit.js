@@ -13,7 +13,8 @@ async function recordAudit({
   metadata = {}
 }) {
   try {
-    if (!communityId || !actorId) return null;
+    // Platform entries deliberately carry no community; only the actor is mandatory.
+    if (!actorId) return null;
     return await AuditLog.create({
       communityId,
       actorId,
@@ -29,3 +30,4 @@ async function recordAudit({
 }
 
 module.exports = { recordAudit };
+module.exports.recordPlatformAudit = (payload) => recordAudit({ communityId: null, ...payload });

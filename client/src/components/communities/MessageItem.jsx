@@ -4,6 +4,7 @@ import axiosInstance from '../../api/axiosInstance';
 import { TrashIcon, PinIcon, ReplyIcon, AlertIcon, CloseIcon } from '../common/icons';
 import { CAP, ROLE_COLORS, ROLE_LABELS, hasCapability } from '../../utils/permissions';
 import { QUICK_REACTIONS, reactionGlyph, reactionLabel } from '../../utils/reactions';
+import SafeImage from '../common/SafeImage';
 
 const timeAgo = (date) => {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -46,7 +47,12 @@ const AttachmentThumb = ({ attachment, channelId }) => {
       onClick={(event) => { if (!url) event.preventDefault(); }}
       aria-label="Open attached image"
     >
-      {url ? <img src={url} alt="" loading="lazy" /> : <span className="chat-attachment-skeleton" />}
+      <SafeImage
+        src={url}
+        alt=""
+        loading="lazy"
+        fallback={<span className="chat-attachment-skeleton" />}
+      />
     </a>
   );
 };
