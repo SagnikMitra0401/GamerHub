@@ -70,12 +70,51 @@ export const PostListSkeleton = ({ count = 3 }) => (
   </Frame>
 );
 
-/** Clips layout on the feed. */
+/** Grid layout on the feed and profile: the real tile's 4:5 box and footer. */
+export const PostTileGridSkeleton = ({ count = 6 }) => (
+  <Frame label="Loading posts">
+    <div className="post-tile-grid">
+      {Array.from({ length: count }).map((_, idx) => (
+        <div key={idx} className="post-tile">
+          <div className="post-tile-media">
+            <Block w="100%" h="100%" r={0} />
+          </div>
+          <div className="post-tile-body">
+            <div className="post-tile-title">
+              <span className="skel-lines" style={{ gap: 6 }}>
+                <Block w="88%" h={10} />
+                <Block w="58%" h={10} />
+              </span>
+            </div>
+            <div className="post-tile-excerpt">
+              <span className="skel-lines" style={{ gap: 6 }}>
+                <Block w="94%" h={9} />
+                <Block w="72%" h={9} />
+              </span>
+            </div>
+            <div className="post-tile-tags">
+              <Block w={54} h={16} r={999} />
+              <Block w={44} h={16} r={999} />
+            </div>
+          </div>
+          <div className="post-tile-footer">
+            <Block w={72} h={9} />
+            <Block w={54} h={9} />
+          </div>
+        </div>
+      ))}
+    </div>
+  </Frame>
+);
+
+/** Clips layout on the feed: the real clip's 1:1 box. */
 export const ClipGridSkeleton = ({ count = 6 }) => (
   <Frame label="Loading clips">
     <div className="media-grid">
       {Array.from({ length: count }).map((_, idx) => (
-        <Block key={idx} w="100%" h={196} r={18} className="skel-media" />
+        <div key={idx} className="clip-card skel-clip">
+          <Block w="100%" h="100%" r={0} />
+        </div>
       ))}
     </div>
   </Frame>

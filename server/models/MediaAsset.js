@@ -16,7 +16,7 @@ const MediaAssetSchema = new mongoose.Schema(
   {
     surface: {
       type: String,
-      enum: ['post', 'chat', 'avatar', 'game', 'other'],
+      enum: ['post', 'chat', 'avatar', 'game', 'story', 'broadcast', 'other'],
       required: true,
       index: true
     },
@@ -42,18 +42,19 @@ const MediaAssetSchema = new mongoose.Schema(
       thumb: { type: String, default: null },
       card: { type: String, default: null },
       feed: { type: String, default: null },
-      full: { type: String, default: null }
+      full: { type: String, default: null },
+      video: { type: String, default: null }
     },
 
     status: {
       type: String,
-      enum: ['pending', 'ready', 'rejected', 'quarantined'],
+      enum: ['pending', 'ready', 'rejected', 'quarantined', 'orphaned', 'deleted'],
       default: 'pending',
       index: true
     },
     refType: {
       type: String,
-      enum: ['Post', 'Message', 'Game', 'User', null],
+      enum: ['Post', 'Story', 'Broadcast', 'Message', 'Game', 'User', null],
       default: null
     },
     refId: { type: mongoose.Schema.Types.ObjectId, default: null },

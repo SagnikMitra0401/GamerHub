@@ -11,7 +11,10 @@ import { BriefcaseIcon, FilmIcon, CommentIcon, FlameIcon, UsersIcon, CloseIcon, 
 import CommunitySigil from '../components/communities/CommunitySigil';
 import InvitationInbox from '../components/invitations/InvitationInbox';
 import MessageRequestModal from '../components/messages/MessageRequestModal';
-import { PostListSkeleton, ProfileSkeleton } from '../components/common/Skeleton';
+import { PostListSkeleton, PostTileGridSkeleton, ProfileSkeleton } from '../components/common/Skeleton';
+import PostTile from '../components/posts/PostTile';
+import SegmentedTabs from '../components/common/SegmentedTabs';
+import { ListIcon, GridIcon } from '../components/common/icons';
 
 const ProfilePage = () => {
   const { username } = useParams();
@@ -22,12 +25,14 @@ const ProfilePage = () => {
   const [posts, setPosts]                   = useState([]);
   const [savedPosts, setSavedPosts]         = useState([]);
   const [tab, setTab]                       = useState('posts'); // 'posts' | 'saved'
+  const [postLayout, setPostLayout]         = useState('list');  // 'list' | 'grid'
   const [loading, setLoading]               = useState(true);
   const [postsLoading, setPostsLoading]     = useState(false);
   const [activeModal, setActiveModal]       = useState(null); // 'followers' | 'following' | null
   const [passportModalOpen, setPassportModalOpen] = useState(false);
   const [invitesOpen, setInvitesOpen] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
+  const [blockError, setBlockError] = useState('');
 
   const isOwnProfile = me?.username === username;
   const isBlocked = Boolean(
@@ -36,6 +41,7 @@ const ProfilePage = () => {
 
   const toggleBlock = async () => {
     if (!profile) return;
+    setBlockError('');
     try {
       const path = `/account/block/${profile._id}`;
       if (isBlocked) await axiosInstance.delete(path);
@@ -48,7 +54,7 @@ const ProfilePage = () => {
           : [...current, String(profile._id)]
       });
     } catch (err) {
-      window.alert(err.response?.data?.message || 'Could not update that block.');
+      setBlockError(err.response?.data?.message || 'Could not update that block.');
     }
   };
 
@@ -203,6 +209,12 @@ const ProfilePage = () => {
                       </span>
                     )}
                   </div>
+
+                  {blockError && (
+                    <p className="settings-inline-error profile-block-error" role="alert">
+                      {blockError}
+                    </p>
+                  )}
 
                   <p className="text-muted" style={{ marginBottom: '0.75rem' }}>
                     Joined {joinedDate}
@@ -383,25 +395,53 @@ const ProfilePage = () => {
             </div>
 
             {/* Tabs */}
-            <div className="sort-tabs" style={{ marginBottom: '1.25rem', display: 'inline-flex' }}>
-              <button
-                className={`sort-tab ${tab === 'posts' ? 'active' : ''}`}
-                onClick={() => setTab('posts')}
-              >
-                Posts
-              </button>
-              {isOwnProfile && (
+            <div className="profile-post-toolbar">
+              <div className="sort-tabs" style={{ display: 'inline-flex' }}>
                 <button
-                  className={`sort-tab ${tab === 'saved' ? 'active' : ''}`}
-                  onClick={() => setTab('saved')}
+                  className={`sort-tab ${tab === 'posts' ? 'active' : ''}`}
+                  onClick={() => setTab('posts')}
                 >
-                  Saved
+                  Posts
                 </button>
-              )}
+                {isOwnProfile && (
+                  <button
+                    className={`sort-tab ${tab === 'saved' ? 'active' : ''}`}
+                    onClick={() => setTab('saved')}
+                  >
+                    Saved
+                  </button>
+                )}
+              </div>
+
+              <SegmentedTabs
+                ariaLabel="Post layout"
+                size="sm"
+                value={postLayout}
+                onChange={setPostLayout}
+                options={[
+                  { key: 'list', label: 'List', icon: <ListIcon size={14} /> },
+                  { key: 'grid', label: 'Grid', icon: <GridIcon size={14} /> }
+                ]}
+              />
             </div>
 
             {postsLoading ? (
-              <PostListSkeleton count={2} />
+              postLayout === 'grid'
+                ? <PostTileGridSkeleton count={4} />
+                : <PostListSkeleton count={2} />
+            ) : postLayout === 'grid' ? (
+              (tab === 'saved' ? savedPosts : posts).length === 0 ? (
+                <div className="post-list-empty">
+                  <h3>No posts yet</h3>
+                  <p>Nothing to show in this tab yet.</p>
+                </div>
+              ) : (
+                <div className="post-tile-grid">
+                  {(tab === 'saved' ? savedPosts : posts).map(post => (
+                    <PostTile key={post._id} post={post} />
+                  ))}
+                </div>
+              )
             ) : (
               <PostList
                 posts={tab === 'saved' ? savedPosts : posts}

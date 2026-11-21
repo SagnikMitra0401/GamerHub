@@ -568,6 +568,10 @@ img { max-width: 100%; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.4rem 1.6rem;
+  /* A pasted URL with no break points must wrap instead of widening the card
+     past the viewport on a 360 px screen. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
   cursor: pointer;
 }
@@ -876,6 +880,44 @@ img { max-width: 100%; }
   justify-content: flex-end;
   margin-top: 1.25rem;
 }
+
+/* In-app confirmations replace window.confirm/prompt. */
+.confirm-modal {
+  max-width: 440px;
+  padding: 1.6rem 1.7rem;
+}
+
+.confirm-modal-title {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.confirm-modal-message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.confirm-modal-body { margin-top: 0.9rem; }
+.confirm-modal-body .form-group:last-child { margin-bottom: 0; }
+.confirm-modal-actions { margin-top: 1.35rem; }
+
+.feed-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.btn-danger-solid {
+  background: var(--danger);
+  color: #fff;
+  border: 1px solid transparent;
+}
+.btn-danger-solid:hover { box-shadow: 0 0 18px rgba(244, 63, 94, 0.28); }
 
 /* ============ UTILS ============ */
 .text-muted { color: var(--text-muted); font-size: 0.82rem; }

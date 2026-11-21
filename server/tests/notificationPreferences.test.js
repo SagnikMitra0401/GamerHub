@@ -19,7 +19,8 @@ test('missing preferences default to enabled without sharing the frozen object',
     follows: true,
     likes: true,
     lfg: true,
-    bot: true
+    bot: true,
+    broadcast: true
   });
 });
 
@@ -51,6 +52,7 @@ test('notification categories map existing and future kinds to preference rows',
   assert.equal(notificationCategory({ type: 'lfg_request' }), 'lfg');
   assert.equal(notificationCategory({ type: 'lfg_accepted' }), 'lfg');
   assert.equal(notificationCategory({ type: 'gaming_bot' }), 'bot');
+  assert.equal(notificationCategory({ type: 'broadcast' }), 'broadcast');
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'comment' } }), 'comments');
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'reply' } }), 'comments');
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'follow' } }), 'follows');

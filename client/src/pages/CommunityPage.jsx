@@ -688,6 +688,17 @@ const CommunityPage = () => {
               </div>
             </div>
 
+            {activeChannel.type === 'announcement' && (
+              <div className="community-broadcast-note">
+                <span className="broadcast-badge">Broadcast</span>
+                <span>
+                  {roleAtLeast(callerRole, 'moderator')
+                    ? 'Only moderators can post here. Members read this channel as announcements.'
+                    : 'Announcements only — only moderators can post here.'}
+                </span>
+              </div>
+            )}
+
             {activeChannel.type === 'forum' ? (
               <ForumChannel
                 communityId={community._id}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 import GoogleLinkButton from './GoogleLinkButton';
+import ConfirmModal from '../common/ConfirmModal';
 import { AlertIcon, CheckIcon, LockIcon, MailIcon } from '../common/icons';
 
 const formatDate = (value) => {
@@ -17,6 +18,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
   const navigate = useNavigate();
 
   const [busy, setBusy] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
   const [error, setError] = useState('');
   const [verifyNotice, setVerifyNotice] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -33,7 +35,6 @@ const SecurityPanel = ({ account, refresh, notify }) => {
   const hasLocalPassword = account.hasLocalPassword !== false;
 
   const unlinkGoogle = async () => {
-    if (!window.confirm('Unlink Google from this account? You can link it again later.')) return;
     setBusy('unlink');
     setError('');
     try {
@@ -48,7 +49,6 @@ const SecurityPanel = ({ account, refresh, notify }) => {
   };
 
   const signOutEverywhere = async () => {
-    if (!window.confirm('Sign out of every device? You will need to sign in again here.')) return;
     setBusy('logout-all');
     try {
       await axiosInstance.post('/auth/logout-all');
@@ -209,7 +209,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={unlinkGoogle}
+                onClick={() => setConfirmAction('unlink')}
                 disabled={busy === 'unlink' || account.hasLocalPassword === false}
                 title={
                   account.hasLocalPassword === false
@@ -330,7 +330,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            onClick={signOutEverywhere}
+            onClick={() => setConfirmAction('logout-all')}
             disabled={busy === 'logout-all'}
           >
             <LockIcon size={14} /> {busy === 'logout-all' ? 'Signing out…' : 'Sign out everywhere'}
@@ -357,6 +357,27 @@ const SecurityPanel = ({ account, refresh, notify }) => {
           </div>
         </dl>
       </section>
+
+      <ConfirmModal
+        isOpen={confirmAction === 'unlink'}
+        title="Unlink Google?"
+        message="You can link Google again later. Password sign-in keeps working."
+        confirmText="Unlink Google"
+        busy={busy === 'unlink'}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => { setConfirmAction(null); unlinkGoogle(); }}
+      />
+
+      <ConfirmModal
+        isOpen={confirmAction === 'logout-all'}
+        title="Sign out of every device?"
+        message="Every session, including this browser, will be closed. You will need to sign in again."
+        confirmText="Sign out everywhere"
+        isDanger
+        busy={busy === 'logout-all'}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => { setConfirmAction(null); signOutEverywhere(); }}
+      />
     </>
   );
 };

@@ -45,7 +45,7 @@ const getProfile = async (req, res, next) => {
     const user = await User.findOne({ username: req.params.username })
       // Sign-in identities, session counters and personal block lists are not
       // public profile data.
-      .select('-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -blockedUsers -mutedUsers')
+      .select('-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers')
       .populate('followers', 'username')
       .populate('following', 'username')
       .lean();
@@ -53,10 +53,14 @@ const getProfile = async (req, res, next) => {
 
     const isSelf = req.user && String(req.user._id) === String(user._id);
     const isStaff = req.user?.role === 'admin';
+    const blocked = Boolean(req.user) && (
+      (req.user.blockedUsers || []).some((entry) => String(entry) === String(user._id))
+      || (user.blockedUsers || []).some((entry) => String(entry) === String(req.user._id))
+    );
 
-    // Frozen means "not here right now": the profile is not a back door into
-    // the content the feed and search already hide.
-    if (user.status === 'frozen' && !isSelf && !isStaff) {
+    // Frozen, suspended and deleted profiles are not a back door into content
+    // the feed and search already hide. A symmetric block is a 404.
+    if ((['frozen', 'suspended', 'deleted'].includes(user.status) && !isSelf && !isStaff) || blocked) {
       throw notFound('User not found');
     }
 
@@ -121,6 +125,7 @@ const getProfile = async (req, res, next) => {
     // The policy matrix is a private contact surface; the viewer only receives
     // the one row that applies to them in `dm`.
     delete profile.dmSettings;
+    delete profile.blockedUsers;
 
     // Bookmarks, followed channels and discovery preferences are private.
     if (!isSelf) {
@@ -138,10 +143,18 @@ const getProfile = async (req, res, next) => {
 // GET /api/users/:username/posts
 const getUserPosts = async (req, res, next) => {
   try {
-    const target = await User.findOne({ username: req.params.username }).select('_id status').lean();
+    const target = await User.findOne({ username: req.params.username })
+      .select('_id status blockedUsers')
+      .lean();
     if (!target) throw notFound('User not found');
 
-    if (target.status === 'frozen' && String(req.user?._id) !== String(target._id) && req.user?.role !== 'admin') {
+    const blocked = Boolean(req.user) && (
+      (req.user.blockedUsers || []).some((entry) => String(entry) === String(target._id))
+      || (target.blockedUsers || []).some((entry) => String(entry) === String(req.user._id))
+    );
+    if ((['frozen', 'suspended', 'deleted'].includes(target.status)
+      && String(req.user?._id) !== String(target._id)
+      && req.user?.role !== 'admin') || blocked) {
       throw notFound('User not found');
     }
 

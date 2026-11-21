@@ -5,12 +5,14 @@ import axiosInstance from '../api/axiosInstance';
 import PostList from '../components/posts/PostList';
 import PostForm from '../components/posts/PostForm';
 import ClipCard from '../components/posts/ClipCard';
+import PostTile from '../components/posts/PostTile';
+import StoriesRail from '../components/stories/StoriesRail';
 import PreferencesModal from '../components/profile/PreferencesModal';
 import useCursorGlow from '../hooks/useCursorGlow';
 import SegmentedTabs from '../components/common/SegmentedTabs';
-import { ClipGridSkeleton, PostListSkeleton } from '../components/common/Skeleton';
+import { ClipGridSkeleton, PostListSkeleton, PostTileGridSkeleton } from '../components/common/Skeleton';
 import {
-  CompassIcon, UsersIcon, SparklesIcon, ClockIcon, FlameIcon, ListIcon, FilmIcon, PlusIcon
+  CompassIcon, UsersIcon, SparklesIcon, ClockIcon, FlameIcon, ListIcon, FilmIcon, GridIcon, PlusIcon
 } from '../components/common/icons';
 
 const FEED_MODE_OPTIONS = [
@@ -20,6 +22,7 @@ const FEED_MODE_OPTIONS = [
 
 const LAYOUT_OPTIONS = [
   { key: 'list',  label: 'List',  icon: <ListIcon size={15} /> },
+  { key: 'grid',  label: 'Grid',  icon: <GridIcon size={15} /> },
   { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> }
 ];
 
@@ -43,6 +46,7 @@ const Feed = () => {
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(true);
   const [showPrefs, setShowPrefs] = useState(false);
+  const [notice, setNotice] = useState('');
   const LIMIT = 15;
   const glowRef = useCursorGlow();
 
@@ -96,10 +100,8 @@ const Feed = () => {
     if (returnedAuthorId && localUserId && returnedAuthorId !== localUserId) {
       // Force a re-sync so the UI reflects who the server actually thinks we are
       await fetchMe();
-      alert(
-        'Session mismatch detected!\n\n' +
-        'You may have logged into a different account in another tab.\n' +
-        'Your active session has been refreshed. Please try posting again.'
+      setNotice(
+        'Your session changed in another tab. The page has been refreshed with the active account; please try posting again.'
       );
       setShowForm(false);
       return;
@@ -175,6 +177,17 @@ const Feed = () => {
           </div>
         </div>
 
+        {notice && (
+          <div className="notice notice-warn feed-notice" role="status">
+            <span>{notice}</span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNotice('')}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <StoriesRail />
+
         {sort === 'foryou' && user && (
           <div
             style={{
@@ -216,7 +229,9 @@ const Feed = () => {
         {loading && page === 1 ? (
           layout === 'clips'
             ? <ClipGridSkeleton />
-            : <PostListSkeleton />
+            : layout === 'grid'
+              ? <PostTileGridSkeleton />
+              : <PostListSkeleton />
         ) : (
           <>
             {!loading && posts.length === 0 ? (
@@ -242,6 +257,12 @@ const Feed = () => {
                   ))}
                 </div>
               )
+            ) : layout === 'grid' ? (
+              <div className="post-tile-grid">
+                {posts.map(post => (
+                  <PostTile key={post._id} post={post} />
+                ))}
+              </div>
             ) : (
               <PostList posts={posts} onDelete={handleDelete} />
             )}

@@ -209,6 +209,7 @@ const logoutAll = async (req, res, next) => {
       { new: true, select: 'sessionVersion' }
     );
     clearAuthCookie(res);
+    disconnectUser(req.user._id);
     res.status(200).json({ message: 'Signed out everywhere', sessionVersion: user.sessionVersion });
   } catch (err) {
     next(err);
@@ -492,6 +493,9 @@ const resetPassword = async (req, res, next) => {
       {
         $set: {
           passwordHash,
+          // A reset creates a usable local credential even for a Google-only
+          // account; the settings hub must stop treating it as passwordless.
+          hasLocalPassword: true,
           // Possession of the link proves control of the address.
           emailVerifiedAt: user.emailVerifiedAt || new Date()
         },

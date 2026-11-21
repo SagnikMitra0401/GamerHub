@@ -396,14 +396,15 @@ async function run() {
 
     // ── 14C: notification history and category preferences ─────────────────
     const notificationAccount = await api('/api/account', { cookie: owner.cookie });
-    check('accounts expose all five notification preferences by default', () => {
+    check('accounts expose all six notification preferences by default', () => {
       assert.equal(notificationAccount.status, 200, JSON.stringify(notificationAccount.data));
       assert.deepEqual(notificationAccount.data.notificationSettings, {
         comments: true,
         follows: true,
         likes: true,
         lfg: true,
-        bot: true
+        bot: true,
+        broadcast: true
       });
     });
 
@@ -481,7 +482,8 @@ async function run() {
         follows: true,
         likes: true,
         lfg: false,
-        bot: true
+        bot: true,
+        broadcast: true
       });
     });
 

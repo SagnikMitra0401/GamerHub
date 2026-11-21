@@ -4,6 +4,7 @@ const SALT_ROUNDS = 10;
 const MIN_PASSWORD = 8;
 // bcrypt silently truncates past 72 bytes, so the API refuses oversized input.
 const MAX_PASSWORD = 128;
+const MAX_PASSWORD_BYTES = 72;
 
 /** Shared by registration, reset and authenticated password change. */
 function validatePassword(password) {
@@ -14,6 +15,12 @@ function validatePassword(password) {
     return {
       ok: false,
       message: `Password must be between ${MIN_PASSWORD} and ${MAX_PASSWORD} characters`
+    };
+  }
+  if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+    return {
+      ok: false,
+      message: 'Password is too long; use 72 bytes or fewer (accented and emoji characters can use several bytes each).'
     };
   }
   return { ok: true, value: password };

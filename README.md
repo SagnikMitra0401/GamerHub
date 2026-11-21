@@ -2,7 +2,7 @@
 
 [![Live Demo](https://img.shields.io/badge/Demo-Live-black?style=flat-square&logo=vercel)](https://gamer-hub-alpha.vercel.app)
 [![API](https://img.shields.io/badge/API-Render-46E3B7?style=flat-square&logo=render)](https://gamerhub-backend-3108.onrender.com/api/health)
-[![Tests](https://img.shields.io/badge/Tests-45%2F45%20passing-brightgreen?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-293%20server%20%2B%2051%20client-brightgreen?style=flat-square)]()
 [![License](https://img.shields.io/badge/License-MIT-silver?style=flat-square)](LICENSE)
 
 GamerHub is a full-stack gaming social platform built on the MERN stack. It combines a social feed, Discord-style community channels, a looking-for-group board, a game catalog, gamification, and an admin observability dashboard — all served from a single Express API with real-time Socket.io transport.
@@ -54,7 +54,7 @@ GamerHub is a full-stack gaming social platform built on the MERN stack. It comb
                                       │
                     ┌─────────────────▼───────────────────┐
                     │         MongoDB Atlas Cluster        │
-                    │   gaming-hub database (9 collections)│
+                    │   gaming-hub database (30+ collections)│
                     │   Compound indexes · TTL indexes     │
                     │   Weighted text search               │
                     └────────────────────────────────────┘
@@ -106,6 +106,17 @@ Express app.js
 ### Social Feed
 - Create posts with title, rich text body, hashtag channels, and optional image/video (Cloudinary)
 - Four feed modes: Latest, Most Liked, Following, and For You (personalized ranking)
+- Three layouts: List (default), uniform **Grid** tiles (fixed 4:5 media, clamped title/excerpt,
+  reserved footer) and **Clips**; profile posts get the same List/Grid toggle
+- **Reels** at `/clips`: one autoplaying clip per viewport, scroll-snapped, muted until
+  tapped, with like/save/comment actions and ↑/↓/space/m keyboard control
+- **Watch page** at `/watch/:id`: long-form uploads with resume position, playback speed,
+  picture-in-picture and fullscreen; a “next up” rail from shared tags
+- YouTube links become a click-to-load `youtube-nocookie.com` player; the id is re-derived
+  server-side and the video is never downloaded
+- Video uploads up to 100 MB (Cloudinary’s free-tier ceiling); images stay capped at 5 MB
+- **Stories** above the feed: 24-hour text, image or video statuses, followers-only by
+  default (public optional), with progress bars, hold-to-pause and an author-only viewer list
 - Weighted tag-boosting: posts matching a user's favourite channels surface higher
 - Like toggle, bookmark/save, comment threads with nested rendering
 - Automatic link-preview scraping on post creation (SSRF-hardened)
@@ -128,6 +139,18 @@ Express app.js
 - Content protection flags (restrict copy, restrict media)
 - GDPR tombstone deletes: message body replaced with `[deleted]`, metadata kept
 - Full audit log: every moderation action recorded with actor, timestamp, and target
+
+### Broadcast Channels
+- One-way channels for creators and servers: owner publishes, subscribers read
+- Create up to three channels per account, public or private, with category and avatar
+- Subscribe / unsubscribe, mute notifications per channel, and unread counts from a
+  `lastReadAt` marker (opening the channel does not silently clear it)
+- Owner composer accepts text (2 000 chars) plus an image or video through the same
+  media pipeline; posts are cursor-paged newest-first
+- Live delivery in a `broadcast:<id>` socket room joined only after a REST-equivalent
+  membership check; subscribers get one `broadcast` notification per post unless muted
+- Community announcement channels keep their existing socket path and now carry the same
+  “Broadcast” presentation and read-only explanation
 
 ### Gamer Passport
 - Per-user identity card: platform game IDs (Riot, Steam, PSN, Xbox, Discord)
@@ -526,6 +549,9 @@ Notification ──── User (recipient) ────────────�
 | `mediaUrl` / `mediaType` | String | Cloudinary URL; `image` / `video` / `none` |
 | `mediaCardUrl` | String | Feed-sized derived image; falls back to `mediaUrl` |
 | `mediaAssetId` | ObjectId | Ledger row that owns the delivery metadata and cleanup |
+| `videoSource` | String | `upload` / `youtube`; drives which player the client mounts |
+| `youtubeId` | String | 11-char id derived server-side from the scraped link, never trusted from the client |
+| `durationSeconds` | Number | Client-reported, bounded server-side; shown on tiles and `/watch` |
 | `hiddenAt` / `hiddenById` | Date / ObjectId | Platform hide decision; hidden posts leave feeds, search and detail reads |
 | `linkPreview` | Object | Open Graph metadata scraped server-side |
 
@@ -535,6 +561,37 @@ Notification ──── User (recipient) ────────────�
 - `{ tags: 1 }` — hashtag channel filter
 - `{ title: text, content: text, tags: text }` — weighted text search (title×10, tags×5, content×1)
 - `{ likeCount: -1, createdAt: -1 }` — hot posts sort
+- `{ mediaType: 1, createdAt: -1 }` — clips/reels (`?mediaType=video`)
+
+### Story / StoryView
+
+| Field | Notes |
+|---|---|
+| `authorId` | Author; grouped in the rail |
+| `kind` | `text` / `image` / `video` |
+| `text`, `background` | Text status (≤ 200 chars) plus one of five gradients |
+| `mediaUrl`, `mediaCardUrl`, `mediaPublicId`, `mediaAssetId` | Media status through the shared ledger |
+| `caption` | ≤ 200 chars |
+| `visibility` | `followers` (default) / `public` |
+| `expiresAt` | `createdAt + 24 h`; TTL index plus an explicit read filter |
+| `viewCount` | Denormalised; one increment per unique viewer |
+| `StoryView` | Unique `(storyId, viewerId)` receipt; powers the author-only viewer list |
+
+**Indexes:** `{ authorId: 1, createdAt: -1 }`, `{ visibility: 1, createdAt: -1 }`,
+`{ expiresAt: 1 }` (TTL), unique `{ storyId: 1, viewerId: 1 }`, `{ storyId: 1, createdAt: -1 }`.
+
+### BroadcastChannel / BroadcastMessage / BroadcastSubscription
+
+| Field | Notes |
+|---|---|
+| `BroadcastChannel.ownerId`, `name`, `slug`, `description`, `avatarUrl`, `category` | Unique slug; three channels per owner |
+| `isPublic`, `subscriberCount`, `messageCount`, `lastPublishedAt` | Discovery and counters |
+| `BroadcastMessage.channelId`, `authorId`, `text` (≤ 2 000), media fields, `publishedAt` | Read-only for subscribers |
+| `BroadcastSubscription.muted`, `lastReadAt` | Unique per `(channelId, userId)`; drives unread |
+
+**Indexes:** unique `slug`, `{ ownerId: 1, createdAt: -1 }`,
+`{ isPublic: 1, subscriberCount: -1, createdAt: -1 }`, `{ channelId: 1, publishedAt: -1 }`,
+unique `{ channelId: 1, userId: 1 }`, `{ userId: 1, updatedAt: -1 }`.
 
 ### Game
 
@@ -557,13 +614,14 @@ Notification ──── User (recipient) ────────────�
 
 | Field | Notes |
 |---|---|
-| `surface` | `post` / `avatar` / `banner` / `chat` / `communityIcon` / `communityBanner` |
+| `surface` | `post` / `chat` / `avatar` / `game` / `story` / `broadcast` / `other` |
 | `publicId`, `resourceType`, `format` | Cloudinary identity |
 | `bytes`, `width`, `height` | Size accounting for the storage panel |
 | `ownerId`, `ownerModel` | Who may delete it |
-| `status` | `pending` / `ready` / `orphaned` / `deleted` |
-| `variants` | Named delivery transformations (never renamed on Cloudinary) |
-| `lastCheckedAt` | Retention sweep watermark |
+| `status` | `pending` / `ready` / `rejected` / `quarantined` / `orphaned` / `deleted` |
+| `derivatives` | Named delivery transformations (never renamed on Cloudinary) |
+| `refType` / `refId` | Owner reference (`Post`, `Story`, `Broadcast`, `Message`, `Game`, `User`) |
+| `lastCheckedAt` | Reserved for a future retention watermark |
 
 New uploads use `gamerhub/<env>/<surface>/<yyyy>/<mm>/…`; assets created before
 the ledger keep their original public ids and URLs.
@@ -677,7 +735,7 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/posts` | Optional | Feed (supports `?sort=`, `?feed=`, `?channel=`) |
+| GET | `/posts` | Optional | Feed (`?sort=latest\|most_liked\|trending\|foryou`, `?feed=following`, `?channel=`, `?mediaType=video\|image`) |
 | POST | `/posts` | Required | Create post (multipart/form-data) |
 | GET | `/posts/:id` | Optional | Single post |
 | PUT | `/posts/:id` | Owner | Update post (5-min window) |
@@ -700,6 +758,30 @@ All routes are prefixed with `/api`. Authentication is via HttpOnly JWT cookie.
 | POST | `/users/:id/mute` | Toggle a personal mute (hides their content from you) |
 | GET | `/users/me/muted` | Your muted users |
 | PATCH | `/users/privacy-settings` | Invite/DM/visibility consent settings |
+
+### Stories
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/stories` | Optional | Visible stories grouped by author, unseen first |
+| POST | `/stories` | Required | Create a text/image/video status (multipart; image ≤ 5 MB, video ≤ 50 MB) |
+| POST | `/stories/:id/view` | Required | Idempotent view receipt |
+| GET | `/stories/:id/viewers` | Author/staff | Author-only viewer list |
+| DELETE | `/stories/:id` | Author/staff | Delete a story and its receipts |
+
+### Broadcast Channels
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/channels` | Optional | Subscriptions with unread counts plus a public discover list |
+| POST | `/channels` | Required | Create a channel (max three per account) |
+| GET | `/channels/:slug` | Optional | Channel detail with viewer state |
+| GET | `/channels/:slug/messages` | Optional | Cursor-paged posts (`?before=`) |
+| POST | `/channels/:slug/messages` | Owner/staff | Publish text and/or media |
+| DELETE | `/channels/:slug/messages/:messageId` | Owner/staff | Delete a post and its media |
+| POST / DELETE | `/channels/:slug/subscribe` | Required | Subscribe / unsubscribe (idempotent) |
+| PATCH | `/channels/:slug/subscription` | Subscriber | Mute or unmute |
+| POST | `/channels/:slug/read` | Subscriber | Advance `lastReadAt` |
 
 ### Communities
 
@@ -1297,7 +1379,7 @@ Run `npm run migrate:domains:status` first; each track records itself in its own
 | `UPSTASH_REDIS_REST_TOKEN` | — | Upstash Redis token; required only when `REDIS_ENABLED=1` |
 | `DISABLE_LIKE_BUFFER` | `0` | Set to `1` to force direct DB writes even when Redis is up |
 | `CLIENT_URL` | — | Public origin of the web app (comma-separated list allowed). The first non-loopback entry is also used to build shareable invite links, so set this to the deployed domain in production. |
-| `ALLOWED_ORIGINS` | built-in list | Comma-separated exact origins for CORS |
+| `EXTRA_ALLOWED_ORIGINS` | built-in list | Comma-separated exact origins for CORS (preview domains); never a wildcard |
 | `GOOGLE_CLIENT_ID` | — | OAuth client id for Google Sign-In; the button is hidden without it |
 | `GMAIL_BRIDGE_URL` | — | Deployed Gmail Apps Script `/exec` URL. Free option that works when SMTP ports are blocked; see [`docs/GMAIL_BRIDGE.md`](docs/GMAIL_BRIDGE.md). |
 | `GMAIL_BRIDGE_SECRET` | — | Shared secret for the Gmail bridge; must match `SECRET` in the Apps Script |
@@ -1327,13 +1409,13 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 258 checks, no database needed
-npm test --prefix client      # client components: 44 checks in jsdom
+npm test                      # server: 293 checks, no database needed
+npm test --prefix client      # client components: 51 checks in jsdom
 npm run test:responsive       # headless Chrome layout smoke at 7 device sizes
 npm run scan:secrets          # credential-leak gate
 ```
 
-**258 server checks across 34 suites — all passing.**
+**293 server checks across 40 test files — all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -1367,7 +1449,7 @@ Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
 deterministic, and exercise the real feature switch and key prefix.
 
-**44 client checks across 10 files** — `SegmentedTabs` (aria state, keyboard,
+**51 client checks across 14 files** — `SegmentedTabs` (aria state, keyboard,
 indicator), `PostActions` (label/pressed state, spark burst gated on pointer and
 reduced-motion), `PostCard` (like and bookmark requests, failure path, signed-out
 redirect), `NotificationBell` (dropdown vs portalled sheet at the 640 px
@@ -1405,21 +1487,23 @@ iOS/Android keyboard and safe-area behaviour still needs a real-device pass.
 End-to-end smoke tests (requires a running backend):
 
 ```bash
-npm run test:e2e              # all eleven suites below
+npm run test:e2e              # all thirteen suites below
 node scripts/e2e.js           # 59 auth/community/chat checks
 node scripts/e2e-phase4.js    # 66 feed/LFG/notification/admin checks
 node scripts/e2e-phase6.js    # 159 lifecycle/search/Redis-off checks
 node scripts/e2e-phase7.js    # 80 Discord-interaction checks
 node scripts/e2e-phase8.js    # 70 identity/consent/squad-chat/data-rights checks
-node scripts/e2e-phase9.js    # 62 settings/freeze/succession/erasure checks
+node scripts/e2e-phase9.js    # 64 settings/freeze/succession/erasure checks
 node scripts/e2e-phase10.js   # 13 search-budget/presence/socket-cap checks
 node scripts/e2e-phase11.js   # 44 DM consent checks
 node scripts/e2e-phase12.js   # 30 DM creator-scale checks
 node scripts/e2e-phase13.js   # 46 business/team inbox checks
-node scripts/e2e-phase14.js   # 80 recovery/onboarding/notification/telemetry checks
+node scripts/e2e-phase14.js   # 82 recovery/onboarding/notification/telemetry checks
+node scripts/e2e-phase15.js   # 41 catalog/admin-console/media-ledger checks
+node scripts/e2e-phase16.js   # 36 stories/clips/broadcast-channel checks
 ```
 
-All eleven run against a throwaway database derived from `MONGO_URI` and drop it
+All thirteen run against a throwaway database derived from `MONGO_URI` and drop it
 when they finish. They need no Redis: the degraded path is asserted explicitly,
 so a future Redis re-enable that breaks the fallback fails here. Their shared
 scaffolding (`api`, `check`, `register`, sockets) lives in
@@ -1444,7 +1528,7 @@ pull request:
 |---|---|
 | quality | `npm ci` → `npm test` → `npm test --prefix client` → `npm run build --prefix client` → emoji gate |
 | responsive | build client with a local socket URL → `npm run test:responsive` (Playwright layout smoke at 7 viewports) → upload failure screenshots/traces |
-| e2e | all eleven suites against a throwaway database, then `migrate:status` and `migrate:domains:status` |
+| e2e | all thirteen suites against a throwaway database, then `migrate:status` and `migrate:domains:status` |
 
 The e2e job needs `MONGO_URI` and `JWT_SECRET` repository secrets; without them it
 reports a notice and skips instead of failing, so forks stay green. It never runs

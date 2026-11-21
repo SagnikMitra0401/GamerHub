@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
+import ConfirmModal from '../common/ConfirmModal';
 import { AlertIcon, CloseIcon } from '../common/icons';
 
 const EXPIRY_OPTIONS = [
@@ -31,6 +32,7 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [revokeTarget, setRevokeTarget] = useState(null);
 
   useEffect(() => {
     if (!isOpen || !community?._id) return undefined;
@@ -101,7 +103,7 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
   };
 
   const revoke = async (invite) => {
-    if (!window.confirm('Revoke this invite link? People who already joined stay in the server.')) return;
+    setRevokeTarget(null);
     setBusyId(invite._id);
     setError('');
     try {
@@ -320,7 +322,7 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
                       <button
                         type="button"
                         className="btn btn-danger btn-sm"
-                        onClick={() => revoke(invite)}
+                        onClick={() => setRevokeTarget(invite)}
                         disabled={busyId === invite._id}
                       >
                         {busyId === invite._id ? 'Revoking…' : 'Revoke'}
@@ -333,6 +335,17 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(revokeTarget)}
+        title="Revoke invite link?"
+        message="People who already joined stay in the server. The link stops working immediately."
+        confirmText="Revoke link"
+        isDanger
+        busy={Boolean(revokeTarget && busyId === revokeTarget._id)}
+        onCancel={() => setRevokeTarget(null)}
+        onConfirm={() => revoke(revokeTarget)}
+      />
     </div>,
     document.body
   );

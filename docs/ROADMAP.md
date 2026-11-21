@@ -256,6 +256,42 @@ report queue.
 
 ---
 
+## Phase 16 — Community media & broadcasts — ✅ delivered 19 November 2026
+
+**Why:** the feed only had one reading layout, clips were a hover-autoplay grid,
+and there was no way to post a disappearing status or run a one-way creator
+channel. These are the media surfaces players already expect from a social app.
+
+**Delivered**
+- **16A — uniform tiles:** `PostTile` grid with a fixed 4:5 media box, two-line title,
+  two-line excerpt, capped tags and a reserved footer; List stays the default on the
+  feed and profile, and the new `PostTileGridSkeleton` reserves the same box.
+- **16B — clips and watch:** `?mediaType=video` + `sort=trending` on `GET /api/posts`,
+  `Post.videoSource/youtubeId/durationSeconds`, a 100 MB video ceiling with per-type
+  enforcement (images stay 5 MB), a `video` delivery transform, `/clips` (one clip per
+  viewport, IntersectionObserver autoplay, keyboard control) and `/watch/:id` with a
+  shared resume/speed/PiP/fullscreen player. YouTube links embed through a
+  click-to-load `youtube-nocookie.com` facade with a server-derived id.
+- **16C — stories:** `Story` (text/image/video, ≤ 200 chars, followers or public,
+  24-hour TTL) and `StoryView` unique receipts; five API endpoints with block/frozen
+  filtering; a feed rail, full-screen viewer (tap/hold/keyboard, per-author progress)
+  and composer.
+- **16D — broadcast channels:** owner/staff publishing, subscriptions with mute and
+  unread state, cursor paging, a `broadcast:<id>` socket room gated by a membership
+  check, and deduped per-post notifications; `/channels` discovery and
+  `/channels/:slug` reader/owner views, plus the same presentation on community
+  announcement channels.
+
+**Verification:** 289 server units, 47 client units, 36/36 new Phase 16 e2e checks
+(plus 41/41 Phase 15), responsive smoke, production build and the secret scan. The
+feed migration `20261119120000-phase16-stories-broadcasts.js` adds the indexes and
+backfills existing video/YouTube posts.
+
+**Non-goals:** live streaming/WebRTC, server-side transcoding, E2E-encrypted
+channels, cross-posting to other apps, and DVR/analytics beyond view counts.
+
+---
+
 ## Suggested order
 
 | Order | Phase | Trigger |

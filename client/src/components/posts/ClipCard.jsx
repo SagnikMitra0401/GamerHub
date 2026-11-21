@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HeartIcon, CommentIcon } from '../common/icons';
 import SafeImage from '../common/SafeImage';
+import { videoPosterUrl } from '../../utils/videoPoster';
 
 const ClipCard = ({ post }) => {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ const ClipCard = ({ post }) => {
   return (
     <div
       className="clip-card"
-      onClick={() => navigate(`/posts/${post._id}`)}
+      onClick={() => navigate(`/watch/${post._id}`)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -38,7 +39,8 @@ const ClipCard = ({ post }) => {
       {post.mediaType === 'video' ? (
         <video
           ref={videoRef}
-          src={post.mediaCardUrl || post.mediaUrl}
+          src={post.mediaUrl}
+          poster={videoPosterUrl(post.mediaUrl, 640) || undefined}
           muted
           loop
           playsInline

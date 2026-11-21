@@ -221,7 +221,8 @@ const UserSchema = new mongoose.Schema({
     follows:  { type: Boolean, default: true },
     likes:    { type: Boolean, default: true },
     lfg:      { type: Boolean, default: true },
-    bot:      { type: Boolean, default: true }
+    bot:      { type: Boolean, default: true },
+    broadcast:{ type: Boolean, default: true }
   },
 
   // People this user never wants to hear from. Enforced server-side for

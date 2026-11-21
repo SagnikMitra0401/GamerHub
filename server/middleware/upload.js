@@ -33,12 +33,14 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Multer instance with 10MB limit (governs total file size limit)
+// The hard ceiling is 100 MB (Cloudinary's free-tier video limit). The
+// controller enforces the smaller per-type caps: 5 MB for images, 100 MB for
+// video, so raising the transport limit never lets an oversized image through.
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10 MB maximum limit
+    fileSize: 100 * 1024 * 1024
   }
 });
 

@@ -20,7 +20,9 @@ const adminRoutes     = require('./routes/adminRoutes');
 const botRoutes       = require('./routes/botRoutes');
 const dmRoutes        = require('./routes/dmRoutes');
 const businessRoutes  = require('./routes/businessRoutes');
-const discoverRoutes  = require('./routes/discoverRoutes');
+const discoverRoutes = require('./routes/discoverRoutes');
+const storyRoutes = require('./routes/storyRoutes');
+const broadcastRoutes = require('./routes/broadcastRoutes');
 const errorHandler    = require('./middleware/errorHandler');
 const requestContext  = require('./middleware/requestContext');
 const { corsOrigin }  = require('./utils/origins');
@@ -103,6 +105,8 @@ app.use('/api/bot',         botRoutes);
 app.use('/api/messages',    dmRoutes);
 app.use('/api/business',    businessRoutes);
 app.use('/api/discover',    discoverRoutes);
+app.use('/api/stories',     storyRoutes);
+app.use('/api/channels',    broadcastRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'Endpoint not found' });

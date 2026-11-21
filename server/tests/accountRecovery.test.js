@@ -42,6 +42,12 @@ test('password policy rejects short and oversized values', () => {
   assert.equal(validatePassword('password123').ok, true);
 });
 
+test('password policy rejects values bcrypt would truncate past 72 bytes', () => {
+  assert.equal(validatePassword('é'.repeat(37)).ok, false); // 74 UTF-8 bytes
+  assert.equal(validatePassword('é'.repeat(36)).ok, true);  // 72 UTF-8 bytes
+  assert.equal(validatePassword('😀'.repeat(19)).ok, false); // 76 UTF-8 bytes
+});
+
 test('password hashes verify without storing the plaintext', async () => {
   const hash = await hashPassword('password123');
   assert.notEqual(hash, 'password123');

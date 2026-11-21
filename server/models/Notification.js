@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const { retentionAtFor } = require('../utils/notificationRetention');
 const { Schema } = mongoose;
 
-const NOTIFICATION_TYPES = ['lfg_request', 'lfg_accepted', 'gaming_bot', 'social'];
+const NOTIFICATION_TYPES = ['lfg_request', 'lfg_accepted', 'gaming_bot', 'social', 'broadcast'];
 
 const NotificationSchema = new Schema({
   userId: {

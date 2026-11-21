@@ -12,7 +12,8 @@ const ADMIN_TABS = [
   { key: 'moderation', label: 'Moderation' },
   { key: 'content', label: 'Content' },
   { key: 'catalog', label: 'Catalog' },
-  { key: 'audit', label: 'Audit' }
+  { key: 'audit', label: 'Audit' },
+  { key: 'storage', label: 'Storage' }
 ];
 const STAFF_TABS = ['moderation', 'content', 'audit'];
 

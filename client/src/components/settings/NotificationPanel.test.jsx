@@ -15,7 +15,7 @@ vi.mock('../../api/axiosInstance', () => ({
 }));
 
 const account = {
-  notificationSettings: { comments: true, follows: true, likes: true, lfg: true, bot: true }
+  notificationSettings: { comments: true, follows: true, likes: true, lfg: true, bot: true, broadcast: true }
 };
 
 const renderPanel = () =>
@@ -27,7 +27,7 @@ const renderPanel = () =>
 
 beforeEach(() => {
   mocks.patch.mockReset().mockResolvedValue({
-    data: { notificationSettings: { comments: true, follows: false, likes: true, lfg: true, bot: true } }
+    data: { notificationSettings: { comments: true, follows: false, likes: true, lfg: true, bot: true, broadcast: true } }
   });
   mocks.refresh.mockReset().mockResolvedValue({});
   mocks.notify.mockReset();
@@ -51,7 +51,8 @@ describe('NotificationPanel', () => {
       follows: false,
       likes: true,
       lfg: true,
-      bot: true
+      bot: true,
+      broadcast: true
     }));
     expect(mocks.refresh).toHaveBeenCalled();
     expect(mocks.notify).toHaveBeenCalledWith('success', 'Notification preferences saved.');

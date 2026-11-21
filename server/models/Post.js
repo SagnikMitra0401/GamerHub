@@ -65,6 +65,29 @@ const PostSchema = new Schema({
     ref: 'MediaAsset',
     default: null
   },
+
+  // Video metadata. `videoSource` is server-derived: an uploaded file becomes
+  // 'upload', a post that links a YouTube video becomes 'youtube' (and keeps
+  // `mediaType: 'none'` because nothing is stored). `durationSeconds` comes
+  // from the browser's metadata read and is validated for bounds, never trusted
+  // for access decisions.
+  videoSource: {
+    type: String,
+    enum: ['upload', 'youtube'],
+    default: null,
+    index: true
+  },
+  youtubeId: {
+    type: String,
+    default: null,
+    maxlength: 20
+  },
+  durationSeconds: {
+    type: Number,
+    default: null,
+    min: 0,
+    max: 36_000
+  },
   // Platform moderation hide. Reversible: the row and its comments stay put.
   hiddenAt: {
     type: Date,

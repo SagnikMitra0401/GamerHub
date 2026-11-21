@@ -5,7 +5,11 @@ const SquadChatMessage = require('../models/SquadChatMessage');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const MediaAsset = require('../models/MediaAsset');
-const { cloudinary } = require('../config/cloudinary');
+const Post = require('../models/Post');
+const Story = require('../models/Story');
+const BroadcastMessage = require('../models/BroadcastMessage');
+const Attachment = require('../models/Attachment');
+const { cloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 
 const { getIO } = require('../config/socket');
 const { eraseAccount } = require('../utils/accountErasure');
@@ -31,10 +35,27 @@ async function purgeExpiredMessages({ now = new Date() } = {}) {
   let deleted = 0;
   for (const channel of channels) {
     const cutoff = new Date(now.getTime() - channel.retentionDays * DAY_MS);
-    const result = await Message.deleteMany({
+    const expired = await Message.find({
       channelId: channel._id,
       createdAt: { $lt: cutoff }
-    });
+    }).select('_id').lean();
+    if (!expired.length) continue;
+
+    const messageIds = expired.map((message) => message._id);
+    const attachments = await Attachment.find({ messageId: { $in: messageIds } })
+      .select('_id assetId cloudinaryId mimeType')
+      .lean();
+    const assets = attachments.map((attachment) => attachment.assetId).filter(Boolean);
+
+    await Promise.allSettled(attachments.map((attachment) => (
+      attachment.cloudinaryId
+        ? deleteFromCloudinary(attachment.cloudinaryId, attachment.mimeType?.startsWith('video/') ? 'video' : 'image')
+        : Promise.resolve()
+    )));
+
+    const result = await Message.deleteMany({ _id: { $in: messageIds } });
+    await Attachment.deleteMany({ _id: { $in: attachments.map((attachment) => attachment._id) } });
+    if (assets.length) await MediaAsset.deleteMany({ _id: { $in: assets } });
     deleted += result.deletedCount || 0;
   }
   return deleted;
@@ -137,12 +158,29 @@ async function purgeOrphanMediaAssets({ now = new Date() } = {}) {
       { status: 'ready', refType: null, createdAt: { $lt: orphanCutoff } }
     ]
   })
-    .select('_id publicId resourceType')
+    .select('_id publicId resourceType status')
     .limit(200)
     .lean();
 
+  // Older uploads predate the refType backfill. Never trust `refType: null`
+  // alone: verify that no live content owns the asset before destroying it.
+  const readyIds = rows.filter((row) => row.status === 'ready').map((row) => row._id);
+  const referenced = new Set();
+  if (readyIds.length) {
+    const [postRefs, storyRefs, broadcastRefs, attachmentRefs] = await Promise.all([
+      Post.distinct('mediaAssetId', { mediaAssetId: { $in: readyIds } }),
+      Story.distinct('mediaAssetId', { mediaAssetId: { $in: readyIds } }),
+      BroadcastMessage.distinct('mediaAssetId', { mediaAssetId: { $in: readyIds } }),
+      Attachment.distinct('assetId', { assetId: { $in: readyIds } })
+    ]);
+    for (const id of [...postRefs, ...storyRefs, ...broadcastRefs, ...attachmentRefs]) {
+      if (id) referenced.add(String(id));
+    }
+  }
+
   let removed = 0;
   for (const row of rows) {
+    if (row.status === 'ready' && referenced.has(String(row._id))) continue;
     try {
       await cloudinary.uploader.destroy(row.publicId, {
         resource_type: row.resourceType || 'image'

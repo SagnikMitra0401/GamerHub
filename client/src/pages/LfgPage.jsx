@@ -5,6 +5,7 @@ import { getSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
 import CreatePartyModal from '../components/lfg/CreatePartyModal';
 import SquadChatDrawer from '../components/lfg/SquadChatDrawer';
+import ConfirmModal from '../components/common/ConfirmModal';
 import useCursorGlow from '../hooks/useCursorGlow';
 import SafeImage from '../components/common/SafeImage';
 import { LfgSkeleton } from '../components/common/Skeleton';
@@ -191,6 +192,7 @@ const LfgPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [confirmAction, setConfirmAction] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [joining, setJoining] = useState(null);
   const [joinMessage, setJoinMessage] = useState({});
@@ -322,7 +324,6 @@ const LfgPage = () => {
   };
 
   const leaveSquad = async (party) => {
-    if (!window.confirm(`Leave ${party.gameTitle}?`)) return;
     setJoining(`leave:${party._id}`);
     setError('');
     try {
@@ -338,7 +339,6 @@ const LfgPage = () => {
   };
 
   const closeParty = async (party) => {
-    if (!window.confirm(`Close your ${party.gameTitle} squad?`)) return;
     try {
       await axiosInstance.delete(`/lfg/${party._id}`);
       setMine(prev => prev.filter(p => p._id !== party._id));
@@ -347,6 +347,17 @@ const LfgPage = () => {
     } catch (err) {
       setError(err.response?.data?.message || 'Could not close that squad.');
     }
+  };
+
+  const requestLeave = (party) => setConfirmAction({ kind: 'leave', party });
+  const requestClose = (party) => setConfirmAction({ kind: 'close', party });
+
+  const confirmSquadAction = () => {
+    const pending = confirmAction;
+    setConfirmAction(null);
+    if (!pending) return;
+    if (pending.kind === 'leave') leaveSquad(pending.party);
+    else closeParty(pending.party);
   };
 
   const openChat = (party) => {
@@ -420,10 +431,10 @@ const LfgPage = () => {
                   party={party}
                   onJoin={join}
                   onRespond={respond}
-                  onClose={closeParty}
+                  onClose={requestClose}
                   onLock={lockSquad}
                   onUnlock={unlockSquad}
-                  onLeave={leaveSquad}
+                  onLeave={requestLeave}
                   onOpenChat={openChat}
                   joining={joining}
                   joinMessage={joinMessage}
@@ -451,10 +462,10 @@ const LfgPage = () => {
                   party={party}
                   onJoin={join}
                   onRespond={respond}
-                  onClose={closeParty}
+                  onClose={requestClose}
                   onLock={lockSquad}
                   onUnlock={unlockSquad}
-                  onLeave={leaveSquad}
+                  onLeave={requestLeave}
                   onOpenChat={openChat}
                   joining={joining}
                   joinMessage={joinMessage}
@@ -482,6 +493,21 @@ const LfgPage = () => {
           onClose={() => setActiveChat(null)}
         />
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(confirmAction)}
+        title={confirmAction?.kind === 'close' ? 'Close this squad?' : 'Leave this squad?'}
+        message={confirmAction
+          ? confirmAction.kind === 'close'
+            ? `Close your ${confirmAction.party.gameTitle} squad? Members lose the squad and its temporary chat.`
+            : `Leave ${confirmAction.party.gameTitle}? You can join again while it is open.`
+          : ''}
+        confirmText={confirmAction?.kind === 'close' ? 'Close squad' : 'Leave squad'}
+        isDanger={confirmAction?.kind === 'close'}
+        busy={Boolean(confirmAction?.kind === 'leave' && joining === `leave:${confirmAction.party._id}`)}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={confirmSquadAction}
+      />
     </main>
   );
 };

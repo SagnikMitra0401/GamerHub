@@ -9,6 +9,21 @@ const COMMON_TAGS = ['FPS', 'RPG', 'MOBA', 'Battle Royale', 'Strategy', 'Sports'
 // Detect any URL (with or without https://) in a block of text
 const URL_PATTERN = /(?:https?:\/\/|www\.)[^\s"'<>]+|(?<!\w)[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\/[^\s]*/i;
 
+/** Read a local file's duration without uploading it. */
+const readVideoDuration = (file) => new Promise((resolve) => {
+  const url = URL.createObjectURL(file);
+  const probe = document.createElement('video');
+  const finish = (value) => {
+    URL.revokeObjectURL(url);
+    probe.removeAttribute('src');
+    resolve(value);
+  };
+  probe.preload = 'metadata';
+  probe.onloadedmetadata = () => finish(Number.isFinite(probe.duration) ? probe.duration : 0);
+  probe.onerror = () => finish(0);
+  probe.src = url;
+});
+
 const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }) => {
   const editing = !!initialData;
 
@@ -104,9 +119,9 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
       return;
     }
 
-    const maxSize = isVideo ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+    const maxSize = isVideo ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
     if (selectedFile.size > maxSize) {
-      setError(isVideo ? 'Video clips must be 10MB or less.' : 'Images must be 5MB or less.');
+      setError(isVideo ? 'Video clips must be 100MB or less.' : 'Images must be 5MB or less.');
       return;
     }
 
@@ -140,7 +155,15 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
         formData.append('title',   form.title.trim());
         formData.append('content', form.content.trim());
         formData.append('tags',    JSON.stringify(tagsArray));
-        if (file) formData.append('media', file);
+        if (file) {
+          formData.append('media', file);
+          // The browser is the only place the duration is known; the server
+          // bounds it and never uses it for authorisation.
+          if (file.type.startsWith('video/')) {
+            const duration = await readVideoDuration(file);
+            if (duration > 0) formData.append('durationSeconds', String(Math.round(duration)));
+          }
+        }
 
         // Pass the already-fetched preview to avoid a slow re-scrape on the server
         const previewToSend = !previewDismissed && linkPreview ? linkPreview : null;
@@ -260,7 +283,7 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
                 />
               </label>
               <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-                Max size: 10MB Video, 5MB Image.
+                Max size: 100MB Video, 5MB Image.
               </span>
             </div>
 

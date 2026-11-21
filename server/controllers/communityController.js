@@ -8,6 +8,8 @@ const User      = require('../models/User');
 const ForumPost   = require('../models/ForumPost');
 const ForumReply  = require('../models/ForumReply');
 const Attachment  = require('../models/Attachment');
+const MediaAsset  = require('../models/MediaAsset');
+const { deleteFromCloudinary } = require('../config/cloudinary');
 const Report      = require('../models/Report');
 const CommunityInvite = require('../models/CommunityInvite');
 const CommunityJoinRequest = require('../models/CommunityJoinRequest');
@@ -45,6 +47,24 @@ function makeSlug(name) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 50);
+}
+
+async function purgeAttachments(filter) {
+  const rows = await Attachment.find(filter).select('_id assetId cloudinaryId mimeType').lean();
+  if (!rows.length) return;
+
+  await Promise.allSettled(rows.map((row) => (
+    row.cloudinaryId
+      ? deleteFromCloudinary(
+          row.cloudinaryId,
+          row.mimeType?.startsWith('video/') ? 'video' : 'image'
+        )
+      : Promise.resolve()
+  )));
+
+  const assetIds = rows.map((row) => row.assetId).filter(Boolean);
+  await Attachment.deleteMany({ _id: { $in: rows.map((row) => row._id) } });
+  if (assetIds.length) await MediaAsset.deleteMany({ _id: { $in: assetIds } });
 }
 
 async function loadCommunity(id) {
@@ -548,7 +568,7 @@ const deleteCommunity = async (req, res, next) => {
     await Channel.deleteMany({ communityId: community._id });
     await ForumPost.deleteMany({ communityId: community._id });
     await ForumReply.deleteMany({ communityId: community._id });
-    await Attachment.deleteMany({ communityId: community._id });
+    await purgeAttachments({ communityId: community._id });
     await Report.deleteMany({ communityId: community._id });
     await CommunityInvite.deleteMany({ communityId: community._id });
     await CommunityJoinRequest.deleteMany({ communityId: community._id });
@@ -766,7 +786,7 @@ const deleteChannel = async (req, res, next) => {
     await Message.deleteMany({ channelId: channel._id });
     await ForumPost.deleteMany({ channelId: channel._id });
     await ForumReply.deleteMany({ channelId: channel._id });
-    await Attachment.deleteMany({ channelId: channel._id });
+    await purgeAttachments({ channelId: channel._id });
     await channel.deleteOne();
 
     recordAudit({

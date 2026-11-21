@@ -12,7 +12,8 @@ const TYPE_META = {
   lfg_request:  { label: 'Squad request' },
   lfg_accepted: { label: 'Squad' },
   gaming_bot:   { label: 'Gaming bot' },
-  social:       { label: 'Update' }
+  social:       { label: 'Update' },
+  broadcast:    { label: 'Channel post' }
 };
 
 /** Below this width the dropdown becomes a centred sheet (no edge clipping). */

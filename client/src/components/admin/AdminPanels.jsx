@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import SegmentedTabs from '../common/SegmentedTabs';
+import ConfirmModal from '../common/ConfirmModal';
 
 /**
  * Admin console panels.
@@ -61,6 +62,7 @@ export const UsersPanel = () => {
   const [actionStatus, setActionStatus] = useState('suspend');
   const [reason, setReason] = useState('');
   const [until, setUntil] = useState('');
+  const [pendingAction, setPendingAction] = useState(null);
 
   const load = useCallback(async ({ append = false } = {}) => {
     setLoading(!append);
@@ -124,13 +126,21 @@ export const UsersPanel = () => {
 
   const applyRole = () => {
     if (!selected) return;
-    if (!window.confirm(`Change @${selected.username}'s platform role to ${actionRole}?`)) return;
-    run(() => axiosInstance.patch(`/admin/users/${selected._id}/role`, { role: actionRole }));
+    setPendingAction('role');
   };
 
   const applyStatus = () => {
     if (!selected) return;
-    if (!window.confirm(`${actionStatus} @${selected.username}? Their sessions will be revoked.`)) return;
+    setPendingAction('status');
+  };
+
+  const confirmRole = () => {
+    setPendingAction(null);
+    run(() => axiosInstance.patch(`/admin/users/${selected._id}/role`, { role: actionRole }));
+  };
+
+  const confirmStatus = () => {
+    setPendingAction(null);
     run(() => axiosInstance.patch(`/admin/users/${selected._id}/status`, {
       action: actionStatus,
       reason,
@@ -204,6 +214,29 @@ export const UsersPanel = () => {
         )}
         <LoadMore show={Boolean(before)} busy={busy} onClick={() => load({ append: true })} />
       </Panel>
+
+      <ConfirmModal
+        isOpen={pendingAction === 'role'}
+        title="Change platform role?"
+        message={selected ? `Change @${selected.username}'s role to ${actionRole}.` : ''}
+        confirmText="Apply role"
+        busy={busy}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={confirmRole}
+      />
+
+      <ConfirmModal
+        isOpen={pendingAction === 'status'}
+        title={`${actionStatus[0].toUpperCase()}${actionStatus.slice(1)} account?`}
+        message={selected
+          ? `${actionStatus} @${selected.username}? Their live sessions will be revoked.`
+          : ''}
+        confirmText="Apply"
+        isDanger={actionStatus !== 'reinstate'}
+        busy={busy}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={confirmStatus}
+      />
 
       {selected && (
         <section className="admin-card admin-panel admin-detail">
@@ -459,6 +492,7 @@ export const ContentPanel = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
+  const [visibilityPrompt, setVisibilityPrompt] = useState(null);
 
   const load = useCallback(async ({ append = false } = {}) => {
     setLoading(!append);
@@ -487,17 +521,24 @@ export const ContentPanel = () => {
 
   const hiddenFor = (item) => (type === 'messages' ? item.isDeleted : Boolean(item.hiddenAt));
 
-  const setVisibilityFor = async (item) => {
-    const hidden = hiddenFor(item);
-    const reason = window.prompt(
-      hidden ? 'Reason for restoring this content' : 'Reason for hiding this content'
-    );
-    if (reason === null) return;
+  const openVisibility = (item) => {
+    setVisibilityPrompt({ item, reason: '' });
+  };
 
-    setBusy(item._id);
+  const applyVisibility = async () => {
+    const pending = visibilityPrompt;
+    const reason = pending?.reason.trim();
+    if (!pending || !reason) return;
+    const hidden = hiddenFor(pending.item);
+
+    setVisibilityPrompt(null);
+    setBusy(pending.item._id);
     setError('');
     try {
-      await axiosInstance.patch(`/admin/content/${type}/${item._id}/visibility`, { hidden: !hidden, reason });
+      await axiosInstance.patch(
+        `/admin/content/${type}/${pending.item._id}/visibility`,
+        { hidden: !hidden, reason }
+      );
       await load();
     } catch (err) {
       setError(failure(err));
@@ -561,7 +602,7 @@ export const ContentPanel = () => {
                 </td>
                 <td>{time(item.createdAt)}</td>
                 <td>
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy === item._id} onClick={() => setVisibilityFor(item)}>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy === item._id} onClick={() => openVisibility(item)}>
                     {hiddenFor(item) ? 'Restore' : 'Hide'}
                   </button>
                 </td>
@@ -571,6 +612,32 @@ export const ContentPanel = () => {
         </table>
       )}
       <LoadMore show={Boolean(before)} busy={loading} onClick={() => load({ append: true })} />
+
+      <ConfirmModal
+        isOpen={Boolean(visibilityPrompt)}
+        title={visibilityPrompt && hiddenFor(visibilityPrompt.item) ? 'Restore content?' : 'Hide content?'}
+        message="The reason is stored in the moderation audit trail."
+        confirmText={visibilityPrompt && hiddenFor(visibilityPrompt.item) ? 'Restore' : 'Hide'}
+        isDanger={Boolean(visibilityPrompt && !hiddenFor(visibilityPrompt.item))}
+        busy={Boolean(visibilityPrompt && busy === visibilityPrompt.item._id)}
+        confirmDisabled={!visibilityPrompt?.reason.trim()}
+        onCancel={() => setVisibilityPrompt(null)}
+        onConfirm={applyVisibility}
+      >
+        <label className="form-group" htmlFor="visibility-reason">
+          <span className="form-label">Reason</span>
+          <textarea
+            id="visibility-reason"
+            className="form-textarea"
+            value={visibilityPrompt?.reason || ''}
+            maxLength={300}
+            onChange={(event) => setVisibilityPrompt((current) => (
+              current ? { ...current, reason: event.target.value } : current
+            ))}
+            autoFocus
+          />
+        </label>
+      </ConfirmModal>
     </Panel>
   );
 };
@@ -588,6 +655,7 @@ export const CatalogPanel = () => {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [mergePrompt, setMergePrompt] = useState(null);
 
   const load = useCallback(async ({ append = false } = {}) => {
     setLoading(!append);
@@ -639,13 +707,18 @@ export const CatalogPanel = () => {
     }
   };
 
-  const merge = async (game) => {
-    const intoId = window.prompt(`Merge "${game.title}" into which game id? (the surviving row's id)`);
-    if (!intoId) return;
+  const openMerge = (game) => setMergePrompt({ game, intoId: '' });
+
+  const applyMerge = async () => {
+    const pending = mergePrompt;
+    const intoId = pending?.intoId.trim();
+    if (!pending || !intoId) return;
+
+    setMergePrompt(null);
     setBusy(true);
     setError('');
     try {
-      await axiosInstance.post(`/admin/games/${game._id}/merge`, { intoId: intoId.trim() });
+      await axiosInstance.post(`/admin/games/${pending.game._id}/merge`, { intoId });
       await load();
     } catch (err) {
       setError(failure(err));
@@ -714,7 +787,7 @@ export const CatalogPanel = () => {
                     ) : (
                       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setGameStatus(game, 'published')}>Publish</button>
                     )}
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => merge(game)}>Merge</button>
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => openMerge(game)}>Merge</button>
                   </div>
                 </td>
               </tr>
@@ -723,6 +796,34 @@ export const CatalogPanel = () => {
         </table>
       )}
       <LoadMore show={Boolean(before)} busy={loading} onClick={() => load({ append: true })} />
+
+      <ConfirmModal
+        isOpen={Boolean(mergePrompt)}
+        title="Merge duplicate game"
+        message={mergePrompt
+          ? `Merge "${mergePrompt.game.title}" into another catalog row. The target id survives; this row becomes an alias.`
+          : ''}
+        confirmText="Merge game"
+        isDanger
+        busy={busy}
+        confirmDisabled={!mergePrompt?.intoId.trim()}
+        onCancel={() => setMergePrompt(null)}
+        onConfirm={applyMerge}
+      >
+        <label className="form-group" htmlFor="merge-target-id">
+          <span className="form-label">Surviving game id</span>
+          <input
+            id="merge-target-id"
+            className="form-input"
+            value={mergePrompt?.intoId || ''}
+            maxLength={80}
+            onChange={(event) => setMergePrompt((current) => (
+              current ? { ...current, intoId: event.target.value } : current
+            ))}
+            autoFocus
+          />
+        </label>
+      </ConfirmModal>
     </Panel>
   );
 };
@@ -803,12 +904,117 @@ export const AuditPanel = () => {
   );
 };
 
+// ─── Storage ────────────────────────────────────────────────────────────────
+
+const formatBytes = (value) => {
+  let bytes = Number(value) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let unit = 0;
+  bytes /= 1024;
+  while (bytes >= 1024 && unit < units.length - 1) {
+    bytes /= 1024;
+    unit += 1;
+  }
+  return `${bytes < 10 ? bytes.toFixed(1) : Math.round(bytes)} ${units[unit]}`;
+};
+
+const LedgerStat = ({ label, value, hint }) => (
+  <div className="admin-stat">
+    <span className="admin-stat-label">{label}</span>
+    <span className="admin-stat-value">{value}</span>
+    {hint && <span className="admin-stat-hint">{hint}</span>}
+  </div>
+);
+
+const SURFACE_LABELS = {
+  post: 'Posts',
+  chat: 'Chat',
+  avatar: 'Avatars',
+  game: 'Game media',
+  other: 'Other'
+};
+
+export const StoragePanel = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data: payload } = await axiosInstance.get('/admin/storage');
+      setData(payload);
+    } catch (err) {
+      setError(failure(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const totals = data?.totals || { assets: 0, bytes: 0 };
+  const rows = data?.bySurface || [];
+  const statuses = data?.byStatus || {};
+
+  return (
+    <Panel
+      title="Media ledger"
+      badge={`${totals.assets} asset${totals.assets === 1 ? '' : 's'}`}
+      toolbar={(
+        <Toolbar>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </Toolbar>
+      )}
+    >
+      {error && <p className="admin-warn">{error}</p>}
+
+      <div className="admin-stats">
+        <LedgerStat label="Total assets" value={totals.assets} hint="ledger rows" />
+        <LedgerStat label="Stored size" value={formatBytes(totals.bytes)} hint="across every surface" />
+        <LedgerStat label="Ready" value={statuses.ready || 0} hint="deliverable" />
+        <LedgerStat label="Pending" value={statuses.pending || 0} hint="awaiting validation" />
+      </div>
+
+      {loading && !data ? (
+        <p className="admin-note">Loading the media ledger…</p>
+      ) : rows.length === 0 ? (
+        <p className="admin-note">No media has been recorded yet.</p>
+      ) : (
+        <table className="admin-table">
+          <thead>
+            <tr><th>Surface</th><th>Assets</th><th>Size</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.surface}>
+                <td>{SURFACE_LABELS[row.surface] || row.surface}</td>
+                <td>{row.count}</td>
+                <td className="mono">{formatBytes(row.bytes)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <p className="admin-note">
+        Totals come from the upload ledger. The panel never lists file contents or delivery URLs.
+      </p>
+    </Panel>
+  );
+};
+
 const AdminPanels = ({ tab }) => {
   if (tab === 'users') return <UsersPanel />;
   if (tab === 'moderation') return <ModerationPanel />;
   if (tab === 'content') return <ContentPanel />;
   if (tab === 'catalog') return <CatalogPanel />;
   if (tab === 'audit') return <AuditPanel />;
+  if (tab === 'storage') return <StoragePanel />;
   return null;
 };
 

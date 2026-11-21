@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 17 November 2026 · **Branch:** `main` · **Head:** Phase 14D follow-ups and Phase 12 operability
+**Last updated:** 21 November 2026 · **Branch:** `main` · **Head:** Phase 16 media and broadcast channels + pre-push audit fixes (uncommitted)
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,22 +14,26 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **258 / 258 pass** | 17 Nov |
-| Unit — client components | `npm test --prefix client` | **44 / 44 pass** | 16 Nov |
-| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 15 Nov |
-| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 15 Nov |
-| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 15 Nov |
-| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 15 Nov |
-| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 15 Nov |
-| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **62 / 62 pass** | 15 Nov |
-| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 15 Nov |
-| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 15 Nov |
-| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 15 Nov |
-| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 15 Nov |
-| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **82 / 82 pass** | 17 Nov |
-| Client production build | `npm run build --prefix client` | **pass** — 210 modules, 154.79 kB CSS / 660.83 kB JS (186.29 kB gzip) | 17 Nov |
-| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 16 Nov |
-| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 15 Nov |
+| Unit / contract — server | `npm test` | **293 / 293 pass** | 21 Nov |
+| Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 21 Nov |
+| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 21 Nov |
+| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 21 Nov |
+| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 21 Nov |
+| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 21 Nov |
+| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 21 Nov |
+| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **64 / 64 pass** | 21 Nov |
+| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 21 Nov |
+| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 21 Nov |
+| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 21 Nov |
+| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 21 Nov |
+| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **82 / 82 pass** | 21 Nov |
+| E2E — catalog, admin console, media ledger | `scripts/e2e-phase15.js` | **41 / 41 pass** | 21 Nov |
+| E2E — stories, clips filter, upload limit, broadcast channels | `scripts/e2e-phase16.js` | **36 / 36 pass** | 21 Nov |
+| Client production build | `npm run build --prefix client` | **pass** — 232 modules, 181.81 kB CSS / 756.58 kB JS (211.93 kB gzip) | 21 Nov |
+| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 21 Nov |
+| Dependency audit (including dev) | `npm audit` (root and `client/`) | **0 advisories** | 21 Nov |
+| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 21 Nov |
+| UI smoke — pass 9 | browser + live API: registration → onboarding → story post/view → anonymous public story → channel create/publish with no auto-read → account deletion removed the story and channel | **pass** — temporary account, story and channel deleted at the end | 21 Nov |
 | UI smoke — pass 7 | browser + live API: admin notification bell → open/click, `/admin` activation funnel and Refresh | **pass** — temporary admin/actor accounts and their data deleted afterwards | 16 Nov |
 | UI smoke — pass 8 | browser + live API: temporary admin login, bell open → notification row click → read state, `/admin` cohort funnel and Refresh | **pass** — temporary account, product events and notification deleted afterwards | 16 Nov |
 | UI smoke — pass 6 | browser: new account registration → `/welcome` → join/follow → completion, `/discover`, mobile drawer, feed | **pass** — temporary account deleted afterwards, no overflow or console errors | 15 Nov |
@@ -38,12 +42,78 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | UI smoke — pass 3 | browser, `/settings` × 5 tabs | **pass** — every panel renders, `?tab=` addressable, no console errors | 5 Nov |
 | UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** (pre-phase-8 pages only) | 25 Oct (that pass) |
 | Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 15 Nov |
-| Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied; auth 5 (incl. onboarding and notification-settings backfills); communities 1 (game tags); squads 1; feed 2 (notification retention TTL, product events) | 16 Nov |
+| Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied; auth 5 (incl. onboarding and notification-settings backfills); communities 1 (game tags); squads 1; feed 3 authored (notification retention TTL, product events, Phase 16 stories/broadcasts — the last is authored and linted, not yet applied to the working DB) | 19 Nov |
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**1,013 automated checks defined** (258 server + 44 client + 711 e2e across eleven suites), plus 63 responsive checks and the secret/design-system gates.
-Pass 21 re-ran the full e2e chain and all server units after the operability follow-ups: 711/711 e2e checks (including 82/82 Phase 14) and 258/258 server checks. Client units are unchanged from Pass 20.
+**1,134 automated checks defined** (293 server + 51 client + 790 e2e across thirteen suites), plus 63 responsive checks and the secret/design-system gates.
+Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
+YouTube facade tests; Phase 15 re-ran clean at 41/41.
+
+### Pass 22 (19 Nov) — Phase 16 media: tiles, reels/watch, stories, broadcasts
+
+Implemented the approved Phase 16 plan end to end. Uniform 4:5 post tiles with a
+List/Grid toggle on the feed and profile; a clips filter (`?mediaType=video`),
+`trending` sort and 100 MB video path with server-derived YouTube ids; `/clips`
+and `/watch/:id` with a shared resume/speed/PiP/fullscreen player; 24-hour stories
+with unique view receipts and an author-only viewer list; and broadcast channels
+with subscriptions, mute/unread state, a membership-gated socket room and deduped
+per-post notifications.
+
+- **Server:** 289/289, including `videoSource`, `storyAccess`, `broadcastAccess`
+  and the updated notification-preference contract (the new `broadcast` category).
+- **Client:** 47/47, including the click-to-load YouTube facade and the settings
+  panel now persisting the `broadcast` switch.
+- **E2E:** `e2e-phase16.js` 36/36 — non-follower story denial, view idempotence,
+  expiry filtering, author-only viewers, deletion rights, YouTube derivation,
+  media-type filtering, the oversized-image rejection, subscribe idempotence,
+  unread/mark-read, mute suppression, live socket delivery, private-channel and
+  socket join denial, and the three-channel ownership cap.
+- **Real playback:** two 5.055 s CC0 MP4s (1.1 MB) were uploaded through the
+  real API on the 100 MB video path, plus a real YouTube-link post
+  (`aqz-KE-bpKQ`). A headed-Chrome Playwright pass at 1440 px and 360 px ran
+  110/110 checks against the live API: clips metadata/poster, one slide per
+  viewport with `scroll-snap`, muted autoplay of only the visible clip, the next
+  clip's `preload`, advancing progress, unmute/mute state, real like/save
+  requests, comment navigation, route-leave pause, blur/focus pause and resume,
+  Space/↑/↓/m; watch native playback, Space/←/→/f/m, rate 1.5×, PiP and
+  fullscreen entering their real browser APIs, resume across reload keyed by
+  post id, zero start for a different video, and the tag-based next-up rail;
+  the YouTube facade with no iframe before click and a `youtube-nocookie.com`
+  iframe after; grid/tile poster, play glyph, duration badge and player opening.
+  No page/console/HTTP errors at either width.
+- **Playback fixes found by that pass:** clip like/save state is derived from
+  the server response and the session (it previously rendered signed-out
+  defaults and the first tap un-liked an already-liked clip); keyboard
+  navigation scrolls the reel container instead of the whole page; the 60 s
+  Cloudinary SDK timeout became 10 min with 6 MB chunks; the favicon 404 that
+  polluted the console is gone.
+- **Reduced motion:** emulated with Playwright `reducedMotion: 'reduce'`; both
+  clips stay paused with the play overlay and manual play still works.
+- **Regression:** `e2e-phase15.js` 41/41; responsive smoke 63/63; secret scan 0 hits;
+  design-system scan 0 lines (the new chrome uses text/SVG, not emoji).
+- **Migration:** feed file `20261119120000-phase16-stories-broadcasts.js` authored
+  and linted; not applied to the working database in this pass.
+- **Browser:** a pass over the feed rail (open story, viewer list, Escape),
+  List/Grid tiles, `/clips`, `/watch/:id` (facade → `youtube-nocookie.com`
+  iframe), `/channels` and `/channels/:slug` (publish from the composer) at
+  360/768/1440 — no horizontal overflow, tiles equal at every width. The temporary
+  account, story, post, channel and messages were deleted afterwards.
+- **Empty state:** after the fixture posts were deleted, `/clips` rendered “No
+  clips yet” with zero slides at both 1440 px and 360 px.
+- **Hold-to-pause:** moved onto the story tap zones after the browser pass (it was
+  on a `pointer-events: none` layer, so only the space key worked). That adjustment
+  is build- and test-verified, not manually re-checked.
+- **Cleanup:** fixture posts, Cloudinary videos and the temporary account were
+  deleted; Cloudinary lists no remaining videos and the temp harness was removed.
+- **Limitation:** automation cannot take OS focus away from the page, so the
+  blur/focus pause was exercised by dispatching the same events the browser
+  sends; it was not observed through real window switching. Next-clip preload is
+  proven by the `preload="auto"` attribute plus both videos reaching metadata,
+  not by a request-timing trace.
+- **360 px fix:** an existing long-URL post widened its card past the viewport;
+  `.post-card` now sets `min-width: 0; overflow-wrap: anywhere`, and the feed
+  measures 354/354 with no horizontal scroll.
 
 ### Pass 21 (17 Nov) — funnel scale, day-7 quality, shared quotas and operability
 

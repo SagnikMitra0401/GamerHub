@@ -22,7 +22,7 @@ const createComment = async (req, res, next) => {
     const post = await Post.findById(postId).select('userId hiddenAt').populate('userId', 'status').lean();
     if (!post) throw notFound('Post not found');
     if (post.hiddenAt) throw notFound('Post not found');
-    if (post.userId?.status === 'frozen') throw notFound('Post not found');
+    if (['frozen', 'suspended', 'deleted'].includes(post.userId?.status)) throw notFound('Post not found');
 
     const comment = await Comment.create({ postId, userId: req.user._id, text });
     recordFirstEvent('first_comment', req.user._id, { surface: 'post' });
@@ -50,7 +50,8 @@ const getCommentsForPost = async (req, res, next) => {
     const post = await Post.findById(postId).select('userId hiddenAt').populate('userId', 'status').lean();
     if (!post) throw notFound('Post not found');
     if (post.hiddenAt) throw notFound('Post not found');
-    if (post.userId?.status === 'frozen' && String(req.user?._id) !== String(post.userId._id)) {
+    if (['frozen', 'suspended', 'deleted'].includes(post.userId?.status)
+      && String(req.user?._id) !== String(post.userId._id)) {
       throw notFound('Post not found');
     }
 

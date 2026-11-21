@@ -11,6 +11,9 @@ import HashtagText from '../components/posts/HashtagText';
 import PostActions from '../components/posts/PostActions';
 import { ArrowLeftIcon } from '../components/common/icons';
 import SafeImage from '../components/common/SafeImage';
+import VideoPlayer from '../components/video/VideoPlayer';
+import { videoPosterUrl } from '../utils/videoPoster';
+import YouTubeEmbed from '../components/video/YouTubeEmbed';
 import { PostDetailSkeleton } from '../components/common/Skeleton';
 
 const PostDetail = () => {
@@ -189,13 +192,12 @@ const PostDetail = () => {
                 }}
               >
                 {post.mediaType === 'video' ? (
-                  <video
+                  <VideoPlayer
                     src={post.mediaUrl}
-                    controls
-                    autoPlay
-                    muted
-                    preload="auto"
-                    style={{ width: '100%', maxHeight: '500px', objectFit: 'contain' }}
+                    poster={videoPosterUrl(post.mediaUrl, 1280)}
+                    title={post.title}
+                    resumeKey={post._id}
+                    className="post-detail-player"
                   />
                 ) : (
                   <SafeImage
@@ -208,10 +210,14 @@ const PostDetail = () => {
               </div>
             )}
 
-            {/* Link Preview Rendering */}
+            {/* Link Preview Rendering — a YouTube link becomes a real player. */}
             {post.linkPreview && post.linkPreview.url && (
               <div style={{ margin: '1.5rem 0' }}>
-                <LinkPreviewCard preview={post.linkPreview} clickable={true} />
+                {post.youtubeId ? (
+                  <YouTubeEmbed videoId={post.youtubeId} title={post.title} />
+                ) : (
+                  <LinkPreviewCard preview={post.linkPreview} clickable={true} />
+                )}
               </div>
             )}
 

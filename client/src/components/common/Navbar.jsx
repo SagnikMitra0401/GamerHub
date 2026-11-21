@@ -8,7 +8,9 @@ import useDmSummary from '../../hooks/useDmSummary';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Feed', icon: 'home', end: true },
+  { to: '/clips', label: 'Reels', icon: 'film' },
   { to: '/discover', label: 'Discover', icon: 'compass' },
+  { to: '/channels', label: 'Channels', icon: 'broadcast' },
   { to: '/communities', label: 'Servers', icon: 'servers' },
   { to: '/lfg', label: 'LFG', icon: 'target' },
   { to: '/games', label: 'Games', icon: 'gamepad' }
@@ -20,6 +22,8 @@ const PATHS = {
   target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></>,
   gamepad: <><rect x="2.5" y="7" width="19" height="10" rx="5" /><path d="M7 10v4M5 12h4" /><circle cx="16" cy="11" r="0.9" fill="currentColor" stroke="none" /><circle cx="18.5" cy="13.5" r="0.9" fill="currentColor" stroke="none" /></>,
   compass: <><circle cx="12" cy="12" r="8.4" /><path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2z" /></>,
+  broadcast: <><circle cx="12" cy="12" r="2" /><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4" /></>,
+  film: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M8 4.5v15M16 4.5v15M3.5 9h4.5M3.5 15h4.5M16 9h4.5M16 15h4.5" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6.2 8-6.2s8 2.2 8 6.2" /></>,
   admin: <><path d="M12 3l8 3v6c0 5-3.8 8.2-8 9-4.2-.8-8-4-8-9V6z" /><path d="m9 12 2 2 4-4" /></>
 };
@@ -44,7 +48,9 @@ const Glyph = ({ name, className = 'glyph' }) => (
 
 // Discover is a full navbar/drawer destination but not a fifth bottom-dock
 // slot; the dock is already at its comfortable width on a phone.
-const DOCK_ITEMS = NAV_ITEMS.filter((item) => item.to !== '/discover');
+const DOCK_ITEMS = NAV_ITEMS.filter((item) => (
+  item.to !== '/discover' && item.to !== '/clips' && item.to !== '/channels'
+));
 
 const navClass = ({ isActive }) => `navbar-link${isActive ? ' active' : ''}`;
 const drawerClass = ({ isActive }) => `drawer-link${isActive ? ' active' : ''}`;

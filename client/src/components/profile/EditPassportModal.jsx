@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { detectCurrentDevice } from '../../utils/deviceDetector';
+import ConfirmModal from '../common/ConfirmModal';
 import { CloseIcon } from '../common/icons';
 
 const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch', 'Mobile', 'Other'];
@@ -21,6 +22,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
   const [hardwareRigs, setHardwareRigs] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [similarPrompt, setSimilarPrompt] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -116,31 +118,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
     });
   };
 
-  const handleAutoDetect = (rigIndex) => {
-    const detected = detectCurrentDevice();
-
-    // Check for duplicate / similar hardware in other existing rigs
-    const similarRigs = hardwareRigs.filter((r, idx) => {
-      if (idx === rigIndex) return false;
-      const sameGpu = detected.specs.gpu && r.specs?.gpu && r.specs.gpu.toLowerCase() === detected.specs.gpu.toLowerCase();
-      const sameMonitor = detected.specs.monitor && r.specs?.monitor && r.specs.monitor.toLowerCase() === detected.specs.monitor.toLowerCase();
-      const sameCpu = detected.specs.cpu && r.specs?.cpu && r.specs.cpu.toLowerCase() === detected.specs.cpu.toLowerCase();
-      return (sameGpu && sameMonitor) || sameGpu || (sameCpu && sameMonitor);
-    });
-
-    if (similarRigs.length > 0) {
-      const matchNames = similarRigs.map(r => `"${r.rigName}"`).join(', ');
-      const matchDetails = similarRigs.map(r => `• ${r.rigName} (GPU: ${r.specs?.gpu || 'N/A'}, Display: ${r.specs?.monitor || 'N/A'})`).join('\n');
-      const proceed = window.confirm(
-        `Similar Device Detected!\n\n` +
-        `The detected hardware specifications match existing setup(s):\n${matchDetails}\n\n` +
-        `Hardware similarities found with: ${matchNames}.\n\n` +
-        `Do you want to proceed and save this as a duplicate setup, or click Cancel to skip changes?`
-      );
-      if (!proceed) return; // Skip changes!
-    }
-
-    // Overwrite the present info in this specific rig with the newly detected specs
+  const applyDetectedDevice = (rigIndex, detected) => {
     setHardwareRigs(prev => {
       const copy = [...prev];
       const target = copy[rigIndex] || {};
@@ -157,6 +135,32 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       };
       return copy;
     });
+  };
+
+  const handleAutoDetect = (rigIndex) => {
+    const detected = detectCurrentDevice();
+
+    // Warn before saving a second rig with the same hardware.
+    const similarRigs = hardwareRigs.filter((rig, idx) => {
+      if (idx === rigIndex) return false;
+      const sameGpu = detected.specs.gpu && rig.specs?.gpu && detected.specs.gpu.toLowerCase() === rig.specs.gpu.toLowerCase();
+      const sameMonitor = detected.specs.monitor && rig.specs?.monitor && detected.specs.monitor.toLowerCase() === rig.specs.monitor.toLowerCase();
+      const sameCpu = detected.specs.cpu && rig.specs?.cpu && detected.specs.cpu.toLowerCase() === rig.specs.cpu.toLowerCase();
+      return (sameGpu && sameMonitor) || sameGpu || (sameCpu && sameMonitor);
+    });
+
+    if (similarRigs.length > 0) {
+      setSimilarPrompt({
+        rigIndex,
+        detected,
+        details: similarRigs.map(rig => (
+          `${rig.rigName} (GPU: ${rig.specs?.gpu || 'N/A'}, Display: ${rig.specs?.monitor || 'N/A'})`
+        ))
+      });
+      return;
+    }
+
+    applyDetectedDevice(rigIndex, detected);
   };
 
   const handleSubmit = async (e) => {
@@ -520,6 +524,21 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
           </div>
         </form>
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(similarPrompt)}
+        title="Similar device detected"
+        message={similarPrompt
+          ? `These specs match an existing battle station: ${similarPrompt.details.join('; ')}. Save this as another setup?`
+          : ''}
+        confirmText="Save duplicate setup"
+        onCancel={() => setSimilarPrompt(null)}
+        onConfirm={() => {
+          const pending = similarPrompt;
+          setSimilarPrompt(null);
+          if (pending) applyDetectedDevice(pending.rigIndex, pending.detected);
+        }}
+      />
     </div>,
     document.body
   );

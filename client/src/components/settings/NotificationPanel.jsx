@@ -28,6 +28,11 @@ const ROWS = [
     key: 'bot',
     label: 'Gaming-bot picks',
     hint: 'New videos and finds for the games you follow.'
+  },
+  {
+    key: 'broadcast',
+    label: 'Channel broadcasts',
+    hint: 'New posts from broadcast channels you subscribe to.'
   }
 ];
 
@@ -36,7 +41,8 @@ const DEFAULTS = {
   follows: true,
   likes: true,
   lfg: true,
-  bot: true
+  bot: true,
+  broadcast: true
 };
 
 const normalize = (raw) => ROWS.reduce((settings, row) => {

@@ -44,6 +44,13 @@ const Post = require('../server/models/Post');
 const Community = require('../server/models/Community');
 const Party = require('../server/models/Party');
 const SquadChat = require('../server/models/SquadChat');
+const Message = require('../server/models/Message');
+const Notification = require('../server/models/Notification');
+const CommunityJoinRequest = require('../server/models/CommunityJoinRequest');
+const AccountToken = require('../server/models/AccountToken');
+const DmSenderReputation = require('../server/models/DmSenderReputation');
+const Report = require('../server/models/Report');
+const AuditLog = require('../server/models/AuditLog');
 
 const { api, check, connectSocket, registerUser, report, setBase, waitFor } = require('./lib/e2e-harness');
 
@@ -447,6 +454,62 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const staleCookie = await api('/api/auth/me', { cookie: carol.cookie });
   check('the old cookie is revoked immediately', () => assert.equal(staleCookie.status, 401));
 
+  // A reply quote and a mention snapshot are copies of the author's words that
+  // live in another member's message row; erasure must scrub them too.
+  const aliceMessage = await Message.create({
+    channelId,
+    communityId,
+    senderId: alice.id,
+    text: 'alice private aside'
+  });
+  const bobReply = await Message.create({
+    channelId,
+    communityId,
+    senderId: bob.id,
+    text: 'replying to alice',
+    replyTo: { messageId: aliceMessage._id, senderName: 'alice_prime', preview: 'alice private aside' },
+    mentions: [{ userId: alice.id, username: 'alice_prime' }]
+  });
+  const stalePings = await Notification.insertMany([
+    { userId: bob.id, title: '@alice_prime followed you', metadata: { kind: 'follow', followerId: String(alice.id) } },
+    { userId: bob.id, title: 'New mention', metadata: { kind: 'mention', messageId: String(aliceMessage._id) } },
+    { userId: bob.id, title: 'Join request', metadata: { kind: 'community_join_request', username: 'alice_prime' } }
+  ]);
+  const unrelatedPing = await Notification.create({
+    userId: bob.id,
+    title: 'Unrelated ping',
+    metadata: { kind: 'follow', followerId: String(carol.id) }
+  });
+  const staleJoinRequest = await CommunityJoinRequest.create({
+    communityId,
+    inviteId: new mongoose.Types.ObjectId(),
+    userId: alice.id,
+    username: 'alice_prime',
+    status: 'pending'
+  });
+  const staleToken = await AccountToken.create({
+    userId: alice.id,
+    purpose: 'reset_password',
+    tokenHash: 'phase9-erasure-token',
+    expiresAt: new Date(Date.now() + 60_000)
+  });
+  const staleReputation = await DmSenderReputation.create({ userId: alice.id });
+  const staleReport = await Report.create({
+    communityId,
+    reporterId: alice.id,
+    targetType: 'member',
+    targetId: bob.id,
+    reason: 'spam'
+  });
+  const auditWithHandle = await AuditLog.create({
+    communityId,
+    actorId: bob.id,
+    actionType: 'ROLE_UPDATE',
+    targetId: alice.id,
+    targetModel: 'User',
+    metadata: { username: 'alice_prime', role: 'admin' }
+  });
+
   // ── Immediate deletion + succession ───────────────────────────────────────
   console.log('\n[deletion]');
   const badName = await api('/api/account/delete-now', {
@@ -510,6 +573,33 @@ async function scenarios({ alice, bob, carol, sockets }) {
 
   const postGone = await api(`/api/posts/${postId}`, { cookie: bob.cookie });
   check('the deleted account\'s posts are removed', () => assert.equal(postGone.status, 404));
+
+  const remainingPings = await Notification.find({ _id: { $in: stalePings.map((ping) => ping._id) } }).lean();
+  const survivingPing = await Notification.findById(unrelatedPing._id).lean();
+  const survivingJoinRequest = await CommunityJoinRequest.findById(staleJoinRequest._id).lean();
+  const survivingToken = await AccountToken.findById(staleToken._id).lean();
+  const survivingReputation = await DmSenderReputation.findById(staleReputation._id).lean();
+  const survivingReport = await Report.findById(staleReport._id).lean();
+  const scrubbedAudit = await AuditLog.findById(auditWithHandle._id).lean();
+  check('pings, join requests, tokens, reputation and reports are removed', () => {
+    assert.equal(remainingPings.length, 0);
+    assert.ok(survivingPing, 'an unrelated notification must survive');
+    assert.equal(survivingJoinRequest, null);
+    assert.equal(survivingToken, null);
+    assert.equal(survivingReputation, null);
+    assert.equal(survivingReport, null);
+    assert.equal(scrubbedAudit.metadata.username, '[deleted]');
+    assert.equal(scrubbedAudit.metadata.role, 'admin');
+  });
+
+  const scrubCheck = await Message.findById(bobReply._id).lean();
+  check('replies and mentions no longer quote the erased account', () => {
+    assert.ok(scrubCheck, 'the other member\'s reply must survive');
+    assert.equal(scrubCheck.text, 'replying to alice');
+    assert.equal(scrubCheck.replyTo.preview, '[deleted]');
+    assert.equal(scrubCheck.replyTo.senderName, '[deleted]');
+    assert.equal(scrubCheck.mentions.length, 0);
+  });
 
   const squadTransferred = await api(`/api/lfg/${partyId}`, { cookie: bob.cookie });
   check('the veteran member becomes squad leader', () => {

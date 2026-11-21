@@ -5,6 +5,8 @@ import Navbar from './components/common/Navbar';
 import FloatingToolbar from './components/common/FloatingToolbar';
 import SearchModal from './components/search/SearchModal';
 import Feed from './pages/Feed';
+import ClipsPage from './pages/ClipsPage';
+import WatchPage from './pages/WatchPage';
 import PostDetail from './pages/PostDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -14,6 +16,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import EmailVerificationBanner from './components/auth/EmailVerificationBanner';
 import ProfilePage from './pages/ProfilePage';
 import ChannelPage from './pages/ChannelPage';
+import ChannelsPage from './pages/ChannelsPage';
+import BroadcastChannelPage from './pages/BroadcastChannelPage';
 import CommunitiesHome from './pages/CommunitiesHome';
 import CommunityPage from './pages/CommunityPage';
 import JoinInvite from './pages/JoinInvite';
@@ -30,12 +34,6 @@ import NotFound from './pages/NotFound';
 import PrivateRoute from './components/common/PrivateRoute';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
-import './index.css';
-import './phase10.css';
-import './phase11.css';
-import './phase13.css';
-import './phase14.css';
-import './phase15.css';
 
 /**
  * Page atmosphere: one ambient tint per surface, set on <body> so the fixed
@@ -65,13 +63,23 @@ const RouteScrollReset = () => {
   }, []);
 
   useLayoutEffect(() => {
-    // index.css enables smooth scrolling; temporarily disable it so a route
-    // change is an instant reset rather than an animated journey upward.
-    const root = document.documentElement;
-    const previous = root.style.scrollBehavior;
-    root.style.scrollBehavior = 'auto';
-    window.scrollTo(0, 0);
-    root.style.scrollBehavior = previous;
+    const jumpToTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    jumpToTop();
+
+    // The outgoing page unmounts with this commit and the incoming route mounts
+    // its skeleton afterwards; when the document height changes, Chrome
+    // re-applies the previous offset, so the first jump is lost. Re-assert the
+    // top over the next two frames, once the new page has actually painted.
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      jumpToTop();
+      second = requestAnimationFrame(jumpToTop);
+    });
+
+    return () => {
+      cancelAnimationFrame(first);
+      if (second) cancelAnimationFrame(second);
+    };
   }, [pathname]);
 
   return null;
@@ -146,6 +154,8 @@ function App() {
         <Routes>
           <Route path="/"                       element={<Feed />} />
           <Route path="/posts/:id"              element={<PostDetail />} />
+          <Route path="/clips"                  element={<ClipsPage />} />
+          <Route path="/watch/:id"              element={<WatchPage />} />
           <Route path="/login"                  element={<Login />} />
           <Route path="/register"               element={<Register />} />
           <Route path="/forgot-password"        element={<ForgotPassword />} />
@@ -153,6 +163,8 @@ function App() {
           <Route path="/verify-email"           element={<VerifyEmail />} />
           <Route path="/u/:username"            element={<ProfilePage />} />
           <Route path="/c/:tag"                 element={<ChannelPage />} />
+          <Route path="/channels"               element={<ChannelsPage />} />
+          <Route path="/channels/:slug"         element={<BroadcastChannelPage />} />
           <Route path="/communities"            element={<CommunitiesHome />} />
           <Route path="/communities/:slug"      element={<CommunityPage />} />
           <Route path="/join/:code"             element={<JoinInvite />} />

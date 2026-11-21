@@ -104,6 +104,15 @@ async function storeImageBuffer({
 }
 
 /** Record a video that was uploaded through the existing Cloudinary helper. */
+async function linkMediaAsset(assetId, { refType, refId }) {
+  if (!assetId || !refType || !refId) return null;
+  return MediaAsset.findOneAndUpdate(
+    { _id: assetId },
+    { $set: { refType, refId } },
+    { new: true }
+  );
+}
+
 async function registerVideoAsset({ result, ownerId, surface = 'post', refType = null, refId = null }) {
   const asset = await MediaAsset.create({
     surface,
@@ -116,7 +125,7 @@ async function registerVideoAsset({ result, ownerId, surface = 'post', refType =
     width: result.width || null,
     height: result.height || null,
     url: result.secure_url,
-    derivatives: deliverySet(result.public_id, { resourceType: 'video' }),
+    derivatives: deliverySet(result.public_id, { resourceType: 'video', format: result.format || 'mp4' }),
     status: 'ready',
     refType,
     refId
@@ -128,5 +137,6 @@ module.exports = {
   MAX_IMAGE_DIMENSION,
   normaliseImage,
   storeImageBuffer,
+  linkMediaAsset,
   registerVideoAsset
 };

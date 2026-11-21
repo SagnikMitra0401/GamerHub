@@ -6,14 +6,15 @@
  * missing field means "on" so accounts created before this feature keep the
  * behaviour they had.
  */
-const CATEGORY_KEYS = ['comments', 'follows', 'likes', 'lfg', 'bot'];
+const CATEGORY_KEYS = ['comments', 'follows', 'likes', 'lfg', 'bot', 'broadcast'];
 
 const DEFAULT_NOTIFICATION_SETTINGS = Object.freeze({
   comments: true,
   follows: true,
   likes: true,
   lfg: true,
-  bot: true
+  bot: true,
+  broadcast: true
 });
 
 function normalizeNotificationSettings(raw) {
@@ -59,6 +60,7 @@ function sanitizeNotificationSettingsPatch(body) {
 function notificationCategory({ type, metadata } = {}) {
   if (type === 'lfg_request' || type === 'lfg_accepted') return 'lfg';
   if (type === 'gaming_bot') return 'bot';
+  if (type === 'broadcast') return 'broadcast';
 
   const kind = String(metadata?.kind || '').toLowerCase();
   if (kind.includes('comment') || kind.includes('reply')) return 'comments';

@@ -84,6 +84,21 @@ export const ClockIcon = props => (
   </Svg>
 );
 
+export const GridIcon = props => (
+  <Svg {...props}>
+    <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
+    <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
+    <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
+    <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
+  </Svg>
+);
+
+export const PlayIcon = props => (
+  <Svg {...props}>
+    <path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const ListIcon = props => (
   <Svg {...props}>
     <path d="M8.5 6.5h12M8.5 12h12M8.5 17.5h12" />

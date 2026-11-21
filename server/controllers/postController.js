@@ -5,7 +5,7 @@ const Comment = require('../models/Comment');
 const User = require('../models/User');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const MediaAsset = require('../models/MediaAsset');
-const { storeImageBuffer, registerVideoAsset } = require('../utils/mediaPipeline');
+const { storeImageBuffer, registerVideoAsset, linkMediaAsset } = require('../utils/mediaPipeline');
 const { mediaPublicId: buildMediaPublicId } = require('../utils/mediaPaths');
 const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
@@ -18,6 +18,8 @@ const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { rankPostsForUser } = require('../utils/feedRanking');
 const { bufferLikeEvent, readPendingLike, likePipeline } = require('../utils/likeBuffer');
 const { notifyLikeMilestone } = require('../utils/socialNotifications');
+const { parseYouTubeId, findYouTubeIdInText, normalizeDuration } = require('../utils/videoSource');
+const { blockedIdsFor } = require('../utils/visibility');
 
 // "For You" ranks this many recent posts in memory, then paginates the ranking.
 const FOR_YOU_POOL = 100;
@@ -50,20 +52,23 @@ const createPost = async (req, res, next) => {
     let mediaType = 'none';
     let mediaPublicId = null;
     let mediaAssetId = null;
+    let durationSeconds = null;
 
     if (!title) throw badRequest('A title is required.');
 
     if (req.file) {
       tempFilePath = req.file.path;
       const isVideo = req.file.mimetype.startsWith('video/');
-      const maxAllowedSize = isVideo ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+      // Videos reach the Cloudinary free-tier ceiling; images stay small
+      // because they are re-encoded locally before upload.
+      const maxAllowedSize = isVideo ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
 
       if (req.file.size > maxAllowedSize) {
-        // Multer accepted it (10MB cap) but the type-specific limit is smaller:
+        // Multer accepted it (100MB cap) but the type-specific limit is smaller:
         // remove the temp file before bailing out.
         cleanupTempFile(tempFilePath);
         tempFilePath = null;
-        throw badRequest(isVideo ? 'Videos must be 10MB or less.' : 'Images must be 5MB or less.');
+        throw badRequest(isVideo ? 'Videos must be 100MB or less.' : 'Images must be 5MB or less.');
       }
 
       if (isVideo) {
@@ -71,10 +76,11 @@ const createPost = async (req, res, next) => {
         const publicId = buildMediaPublicId({ surface: 'post', ownerId: req.user._id });
         const result = await uploadToCloudinary(tempFilePath, { publicId, resourceType: 'video' });
         const asset = await registerVideoAsset({ result, ownerId: req.user._id, surface: 'post' });
-        mediaUrl = result.secure_url;
+        mediaUrl = asset.derivatives.video || result.secure_url;
         mediaType = 'video';
         mediaPublicId = result.public_id;
         mediaAssetId = asset._id;
+        durationSeconds = normalizeDuration(req.body.durationSeconds);
       } else {
         // Images are validated, EXIF-stripped, dimension-capped and recorded in
         // the shared media ledger before the post exists.
@@ -112,6 +118,14 @@ const createPost = async (req, res, next) => {
       linkPreview = sanitizeLinkPreview(await scrapePreview(searchText, 5000));
     }
 
+    // YouTube is never downloaded: the post embeds the linked video, and the id
+    // is re-derived here from the scraped URL (or the body text) so a client
+    // cannot point the embed at an unrelated video.
+    const youtubeId = parseYouTubeId(linkPreview?.url)
+      || findYouTubeIdInText(`${title} ${content}`)
+      || null;
+    const videoSource = mediaType === 'video' ? 'upload' : youtubeId ? 'youtube' : null;
+
     const post = await Post.create({
       userId: req.user._id,
       title,
@@ -122,8 +136,15 @@ const createPost = async (req, res, next) => {
       mediaType,
       mediaPublicId,
       mediaAssetId,
+      videoSource,
+      youtubeId,
+      durationSeconds,
       linkPreview: linkPreview || {}
     });
+
+    if (mediaAssetId) {
+      await linkMediaAsset(mediaAssetId, { refType: 'Post', refId: post._id });
+    }
 
     const isMediaPost = !!post.mediaUrl;
     recordFirstEvent('first_post', req.user._id, { media: isMediaPost });
@@ -150,6 +171,11 @@ const getPosts = async (req, res, next) => {
     const tag = sanitizeLine(req.query.channel, 24).toLowerCase();
     if (tag) matchStage.tags = tag;
 
+    // Reels and the clips grid ask for video rows only; anything else is a
+    // normal feed request and stays unfiltered.
+    const mediaType = String(req.query.mediaType || '').toLowerCase();
+    if (mediaType === 'video' || mediaType === 'image') matchStage.mediaType = mediaType;
+
     if (req.query.feed === 'following') {
       const following = req.user?.following ?? [];
       if (!following.length) return res.status(200).json([]);
@@ -164,6 +190,14 @@ const getPosts = async (req, res, next) => {
       // Stored counter is authoritative; $size only covers documents written
       // before the denormalisation migration ran.
       likeCount: { $ifNull: ['$likeCount', { $size: '$likes' }] },
+      // Engagement over recency: a comment counts double because it costs more
+      // than a like. Clips use this to surface the busy ones first.
+      trendScore: {
+        $add: [
+          { $ifNull: ['$likeCount', { $size: '$likes' }] },
+          { $multiply: [{ $ifNull: ['$commentCount', 0] }, 2] }
+        ]
+      },
       boostScore: favChannels.length
         ? {
             $cond: {
@@ -179,15 +213,22 @@ const getPosts = async (req, res, next) => {
       ? { createdAt: -1 }
       : req.query.sort === 'most_liked'
         ? { boostScore: -1, likeCount: -1, createdAt: -1 }
-        : { boostScore: -1, createdAt: -1 };
+        : req.query.sort === 'trending'
+          ? { boostScore: -1, trendScore: -1, createdAt: -1 }
+          : { boostScore: -1, createdAt: -1 };
 
-    // A frozen author disappears from other people's feeds. Their own feed
-    // keeps their posts, otherwise freezing would look like data loss. The
-    // filter lives inside the lookup so the emitted author stays minimal.
+    // Frozen, suspended and deleted authors disappear from other people's
+    // feeds; a symmetric block removes both directions too. The filter lives
+    // inside the lookup so the emitted author stays minimal.
     const viewerId = req.user?._id || null;
-    const authorVisible = viewerId
-      ? { $or: [{ status: { $ne: 'frozen' } }, { _id: viewerId }] }
-      : { status: { $ne: 'frozen' } };
+    const blockedIds = await blockedIdsFor(viewerId);
+    const authorVisible = {
+      // A frozen account can still see its own posts while it is on a break.
+      ...(viewerId
+        ? { $or: [{ status: { $nin: ['frozen', 'suspended', 'deleted'] } }, { _id: viewerId }] }
+        : { status: { $nin: ['frozen', 'suspended', 'deleted'] } }),
+      ...(blockedIds.length ? { _id: { $nin: blockedIds } } : {})
+    };
 
     const posts = await Post.aggregate([
       { $match: matchStage },
@@ -224,6 +265,9 @@ const getPosts = async (req, res, next) => {
           mediaUrl: 1,
           mediaCardUrl: 1,
           mediaType: 1,
+          videoSource: 1,
+          youtubeId: 1,
+          durationSeconds: 1,
           linkPreview: 1,
           createdAt: 1,
           updatedAt: 1,
@@ -259,12 +303,21 @@ const getPostById = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
 
     const post = await Post.findById(id)
-      .populate('userId', 'username level role profileType status')
+      .populate('userId', 'username level role profileType status blockedUsers')
       .lean({ virtuals: true });
     if (!post) throw notFound('Post not found');
 
+    const viewerId = String(req.user?._id || '');
+    const author = post.userId;
+    const blocked = Boolean(viewerId && author) && (
+      (req.user?.blockedUsers || []).some((entry) => String(entry) === String(author._id))
+      || (author.blockedUsers || []).some((entry) => String(entry) === viewerId)
+    );
+    if (blocked) throw notFound('Post not found');
+
     // Same rule as the feed: hidden from everybody except its author.
-    if (post.userId?.status === 'frozen' && String(post.userId._id) !== String(req.user?._id)) {
+    if (['frozen', 'suspended', 'deleted'].includes(author?.status)
+      && String(author?._id) !== viewerId) {
       throw notFound('Post not found');
     }
     if (post.hiddenAt && req.user?.role !== 'admin') throw notFound('Post not found');

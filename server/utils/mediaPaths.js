@@ -13,7 +13,7 @@
  */
 const crypto = require('crypto');
 
-const SURFACES = Object.freeze(['post', 'chat', 'avatar', 'game', 'other']);
+const SURFACES = Object.freeze(['post', 'chat', 'avatar', 'game', 'story', 'broadcast', 'other']);
 
 function environmentName() {
   const explicit = String(process.env.MEDIA_ENV || '').trim();

@@ -7,8 +7,11 @@ const Channel   = require('../models/Channel');
 const Message   = require('../models/Message');
 const User      = require('../models/User');
 const Attachment = require('../models/Attachment');
+const MediaAsset = require('../models/MediaAsset');
 const Conversation = require('../models/Conversation');
 const BusinessTeamMember = require('../models/BusinessTeamMember');
+const BroadcastChannel = require('../models/BroadcastChannel');
+const BroadcastSubscription = require('../models/BroadcastSubscription');
 
 const { CHAT_POLICY } = require('./chatPolicy');
 const {
@@ -24,7 +27,7 @@ const {
 } = require('../utils/squadChatService');
 const { createSlidingWindowLimiter, createRecentEventTracker } = require('../utils/rateLimiter');
 const { recordAudit } = require('../utils/audit');
-const { canParticipate } = require('../utils/privacy');
+const { canParticipate, accountGate } = require('../utils/privacy');
 const { corsOrigin } = require('../utils/origins');
 const { recordFirstEvent } = require('../utils/productEvents');
 
@@ -330,9 +333,21 @@ function initSocket(httpServer) {
       }
 
       const user = await User.findById(targetId)
-        .select('_id username level role medals status')
+        .select('_id username level role medals status sessionVersion')
         .lean();
-      socket.user = user || null;
+
+      // A live socket is a session. Reject revoked tokens and account states
+      // that the REST guard already refuses; frozen accounts stay connected so
+      // they can unfreeze, but their writes are blocked below.
+      if (!user || accountGate(user).ok === false) {
+        socket.user = null;
+        return next(new Error('ACCOUNT_UNAVAILABLE'));
+      }
+      if (Number(decoded.sv) !== Number(user.sessionVersion)) {
+        socket.user = null;
+        return next(new Error('SESSION_REVOKED'));
+      }
+      socket.user = user;
 
       // Bound the number of live sockets per account. Every socket holds rooms,
       // presence bookkeeping and listeners; without a cap one account can grow
@@ -543,10 +558,19 @@ function initSocket(httpServer) {
         recordFirstEvent('first_message', userId, { surface: 'community' });
 
         if (attachmentIds.length) {
-          await Attachment.updateMany(
-            { _id: { $in: attachmentIds } },
-            { $set: { messageId: message._id } }
-          );
+          const attachmentRows = await Attachment.find({ _id: { $in: attachmentIds } })
+            .select('assetId')
+            .lean();
+          await Promise.all([
+            Attachment.updateMany(
+              { _id: { $in: attachmentIds } },
+              { $set: { messageId: message._id } }
+            ),
+            MediaAsset.updateMany(
+              { _id: { $in: attachmentRows.map((row) => row.assetId).filter(Boolean) } },
+              { $set: { refType: 'Message', refId: message._id } }
+            )
+          ]);
         }
 
         const populated = await message.populate([
@@ -746,6 +770,42 @@ function initSocket(httpServer) {
       if (!payload.chatId) return;
       socket.leave(`squad:${String(payload.chatId)}`);
       if (socket.data?.squadChat === String(payload.chatId)) socket.data.squadChat = null;
+    });
+
+    // ── broadcast channels ────────────────────────────────────────────────
+    // The room is joined only after a REST-equivalent membership check, so a
+    // guessed channel id cannot be used to eavesdrop on a private channel.
+    socket.on('join_broadcast', async (payload = {}) => {
+      try {
+        if (!userId) return fail(socket, 'Sign in to follow this channel.', 'UNAUTHENTICATED');
+        const channelId = String(payload.channelId || '');
+        if (!mongoose.Types.ObjectId.isValid(channelId)) {
+          return fail(socket, 'Unknown channel.', 'NOT_FOUND');
+        }
+
+        const joins = joinLimiter.consume(userId);
+        if (!joins.allowed) {
+          return fail(socket, 'You are joining channels too quickly. Slow down.', 'RATE_LIMITED');
+        }
+
+        const channel = await BroadcastChannel.findById(channelId).lean();
+        if (!channel) return fail(socket, 'Channel not found.', 'NOT_FOUND');
+
+        const isOwner = String(channel.ownerId) === String(userId);
+        const allowed = channel.isPublic || isOwner || isAppStaff(socket.user)
+          || Boolean(await BroadcastSubscription.exists({ channelId: channel._id, userId }));
+
+        if (!allowed) return fail(socket, 'This channel is private.', 'FORBIDDEN');
+
+        socket.join(`broadcast:${channelId}`);
+        socket.emit('joined_broadcast', { channelId });
+      } catch (err) {
+        fail(socket, 'Could not join that channel.', 'INTERNAL');
+      }
+    });
+
+    socket.on('leave_broadcast', (payload = {}) => {
+      if (payload.channelId) socket.leave(`broadcast:${String(payload.channelId)}`);
     });
 
     // ── typing indicators ───────────────────────────────────────────────────

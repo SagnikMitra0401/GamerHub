@@ -231,6 +231,6 @@ quota.
 | Tier | What proves this document |
 |---|---|
 | `npm test` | 258 checks, including `hardening.test.js` (limit keying, secret patterns, the live client-source gate), `accountRecovery.test.js`, `productEvents.test.js` (allowlist, prop redaction, funnel arithmetic, log redaction), `rateLimitStore.test.js` and `errorReporting.test.js` |
-| `npm run test:e2e` | eleven suites; `e2e-phase14.js` covers verification/reset, onboarding, notification preferences, activation telemetry, cohort/day-7 funnel, engagement budgets, readiness and data export, and `e2e-phase10.js` covers the four behaviours in §4 that need a database and a socket |
+| `npm run test:e2e` | thirteen suites; `e2e-phase14.js` covers verification/reset, onboarding, notification preferences, activation telemetry, cohort/day-7 funnel, engagement budgets, readiness and data export, and `e2e-phase10.js` covers the four behaviours in §4 that need a database and a socket |
 | `npm run scan:secrets` | credential-shaped literals and tracked env files |
 | `node scripts/scan-emoji.js` | design-system gate (unrelated, but it runs in CI on every push) |

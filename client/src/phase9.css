@@ -241,7 +241,7 @@
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
-  padding-bottom: 1rem;
+  padding-bottom: 1.15rem;
 }
 
 .settings-panel-title {
@@ -260,11 +260,20 @@
 }
 
 .settings-section {
-  padding: 1.15rem 0;
+  padding: 1.2rem 0;
   border-top: 1px solid var(--glass-border);
 }
 
-.settings-section-head { margin-bottom: 0.8rem; }
+.settings-section:first-of-type {
+  padding-top: 0.35rem;
+  border-top: 0;
+}
+
+.settings-section:last-of-type { padding-bottom: 0.15rem; }
+
+.profile-block-error { margin: 0.35rem 0 0.65rem; }
+
+.settings-section-head { margin-bottom: 0.85rem; }
 
 .settings-section-head h3,
 .settings-section-head h4 {
@@ -403,9 +412,9 @@
 .settings-actions {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
-  margin-top: 0.65rem;
+  margin-top: 0.85rem;
 }
 
 .settings-actions .btn { flex: 0 0 auto; }

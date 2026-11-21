@@ -87,6 +87,20 @@ The media ledger followed exactly this path: new uploads write `MediaAsset`,
 the feed migration backfills legacy posts and attachments, readers use
 `mediaAssetId` when present, and no Cloudinary asset was renamed.
 
+### Phase 16 worked example
+
+`migrations/feed/20261119120000-phase16-stories-broadcasts.js` is an expand-only
+change: it creates the `stories`/`storyviews` and
+`broadcastchannels`/`broadcastmessages`/`broadcastsubscriptions` collections and
+their named indexes (including the story TTL and the two unique pairs), tags
+uploaded videos with `videoSource: 'upload'`, and derives `youtubeId` for existing
+link posts with the same regex the create path uses — no network call, no
+Cloudinary rename. Re-running it after a partial failure is safe: index creation
+ignores “already exists” (codes 85/86) and the backfill only updates rows that
+are still missing the field. Its `down` unsets the three post fields, drops the
+named indexes and removes the rows in the collections this migration introduced;
+collections themselves are never dropped, as the lint requires.
+
 ## Checklist before merging a migration
 
 - [ ] Filename is `YYYYMMDDHHMMSS-kebab-case.js` and lives in the right domain
