@@ -51,7 +51,10 @@ const AuditLogSchema = new mongoose.Schema({
       'PLATFORM_GAME_UPDATE',
       'PLATFORM_GAME_MERGE',
       'PLATFORM_GAME_SYNC',
-      'PLATFORM_EMAIL_RESEND'
+      'PLATFORM_EMAIL_RESEND',
+      'PLATFORM_BUSINESS_CONTACT',
+      'PLATFORM_BUSINESS_RESPOND',
+      'PLATFORM_BUSINESS_DEMOTE'
     ],
     required: true
   },
@@ -63,7 +66,8 @@ const AuditLogSchema = new mongoose.Schema({
     type: String,
     enum: [
       'User', 'Channel', 'Message', 'Community', 'ForumPost', 'Report',
-      'CommunityInvite', 'Post', 'Comment', 'DmReport', 'Game', 'MediaAsset', null
+      'CommunityInvite', 'Post', 'Comment', 'DmReport', 'Game', 'MediaAsset',
+      'BusinessProfile', null
     ],
     default: null
   },
