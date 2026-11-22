@@ -176,6 +176,12 @@ the official contact. You may appeal by replying to that notice or writing to
 or account, and does not prevent you from applying again with corrected
 evidence.
 
+If an application receives no activity for 90 days, or stays open for 12
+months, we close it as expired and tell you in your business settings and at
+the official contact on file. Expiry does not delete your account or business
+profile. You can apply again at any time; a new application starts a new review
+and needs fresh evidence.
+
 You are responsible for the people you invite to the team inbox and for the
 accuracy of the contact details you give us. Tell us promptly if the official
 contact changes or the address is compromised.

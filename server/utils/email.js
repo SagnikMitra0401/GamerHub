@@ -211,6 +211,42 @@ async function sendBusinessReviewEmail({ to, displayName, message, outcome = 'co
   return sendEmail({ to, subject, text, html });
 }
 
+/**
+ * Retention notice: the application lapsed, or the 24-month evidence window
+ * closed for a decided review. Deliberately factual — this is not a decision
+ * email, and there is nothing to appeal in it.
+ */
+async function sendBusinessRetentionEmail({ to, displayName, kind, decidedAt }) {
+  const name = displayName || 'your business';
+  const decided = decidedAt ? new Date(decidedAt).toISOString().slice(0, 10) : 'the recorded decision date';
+  const purged = kind === 'purged';
+  const subject = purged
+    ? 'GamerHub business review evidence deleted'
+    : 'Your GamerHub business verification request expired';
+  const heading = purged ? 'Review evidence deleted' : 'Verification request expired';
+
+  const intro = purged
+    ? `The official contact and proof details from the review of ${name} decided on ${decided} were deleted under our 24-month retention policy.`
+    : `The verification request for ${name} expired because it had no activity for 90 days, or stayed open for 12 months.`;
+
+  const aftermath = purged
+    ? 'The decision, its reason and the review timeline stay on record. Your public business card, posts and followers are unchanged. If you apply again, we will collect fresh evidence.'
+    : 'Nothing was removed from your account: your business profile, posts and followers are unchanged. You can apply again from business settings whenever you are ready.';
+
+  const text = [intro, '', aftermath, '', 'GamerHub'].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">${heading}</h2>
+      <p>${escapeHtml(intro)}</p>
+      <p>${escapeHtml(aftermath)}</p>
+      <p style="color:#6b7280;font-size:12px">GamerHub</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
 /** Test-only helpers. The outbox is process-local and never persisted. */
 function getOutbox() {
   return [...outbox];
@@ -225,6 +261,7 @@ module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendBusinessReviewEmail,
+  sendBusinessRetentionEmail,
   verificationUrl,
   resetUrl,
   getOutbox,

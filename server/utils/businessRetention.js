@@ -16,6 +16,8 @@ const EVIDENCE_RETENTION_MONTHS = 24;
 const AUDIT_RETENTION_YEARS = 3;
 /** An application with no activity for this long is treated as abandoned. */
 const ABANDONED_APPLICATION_DAYS = 90;
+/** Hard limit: an application this old lapses even if edits keep it active. */
+const ABANDONED_APPLICATION_MAX_MONTHS = 12;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SWEEP_BATCH = 500;
 
@@ -63,18 +65,45 @@ function abandonedApplicationCutoff(now = new Date()) {
   return new Date(new Date(now).getTime() - ABANDONED_APPLICATION_DAYS * DAY_MS);
 }
 
+function abandonedApplicationMaxCutoff(now = new Date()) {
+  return monthsBefore(now, ABANDONED_APPLICATION_MAX_MONTHS);
+}
+
 function auditPurgeCutoff(now = new Date()) {
   return yearsBefore(now, AUDIT_RETENTION_YEARS);
 }
 
-/** Pending applications with no activity inside the abandonment window. */
-function abandonedApplicationFilter(cutoff) {
+/**
+ * Pending applications that are due to lapse.
+ *
+ * `updatedAt` moves on an owner edit, a reviewer contact or a response, so any
+ * of those keeps an application alive inside the inactivity window. The
+ * absolute cutoff exists because cosmetic edits bump `updatedAt` too, and no
+ * amount of editing should keep an undecided application open forever.
+ */
+function abandonedApplicationFilter(inactivityCutoff, absoluteCutoff = inactivityCutoff) {
   return {
     verificationStatus: 'pending',
-    verificationRequestedAt: { $ne: null, $lte: cutoff },
-    // `updatedAt` moves on an owner edit, a reviewer contact or a response, so
-    // any of those keeps an application alive.
-    updatedAt: { $lte: cutoff }
+    verificationRequestedAt: { $ne: null, $lte: inactivityCutoff },
+    $or: [
+      { updatedAt: { $lte: inactivityCutoff } },
+      { verificationRequestedAt: { $lte: absoluteCutoff } }
+    ]
+  };
+}
+
+/** A minimal owner-facing view of a swept profile, for notices. */
+function retentionClaim(row) {
+  return {
+    id: String(row._id),
+    userId: row.userId ? String(row.userId) : null,
+    displayName: row.displayName || '',
+    contactEmail: row.contactEmail || '',
+    supportEmail: row.supportEmail || '',
+    verificationRequestedAt: row.verificationRequestedAt || null,
+    // Legacy rows decided before `reviewDecidedAt` existed still deserve the
+    // real date in their notice, not "an earlier date".
+    reviewDecidedAt: row.reviewDecidedAt || row.verifiedAt || row.demotedAt || null
   };
 }
 
@@ -112,15 +141,18 @@ async function expireAbandonedBusinessApplications({
   audits = BusinessVerificationAudit
 } = {}) {
   const cutoff = abandonedApplicationCutoff(now);
+  const maxCutoff = abandonedApplicationMaxCutoff(now);
   const candidates = await profiles
-    .find(abandonedApplicationFilter(cutoff))
-    .select('_id')
+    .find(abandonedApplicationFilter(cutoff, maxCutoff))
+    // The owner fields are read before the update so the worker can tell the
+    // owner what happened without a second query over every expired row.
+    .select('_id userId displayName contactEmail supportEmail verificationRequestedAt')
     .limit(SWEEP_BATCH)
     .lean();
-  if (!candidates.length) return { expired: 0, cutoff };
+  if (!candidates.length) return { expired: 0, cutoff, claims: [] };
 
   const ids = candidates.map((row) => row._id);
-  const result = await profiles.updateMany(
+  await profiles.updateMany(
     { _id: { $in: ids }, verificationStatus: 'pending' },
     {
       $set: {
@@ -133,14 +165,27 @@ async function expireAbandonedBusinessApplications({
     }
   );
 
-  await audits.insertMany(ids.map((id) => ({
-    businessProfileId: id,
+  // Only rows this run moved. A reviewer who decided between the read and the
+  // update must not receive a false "expired" audit row or owner notice, and a
+  // second worker running the same sweep must not duplicate either.
+  const expiredRows = await profiles
+    .find({ _id: { $in: ids }, verificationStatus: 'expired', reviewDecidedAt: now })
+    .select('_id userId displayName contactEmail supportEmail verificationRequestedAt')
+    .lean();
+  if (!expiredRows.length) return { expired: 0, cutoff, claims: [] };
+
+  await audits.insertMany(expiredRows.map((row) => ({
+    businessProfileId: row._id,
     actorId: null,
     status: 'expired',
-    note: `Application expired after ${ABANDONED_APPLICATION_DAYS} days without activity.`
+    note: `Application expired after ${ABANDONED_APPLICATION_DAYS} days without activity or ${ABANDONED_APPLICATION_MAX_MONTHS} months open.`
   })));
 
-  return { expired: result.modifiedCount || 0, cutoff };
+  return {
+    expired: expiredRows.length,
+    cutoff,
+    claims: expiredRows.map(retentionClaim)
+  };
 }
 
 /**
@@ -155,10 +200,12 @@ async function purgeExpiredBusinessEvidence({ now = new Date(), profiles = Busin
   const cutoff = evidencePurgeCutoff(now);
   const candidates = await profiles
     .find(evidencePurgeFilter(cutoff))
-    .select('_id')
+    // Recipient details are captured before the contact fields are emptied, so
+    // the owner can still be told that the retention window closed.
+    .select('_id userId displayName contactEmail supportEmail reviewDecidedAt verifiedAt demotedAt')
     .limit(SWEEP_BATCH)
     .lean();
-  if (!candidates.length) return { profiles: 0, cutoff };
+  if (!candidates.length) return { profiles: 0, cutoff, claims: [] };
 
   const set = { evidencePurgedAt: now };
   for (const field of EVIDENCE_FIELDS) set[field] = '';
@@ -168,7 +215,11 @@ async function purgeExpiredBusinessEvidence({ now = new Date(), profiles = Busin
     { $set: set }
   );
 
-  return { profiles: result.modifiedCount || 0, cutoff };
+  return {
+    profiles: result.modifiedCount || 0,
+    cutoff,
+    claims: candidates.map(retentionClaim)
+  };
 }
 
 /**
@@ -185,12 +236,15 @@ module.exports = {
   EVIDENCE_RETENTION_MONTHS,
   AUDIT_RETENTION_YEARS,
   ABANDONED_APPLICATION_DAYS,
+  ABANDONED_APPLICATION_MAX_MONTHS,
   EVIDENCE_FIELDS,
   monthsBefore,
   yearsBefore,
   evidencePurgeCutoff,
   auditPurgeCutoff,
   abandonedApplicationCutoff,
+  abandonedApplicationMaxCutoff,
+  retentionClaim,
   abandonedApplicationFilter,
   expireAbandonedBusinessApplications,
   evidencePurgeFilter,

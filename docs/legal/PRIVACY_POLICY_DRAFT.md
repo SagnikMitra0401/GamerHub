@@ -202,8 +202,8 @@ have their own schedules and must be confirmed before publication.
 | Product analytics events | 180 days. |
 | Email verification/reset links | 24 hours for verification, 30 minutes for password reset; single-use and invalidated on use or resend. |
 | Email confirmation codes (**PLANNED**) | 10 minutes, five attempts, one live code per purpose; the challenge row is removed or expires within 24 hours. |
-| Business verification evidence | While the application is open; normally 24 months after the decision, then the contact and proof fields are deleted. |
-| Business review correspondence and decision audit | 3 years after the decision, limited to the contact channel, decision, reason, reviewer and timestamps. |
+| Business verification evidence | While the application is open — an application with no activity for 90 days, or open for 12 months, is closed as expired — and normally 24 months after the decision, then the contact and proof fields are deleted. |
+| Business review correspondence and decision audit | 3 years after the decision, limited to the contact channel, decision, reason, reviewer and timestamps; a stored message note is an excerpt of at most 160 characters, not the full message. |
 | Legal acceptance records | For the life of the account and 3 years after closure, so we can show which version you accepted. |
 | Support, reports, moderation and audit records | As long as needed for safety, dispute resolution, and legal obligations; exact periods to be confirmed by counsel. |
 | Security and HTTP logs | Proposed 14 days where the host plan permits; request ID, route, status and latency only — no bodies, codes, tokens, cookies or full email addresses. |

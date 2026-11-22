@@ -348,7 +348,8 @@ const BusinessPanel = ({ account, refresh, notify }) => {
         {status === 'expired' && (
           <p className="settings-business-alert">
             <AlertIcon size={14} /> The last review request expired after 90 days without
-            activity. Request review again when your details are ready.
+            activity, or because it stayed open for a year. Request review again when your
+            details are ready.
           </p>
         )}
 

@@ -19,6 +19,7 @@ const {
   purgeExpiredBusinessEvidence,
   purgeExpiredBusinessAudits
 } = require('../utils/businessRetention');
+const { notifyBusinessRetention } = require('../utils/businessRetentionNotices');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PENDING_MEDIA_HOURS = 24;
@@ -204,10 +205,24 @@ function startRetentionWorker() {
   if (process.env.DISABLE_RETENTION_WORKER === '1') return null;
 
   const run = async () => {
+    const startedAt = Date.now();
+    let failures = 0;
+    // One line per run is the only durable trace these sweeps leave; keep the
+    // counts together so a silent zero is distinguishable from a skipped job.
+    const business = {
+      expired: 0,
+      purgedProfiles: 0,
+      purgedAudits: 0,
+      notified: 0,
+      emailed: 0,
+      emailFailed: 0
+    };
+
     try {
       const deleted = await purgeExpiredMessages();
       if (deleted > 0) console.log(`[Retention] purged ${deleted} expired message(s)`);
     } catch (err) {
+      failures += 1;
       console.error('[Retention] purge failed:', err.message);
     }
 
@@ -217,6 +232,7 @@ function startRetentionWorker() {
         console.log(`[Retention] expired ${squad.chats} squad chat(s), purged ${squad.messages} message(s)`);
       }
     } catch (err) {
+      failures += 1;
       console.error('[Retention] squad chat purge failed:', err.message);
     }
 
@@ -228,6 +244,7 @@ function startRetentionWorker() {
         );
       }
     } catch (err) {
+      failures += 1;
       console.error('[Retention] message request purge failed:', err.message);
     }
 
@@ -237,40 +254,60 @@ function startRetentionWorker() {
         console.log(`[Retention] purged ${notifications} expired notification(s)`);
       }
     } catch (err) {
+      failures += 1;
       console.error('[Retention] notification purge failed:', err.message);
     }
 
     try {
       const abandoned = await expireAbandonedBusinessApplications();
+      business.expired = abandoned.expired;
       if (abandoned.expired > 0) {
+        const notices = await notifyBusinessRetention(abandoned.claims, { kind: 'expired' });
+        business.notified += notices.notified;
+        business.emailed += notices.emailed;
+        business.emailFailed += notices.failed;
         console.log(`[Retention] expired ${abandoned.expired} abandoned business application(s)`);
       }
     } catch (err) {
+      failures += 1;
       console.error('[Retention] abandoned application sweep failed:', err.message);
     }
 
     try {
       const evidence = await purgeExpiredBusinessEvidence();
+      business.purgedProfiles = evidence.profiles;
       if (evidence.profiles > 0) {
+        const notices = await notifyBusinessRetention(evidence.claims, { kind: 'purged' });
+        business.notified += notices.notified;
+        business.emailed += notices.emailed;
+        business.emailFailed += notices.failed;
         console.log(`[Retention] cleared review evidence for ${evidence.profiles} business profile(s)`);
       }
     } catch (err) {
+      failures += 1;
       console.error('[Retention] business evidence purge failed:', err.message);
     }
 
     try {
       const businessAudits = await purgeExpiredBusinessAudits();
+      business.purgedAudits = businessAudits.audits;
       if (businessAudits.audits > 0) {
         console.log(`[Retention] purged ${businessAudits.audits} expired business review audit row(s)`);
       }
     } catch (err) {
+      failures += 1;
       console.error('[Retention] business audit purge failed:', err.message);
+    }
+
+    if (Object.values(business).some((count) => count > 0)) {
+      console.log(`[Retention] business review sweep ${JSON.stringify(business)}`);
     }
 
     try {
       const erased = await eraseDeletionPendingUsers();
       if (erased > 0) console.log(`[Retention] erased ${erased} account(s) past the grace period`);
     } catch (err) {
+      failures += 1;
       console.error('[Retention] account erasure failed:', err.message);
     }
 
@@ -278,8 +315,13 @@ function startRetentionWorker() {
       const media = await purgeOrphanMediaAssets();
       if (media > 0) console.log(`[Retention] reclaimed ${media} orphaned media asset(s)`);
     } catch (err) {
+      failures += 1;
       console.error('[Retention] media sweep failed:', err.message);
     }
+
+    console.log(
+      `[Retention] run finished in ${Date.now() - startedAt}ms (${failures} failed sweep(s))`
+    );
   };
 
   run();
