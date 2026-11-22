@@ -22,6 +22,7 @@ const {
   downgradeBusiness,
   requestBusinessVerification,
   checkBusinessVerification,
+  respondToBusinessReview,
   getBusinessAnalytics
 } = require('../controllers/businessController');
 const {
@@ -90,6 +91,7 @@ router.post('/business-profile', protect, dmSettingsLimiter, saveBusinessProfile
 router.delete('/business-profile', protect, dmSettingsLimiter, downgradeBusiness);
 router.post('/business-verification', protect, dmSettingsLimiter, requestBusinessVerification);
 router.post('/business-verification/check', protect, dmSettingsLimiter, checkBusinessVerification);
+router.post('/business-verification/respond', protect, dmSettingsLimiter, respondToBusinessReview);
 router.post('/feed-reset', protect, feedResetLimiter, resetFeedRecommendations);
 router.post('/freeze', protect, confirmLimiter, setFreeze);
 

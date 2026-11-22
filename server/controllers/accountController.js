@@ -26,7 +26,7 @@ const {
   normalizeNotificationSettings,
   sanitizeNotificationSettingsPatch
 } = require('../utils/notificationPreferences');
-const { publicBusinessProfile } = require('../utils/business');
+const { ownerBusinessProfile } = require('../utils/business');
 const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
 const { invalidateVisibility } = require('../utils/visibility');
 
@@ -60,15 +60,7 @@ const getAccount = async (req, res, next) => {
       emailVerified: Boolean(user.emailVerifiedAt),
       status: user.status,
       profileType: user.profileType,
-      businessProfile: businessProfile
-        ? {
-            ...publicBusinessProfile(businessProfile),
-            verificationMethod: businessProfile.verificationMethod || null,
-            verificationDomain: businessProfile.verificationDomain || '',
-            verificationToken: businessProfile.verificationToken || '',
-            verificationRequestedAt: businessProfile.verificationRequestedAt || null
-          }
-        : null,
+      businessProfile: ownerBusinessProfile(businessProfile),
       createdAt: user.createdAt,
       hasLocalPassword: user.hasLocalPassword !== false,
       frozenAt: user.frozenAt,

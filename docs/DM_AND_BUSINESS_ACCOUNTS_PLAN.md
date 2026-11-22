@@ -562,8 +562,12 @@ an admin path to clear the pause, and a consent-based team inbox. Team invitatio
 require acceptance; viewers are read-only, agents can reply and answer requests, and
 only business threads are exposed to the shared workspace.
 
-**Still open:** richer review notes/evidence in the admin queue. Automatic DNS lookup
-and the team inbox are implemented.
+**Still open:** none in the review-evidence scope. On 22 Nov 2026 the queue gained
+proof type/link/note, the official contact and preferred contact method, a logged
+contact step, an owner response stored with the review, and an admin demotion
+that requires a fresh contact plus a seven-day response window before it can
+run. Demotion also revokes team access. Automatic DNS lookup and the team inbox
+remain implemented.
 
 **Exit criteria:** a business cannot cold-contact anyone without verification; a recipient
 sees the label, the intent and the verified domain before accepting; personal threads are not

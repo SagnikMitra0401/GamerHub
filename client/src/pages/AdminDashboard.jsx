@@ -73,6 +73,9 @@ const AdminDashboard = () => {
   const [verifications, setVerifications] = useState([]);
   const [verificationsError, setVerificationsError] = useState('');
   const [verificationBusy, setVerificationBusy] = useState(null);
+  const [verificationFilter, setVerificationFilter] = useState('pending');
+  const [verificationNotes, setVerificationNotes] = useState({});
+  const [verificationChannels, setVerificationChannels] = useState({});
   const [funnel, setFunnel] = useState(null);
   const [funnelError, setFunnelError] = useState('');
   const [tab, setTab] = useState('overview');
@@ -135,19 +138,64 @@ const AdminDashboard = () => {
 
   const loadVerifications = useCallback(async () => {
     try {
-      const { data: payload } = await axiosInstance.get('/admin/business-verifications?status=pending');
+      const { data: payload } = await axiosInstance.get(
+        `/admin/business-verifications?status=${verificationFilter}`
+      );
       setVerifications(Array.isArray(payload.items) ? payload.items : []);
       setVerificationsError('');
     } catch (err) {
       setVerificationsError(describeFailure(err));
     }
-  }, []);
+  }, [verificationFilter]);
 
   const resolveVerification = async (profileId, status) => {
     setVerificationBusy(profileId);
     setVerificationsError('');
     try {
-      await axiosInstance.post(`/admin/business-verifications/${profileId}/resolve`, { status });
+      await axiosInstance.post(`/admin/business-verifications/${profileId}/resolve`, {
+        status,
+        note: (verificationNotes[profileId] || '').trim()
+      });
+      await loadVerifications();
+    } catch (err) {
+      setVerificationsError(describeFailure(err));
+    } finally {
+      setVerificationBusy(null);
+    }
+  };
+
+  const contactVerification = async (profileId, fallbackChannel) => {
+    const message = (verificationNotes[profileId] || '').trim();
+    if (!message) {
+      setVerificationsError('Write a message before contacting the business.');
+      return;
+    }
+    const channel = verificationChannels[profileId] || fallbackChannel || 'email';
+    setVerificationBusy(profileId);
+    setVerificationsError('');
+    try {
+      await axiosInstance.post(`/admin/business-verifications/${profileId}/contact`, {
+        message,
+        channel
+      });
+      await loadVerifications();
+    } catch (err) {
+      setVerificationsError(describeFailure(err));
+    } finally {
+      setVerificationBusy(null);
+    }
+  };
+
+  const demoteVerification = async (profileId) => {
+    const reason = (verificationNotes[profileId] || '').trim();
+    if (reason.length < 5) {
+      setVerificationsError('Write the demotion reason before returning the account to personal.');
+      return;
+    }
+    setVerificationBusy(profileId);
+    setVerificationsError('');
+    try {
+      await axiosInstance.post(`/admin/business-verifications/${profileId}/demote`, { reason });
       await loadVerifications();
     } catch (err) {
       setVerificationsError(describeFailure(err));
@@ -538,13 +586,28 @@ const AdminDashboard = () => {
             <section className="admin-card">
               <div className="admin-card-head">
                 <h2>Business verification</h2>
-                <span className={`admin-badge ${verifications.length > 0 ? 'warn' : 'muted'}`}>
-                  {verifications.length} need review
-                </span>
+                <div className="admin-report-actions">
+                  <select
+                    className="form-input"
+                    style={{ maxWidth: 160 }}
+                    value={verificationFilter}
+                    onChange={(event) => setVerificationFilter(event.target.value)}
+                    aria-label="Business verification status"
+                  >
+                    <option value="pending">Pending review</option>
+                    <option value="verified">Verified</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="expired">Expired</option>
+                    <option value="all">All records</option>
+                  </select>
+                  <span className={`admin-badge ${verifications.length > 0 ? 'warn' : 'muted'}`}>
+                    {verifications.length} shown
+                  </span>
+                </div>
               </div>
               {verificationsError && <p className="admin-warn">{verificationsError}</p>}
               {verifications.length === 0 ? (
-                <p className="admin-note">No business verification requests are waiting.</p>
+                <p className="admin-note">No business verification requests match this filter.</p>
               ) : (
                 <table className="admin-table">
                   <thead>
@@ -564,12 +627,112 @@ const AdminDashboard = () => {
                         <td>
                           <strong>{item.business?.displayName || 'Business'}</strong>
                           <div className="admin-report-note">{item.business?.website || 'No website'}</div>
+                          <details className="admin-report-note">
+                            <summary>Proof and contact</summary>
+                            <p>
+                              Contact: {item.business?.contactMethod || 'email'}
+                              {' — '}
+                              {item.business?.contactMethod === 'email'
+                                ? (item.business?.contactEmail || 'no contact email')
+                                : (item.business?.contactDetail || 'no detail')}
+                            </p>
+                            <p>
+                              Proof: {item.business?.proofType || 'other'}
+                              {item.business?.proofUrl && (
+                                <>
+                                  {' — '}
+                                  <a href={item.business.proofUrl} target="_blank" rel="noreferrer">
+                                    open link
+                                  </a>
+                                </>
+                              )}
+                            </p>
+                            {item.business?.proofNote && <p>{item.business.proofNote}</p>}
+                            <p>
+                              Last contacted: {item.reviewContactedAt
+                                ? formatTime(item.reviewContactedAt)
+                                : 'not yet'}
+                            </p>
+                            <p>
+                              Decision recorded: {item.business?.reviewDecidedAt
+                                ? formatTime(item.business.reviewDecidedAt)
+                                : 'not yet'}
+                            </p>
+                            {item.business?.evidencePurgedAt && (
+                              <p>
+                                Evidence removed by retention on{' '}
+                                {formatTime(item.business.evidencePurgedAt)}
+                              </p>
+                            )}
+                            {item.reviewContactedAt && (
+                              <p>
+                                Response window:{' '}
+                                {item.demotion?.canDemote
+                                  ? `closed ${formatTime(item.demotion.earliestDemotionAt)}`
+                                  : `open until ${formatTime(item.demotion?.earliestDemotionAt)}`}
+                              </p>
+                            )}
+                            {item.business?.reviewRespondedAt && (
+                              <>
+                                <p>
+                                  Business responded: {formatTime(item.business.reviewRespondedAt)}
+                                </p>
+                                <p className="admin-business-response">
+                                  {item.business.reviewResponseNote}
+                                </p>
+                              </>
+                            )}
+                          </details>
                         </td>
                         <td className="mono">{item.business?.verificationDomain || '—'}</td>
                         <td>{item.business?.verificationMethod || 'manual'}</td>
                         <td>{formatTime(item.requestedAt)}</td>
                         <td>
+                          <select
+                            className="form-input"
+                            style={{ maxWidth: 160, marginBottom: 8 }}
+                            value={verificationChannels[item._id]
+                              || item.business?.contactMethod
+                              || 'email'}
+                            onChange={(event) => setVerificationChannels((previous) => ({
+                              ...previous,
+                              [item._id]: event.target.value
+                            }))}
+                            aria-label={`Contact channel for ${item.business?.displayName || 'business'}`}
+                          >
+                            <option value="email">Email</option>
+                            <option value="phone">Phone</option>
+                            <option value="other">Other</option>
+                          </select>
+                          <input
+                            className="form-input"
+                            style={{ minWidth: 180, marginBottom: 8 }}
+                            value={verificationNotes[item._id] || ''}
+                            onChange={(event) => setVerificationNotes((previous) => ({
+                              ...previous,
+                              [item._id]: event.target.value
+                            }))}
+                            placeholder="Message or decision note"
+                            aria-label={`Review note for ${item.business?.displayName || 'business'}`}
+                          />
                           <div className="admin-report-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => contactVerification(item._id, item.business?.contactMethod)}
+                              disabled={verificationBusy === item._id || !(verificationNotes[item._id] || '').trim()}
+                              title={(verificationChannels[item._id]
+                                || item.business?.contactMethod
+                                || 'email') === 'email'
+                                ? 'Send this message to the official contact by email'
+                                : 'Record a contact you already made by phone or another method; no email is sent'}
+                            >
+                              {(verificationChannels[item._id]
+                                || item.business?.contactMethod
+                                || 'email') === 'email'
+                                ? 'Email contact'
+                                : 'Record contact'}
+                            </button>
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
@@ -586,7 +749,41 @@ const AdminDashboard = () => {
                             >
                               {item.business?.verificationStatus === 'verified' ? 'Clear pause' : 'Verify'}
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => demoteVerification(item._id)}
+                              disabled={
+                                verificationBusy === item._id
+                                || !item.demotion?.canDemote
+                                || (verificationNotes[item._id] || '').trim().length < 5
+                              }
+                              title={item.demotion?.canDemote
+                                ? (verificationNotes[item._id] || '').trim().length >= 5
+                                  ? 'Return the account to a personal profile'
+                                  : 'Write the demotion reason first'
+                                : item.demotion?.code === 'BUSINESS_RESPONSE_WINDOW'
+                                  ? `Contact logged. Demote opens ${formatTime(item.demotion.earliestDemotionAt)}.`
+                                  : item.demotion?.reason || 'Contact the business first'}
+                            >
+                              Demote
+                            </button>
                           </div>
+                          {!item.demotion?.canDemote
+                            && (item.reviewContactedAt || item.business?.verificationStatus === 'pending') && (
+                            <p className="admin-note">
+                              {item.demotion?.code === 'BUSINESS_RESPONSE_WINDOW'
+                                ? `Contact logged. Demote opens ${formatTime(item.demotion.earliestDemotionAt)}${item.demotion.daysRemaining
+                                  ? ` (${item.demotion.daysRemaining} day${item.demotion.daysRemaining === 1 ? '' : 's'} left)`
+                                  : ''}.`
+                                : item.demotion?.reason || 'Contact the business first.'}
+                            </p>
+                          )}
+                          {item.demotion?.canDemote && item.business?.reviewRespondedAt && (
+                            <p className="admin-note">
+                              Read the response above before deciding.
+                            </p>
+                          )}
                         </td>
                       </tr>
                     ))}

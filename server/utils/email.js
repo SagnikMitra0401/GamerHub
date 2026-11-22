@@ -169,6 +169,48 @@ async function sendPasswordResetEmail({ to, username, url }) {
   return sendEmail({ to, subject, text, html });
 }
 
+/**
+ * Business review correspondence. The reviewer writes the body; the template
+ * only adds the business name and a fixed footer.
+ */
+async function sendBusinessReviewEmail({ to, displayName, message, outcome = 'contact' }) {
+  const name = displayName || 'your business';
+  const demoted = outcome === 'demoted';
+  const subject = demoted
+    ? 'GamerHub business account returned to a personal profile'
+    : 'GamerHub business verification needs your attention';
+  const heading = demoted ? 'Business account status changed' : 'Business verification';
+  const intro = demoted
+    ? `Your business account for ${name} has been returned to a personal profile after review.`
+    : `A reviewer has looked at the verification for ${name} and needs a response.`;
+
+  const text = [
+    intro,
+    '',
+    message,
+    '',
+    demoted
+      ? 'You can reply to this email if you believe this decision is wrong.'
+      : 'Reply to this email with the requested information.',
+    '',
+    'GamerHub'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">${heading}</h2>
+      <p>${escapeHtml(intro)}</p>
+      <p style="white-space:pre-wrap">${escapeHtml(message)}</p>
+      <p>${demoted
+        ? 'You can reply to this email if you believe this decision is wrong.'
+        : 'Reply to this email with the requested information.'}</p>
+      <p style="color:#6b7280;font-size:12px">GamerHub</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
 /** Test-only helpers. The outbox is process-local and never persisted. */
 function getOutbox() {
   return [...outbox];
@@ -182,6 +224,7 @@ module.exports = {
   sendEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendBusinessReviewEmail,
   verificationUrl,
   resetUrl,
   getOutbox,

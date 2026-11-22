@@ -8,6 +8,12 @@ const EMPTY = {
   description: '',
   website: '',
   supportEmail: '',
+  contactEmail: '',
+  contactMethod: 'email',
+  contactDetail: '',
+  proofType: 'registration',
+  proofUrl: '',
+  proofNote: '',
   timezone: '',
   responseExpectation: '',
   links: []
@@ -25,10 +31,42 @@ const STATUS_LABELS = {
   none: 'Not verified',
   pending: 'Review pending',
   verified: 'Verified',
-  rejected: 'Not approved'
+  rejected: 'Not approved',
+  expired: 'Application expired'
 };
 
+const CONTACT_METHOD_OPTIONS = [
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'other', label: 'Other method' }
+];
+
+const PROOF_TYPE_OPTIONS = [
+  { value: 'registration', label: 'Business registration' },
+  { value: 'tax', label: 'Tax or VAT registration' },
+  { value: 'domain_email', label: 'Domain email on the official website' },
+  { value: 'official_profile', label: 'Official business profile or listing' },
+  { value: 'other', label: 'Other evidence' }
+];
+
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '');
+
+const formSnapshot = (source = EMPTY) => ({
+  displayName: source.displayName || '',
+  category: source.category || 'creator',
+  description: source.description || '',
+  website: source.website || '',
+  supportEmail: source.supportEmail || '',
+  contactEmail: source.contactEmail || '',
+  contactMethod: source.contactMethod || 'email',
+  contactDetail: source.contactDetail || '',
+  proofType: source.proofType || 'registration',
+  proofUrl: source.proofUrl || '',
+  proofNote: source.proofNote || '',
+  timezone: source.timezone || '',
+  responseExpectation: source.responseExpectation || '',
+  links: source.links || []
+});
 
 const BusinessPanel = ({ account, refresh, notify }) => {
   const profile = account.businessProfile;
@@ -39,6 +77,7 @@ const BusinessPanel = ({ account, refresh, notify }) => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null);
   const [instructions, setInstructions] = useState(null);
+  const [reviewResponse, setReviewResponse] = useState('');
   const [analytics, setAnalytics] = useState(null);
   const [team, setTeam] = useState({ items: [], maxSize: 10 });
   const [teamUsername, setTeamUsername] = useState('');
@@ -54,6 +93,12 @@ const BusinessPanel = ({ account, refresh, notify }) => {
       description: source.description || '',
       website: source.website || '',
       supportEmail: source.supportEmail || '',
+      contactEmail: source.contactEmail || '',
+      contactMethod: source.contactMethod || 'email',
+      contactDetail: source.contactDetail || '',
+      proofType: source.proofType || 'registration',
+      proofUrl: source.proofUrl || '',
+      proofNote: source.proofNote || '',
       timezone: source.timezone || '',
       responseExpectation: source.responseExpectation || '',
       links: source.links || []
@@ -103,7 +148,7 @@ const BusinessPanel = ({ account, refresh, notify }) => {
   const dirty = JSON.stringify({
     ...form,
     links: linksText.split('\n').map((link) => link.trim()).filter(Boolean)
-  }) !== JSON.stringify(profile || EMPTY);
+  }) !== JSON.stringify(formSnapshot(profile || EMPTY));
 
   const save = async (event) => {
     event.preventDefault();
@@ -150,6 +195,24 @@ const BusinessPanel = ({ account, refresh, notify }) => {
       notify('success', 'Domain verified. Cold outreach is now available.');
     } catch (err) {
       setError(err.response?.data?.message || 'The DNS record could not be verified yet.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const respondToReview = async (event) => {
+    event.preventDefault();
+    const note = reviewResponse.trim();
+    if (note.length < 10 || busy) return;
+    setBusy('respond');
+    setError('');
+    try {
+      await axiosInstance.post('/account/business-verification/respond', { note });
+      setReviewResponse('');
+      await refresh();
+      notify('success', 'Your response was sent to the review team.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not send your response.');
     } finally {
       setBusy(null);
     }
@@ -220,6 +283,16 @@ const BusinessPanel = ({ account, refresh, notify }) => {
   };
 
   const status = profile?.verificationStatus || 'none';
+  // A purge marker only applies to the review round it happened in. A later
+  // contact (or a re-application) starts a new round that may be answered.
+  const reviewEvidencePurged = Boolean(
+    profile?.evidencePurgedAt
+    && (!profile.reviewContactedAt
+      || new Date(profile.reviewContactedAt) <= new Date(profile.evidencePurgedAt))
+  );
+  const hasContactRoute = form.contactMethod === 'email'
+    ? Boolean(form.contactEmail.trim() || form.supportEmail.trim())
+    : Boolean(form.contactDetail.trim());
   const dnsToken = instructions?.recordValue
     || (profile?.verificationToken ? `gamerhub-verify=${profile.verificationToken}` : '');
   const dnsDomain = instructions?.domain || profile?.verificationDomain || '';
@@ -255,6 +328,34 @@ const BusinessPanel = ({ account, refresh, notify }) => {
           <p className="settings-business-alert">
             <AlertIcon size={14} /> Cold outreach is paused while recent reports are reviewed.
             Existing conversations still work.
+          </p>
+        )}
+
+        {profile?.reviewContactedAt && !profile?.demotedAt && !reviewEvidencePurged && status !== 'rejected' && (
+          <p className="settings-business-alert">
+            <AlertIcon size={14} /> A reviewer contacted your official contact on{' '}
+            {formatDate(profile.reviewContactedAt)}. Check that inbox, including spam.
+          </p>
+        )}
+
+        {profile?.demotedAt && (
+          <p className="settings-business-alert">
+            <AlertIcon size={14} /> This account was returned to a personal profile on{' '}
+            {formatDate(profile.demotedAt)}. {profile.demotionReason}
+          </p>
+        )}
+
+        {status === 'expired' && (
+          <p className="settings-business-alert">
+            <AlertIcon size={14} /> The last review request expired after 90 days without
+            activity. Request review again when your details are ready.
+          </p>
+        )}
+
+        {reviewEvidencePurged && (
+          <p className="settings-help">
+            Review evidence was removed on {formatDate(profile.evidencePurgedAt)} under the
+            retention policy. Add it again if you apply for review.
           </p>
         )}
 
@@ -365,6 +466,95 @@ const BusinessPanel = ({ account, refresh, notify }) => {
             <span className="settings-help">One HTTPS link per line, up to five.</span>
           </label>
 
+          <div className="settings-business-contact">
+            <p className="settings-help">
+              <strong>Verification contact and evidence.</strong> Reviewers use these details. They
+              are never shown on your public business card.
+            </p>
+            <div className="settings-grid-2">
+              <label className="form-group" htmlFor="business-contact-email">
+                <span className="form-label">Official contact email</span>
+                <input
+                  id="business-contact-email"
+                  className="form-input"
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={(event) => patch('contactEmail', event.target.value)}
+                  placeholder="owner@studio.example"
+                  maxLength={120}
+                />
+              </label>
+              <label className="form-group" htmlFor="business-contact-method">
+                <span className="form-label">Preferred contact method</span>
+                <select
+                  id="business-contact-method"
+                  className="form-input"
+                  value={form.contactMethod}
+                  onChange={(event) => patch('contactMethod', event.target.value)}
+                >
+                  {CONTACT_METHOD_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {form.contactMethod !== 'email' && (
+              <label className="form-group" htmlFor="business-contact-detail">
+                <span className="form-label">Phone number or other contact</span>
+                <input
+                  id="business-contact-detail"
+                  className="form-input"
+                  value={form.contactDetail}
+                  onChange={(event) => patch('contactDetail', event.target.value.slice(0, 120))}
+                  placeholder="+1 555 0100 or @studio on X"
+                  maxLength={120}
+                />
+              </label>
+            )}
+
+            <div className="settings-grid-2">
+              <label className="form-group" htmlFor="business-proof-type">
+                <span className="form-label">Proof of business</span>
+                <select
+                  id="business-proof-type"
+                  className="form-input"
+                  value={form.proofType}
+                  onChange={(event) => patch('proofType', event.target.value)}
+                >
+                  {PROOF_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-group" htmlFor="business-proof-url">
+                <span className="form-label">Public proof link</span>
+                <input
+                  id="business-proof-url"
+                  className="form-input"
+                  value={form.proofUrl}
+                  onChange={(event) => patch('proofUrl', event.target.value)}
+                  placeholder="https://registry.example/company/123"
+                  maxLength={300}
+                />
+                <span className="settings-help">HTTPS only. A registry, tax or official listing page.</span>
+              </label>
+            </div>
+
+            <label className="form-group" htmlFor="business-proof-note">
+              <span className="form-label">What this proves</span>
+              <textarea
+                id="business-proof-note"
+                className="form-input"
+                value={form.proofNote}
+                onChange={(event) => patch('proofNote', event.target.value.slice(0, 600))}
+                placeholder="Explain the link, or describe other evidence a reviewer can check."
+                rows={3}
+                maxLength={600}
+              />
+            </label>
+          </div>
+
           {error && (
             <p className="settings-inline-error" role="alert">
               <AlertIcon size={13} /> {error}
@@ -410,6 +600,58 @@ const BusinessPanel = ({ account, refresh, notify }) => {
             </div>
           </div>
 
+          {profile?.reviewContactedAt && !profile?.demotedAt && !reviewEvidencePurged && status !== 'rejected' && (
+            <div className="settings-business-review">
+              <p className="settings-help">
+                <strong>Review contact.</strong> A reviewer wrote to your official contact on{' '}
+                {formatDate(profile.reviewContactedAt)}.
+                {profile.reviewResponseDueAt
+                  ? ` You have until ${formatDate(profile.reviewResponseDueAt)} to answer.`
+                  : ''}
+                {' '}The account cannot be returned to a personal profile before that date.
+              </p>
+
+              {profile.reviewRespondedAt ? (
+                <>
+                  <p className="settings-business-alert">
+                    <CheckIcon size={14} /> Response sent on {formatDate(profile.reviewRespondedAt)}.
+                    The review team reads it before deciding.
+                  </p>
+                  {profile.reviewResponseNote && (
+                    <p className="settings-business-quote">{profile.reviewResponseNote}</p>
+                  )}
+                </>
+              ) : (
+                <form onSubmit={respondToReview}>
+                  <label className="form-group" htmlFor="business-review-response">
+                    <span className="form-label">Your response</span>
+                    <textarea
+                      id="business-review-response"
+                      className="form-input"
+                      rows={3}
+                      maxLength={1000}
+                      value={reviewResponse}
+                      onChange={(event) => setReviewResponse(event.target.value.slice(0, 1000))}
+                      placeholder="Explain the evidence, add context, or link a public page."
+                    />
+                    <span className="settings-help">
+                      At least 10 characters. This is stored with the review so the decision-maker sees it.
+                    </span>
+                  </label>
+                  <div className="settings-actions">
+                    <button
+                      type="submit"
+                      className="btn btn-primary btn-sm"
+                      disabled={busy === 'respond' || reviewResponse.trim().length < 10}
+                    >
+                      {busy === 'respond' ? 'Sending...' : 'Send response'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
           {status === 'pending' && dnsToken && (
             <div className="settings-business-record">
               <div>
@@ -448,7 +690,13 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                 type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => requestVerification('manual')}
-                disabled={busy === 'manual'}
+                disabled={
+                  busy === 'manual'
+                  || dirty
+                  || !hasContactRoute
+                  || !(form.proofUrl.trim() || form.proofNote.trim())
+                }
+                title={dirty ? 'Save the profile before requesting review.' : undefined}
               >
                 {busy === 'manual' ? 'Requesting...' : 'Request manual review'}
               </button>

@@ -14,7 +14,14 @@ const BusinessVerificationAuditSchema = new mongoose.Schema(
       ref: 'User',
       default: null
     },
-    status: { type: String, enum: ['verified', 'rejected'], required: true },
+    status: {
+      type: String,
+      enum: ['verified', 'rejected', 'contacted', 'responded', 'demoted', 'expired'],
+      required: true
+    },
+    // How a review contact reached the business: the owner's preferred method
+    // or an email chosen by the reviewer.
+    channel: { type: String, default: '', maxlength: 20 },
     note: { type: String, default: '', maxlength: 500 }
   },
   { timestamps: true }

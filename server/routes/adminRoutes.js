@@ -9,7 +9,9 @@ const { getSystemHealth, getMetrics, getFunnel } = require('../controllers/admin
 const { getDmReports, resolveDmReport } = require('../controllers/dmAdminController');
 const {
   getPendingBusinessVerifications,
-  resolveBusinessVerification
+  resolveBusinessVerification,
+  contactBusinessVerification,
+  demoteBusinessAccount
 } = require('../controllers/businessController');
 const {
   listUsers,
@@ -70,6 +72,8 @@ router.post('/dm-reports/:id/resolve', requirePlatformAdmin, resolveDmReport);
 
 // ── Business verification ───────────────────────────────────────────────────
 router.get('/business-verifications', requirePlatformAdmin, getPendingBusinessVerifications);
+router.post('/business-verifications/:id/contact', requirePlatformAdmin, contactBusinessVerification);
+router.post('/business-verifications/:id/demote', requirePlatformAdmin, demoteBusinessAccount);
 router.post('/business-verifications/:id/resolve', requirePlatformAdmin, resolveBusinessVerification);
 
 // ── Catalog and storage (admin only) ────────────────────────────────────────

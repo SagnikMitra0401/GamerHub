@@ -14,6 +14,11 @@ const { cloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const { getIO } = require('../config/socket');
 const { eraseAccount } = require('../utils/accountErasure');
 const { purgeExpiredDmRequests } = require('../utils/dmService');
+const {
+  expireAbandonedBusinessApplications,
+  purgeExpiredBusinessEvidence,
+  purgeExpiredBusinessAudits
+} = require('../utils/businessRetention');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PENDING_MEDIA_HOURS = 24;
@@ -233,6 +238,33 @@ function startRetentionWorker() {
       }
     } catch (err) {
       console.error('[Retention] notification purge failed:', err.message);
+    }
+
+    try {
+      const abandoned = await expireAbandonedBusinessApplications();
+      if (abandoned.expired > 0) {
+        console.log(`[Retention] expired ${abandoned.expired} abandoned business application(s)`);
+      }
+    } catch (err) {
+      console.error('[Retention] abandoned application sweep failed:', err.message);
+    }
+
+    try {
+      const evidence = await purgeExpiredBusinessEvidence();
+      if (evidence.profiles > 0) {
+        console.log(`[Retention] cleared review evidence for ${evidence.profiles} business profile(s)`);
+      }
+    } catch (err) {
+      console.error('[Retention] business evidence purge failed:', err.message);
+    }
+
+    try {
+      const businessAudits = await purgeExpiredBusinessAudits();
+      if (businessAudits.audits > 0) {
+        console.log(`[Retention] purged ${businessAudits.audits} expired business review audit row(s)`);
+      }
+    } catch (err) {
+      console.error('[Retention] business audit purge failed:', err.message);
     }
 
     try {

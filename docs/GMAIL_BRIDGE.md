@@ -8,6 +8,16 @@ your Gmail account with `MailApp`.
 It needs no domain, no paid provider and no SMTP ports. It is intended for
 low-volume account email (verification and password reset), not marketing.
 
+The recipient can be on **any provider** — Gmail, Outlook/Hotmail, Yahoo, a work
+address or a custom domain. `MailApp.sendEmail` does not restrict the destination
+to Google accounts, so no allowlist or domain check is needed. Deliverability and
+spam placement are still controlled by the recipient's provider.
+
+A consumer Gmail account is limited to roughly 100 recipients per day, and the
+bridge adds its own 30-per-minute cap. Verification mail also stays in the
+sending account's **Sent** folder under Google's retention; enable 2FA on that
+account and delete old verification mail periodically. Never forward it.
+
 ## What you need
 
 - A Google/Gmail account.

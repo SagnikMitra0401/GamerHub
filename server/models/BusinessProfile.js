@@ -24,6 +24,37 @@ const BusinessProfileSchema = new mongoose.Schema(
     description: { type: String, default: '', trim: true, maxlength: 600 },
     website: { type: String, default: '', trim: true, maxlength: 200 },
     supportEmail: { type: String, default: '', trim: true, maxlength: 120 },
+
+    // Verification correspondence. `supportEmail` is public; these fields are
+    // shown only to the owner and to review staff.
+    contactEmail: { type: String, default: '', trim: true, maxlength: 120 },
+    contactMethod: {
+      type: String,
+      enum: ['email', 'phone', 'other'],
+      default: 'email'
+    },
+    contactDetail: { type: String, default: '', trim: true, maxlength: 120 },
+    proofType: {
+      type: String,
+      enum: ['registration', 'tax', 'domain_email', 'official_profile', 'other'],
+      default: 'other'
+    },
+    proofUrl: { type: String, default: '', trim: true, maxlength: 300 },
+    proofNote: { type: String, default: '', trim: true, maxlength: 600 },
+    reviewContactedAt: { type: Date, default: null },
+    // The owner's answer to that contact. Stored so a reviewer reads it before
+    // deciding, instead of relying on an off-platform email reply.
+    reviewRespondedAt: { type: Date, default: null },
+    reviewResponseNote: { type: String, default: '', maxlength: 1000 },
+    // When the current application was decided (verified, rejected or
+    // demoted). The evidence retention window runs from this instant.
+    reviewDecidedAt: { type: Date, default: null },
+    // Set by the retention worker after the evidence fields are cleared, so
+    // the owner and reviewers can see that nothing was lost by accident.
+    evidencePurgedAt: { type: Date, default: null },
+    demotedAt: { type: Date, default: null },
+    demotionReason: { type: String, default: '', maxlength: 500 },
+
     timezone: { type: String, default: '', trim: true, maxlength: 60 },
     responseExpectation: { type: String, default: '', trim: true, maxlength: 80 },
     links: {
@@ -36,7 +67,7 @@ const BusinessProfileSchema = new mongoose.Schema(
 
     verificationStatus: {
       type: String,
-      enum: ['none', 'pending', 'verified', 'rejected'],
+      enum: ['none', 'pending', 'verified', 'rejected', 'expired'],
       default: 'none',
       index: true
     },
@@ -60,5 +91,6 @@ const BusinessProfileSchema = new mongoose.Schema(
 );
 
 BusinessProfileSchema.index({ verificationStatus: 1, createdAt: -1 });
+BusinessProfileSchema.index({ reviewDecidedAt: 1 });
 
 module.exports = mongoose.model('BusinessProfile', BusinessProfileSchema);

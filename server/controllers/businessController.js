@@ -1,20 +1,38 @@
 const crypto = require('crypto');
 
 const BusinessProfile = require('../models/BusinessProfile');
+const BusinessTeamMember = require('../models/BusinessTeamMember');
 const BusinessVerificationAudit = require('../models/BusinessVerificationAudit');
 const User = require('../models/User');
 const Conversation = require('../models/Conversation');
 
 const { badRequest, notFound, conflict } = require('../utils/httpError');
 const {
+  BUSINESS_REVIEW_RESPONSE_DAYS,
   BUSINESS_VERIFICATION_METHODS,
   sanitizeBusinessProfile,
   publicBusinessProfile,
+  ownerBusinessProfile,
+  manualReviewReadiness,
+  sanitizeReviewResponse,
+  demotionReadiness,
   verificationDomainFor
 } = require('../utils/business');
 const { checkDnsToken, normalizeDomain } = require('../utils/domainVerification');
+const { recordPlatformAudit } = require('../utils/audit');
+const { sendBusinessReviewEmail } = require('../utils/email');
 
 const isId = (value) => /^[a-f0-9]{24}$/i.test(String(value || ''));
+
+// The audit keeps enough of a message to explain the decision, not the whole
+// email body (Phase 17 retention: reason, channel, actor, timestamp).
+const AUDIT_EXCERPT_LENGTH = 160;
+const auditExcerpt = (value) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length > AUDIT_EXCERPT_LENGTH
+    ? `${text.slice(0, AUDIT_EXCERPT_LENGTH - 1)}…`
+    : text;
+};
 
 /** GET /api/business/:username — public disclosed business card. */
 const getPublicBusiness = async (req, res, next) => {
@@ -57,6 +75,10 @@ const saveBusinessProfile = async (req, res, next) => {
 
     // A verified domain can be trusted only while the website still points at
     // it. Editing the domain resets verification; editing copy does not.
+    //
+    // `reviewDecidedAt` is deliberately NOT cleared here: it belongs to the past
+    // decision, and a profile edit must not postpone deletion of the evidence
+    // that decision was based on. A later verification stamps a fresh clock.
     const oldHost = verificationDomainFor(existing);
     const newHost = verificationDomainFor({ website: update.website });
     if (existing?.verificationStatus === 'verified' && oldHost !== newHost) {
@@ -81,12 +103,7 @@ const saveBusinessProfile = async (req, res, next) => {
 
     res.status(200).json({
       profileType: 'creator_business',
-      businessProfile: {
-        ...publicBusinessProfile(profile),
-        verificationMethod: profile.verificationMethod || null,
-        verificationDomain: profile.verificationDomain || '',
-        verificationRequestedAt: profile.verificationRequestedAt || null
-      }
+      businessProfile: ownerBusinessProfile(profile)
     });
   } catch (err) {
     next(err);
@@ -115,7 +132,7 @@ const requestBusinessVerification = async (req, res, next) => {
     if (!profile) throw badRequest('Create a business profile before requesting verification.');
     if (profile.verificationStatus === 'verified') {
       return res.status(200).json({
-        businessProfile: publicBusinessProfile(profile),
+        businessProfile: ownerBusinessProfile(profile),
         alreadyVerified: true
       });
     }
@@ -123,6 +140,13 @@ const requestBusinessVerification = async (req, res, next) => {
     const method = BUSINESS_VERIFICATION_METHODS.includes(req.body?.method)
       ? req.body.method
       : 'dns';
+
+    // Manual review is the path that can collect evidence, so it requires a
+    // correspondence route plus something a reviewer can actually check.
+    if (method === 'manual') {
+      const readiness = manualReviewReadiness(profile);
+      if (!readiness.ok) throw badRequest(readiness.reason);
+    }
     const domain = String(req.body?.domain || verificationDomainFor(profile) || '')
       .trim()
       .toLowerCase()
@@ -139,15 +163,18 @@ const requestBusinessVerification = async (req, res, next) => {
     profile.verificationRequestedAt = new Date();
     profile.verifiedAt = null;
     profile.verifiedBy = null;
+    // A fresh application needs a fresh contact attempt; an old conversation
+    // must not authorise a demotion decision on new evidence.
+    profile.reviewContactedAt = null;
+    profile.reviewRespondedAt = null;
+    profile.reviewResponseNote = '';
+    profile.reviewDecidedAt = null;
+    profile.demotedAt = null;
+    profile.demotionReason = '';
     await profile.save();
 
     res.status(200).json({
-      businessProfile: {
-        ...publicBusinessProfile(profile),
-        verificationMethod: profile.verificationMethod,
-        verificationDomain: profile.verificationDomain,
-        verificationRequestedAt: profile.verificationRequestedAt
-      },
+      businessProfile: ownerBusinessProfile(profile),
       instructions: method === 'dns'
         ? {
             method,
@@ -177,7 +204,7 @@ const checkBusinessVerification = async (req, res, next) => {
     const profile = await BusinessProfile.findOne({ userId: req.user._id });
     if (!profile) throw notFound('Business profile not found.');
     if (profile.verificationStatus === 'verified') {
-      return res.status(200).json({ businessProfile: publicBusinessProfile(profile), alreadyVerified: true });
+      return res.status(200).json({ businessProfile: ownerBusinessProfile(profile), alreadyVerified: true });
     }
     if (profile.verificationStatus !== 'pending' || profile.verificationMethod !== 'dns') {
       throw badRequest('Request DNS verification before checking the record.');
@@ -190,6 +217,7 @@ const checkBusinessVerification = async (req, res, next) => {
     profile.verificationStatus = 'verified';
     profile.verifiedAt = new Date();
     profile.verifiedBy = null;
+    profile.reviewDecidedAt = new Date();
     profile.outreachPaused = false;
     profile.verificationToken = '';
     await profile.save();
@@ -202,7 +230,7 @@ const checkBusinessVerification = async (req, res, next) => {
     });
 
     res.status(200).json({
-      businessProfile: publicBusinessProfile(profile),
+      businessProfile: ownerBusinessProfile(profile),
       verified: true,
       domain: result.domain
     });
@@ -251,7 +279,7 @@ const getBusinessAnalytics = async (req, res, next) => {
 /** GET /api/admin/business-verifications */
 const getPendingBusinessVerifications = async (req, res, next) => {
   try {
-    const status = ['pending', 'verified', 'rejected', 'all'].includes(req.query.status)
+    const status = ['pending', 'verified', 'rejected', 'expired', 'all'].includes(req.query.status)
       ? req.query.status
       : 'pending';
     const query = status === 'all'
@@ -266,6 +294,7 @@ const getPendingBusinessVerifications = async (req, res, next) => {
       .lean();
 
     res.status(200).json({
+      responseWindowDays: BUSINESS_REVIEW_RESPONSE_DAYS,
       items: profiles.map((profile) => ({
         _id: String(profile._id),
         user: profile.userId
@@ -278,11 +307,34 @@ const getPendingBusinessVerifications = async (req, res, next) => {
           : null,
         business: {
           ...publicBusinessProfile(profile),
+          contactEmail: profile.contactEmail || '',
+          contactMethod: profile.contactMethod || 'email',
+          contactDetail: profile.contactDetail || '',
+          proofType: profile.proofType || 'other',
+          proofUrl: profile.proofUrl || '',
+          proofNote: profile.proofNote || '',
           verificationMethod: profile.verificationMethod || null,
-          verificationDomain: profile.verificationDomain || ''
+          verificationDomain: profile.verificationDomain || '',
+          reviewRespondedAt: profile.reviewRespondedAt || null,
+          reviewResponseNote: profile.reviewResponseNote || '',
+          reviewDecidedAt: profile.reviewDecidedAt || null,
+          evidencePurgedAt: profile.evidencePurgedAt || null
         },
+        // The queue renders the same rule the endpoint enforces, so a disabled
+        // Demote button always says why instead of failing on click.
+        demotion: (() => {
+          const readiness = demotionReadiness(profile);
+          return {
+            canDemote: readiness.ok,
+            code: readiness.ok ? null : readiness.code,
+            reason: readiness.ok ? null : readiness.reason,
+            earliestDemotionAt: readiness.earliestDemotionAt || null,
+            daysRemaining: readiness.daysRemaining || 0
+          };
+        })(),
         token: profile.verificationToken || '',
-        requestedAt: profile.verificationRequestedAt || null
+        requestedAt: profile.verificationRequestedAt || null,
+        reviewContactedAt: profile.reviewContactedAt || null
       }))
     });
   } catch (err) {
@@ -308,7 +360,7 @@ const resolveBusinessVerification = async (req, res, next) => {
       profile.outreachPaused = false;
       await profile.save();
       return res.status(200).json({
-        businessProfile: publicBusinessProfile(profile),
+        businessProfile: ownerBusinessProfile(profile),
         status: 'verified',
         unpaused: true
       });
@@ -317,6 +369,8 @@ const resolveBusinessVerification = async (req, res, next) => {
     profile.verificationStatus = status;
     profile.verifiedAt = status === 'verified' ? new Date() : null;
     profile.verifiedBy = status === 'verified' ? req.user._id : null;
+    // Starts the 24-month evidence clock for either outcome.
+    profile.reviewDecidedAt = new Date();
     if (status === 'verified') profile.outreachPaused = false;
     if (status === 'rejected') profile.verificationToken = '';
     await profile.save();
@@ -329,8 +383,212 @@ const resolveBusinessVerification = async (req, res, next) => {
     });
 
     res.status(200).json({
-      businessProfile: publicBusinessProfile(profile),
+      businessProfile: ownerBusinessProfile(profile),
       status
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/admin/business-verifications/:id/contact
+ *
+ * Reviewers must reach the official contact before withdrawing a business
+ * account. Email is sent through the configured bridge; phone/other means the
+ * reviewer records that the conversation happened. Either way the attempt is
+ * timestamped and audited before a demotion is allowed.
+ */
+const contactBusinessVerification = async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) throw badRequest('Invalid business profile.');
+    const message = String(req.body?.message || '').trim().slice(0, 1000);
+    if (message.length < 5) {
+      throw badRequest('Write a message that explains what the business must address.');
+    }
+
+    const profile = await BusinessProfile.findById(req.params.id);
+    if (!profile) throw notFound('Business profile not found.');
+
+    const owner = await User.findById(profile.userId).select('username email').lean();
+    const channel = ['email', 'phone', 'other'].includes(req.body?.channel)
+      ? req.body.channel
+      : (profile.contactMethod || 'email');
+    const to = profile.contactEmail || profile.supportEmail || owner?.email || '';
+
+    if (channel === 'email') {
+      if (!to) throw badRequest('This business has no contact email on file.');
+      await sendBusinessReviewEmail({
+        to,
+        displayName: profile.displayName,
+        message,
+        outcome: 'contact'
+      });
+    }
+
+    // A new message starts a new round: the previous answer cannot stand in
+    // for an answer to this one, and the window restarts from this contact.
+    profile.reviewContactedAt = new Date();
+    profile.reviewRespondedAt = null;
+    profile.reviewResponseNote = '';
+    await profile.save();
+
+    await BusinessVerificationAudit.create({
+      businessProfileId: profile._id,
+      actorId: req.user._id,
+      status: 'contacted',
+      channel,
+      note: `${channel} contact: ${auditExcerpt(message)}`.slice(0, AUDIT_EXCERPT_LENGTH)
+    });
+    await recordPlatformAudit({
+      actorId: req.user._id,
+      actionType: 'PLATFORM_BUSINESS_CONTACT',
+      targetId: profile._id,
+      targetModel: 'BusinessProfile',
+      metadata: { channel, username: owner?.username || null }
+    });
+
+    res.status(200).json({
+      contacted: true,
+      channel,
+      reviewContactedAt: profile.reviewContactedAt
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/account/business-verification/respond
+ *
+ * The owner answers the reviewer's contact from inside the app. Without this,
+ * "contact before demotion" would depend on an email reply nobody records.
+ */
+const respondToBusinessReview = async (req, res, next) => {
+  try {
+    const parsed = sanitizeReviewResponse(req.body || {});
+    if (!parsed.ok) throw badRequest(parsed.reason);
+
+    const profile = await BusinessProfile.findOne({ userId: req.user._id });
+    if (!profile) throw notFound('Business profile not found.');
+    if (!profile.reviewContactedAt) {
+      throw badRequest('There is no review contact to answer yet.');
+    }
+    // A verified business can also be contacted ahead of a demotion decision,
+    // so "pending" is not the only status that may answer.
+    if (!['pending', 'verified'].includes(profile.verificationStatus)) {
+      throw badRequest('This review is not awaiting a response.');
+    }
+
+    profile.reviewRespondedAt = new Date();
+    profile.reviewResponseNote = parsed.value;
+    await profile.save();
+
+    await BusinessVerificationAudit.create({
+      businessProfileId: profile._id,
+      actorId: req.user._id,
+      status: 'responded',
+      channel: profile.contactMethod || 'email',
+      note: auditExcerpt(parsed.value)
+    });
+    await recordPlatformAudit({
+      actorId: req.user._id,
+      actionType: 'PLATFORM_BUSINESS_RESPOND',
+      targetId: profile._id,
+      targetModel: 'BusinessProfile',
+      metadata: { username: req.user.username || null }
+    });
+
+    res.status(200).json({
+      responded: true,
+      businessProfile: ownerBusinessProfile(profile)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/admin/business-verifications/:id/demote
+ *
+ * Returns the account to a personal profile and cancels every permission the
+ * business role carried: the verified badge, cold outreach and the shared team
+ * inbox. A contact attempt logged after the current review request is required
+ * first, so a false-information decision cannot skip talking to the business.
+ */
+const demoteBusinessAccount = async (req, res, next) => {
+  try {
+    if (!isId(req.params.id)) throw badRequest('Invalid business profile.');
+    const reason = String(req.body?.reason || '').trim().slice(0, 500);
+    if (reason.length < 5) {
+      throw badRequest('Give a reason (at least 5 characters) for the demotion.');
+    }
+
+    const profile = await BusinessProfile.findById(req.params.id);
+    if (!profile) throw notFound('Business profile not found.');
+
+    const readiness = demotionReadiness(profile);
+    if (!readiness.ok) {
+      throw conflict(readiness.reason, { code: readiness.code });
+    }
+
+    const owner = await User.findById(profile.userId).select('username email').lean();
+    const to = profile.contactEmail || profile.supportEmail || owner?.email || '';
+
+    await User.updateOne({ _id: profile.userId }, { $set: { profileType: 'personal' } });
+
+    profile.verificationStatus = 'none';
+    profile.verificationMethod = null;
+    profile.verificationDomain = '';
+    profile.verificationToken = '';
+    profile.verifiedAt = null;
+    profile.verifiedBy = null;
+    profile.outreachPaused = false;
+    profile.reviewDecidedAt = new Date();
+    profile.demotedAt = new Date();
+    profile.demotionReason = reason;
+    await profile.save();
+
+    // Team access exists only for the business workspace; remove it with the
+    // role. API checks re-read membership, so a removed teammate loses access
+    // immediately even before their open socket is closed.
+    const revoked = await BusinessTeamMember.updateMany(
+      { businessOwnerId: profile.userId, status: { $ne: 'removed' } },
+      { $set: { status: 'removed', respondedAt: new Date() } }
+    );
+
+    await BusinessVerificationAudit.create({
+      businessProfileId: profile._id,
+      actorId: req.user._id,
+      status: 'demoted',
+      channel: profile.contactMethod || 'email',
+      note: reason
+    });
+    await recordPlatformAudit({
+      actorId: req.user._id,
+      actionType: 'PLATFORM_BUSINESS_DEMOTE',
+      targetId: profile._id,
+      targetModel: 'BusinessProfile',
+      metadata: {
+        reason,
+        username: owner?.username || null,
+        revokedTeamMembers: revoked.modifiedCount || 0
+      }
+    });
+
+    if (to) {
+      sendBusinessReviewEmail({
+        to,
+        displayName: profile.displayName,
+        message: reason,
+        outcome: 'demoted'
+      }).catch((err) => console.error('[Business] demotion email failed:', err.message));
+    }
+
+    res.status(200).json({
+      demoted: true,
+      revokedTeamMembers: revoked.modifiedCount || 0,
+      businessProfile: ownerBusinessProfile(profile)
     });
   } catch (err) {
     next(err);
@@ -345,5 +603,8 @@ module.exports = {
   checkBusinessVerification,
   getBusinessAnalytics,
   getPendingBusinessVerifications,
-  resolveBusinessVerification
+  resolveBusinessVerification,
+  contactBusinessVerification,
+  respondToBusinessReview,
+  demoteBusinessAccount
 };

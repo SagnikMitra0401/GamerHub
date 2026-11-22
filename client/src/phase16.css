@@ -816,7 +816,7 @@
 
 /* ── Broadcast channels ───────────────────────────────────────────────────── */
 
-.channels-layout { padding-top: 1.5rem; padding-bottom: 3rem; display: grid; gap: 1.5rem; }
+.channels-layout { padding-top: calc(var(--nav-h) + 1.5rem); padding-bottom: 3rem; display: grid; gap: 1.5rem; }
 
 .channels-head {
   display: flex;

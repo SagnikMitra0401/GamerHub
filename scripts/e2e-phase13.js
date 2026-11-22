@@ -509,7 +509,12 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
     body: {
       displayName: 'Manual Review Studio',
       category: 'brand',
-      description: 'A business requesting manual review.'
+      description: 'A business requesting manual review.',
+      // Manual review still needs no website/DNS, but it does need a reachable
+      // official contact and evidence a reviewer can check.
+      contactEmail: 'review@manual-review.example',
+      proofType: 'official_profile',
+      proofNote: 'Official listing at listings.example/manual-review-studio.'
     }
   });
   check('a business can be created without a website', () => {
