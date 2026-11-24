@@ -93,7 +93,7 @@ const ChannelsPage = () => {
       <div className="channels-head">
         <div>
           <h1>Channels</h1>
-          <p>Follow creators and servers for one-way updates — no noise, no replies.</p>
+          <p>Follow creators and servers for one-way updates, without noise or replies.</p>
         </div>
         {user && (
           <button type="button" className="btn btn-primary" onClick={() => setShowCreate((value) => !value)}>

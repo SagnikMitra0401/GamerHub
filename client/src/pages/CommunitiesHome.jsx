@@ -75,7 +75,7 @@ const CommunitiesHome = () => {
           <CommunityGridSkeleton />
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            <p>No communities found. Be the first to create one!</p>
+            <p>No communities found. Create the first one.</p>
             {user && (
               <button className="btn btn-primary" onClick={() => setShowCreate(true)} style={{ marginTop: '0.75rem' }}>
                 Create Community

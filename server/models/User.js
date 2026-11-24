@@ -22,6 +22,12 @@ const UserSchema = new mongoose.Schema({
   // accounts are grandfathered by the account-recovery migration; new local
   // registrations start null and must confirm the address.
   emailVerifiedAt: { type: Date, default: null },
+  // Backup address for account recovery. It is never a sign-in identity, never
+  // shown on the profile, and it can only recover the account after
+  // `recoveryEligibleAt`, which sits seven days past the change.
+  recoveryEmail: { type: String, default: '', trim: true, maxlength: 254 },
+  recoveryEmailVerifiedAt: { type: Date, default: null },
+  recoveryEligibleAt: { type: Date, default: null },
   // New local accounts start null and are routed to /welcome. Existing
   // accounts are grandfathered by the onboarding migration, which sets this to
   // their createdAt timestamp.

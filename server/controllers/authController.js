@@ -7,14 +7,24 @@ const { disconnectUser } = require('../config/socket');
 const {
   PURPOSES,
   issueAccountToken,
-  consumeAccountToken
+  consumeAccountToken,
+  invalidateAccountTokens
 } = require('../utils/accountTokens');
 const {
-  sendVerificationEmail,
+  sendVerificationCodeEmail,
   sendPasswordResetEmail,
-  verificationUrl,
+  sendRecoverySetupCodeEmail,
+  sendAccountRecoveryCodeEmail,
+  sendRecoveryEmailChangedEmail,
+  sendAccountRecoveryCompletedEmail,
   resetUrl
 } = require('../utils/email');
+const {
+  PURPOSES: CODE_PURPOSES,
+  issueEmailChallenge,
+  consumeEmailChallenge,
+  invalidateEmailChallenges
+} = require('../utils/emailCodes');
 const {
   validatePassword,
   hashPassword,
@@ -28,22 +38,27 @@ const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 const GENERIC_RESET_MESSAGE =
   'If an account exists for that email, a reset link has been sent.';
 const GENERIC_TOKEN_ERROR = 'This link is invalid or has expired.';
+const GENERIC_CODE_ERROR = 'That code is invalid or has expired. Request a new one.';
+const RECOVERY_COOLING_OFF_MS = 7 * 24 * 60 * 60 * 1000;
+const isEmailAddress = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(value || ''));
 
 const normalizeEmail = (value) => sanitizeLine(value, 254).toLowerCase();
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Send the one live verification link for an account.
- * The caller decides whether a delivery failure should be fatal; registration
- * deliberately treats it as non-fatal so an email outage cannot block signup.
+ * Send the one live confirmation code for an account.
+ *
+ * The code goes to the address only. It is never returned to the client, never
+ * written to a log and never stored in plaintext, so a browser console, an
+ * element inspector or a network response cannot reveal it.
  */
-async function deliverVerificationEmail(user, req) {
-  const token = await issueAccountToken(user._id, PURPOSES.VERIFY_EMAIL);
-  await sendVerificationEmail({
-    to: user.email,
-    username: user.username,
-    url: verificationUrl(req, token)
-  });
+async function deliverVerificationCode(user) {
+  const { code, expiresAt } = await issueEmailChallenge(
+    user._id,
+    CODE_PURPOSES.VERIFY_EMAIL
+  );
+  await sendVerificationCodeEmail({ to: user.email, username: user.username, code });
+  return expiresAt;
 }
 
 // Public OIDC client id. It is not a secret; the server still verifies every
@@ -110,8 +125,9 @@ const register = async (req, res, next) => {
     });
 
     let verificationSent = false;
+    let verificationExpiresAt = null;
     try {
-      await deliverVerificationEmail(user, req);
+      verificationExpiresAt = await deliverVerificationCode(user);
       verificationSent = true;
     } catch (err) {
       // Email delivery is not allowed to turn a successful signup into a 500.
@@ -130,6 +146,8 @@ const register = async (req, res, next) => {
         onboardingCompletedAt: user.onboardingCompletedAt || null
       },
       verificationSent,
+      // Expiry only. The code itself leaves the building in the email.
+      verificationExpiresAt,
       token
     });
   } catch (err) {
@@ -418,8 +436,9 @@ const resendVerification = async (req, res, next) => {
       return res.status(200).json({ alreadyVerified: true, emailVerified: true });
     }
 
+    let expiresAt = null;
     try {
-      await deliverVerificationEmail(req.user, req);
+      expiresAt = await deliverVerificationCode(req.user);
     } catch (err) {
       console.error('[Auth] verification resend failed:', err.message);
       return res.status(503).json({
@@ -427,7 +446,297 @@ const resendVerification = async (req, res, next) => {
       });
     }
 
-    res.status(200).json({ sent: true });
+    // A resend retires the previous code, so only the newest one works.
+    res.status(200).json({ sent: true, expiresAt });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /api/auth/verify-email/code  { code } — requires the session. */
+const verifyEmailWithCode = async (req, res, next) => {
+  try {
+    if (req.user.emailVerifiedAt) {
+      return res.status(200).json({ verified: true, emailVerified: true, alreadyVerified: true });
+    }
+
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+    const result = await consumeEmailChallenge(req.user._id, CODE_PURPOSES.VERIFY_EMAIL, code);
+    if (!result.ok) {
+      return res.status(400).json({
+        message: GENERIC_CODE_ERROR,
+        code: 'EMAIL_CODE_INVALID',
+        attemptsRemaining: result.attemptsRemaining
+      });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id, status: { $nin: ['suspended', 'deleted'] } },
+      { $set: { emailVerifiedAt: new Date() } },
+      { new: true, select: '_id email emailVerifiedAt' }
+    ).lean();
+
+    if (!user) {
+      return res.status(400).json({ message: GENERIC_CODE_ERROR, code: 'EMAIL_CODE_INVALID' });
+    }
+
+    recordEvent('email_verified', user._id, { method: 'code' });
+    res.status(200).json({ verified: true, emailVerified: true, alreadyVerified: false });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/recovery-email  { email }
+ *
+ * Sends a code to the new address. The address is not written to the user
+ * document until that code comes back, so a typo cannot become a recovery path.
+ */
+const setRecoveryEmail = async (req, res, next) => {
+  try {
+    if (!req.user.emailVerifiedAt) {
+      return res.status(403).json({
+        message: 'Confirm your own email address before adding a recovery email.',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
+    }
+
+    const email = normalizeEmail(req.body?.email);
+    if (!email || !isEmailAddress(email)) {
+      return res.status(400).json({ message: 'Enter a valid email address.' });
+    }
+    if (email === String(req.user.email || '').toLowerCase()) {
+      return res.status(400).json({
+        message: 'That is already your sign-in address. Use a different address.'
+      });
+    }
+
+    const { code, expiresAt } = await issueEmailChallenge(
+      req.user._id,
+      CODE_PURPOSES.VERIFY_RECOVERY,
+      { target: email }
+    );
+
+    try {
+      await sendRecoverySetupCodeEmail({ to: email, username: req.user.username, code });
+    } catch (err) {
+      console.error('[Auth] recovery setup email failed:', err.message);
+      return res.status(503).json({
+        message: 'We could not send that email right now. Try again later.'
+      });
+    }
+
+    res.status(202).json({ sent: true, expiresAt });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** POST /api/auth/recovery-email/verify  { code } */
+const verifyRecoveryEmail = async (req, res, next) => {
+  try {
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+    const result = await consumeEmailChallenge(req.user._id, CODE_PURPOSES.VERIFY_RECOVERY, code);
+
+    if (!result.ok || !result.target) {
+      return res.status(400).json({
+        message: GENERIC_CODE_ERROR,
+        code: 'EMAIL_CODE_INVALID',
+        attemptsRemaining: result.attemptsRemaining
+      });
+    }
+
+    const eligibleAt = new Date(Date.now() + RECOVERY_COOLING_OFF_MS);
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id, emailVerifiedAt: { $ne: null } },
+      {
+        $set: {
+          recoveryEmail: result.target,
+          recoveryEmailVerifiedAt: new Date(),
+          recoveryEligibleAt: eligibleAt
+        }
+      },
+      {
+        new: true,
+        select: '_id username email recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt'
+      }
+    ).lean();
+
+    if (!user) {
+      return res.status(400).json({ message: GENERIC_CODE_ERROR, code: 'EMAIL_CODE_INVALID' });
+    }
+
+    recordEvent('recovery_email_added', user._id);
+    // Both inboxes learn about the change, so a silent takeover needs both.
+    sendRecoveryEmailChangedEmail({
+      to: user.email,
+      username: user.username,
+      action: 'added',
+      address: user.recoveryEmail,
+      eligibleAt
+    }).catch((err) => console.error('[Auth] recovery change notice failed:', err.message));
+    sendRecoveryEmailChangedEmail({
+      to: user.recoveryEmail,
+      username: user.username,
+      action: 'added',
+      address: user.recoveryEmail,
+      eligibleAt
+    }).catch((err) => console.error('[Auth] recovery change notice failed:', err.message));
+
+    res.status(200).json({
+      recoveryEmail: user.recoveryEmail,
+      recoveryEmailVerifiedAt: user.recoveryEmailVerifiedAt,
+      recoveryEligibleAt: eligibleAt
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/** DELETE /api/auth/recovery-email — removes the backup path immediately. */
+const removeRecoveryEmail = async (req, res, next) => {
+  try {
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id },
+      {
+        $set: {
+          recoveryEmail: '',
+          recoveryEmailVerifiedAt: null,
+          recoveryEligibleAt: null
+        }
+      },
+      { new: true, select: '_id username email recoveryEmail' }
+    ).lean();
+
+    await invalidateEmailChallenges(req.user._id, CODE_PURPOSES.VERIFY_RECOVERY);
+    // A recovery already in flight must die with the address it was sent to.
+    await invalidateEmailChallenges(req.user._id, CODE_PURPOSES.RECOVER_ACCOUNT);
+
+    if (user) {
+      recordEvent('recovery_email_removed', user._id);
+      sendRecoveryEmailChangedEmail({
+        to: user.email,
+        username: user.username,
+        action: 'removed'
+      }).catch((err) => console.error('[Auth] recovery change notice failed:', err.message));
+    }
+
+    res.status(200).json({ removed: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/recovery/start  { username, recoveryEmail }
+ *
+ * Same status, body and rough timing whatever the inputs match, so this cannot
+ * be used to discover which handles exist or which one has a backup address.
+ */
+const startRecovery = async (req, res, next) => {
+  const started = Date.now();
+  try {
+    const parsedUsername = normalizeUsername(req.body?.username);
+    const recoveryEmail = normalizeEmail(req.body?.recoveryEmail);
+
+    if (parsedUsername.ok && recoveryEmail && isEmailAddress(recoveryEmail)) {
+      const user = await User.findOne(usernameFilter(parsedUsername.value))
+        .select('_id username status recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt')
+        .lean();
+
+      const eligible = Boolean(
+        user &&
+          user.status !== 'deleted' &&
+          user.recoveryEmailVerifiedAt &&
+          String(user.recoveryEmail || '').toLowerCase() === recoveryEmail &&
+          user.recoveryEligibleAt &&
+          user.recoveryEligibleAt.getTime() <= Date.now()
+      );
+
+      if (eligible) {
+        const { code } = await issueEmailChallenge(user._id, CODE_PURPOSES.RECOVER_ACCOUNT, {
+          target: user.recoveryEmail
+        });
+        sendAccountRecoveryCodeEmail({
+          to: user.recoveryEmail,
+          username: user.username,
+          code
+        }).catch((err) => console.error('[Auth] recovery code email failed:', err.message));
+      }
+    }
+  } catch (err) {
+    // Keep the response generic even when the lookup or the send fails.
+    console.error('[Auth] recovery start failed:', err.message);
+  }
+
+  await wait(Math.max(0, 350 - (Date.now() - started)));
+  res.status(202).json({
+    message:
+      'If those details match an account with a confirmed recovery email, a code is on its way.'
+  });
+};
+
+/**
+ * POST /api/auth/recovery/verify  { username, code, newPassword }
+ *
+ * Proves control of the backup address, not of the primary one. The primary
+ * address stays unverified, untouched and out of the reset.
+ */
+const verifyRecovery = async (req, res, next) => {
+  try {
+    const parsedUsername = normalizeUsername(req.body?.username);
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+    const password = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
+
+    const check = validatePassword(password);
+    if (!check.ok) return res.status(400).json({ message: check.message });
+    if (!parsedUsername.ok) return res.status(400).json({ message: GENERIC_CODE_ERROR });
+
+    const user = await User.findOne(usernameFilter(parsedUsername.value))
+      .select('_id username email status recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt')
+      .lean();
+
+    const stillEligible = Boolean(
+      user &&
+        user.status !== 'deleted' &&
+        user.recoveryEmailVerifiedAt &&
+        user.recoveryEligibleAt &&
+        user.recoveryEligibleAt.getTime() <= Date.now()
+    );
+    if (!stillEligible) return res.status(400).json({ message: GENERIC_CODE_ERROR });
+
+    const result = await consumeEmailChallenge(user._id, CODE_PURPOSES.RECOVER_ACCOUNT, code);
+    if (!result.ok) {
+      return res.status(400).json({
+        message: GENERIC_CODE_ERROR,
+        attemptsRemaining: result.attemptsRemaining
+      });
+    }
+
+    const passwordHash = await hashPassword(password);
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { passwordHash, hasLocalPassword: true }, $inc: { sessionVersion: 1 } },
+      { runValidators: true }
+    );
+    await invalidateAccountTokens(user._id, PURPOSES.RESET_PASSWORD);
+    await invalidateEmailChallenges(user._id, CODE_PURPOSES.RECOVER_ACCOUNT);
+    disconnectUser(user._id);
+
+    recordEvent('account_recovered', user._id);
+    sendAccountRecoveryCompletedEmail({ to: user.email, username: user.username }).catch((err) =>
+      console.error('[Auth] recovery notice failed:', err.message)
+    );
+    if (user.recoveryEmail) {
+      sendAccountRecoveryCompletedEmail({
+        to: user.recoveryEmail,
+        username: user.username
+      }).catch((err) => console.error('[Auth] recovery notice failed:', err.message));
+    }
+
+    // No session here on purpose: the owner signs in with the new password.
+    res.status(200).json({ recovered: true });
   } catch (err) {
     next(err);
   }
@@ -751,7 +1060,13 @@ module.exports = {
   unlinkGoogle,
   getMe,
   verifyEmail,
+  verifyEmailWithCode,
   resendVerification,
+  setRecoveryEmail,
+  verifyRecoveryEmail,
+  removeRecoveryEmail,
+  startRecovery,
+  verifyRecovery,
   forgotPassword,
   resetPassword,
   changePassword,

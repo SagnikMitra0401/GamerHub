@@ -45,7 +45,7 @@ const getProfile = async (req, res, next) => {
     const user = await User.findOne({ username: req.params.username })
       // Sign-in identities, session counters and personal block lists are not
       // public profile data.
-      .select('-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers')
+      .select('-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers -recoveryEmail -recoveryEmailVerifiedAt -recoveryEligibleAt')
       .populate('followers', 'username')
       .populate('following', 'username')
       .lean();

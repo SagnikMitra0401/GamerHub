@@ -228,7 +228,7 @@ const Welcome = () => {
             <div className="welcome-selected">
               <h3>Your games</h3>
               {games.length === 0 ? (
-                <p className="text-muted">Nothing selected yet — you can skip and choose later.</p>
+                <p className="text-muted">Nothing selected yet. You can skip and choose later.</p>
               ) : (
                 <div className="welcome-chips">
                   {games.map((game) => (

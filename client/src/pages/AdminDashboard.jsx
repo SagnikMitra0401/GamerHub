@@ -53,7 +53,7 @@ function describeFailure(err) {
   if (status === 404) {
     return 'This backend build does not expose /api/admin. Restart the server (or redeploy it) with the latest code, then press Refresh.';
   }
-  if (status === 401) return 'Your session expired — log in again.';
+  if (status === 401) return 'Your session expired. Log in again.';
   if (status === 403) return serverMessage || 'Administrator access required.';
   if (status === 503) return serverMessage || 'The monitoring endpoint is unavailable right now.';
   if (status && serverMessage) return `${serverMessage} (HTTP ${status})`;

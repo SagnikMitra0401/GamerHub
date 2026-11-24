@@ -24,7 +24,11 @@ const {
 const { demoteBusinessAccount } = require('../controllers/businessController');
 
 const DAY = 24 * 60 * 60 * 1000;
-const NOW = new Date('2026-11-22T12:00:00.000Z');
+// The controller calls demotionReadiness without a clock, so its window is
+// measured against the real one. Fixtures therefore share that instant: a fixed
+// calendar date made "contacted five days ago" read as inside the window on the
+// day the file was written and as outside it a week later.
+const NOW = new Date();
 const ago = (days) => new Date(NOW.getTime() - days * DAY);
 
 const originals = {

@@ -1,8 +1,9 @@
 const express = require('express');
 const {
   register, login, logout, logoutAll, getProviders, googleLogin, linkGoogle, unlinkGoogle,
-  getMe, updateProfile, verifyEmail, resendVerification, forgotPassword, resetPassword,
-  changePassword
+  getMe, updateProfile, verifyEmail, verifyEmailWithCode, resendVerification,
+  setRecoveryEmail, verifyRecoveryEmail, removeRecoveryEmail, startRecovery, verifyRecovery,
+  forgotPassword, resetPassword, changePassword
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { createLimiter } = require('../middleware/limiters');
@@ -35,8 +36,20 @@ const passwordLimiter = createLimiter({
 router.get('/providers', getProviders);
 router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
+// Legacy link endpoint, kept for the deprecation window. New registrations
+// receive an 8-digit code and never a link.
 router.post('/verify-email', authLimiter, verifyEmail);
+router.post('/verify-email/code', protect, authLimiter, verifyEmailWithCode);
 router.post('/verify-email/resend', protect, emailLimiter, resendVerification);
+
+// Recovery email: the address proves itself before it is stored.
+router.post('/recovery-email', protect, emailLimiter, setRecoveryEmail);
+router.post('/recovery-email/verify', protect, authLimiter, verifyRecoveryEmail);
+router.delete('/recovery-email', protect, removeRecoveryEmail);
+
+// Account recovery stays unauthenticated by design: the point is a lost session.
+router.post('/recovery/start', emailLimiter, startRecovery);
+router.post('/recovery/verify', authLimiter, verifyRecovery);
 router.post('/forgot-password', emailLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
 router.patch('/password', protect, passwordLimiter, changePassword);

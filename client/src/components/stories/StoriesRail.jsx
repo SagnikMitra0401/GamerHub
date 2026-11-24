@@ -96,7 +96,7 @@ const StoriesRail = () => {
 
         {!loading && !ownGroup && otherGroups.length === 0 && (
           <p className="stories-hint">
-            {user ? 'Share a status — it disappears after 24 hours.' : 'Sign in to share a status.'}
+            {user ? 'Share a status. It disappears after 24 hours.' : 'Sign in to share a status.'}
           </p>
         )}
       </section>

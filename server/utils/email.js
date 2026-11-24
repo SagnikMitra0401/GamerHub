@@ -19,6 +19,19 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Strip anything that could complete a challenge from a log line.
+ *
+ * The console transport exists for local development, and a confirmation code
+ * printed to a terminal is still a valid code for anyone reading that terminal
+ * or a captured log. Codes are only ever readable in the delivered email.
+ */
+function redactSecrets(value) {
+  return String(value ?? '')
+    .replace(/\b\d{8}\b/g, '********')
+    .replace(/([?&]token=)[^\s&"']+/g, '$1redacted');
+}
+
 function transportMode() {
   const explicit = String(process.env.EMAIL_TRANSPORT || '').trim().toLowerCase();
   if (explicit) return explicit;
@@ -88,8 +101,9 @@ async function sendEmail({ to, subject, text, html }) {
   }
 
   if (mode === 'console') {
-    // Local development only. This is the one place a link may be printed.
-    console.log(`\n[Email:console] To: ${to}\nSubject: ${subject}\n${text}\n`);
+    // Local development only. Bodies are redacted: a code or link in a terminal
+    // is a working credential for whoever reads the log.
+    console.log(`\n[Email:console] To: ${to}\nSubject: ${subject}\n${redactSecrets(text)}\n`);
     return { id: 'console' };
   }
 
@@ -163,6 +177,142 @@ async function sendPasswordResetEmail({ to, username, url }) {
       </p>
       <p>This link expires in 30 minutes and can only be used once. If you did not ask for a reset, ignore this email; your password has not changed.</p>
       <p style="color:#6b7280;font-size:12px;word-break:break-all">${escapeHtml(url)}</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+/**
+ * Eight-digit confirmation code. Deliberately no verification link: the code is
+ * the only proof, it expires in ten minutes, and it is sent once per request.
+ */
+async function sendVerificationCodeEmail({ to, username, code, expiresInMinutes = 10 }) {
+  const name = username ? `@${username}` : 'there';
+  const subject = 'Your GamerHub confirmation code';
+  const text = [
+    `Hi ${name},`,
+    '',
+    `Your GamerHub confirmation code is ${code}.`,
+    `It expires in ${expiresInMinutes} minutes.`,
+    '',
+    'If you did not create this account, ignore this email.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">Confirm your email</h2>
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>Your GamerHub confirmation code:</p>
+      <p style="font-family:monospace;font-size:28px;letter-spacing:6px;font-weight:700;margin:16px 0">${escapeHtml(code)}</p>
+      <p>It expires in ${escapeHtml(String(expiresInMinutes))} minutes.</p>
+      <p>If you did not create this account, ignore this email.</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+/** Code sent to a backup address while the owner adds it for recovery. */
+async function sendRecoverySetupCodeEmail({ to, username, code, expiresInMinutes = 10 }) {
+  const name = username ? `@${username}` : 'your account';
+  const subject = 'Confirm your GamerHub recovery email';
+  const text = [
+    `Use this code to make this address the recovery email for ${name}:`,
+    '',
+    code,
+    '',
+    `It expires in ${expiresInMinutes} minutes. It cannot sign in on its own and it is not shown on your profile.`,
+    'If you did not ask for this, ignore this email.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">Add a recovery email</h2>
+      <p>Use this code to make this address the recovery email for ${escapeHtml(name)}:</p>
+      <p style="font-family:monospace;font-size:28px;letter-spacing:6px;font-weight:700;margin:16px 0">${escapeHtml(code)}</p>
+      <p>It expires in ${escapeHtml(String(expiresInMinutes))} minutes. It cannot sign in on its own and it is not shown on your profile.</p>
+      <p>If you did not ask for this, ignore this email.</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+/** Code sent to the backup address when someone starts account recovery. */
+async function sendAccountRecoveryCodeEmail({ to, username, code, expiresInMinutes = 10 }) {
+  const name = username ? `@${username}` : 'your account';
+  const subject = 'Your GamerHub account recovery code';
+  const text = [
+    `Someone asked to recover ${name} and gave this address.`,
+    '',
+    `The code is ${code}.`,
+    '',
+    `It expires in ${expiresInMinutes} minutes.`,
+    'If this was not you, ignore this email. Nothing has changed on the account.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">Account recovery</h2>
+      <p>Someone asked to recover ${escapeHtml(name)} and gave this address.</p>
+      <p style="font-family:monospace;font-size:28px;letter-spacing:6px;font-weight:700;margin:16px 0">${escapeHtml(code)}</p>
+      <p>It expires in ${escapeHtml(String(expiresInMinutes))} minutes.</p>
+      <p>If this was not you, ignore this email. Nothing has changed on the account.</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+/** Sent to both addresses after a recovery reset a password. */
+async function sendAccountRecoveryCompletedEmail({ to, username }) {
+  const name = username ? `@${username}` : 'your account';
+  const subject = 'Password reset through GamerHub account recovery';
+  const body =
+    `The password for ${name} was reset through account recovery, and every session was signed out.`;
+  const text = [body, '', 'If this was not you, change the password again and contact us.'].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">Account recovery completed</h2>
+      <p>${escapeHtml(body)}</p>
+      <p>If this was not you, change the password again and contact us.</p>
+    </div>
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+/**
+ * Tell an address that the recovery path changed. Sent to the primary address
+ * and, on add, to the new backup, so a silent takeover needs both inboxes.
+ */
+async function sendRecoveryEmailChangedEmail({ to, username, action, address = '', eligibleAt = null }) {
+  const name = username ? `@${username}` : 'your account';
+  const added = action === 'added';
+  const eligible = eligibleAt ? new Date(eligibleAt).toISOString().slice(0, 10) : null;
+  const subject = added ? 'Recovery email added to your GamerHub account' : 'Recovery email removed';
+  const consequence = added
+    ? `It can be used to recover the account from ${eligible}.`
+    : 'It can no longer be used to recover the account.';
+  const text = [
+    added
+      ? `A recovery email was added to ${name}: ${address}.`
+      : `The recovery email for ${name} was removed.`,
+    consequence,
+    '',
+    'If you did not make this change, change your password now and contact us.'
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
+      <h2 style="margin:0 0 16px">${escapeHtml(subject)}</h2>
+      <p>${escapeHtml(added
+        ? `A recovery email was added to ${name}: ${address}.`
+        : `The recovery email for ${name} was removed.`)}</p>
+      <p>${escapeHtml(consequence)}</p>
+      <p>If you did not make this change, change your password now and contact us.</p>
     </div>
   `;
 
@@ -259,9 +409,15 @@ function resetOutbox() {
 module.exports = {
   sendEmail,
   sendVerificationEmail,
+  sendVerificationCodeEmail,
   sendPasswordResetEmail,
+  sendRecoverySetupCodeEmail,
+  sendAccountRecoveryCodeEmail,
+  sendRecoveryEmailChangedEmail,
+  sendAccountRecoveryCompletedEmail,
   sendBusinessReviewEmail,
   sendBusinessRetentionEmail,
+  redactSecrets,
   verificationUrl,
   resetUrl,
   getOutbox,

@@ -240,7 +240,7 @@ const ForumChannel = ({ communityId, channel, permissions = [], canWrite, onNoti
                 </button>
               </form>
             ) : locked ? (
-              <p className="forum-locked-note"><LockIcon size={13} /> This thread is locked — replies are closed.</p>
+              <p className="forum-locked-note"><LockIcon size={13} /> This thread is locked. Replies are closed.</p>
             ) : null}
           </>
         )}
@@ -282,7 +282,7 @@ const ForumChannel = ({ communityId, channel, permissions = [], canWrite, onNoti
               maxLength={4000}
               value={draft.body}
               onChange={event => setDraft(prev => ({ ...prev, body: event.target.value }))}
-              placeholder="Add the details — rank, region, what you have tried…"
+              placeholder="Add the details: rank, region, what you have tried…"
               required
             />
           </div>

@@ -326,7 +326,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
                         className="btn btn-sm btn-ghost"
                         disabled={busyId === member.userId}
                         onClick={() => liftTimeout(member)}
-                        title={`Timeout ends ${new Date(member.timeoutUntil).toLocaleTimeString()} — click to lift`}
+                        title={`Timeout ends ${new Date(member.timeoutUntil).toLocaleTimeString()}. Click to lift.`}
                       >
                         Timed out
                       </button>
@@ -380,7 +380,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
 
         <p className="text-muted" style={{ fontSize: '0.72rem', margin: '0.75rem 0 0' }}>
           Showing {members.length} of {total} member{total === 1 ? '' : 's'}
-          {total > 100 ? ' — filter to find someone specific.' : '.'}
+          {total > 100 ? '. Filter to find someone specific.' : '.'}
         </p>
 
         <ConfirmModal

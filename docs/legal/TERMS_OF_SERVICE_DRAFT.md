@@ -1,4 +1,4 @@
-# GamerHub Terms of Service — DRAFT
+# GamerHub Terms of Service (DRAFT)
 
 > **DRAFT FOR COUNSEL REVIEW. NOT FOR PUBLICATION.**
 >
@@ -30,7 +30,7 @@ features are optional, experimental, or depend on third-party services.
 
 We may change, suspend, or discontinue features. If a change materially reduces a
 paid feature, we will give the notice required by applicable law. The service
-is currently **[FREE / FREEMIUM / PAID — CONFIRM]**. If paid features are added,
+is currently **[FREE / FREEMIUM / PAID: CONFIRM]**. If paid features are added,
 additional terms and consumer cancellation rights will apply.
 
 The service is offered worldwide. It is currently provided in English only;
@@ -68,7 +68,7 @@ parental-consent process (if any) are implemented.
   control (Gmail, Outlook/Hotmail, Yahoo, a work address or a custom domain);
   Gmail is recommended because delivery is usually reliable, not because it is
   more secure. The backup address is used for recovery and security notices, not
-  for sign-in or marketing. **PLANNED — confirm backup email and recovery are
+  for sign-in or marketing. **PLANNED: confirm backup email and recovery are
   implemented before publication.**
 - Your handle identifies your account; it is not a password. Recovery requires
   the handle plus proof of control of the verified backup email.
@@ -150,8 +150,8 @@ list or moderation state.
 
 To apply for a verified business account, you provide accurate business details,
 an official contact email, your preferred contact method, and evidence a
-reviewer can check — for example a business or tax registration link, a domain
-email on the official site, or an official business listing — together with a
+reviewer can check (for example a business or tax registration link, a domain
+email on the official site, or an official business listing) together with a
 short explanation. We do not currently ask you to upload identity documents. Do
 not send government identifiers through the application; a link to public
 evidence is enough for the first review.
@@ -164,7 +164,7 @@ reviewed by staff.
 You must keep the application accurate. If we believe the information is false,
 stale or misleading, or that the business role is being used to impersonate,
 spam or evade a restriction, we will normally contact the official contact you
-provided — by email or by your preferred method — and give you a reasonable
+provided, by email or by your preferred method, and give you a reasonable
 chance to respond before changing the account. You can answer from your
 business settings, where the contact and its deadline are shown. We wait seven
 days after that contact before removing the business role, except where
@@ -237,9 +237,9 @@ these Terms, create risk, or if required by law. Where practicable, we will give
 notice and an opportunity to appeal. We may remove content or restrict features
 while investigating.
 
-Sections that by their nature should survive termination — including content
+Sections that by their nature should survive termination, including content
 licences for shared copies, intellectual property, disclaimers, liability,
-indemnity, and governing law — survive.
+indemnity, and governing law, survive.
 
 ## 13. Disclaimers
 
@@ -290,7 +290,7 @@ non-waivable rights.
 ## 17. Changes to these Terms
 
 We may update these Terms. If a change is material, we will provide reasonable
-notice — for example, by email, an in-app notice, or a re-acceptance prompt —
+notice (for example, by email, an in-app notice, or a re-acceptance prompt)
 before it takes effect. The date and version at the top identify the current
 text. If you do not agree, you may stop using the service and delete your
 account. Continued use after the effective date means you accept the updated

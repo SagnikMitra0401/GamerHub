@@ -2,6 +2,9 @@
 
 .verify-banner {
   position: relative;
+  /* The banner is in flow at the top of the document, where the fixed navbar
+     covers it. Start it below the bar so its message and buttons are readable. */
+  margin-top: var(--nav-h);
   z-index: 40;
   background: rgba(245, 158, 11, 0.11);
   border-bottom: 1px solid rgba(245, 158, 11, 0.28);
@@ -48,15 +51,22 @@
   color: #fde68a;
 }
 
+/* Two secondary actions under the password field. Flex keeps them apart at any
+   width: side by side on a wide card, one per line once they stop fitting. */
 .auth-inline-link {
-  margin: -0.35rem 0 1rem;
-  text-align: right;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1.25rem;
+  margin: -0.15rem 0 1.15rem;
   font-size: 0.8rem;
 }
 
 .auth-inline-link a {
   color: var(--primary-light);
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .auth-inline-link a:hover {

@@ -19,6 +19,11 @@ tracks applied on Atlas.
 > is on, and a documented Atlas restore drill. The next product increment is the
 > inbox work in Phase 8.
 
+> **Readiness plan (24 November 2026):**
+> [Phase 19 — Production Readiness](PHASE19_PRODUCTION_READINESS.md) turns the
+> twelve engineering faults from the critical review into shippable steps, each
+> with its own gate. It adds no product feature.
+
 ---
 
 ## Phase 7 — Quality gate and CI — ✅ delivered

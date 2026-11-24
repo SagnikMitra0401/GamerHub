@@ -12,10 +12,15 @@ const Register = () => {
   const redirect = safeRedirect(location.search);
 
   useEffect(() => {
-    if (!loading && user) {
-      navigate(redirect, { replace: true });
+    if (loading || !user) return;
+    // A new account proves the address before it meets the feed. This effect is
+    // the only post-auth navigation, so the code screen cannot be raced by it.
+    if (user.emailVerified === false) {
+      navigate(withRedirect('/verify-email', location.search), { replace: true });
+      return;
     }
-  }, [user, loading, navigate, redirect]);
+    navigate(redirect, { replace: true });
+  }, [user, loading, navigate, redirect, location.search]);
 
   return (
     <div className="auth-page">

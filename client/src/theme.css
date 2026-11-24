@@ -17,7 +17,12 @@ body {
     radial-gradient(1200px 620px at 50% -12%, rgba(var(--ambient), 0.08), transparent 70%),
     radial-gradient(900px 520px at 100% 0%, rgba(var(--ambient), 0.05), transparent 62%);
   background-attachment: fixed;
+  /* `hidden` turns the body into a scroll container in some engines, which
+     moves the page scroll off the viewport and makes fixed and sticky bars
+     drift. `clip` hides the same overflow without creating one; older engines
+     keep the fallback. */
   overflow-x: hidden;
+  overflow-x: clip;
   font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 

@@ -13,6 +13,13 @@ const formatDate = (value) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+/** Show enough of a backup address to recognise it, not enough to leak it. */
+const maskEmail = (value) => {
+  const [name = '', domain = ''] = String(value || '').split('@');
+  if (!name || !domain) return value || '';
+  return `${name.slice(0, 2)}${'•'.repeat(Math.max(3, name.length - 2))}@${domain}`;
+};
+
 const SecurityPanel = ({ account, refresh, notify }) => {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -28,11 +35,20 @@ const SecurityPanel = ({ account, refresh, notify }) => {
     password: '',
     confirm: ''
   });
+  const [recoveryForm, setRecoveryForm] = useState({ email: '' });
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryStage, setRecoveryStage] = useState('idle');
+  const [recoveryNotice, setRecoveryNotice] = useState('');
+  const [recoveryError, setRecoveryError] = useState('');
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
 
   const googleLinked = (account.providers || []).includes('google');
   const lastReset = formatDate(account.feedResetAt);
   const emailVerified = account.emailVerified === true;
   const hasLocalPassword = account.hasLocalPassword !== false;
+  const recoveryUsable = Boolean(
+    account.recoveryEligibleAt && new Date(account.recoveryEligibleAt).getTime() <= Date.now()
+  );
 
   const unlinkGoogle = async () => {
     setBusy('unlink');
@@ -110,6 +126,58 @@ const SecurityPanel = ({ account, refresh, notify }) => {
     }
   };
 
+  const startRecoveryEmail = async (event) => {
+    event.preventDefault();
+    setRecoveryError('');
+    setRecoveryNotice('');
+    setRecoveryBusy(true);
+    try {
+      await axiosInstance.post('/auth/recovery-email', { email: recoveryForm.email });
+      setRecoveryStage('sent');
+      setRecoveryNotice(`Code sent to ${recoveryForm.email}. It expires in 10 minutes.`);
+    } catch (err) {
+      setRecoveryError(err.response?.data?.message || 'Could not send that code right now.');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
+  const confirmRecoveryEmail = async (event) => {
+    event.preventDefault();
+    setRecoveryError('');
+    setRecoveryBusy(true);
+    try {
+      await axiosInstance.post('/auth/recovery-email/verify', { code: recoveryCode });
+      await refresh();
+      setRecoveryStage('idle');
+      setRecoveryForm({ email: '' });
+      setRecoveryCode('');
+      setRecoveryNotice('');
+      notify('success', 'Recovery email confirmed.');
+    } catch (err) {
+      setRecoveryError(err.response?.data?.message || 'That code is invalid or has expired.');
+      setRecoveryCode('');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
+  const removeRecoveryEmail = async () => {
+    setRecoveryBusy(true);
+    setRecoveryError('');
+    try {
+      await axiosInstance.delete('/auth/recovery-email');
+      await refresh();
+      setRecoveryStage('idle');
+      setRecoveryNotice('');
+      notify('success', 'Recovery email removed.');
+    } catch (err) {
+      setRecoveryError(err.response?.data?.message || 'Could not remove that recovery email.');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
   return (
     <>
       <header className="settings-panel-head">
@@ -147,7 +215,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
             <span>
               {emailVerified
                 ? 'Verified. Password changes are unlocked.'
-                : 'Not verified. Check your inbox for the confirmation link.'}
+                : 'Not verified. Check your inbox for the 8-digit code.'}
             </span>
           </div>
           <div className="settings-actions">
@@ -161,13 +229,134 @@ const SecurityPanel = ({ account, refresh, notify }) => {
                 onClick={resendVerification}
                 disabled={busy === 'verify'}
               >
-                {busy === 'verify' ? 'Sending…' : 'Resend email'}
+                {busy === 'verify' ? 'Sending…' : 'Send a new code'}
               </button>
             )}
           </div>
         </div>
 
         {verifyNotice && <p className="settings-help-text">{verifyNotice}</p>}
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h3><MailIcon size={15} /> Recovery email</h3>
+          <p>
+            A second address that can reset this account when the main inbox stops working. It
+            cannot sign in and it never appears on your profile. A newly confirmed address
+            becomes usable after seven days.
+          </p>
+        </div>
+
+        {recoveryError && <div className="form-error">{recoveryError}</div>}
+
+        {account.recoveryEmail ? (
+          <div className="settings-auth-row">
+            <div>
+              <strong>{maskEmail(account.recoveryEmail)}</strong>
+              <span>
+                {recoveryUsable
+                  ? 'Usable now for account recovery.'
+                  : `Usable from ${formatDate(account.recoveryEligibleAt) || 'a later date'}.`}
+              </span>
+            </div>
+            <div className="settings-actions">
+              <span className="settings-chip is-good"><CheckIcon size={13} /> Confirmed</span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setConfirmAction('remove-recovery')}
+                disabled={recoveryBusy}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {!emailVerified && (
+              <div className="notice notice-error settings-inline-notice">
+                <span className="settings-inline-error">
+                  <AlertIcon size={13} /> Confirm your own email before adding a backup address.
+                </span>
+              </div>
+            )}
+
+            <form
+              className="settings-password-form"
+              onSubmit={recoveryStage === 'sent' ? confirmRecoveryEmail : startRecoveryEmail}
+            >
+              {recoveryStage === 'sent' ? (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="settings-recovery-code">
+                      Code sent to {recoveryForm.email}
+                    </label>
+                    <input
+                      id="settings-recovery-code"
+                      className="form-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={8}
+                      value={recoveryCode}
+                      onChange={(event) =>
+                        setRecoveryCode(event.target.value.replace(/\D/g, '').slice(0, 8))
+                      }
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={recoveryBusy || recoveryCode.length !== 8}
+                  >
+                    {recoveryBusy ? 'Checking…' : 'Confirm recovery email'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setRecoveryStage('idle');
+                      setRecoveryCode('');
+                      setRecoveryNotice('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="settings-recovery-email">
+                      Backup address
+                    </label>
+                    <input
+                      id="settings-recovery-email"
+                      className="form-input"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="backup@example.com"
+                      value={recoveryForm.email}
+                      onChange={(event) => setRecoveryForm({ email: event.target.value })}
+                      disabled={!emailVerified}
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={!emailVerified || recoveryBusy}
+                  >
+                    {recoveryBusy ? 'Sending…' : 'Send confirmation code'}
+                  </button>
+                </>
+              )}
+            </form>
+
+            {recoveryNotice && <p className="settings-help-text">{recoveryNotice}</p>}
+          </>
+        )}
       </section>
 
       <section className="settings-section">
@@ -366,6 +555,17 @@ const SecurityPanel = ({ account, refresh, notify }) => {
         busy={busy === 'unlink'}
         onCancel={() => setConfirmAction(null)}
         onConfirm={() => { setConfirmAction(null); unlinkGoogle(); }}
+      />
+
+      <ConfirmModal
+        isOpen={confirmAction === 'remove-recovery'}
+        title="Remove the recovery email?"
+        message="Account recovery by backup address stops immediately. You can add a new one later, but it will wait seven days again."
+        confirmText="Remove recovery email"
+        isDanger
+        busy={recoveryBusy}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => { setConfirmAction(null); removeRecoveryEmail(); }}
       />
 
       <ConfirmModal

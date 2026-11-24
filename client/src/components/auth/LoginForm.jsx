@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { safeRedirect } from '../../utils/redirect';
+import { Link } from 'react-router-dom';
 
 const LoginForm = () => {
   const { login } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const redirect = safeRedirect(location.search);
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +15,9 @@ const LoginForm = () => {
     setError('');
     setLoading(true);
     try {
+      // The Login page routes the session once it exists: unconfirmed accounts
+      // go to the code screen, everyone else to their original destination.
       await login(form.email, form.password);
-      navigate(redirect, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Check your credentials.');
     } finally {
@@ -59,6 +56,7 @@ const LoginForm = () => {
       </div>
       <div className="auth-inline-link">
         <Link to="/forgot-password">Forgot password?</Link>
+        <Link to="/account-recovery">Use a recovery email</Link>
       </div>
       <button id="login-submit" className="btn btn-primary btn-full" disabled={loading}>
         {loading ? 'Signing in...' : 'Sign In'}

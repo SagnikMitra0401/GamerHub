@@ -8,7 +8,7 @@ const PostList = ({ posts, onDelete, onLikeToggle }) => {
     return (
       <div className="post-list-empty">
         <h3>No posts yet</h3>
-        <p>Be the first to start a discussion!</p>
+        <p>Be the first to start a discussion.</p>
       </div>
     );
   }

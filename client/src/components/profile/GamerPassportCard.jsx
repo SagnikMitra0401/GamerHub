@@ -98,7 +98,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
         <h4 className="passport-section-title">In-Game Accounts</h4>
         {!hasAnyIds ? (
           <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
-            {isOwnProfile ? 'No in-game IDs linked yet. Click Edit to add them!' : 'No in-game accounts listed.'}
+            {isOwnProfile ? 'No in-game IDs linked yet. Click Edit to add them.' : 'No in-game accounts listed.'}
           </p>
         ) : (
           <div className="game-ids-list">
@@ -216,7 +216,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
 
         {!hasRigs ? (
           <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
-            {isOwnProfile ? 'No gaming rigs configured. Click Edit to showcase your setup!' : 'No hardware setups listed.'}
+            {isOwnProfile ? 'No gaming rigs configured. Click Edit to showcase your setup.' : 'No hardware setups listed.'}
           </p>
         ) : (
           <div>

@@ -42,7 +42,7 @@ const getAccount = async (req, res, next) => {
       .select(
         'username email emailVerifiedAt profileType status privacySettings dmSettings notificationSettings ' +
         'blockedUsers deletionRequestedAt createdAt authIdentities hasLocalPassword frozenAt feedResetAt ' +
-        'preferences favoriteChannels'
+        'preferences favoriteChannels recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt'
       )
       .lean();
     if (!user) throw notFound('User not found');
@@ -58,6 +58,10 @@ const getAccount = async (req, res, next) => {
       username: user.username,
       email: user.email,
       emailVerified: Boolean(user.emailVerifiedAt),
+      // Owner-only view: the backup address never appears on a public profile.
+      recoveryEmail: user.recoveryEmail || '',
+      recoveryEmailVerifiedAt: user.recoveryEmailVerifiedAt || null,
+      recoveryEligibleAt: user.recoveryEligibleAt || null,
       status: user.status,
       profileType: user.profileType,
       businessProfile: ownerBusinessProfile(businessProfile),

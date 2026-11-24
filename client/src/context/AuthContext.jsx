@@ -35,7 +35,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const { data } = await axiosInstance.post('/auth/login', { email, password });
     if (data.token) setToken(data.token);
-    await fetchMe(); // full profile (savedPosts/favoriteChannels)
+    // Returned so the form can send an unconfirmed account to the code screen.
+    return fetchMe(); // full profile (savedPosts/favoriteChannels)
   };
 
   /**

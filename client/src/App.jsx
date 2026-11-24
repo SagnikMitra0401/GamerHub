@@ -13,6 +13,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import AccountRecovery from './pages/AccountRecovery';
 import EmailVerificationBanner from './components/auth/EmailVerificationBanner';
 import ProfilePage from './pages/ProfilePage';
 import ChannelPage from './pages/ChannelPage';
@@ -109,7 +110,7 @@ const AtmosphereSync = () => {
  */
 const ONBOARDING_ALLOWED = [
   '/welcome', '/discover', '/verify-email', '/settings',
-  '/login', '/register', '/forgot-password', '/reset-password',
+  '/login', '/register', '/forgot-password', '/reset-password', '/account-recovery',
   '/privacy', '/terms'
 ];
 
@@ -161,6 +162,7 @@ function App() {
           <Route path="/forgot-password"        element={<ForgotPassword />} />
           <Route path="/reset-password"         element={<ResetPassword />} />
           <Route path="/verify-email"           element={<VerifyEmail />} />
+          <Route path="/account-recovery"       element={<AccountRecovery />} />
           <Route path="/u/:username"            element={<ProfilePage />} />
           <Route path="/c/:tag"                 element={<ChannelPage />} />
           <Route path="/channels"               element={<ChannelsPage />} />

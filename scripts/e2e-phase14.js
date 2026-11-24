@@ -63,6 +63,13 @@ const tokenFrom = (mail, path) => {
   return decodeURIComponent(match[1]);
 };
 
+/** The 8-digit code, read from the in-process outbox. Never fetched over HTTP. */
+const codeFrom = (mail) => {
+  const match = String(mail?.text || '').match(/(?<!\d)(\d{8})(?!\d)/);
+  assert.ok(match, 'no 8-digit code in mail');
+  return match[1];
+};
+
 const waitForProductEvent = async (filter, timeoutMs = 3000) => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -105,13 +112,14 @@ async function run() {
       assert.equal(aliceAccount.data.emailVerified, false);
     });
 
-    const verificationMail = await waitForMail('alice14@example.com', 'Confirm your GamerHub email');
-    const verificationToken = tokenFrom(verificationMail, '/verify-email');
-    const verified = await api('/api/auth/verify-email', {
+    const verificationMail = await waitForMail('alice14@example.com', 'Your GamerHub confirmation code');
+    const verificationCode = codeFrom(verificationMail);
+    const verified = await api('/api/auth/verify-email/code', {
       method: 'POST',
-      body: { token: verificationToken }
+      cookie: alice.cookie,
+      body: { code: verificationCode }
     });
-    check('a valid verification token confirms the email', () => {
+    check('a valid email code confirms the email', () => {
       assert.equal(verified.status, 200, JSON.stringify(verified.data));
       assert.equal(verified.data.emailVerified, true);
     });
@@ -121,13 +129,25 @@ async function run() {
       assert.equal(verifiedMe.data.user.emailVerified, true);
     });
 
-    const reusedVerification = await api('/api/auth/verify-email', {
+    const reusedVerification = await api('/api/auth/verify-email/code', {
       method: 'POST',
-      body: { token: verificationToken }
+      cookie: alice.cookie,
+      body: { code: verificationCode }
     });
-    check('a verification token cannot be used twice', () => {
-      assert.equal(reusedVerification.status, 400);
-      assert.match(String(reusedVerification.data?.message || ''), /invalid|expired/i);
+    check('re-submitting a consumed code is an idempotent no-op', () => {
+      assert.equal(reusedVerification.status, 200);
+      assert.equal(reusedVerification.data.alreadyVerified, true);
+    });
+
+    const carolEarly = await registerUser('carol14early');
+    await waitForMail('carol14early@example.com', 'Your GamerHub confirmation code');
+    const foreignCode = await api('/api/auth/verify-email/code', {
+      method: 'POST',
+      cookie: carolEarly.cookie,
+      body: { code: verificationCode }
+    });
+    check("another account's code cannot verify this session", () => {
+      assert.equal(foreignCode.status, 400, JSON.stringify(foreignCode.data));
     });
 
     const resendAfterVerified = await api('/api/auth/verify-email/resend', {
@@ -153,27 +173,29 @@ async function run() {
 
     resetOutbox();
     const dave = await registerUser('dave14');
-    const firstDaveMail = await waitForMail('dave14@example.com', 'Confirm your GamerHub email');
+    const firstDaveMail = await waitForMail('dave14@example.com', 'Your GamerHub confirmation code');
     const daveResend = await api('/api/auth/verify-email/resend', {
       method: 'POST',
       cookie: dave.cookie
     });
-    check('a resend issues a fresh verification link', () => assert.equal(daveResend.status, 200));
+    check('a resend issues a fresh confirmation code', () => assert.equal(daveResend.status, 200));
     const daveMails = getOutbox().filter(
-      (item) => item.to === 'dave14@example.com' && item.subject === 'Confirm your GamerHub email'
+      (item) => item.to === 'dave14@example.com' && item.subject === 'Your GamerHub confirmation code'
     );
-    const firstDaveToken = tokenFrom(firstDaveMail, '/verify-email');
-    const latestDaveToken = tokenFrom(daveMails.at(-1), '/verify-email');
-    const staleDave = await api('/api/auth/verify-email', {
+    const firstDaveCode = codeFrom(firstDaveMail);
+    const latestDaveCode = codeFrom(daveMails.at(-1));
+    const staleDave = await api('/api/auth/verify-email/code', {
       method: 'POST',
-      body: { token: firstDaveToken }
+      cookie: dave.cookie,
+      body: { code: firstDaveCode }
     });
-    const freshDave = await api('/api/auth/verify-email', {
+    const freshDave = await api('/api/auth/verify-email/code', {
       method: 'POST',
-      body: { token: latestDaveToken }
+      cookie: dave.cookie,
+      body: { code: latestDaveCode }
     });
-    check('only the newest verification link stays live', () => {
-      assert.notEqual(firstDaveToken, latestDaveToken);
+    check('only the newest code stays live', () => {
+      assert.notEqual(firstDaveCode, latestDaveCode);
       assert.equal(staleDave.status, 400);
       assert.equal(freshDave.status, 200);
     });
@@ -229,10 +251,11 @@ async function run() {
 
     resetOutbox();
     const carol = await registerUser('carol14');
-    const carolMail = await waitForMail('carol14@example.com', 'Confirm your GamerHub email');
-    await api('/api/auth/verify-email', {
+    const carolMail = await waitForMail('carol14@example.com', 'Your GamerHub confirmation code');
+    await api('/api/auth/verify-email/code', {
       method: 'POST',
-      body: { token: tokenFrom(carolMail, '/verify-email') }
+      cookie: carol.cookie,
+      body: { code: codeFrom(carolMail) }
     });
 
     const changed = await api('/api/auth/password', {

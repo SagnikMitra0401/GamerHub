@@ -140,7 +140,7 @@ const PartyCard = ({
       )}
 
       {party.viewerMembership === 'pending' && (
-        <p className="lfg-note">Request sent — waiting for the leader.</p>
+        <p className="lfg-note">Request sent. Waiting for the leader.</p>
       )}
       {isMember && !chat && (
         <p className="lfg-note">You are in this squad.</p>
@@ -299,7 +299,7 @@ const LfgPage = () => {
     try {
       const { data } = await axiosInstance.post(`/lfg/${party._id}/lock`);
       setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
-      setToast('Squad locked — the temporary chat is live for 15 days.');
+      setToast('Squad locked. The temporary chat is live for 15 days.');
       load(filters);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not lock that squad.');
@@ -452,7 +452,7 @@ const LfgPage = () => {
           ) : openParties.length === 0 ? (
             <div className="post-list-empty">
               <h3>No other squads recruiting</h3>
-              <p>{mine.length ? 'Your squads are above — create another to fill more slots.' : 'Be the first to post one — it takes ten seconds.'}</p>
+              <p>{mine.length ? 'Your squads are above. Create another to fill more slots.' : 'Be the first to post one. It takes ten seconds.'}</p>
             </div>
           ) : (
             <div className="lfg-grid">

@@ -694,7 +694,7 @@ const CommunityPage = () => {
                 <span>
                   {roleAtLeast(callerRole, 'moderator')
                     ? 'Only moderators can post here. Members read this channel as announcements.'
-                    : 'Announcements only — only moderators can post here.'}
+                    : 'Announcements only. Only moderators can post here.'}
                 </span>
               </div>
             )}

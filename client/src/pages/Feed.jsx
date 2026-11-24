@@ -248,7 +248,7 @@ const Feed = () => {
               mediaPosts.length === 0 ? (
                 <div className="post-list-empty">
                   <h3>No clips found</h3>
-                  <p>Be the first to upload a media clip!</p>
+                  <p>Upload the first media clip.</p>
                 </div>
               ) : (
                 <div className="media-grid">

@@ -117,7 +117,7 @@ const DiscoveryBoard = ({ games = [], platforms = [] }) => {
           <div>
             <h2 className="section-heading"><UsersIcon size={17} /> Open squads</h2>
             <p className="discover-section-hint">
-              {data.fallback?.squads ? 'Popular now — no exact game match yet.' : 'Squads recruiting for the games you picked.'}
+              {data.fallback?.squads ? 'Popular now. No exact game match yet.' : 'Squads recruiting for the games you picked.'}
             </p>
           </div>
           <Link to="/lfg" className="btn btn-ghost btn-sm">Open LFG</Link>
@@ -167,7 +167,7 @@ const DiscoveryBoard = ({ games = [], platforms = [] }) => {
           <div>
             <h2 className="section-heading"><SparklesIcon size={17} /> Servers for you</h2>
             <p className="discover-section-hint">
-              {data.fallback?.communities ? 'Popular now — public servers worth a look.' : 'Public servers that match your games.'}
+              {data.fallback?.communities ? 'Popular now: public servers worth a look.' : 'Public servers that match your games.'}
             </p>
           </div>
           <Link to="/communities" className="btn btn-ghost btn-sm">Browse servers</Link>

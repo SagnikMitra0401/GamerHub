@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
@@ -72,6 +72,7 @@ const SettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState(null);
+  const railRef = useRef(null);
 
   const refresh = useCallback(async () => {
     const { data } = await axiosInstance.get('/account');
@@ -110,6 +111,38 @@ const SettingsPage = () => {
     setSearchParams(next, { replace: true });
   };
 
+  // Below the two-column breakpoint the rail is a horizontal strip, and the
+  // selected tab can sit past its right edge with nothing highlighted in view.
+  // Bring it back into the strip without moving the page. This also runs on
+  // resize, since a desktop rail becomes the strip when the window narrows.
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return undefined;
+    const place = () => {
+      const active = rail.querySelector('.settings-rail-btn.is-active');
+      if (!active) return;
+      if (rail.scrollWidth <= rail.clientWidth + 1) {
+        rail.scrollLeft = 0;
+        return;
+      }
+      // Measured from the rendered rects, so the padding and border of the
+      // strip are accounted for and the first tab cannot clip on the left.
+      const railRect = rail.getBoundingClientRect();
+      const btnRect = active.getBoundingClientRect();
+      const pad = 8;
+      let next = rail.scrollLeft;
+      if (btnRect.left < railRect.left + pad) next -= (railRect.left + pad) - btnRect.left;
+      else if (btnRect.right > railRect.right - pad) next += btnRect.right - (railRect.right - pad);
+      const max = rail.scrollWidth - rail.clientWidth;
+      rail.scrollLeft = Math.min(Math.max(0, next), max);
+    };
+    place();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(place);
+    observer.observe(rail);
+    return () => observer.disconnect();
+  }, [activeTab, loading]);
+
   const panelProps = {
     account: account || {},
     user,
@@ -121,7 +154,7 @@ const SettingsPage = () => {
 
   return (
     <main className="page settings-page">
-      <div className="container">
+      <div className="container settings-frame">
         <header className="settings-hero">
           <span className="settings-eyebrow">Account control</span>
           <h1 className="settings-title">Settings</h1>
@@ -163,7 +196,7 @@ const SettingsPage = () => {
           <SettingsSkeleton />
         ) : !account ? null : (
           <div className="settings-shell">
-            <nav className="settings-rail" aria-label="Settings sections">
+            <nav className="settings-rail" aria-label="Settings sections" ref={railRef}>
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = tab.key === activeTab;

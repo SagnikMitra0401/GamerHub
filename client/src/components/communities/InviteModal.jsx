@@ -71,7 +71,7 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
       setCopied(invite.code);
       setTimeout(() => setCopied(''), 2000);
     } catch {
-      setError('Could not copy automatically — select the link and copy it manually.');
+      setError('Could not copy automatically. Select the link and copy it manually.');
     }
   };
 
@@ -83,8 +83,8 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
       const { data } = await axiosInstance.post(`/communities/${community._id}/invites`, form);
       setInvites(prev => [data.invite, ...prev]);
       onNotice?.(form.requiresApproval
-        ? 'Invite link ready — requests will wait for your approval.'
-        : 'Invite link ready — copy it or share it in a post.');
+        ? 'Invite link ready. Requests will wait for your approval.'
+        : 'Invite link ready. Copy it or share it in a post.');
       await copy(data.invite);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not create an invite link.');
@@ -155,7 +155,7 @@ const InviteModal = ({ isOpen, onClose, community, onNotice }) => {
 
         <p className="text-muted" style={{ fontSize: '0.8rem', lineHeight: 1.55 }}>
           {community.isPrivate
-            ? 'This server is invite-only. Only people with a link you create here can join — share it directly with a friend or paste it into a post.'
+            ? 'This server is invite-only. Only people with a link you create here can join. Share it directly with a friend or paste it into a post.'
             : 'This server is public, so the link is a shortcut that brings the person straight into the chat.'}
           {' '}Links always join as a member; they never grant moderator or admin powers.
         </p>

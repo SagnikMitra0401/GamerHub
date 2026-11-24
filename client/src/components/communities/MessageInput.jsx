@@ -103,7 +103,7 @@ const MessageInput = ({
     // Resolve the socket at send time: it may connect after the first render.
     const socket = getSocket();
     if (!socket || !socket.connected) {
-      onNotice?.('Still connecting to chat — try again in a second.');
+      onNotice?.('Still connecting to chat. Try again in a second.');
       return;
     }
 

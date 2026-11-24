@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 21 November 2026 · **Branch:** `main` · **Head:** Phase 16 media and broadcast channels + pre-push audit fixes (uncommitted)
+**Last updated:** 24 November 2026 · **Branch:** `main` · **Head:** Phase 18 email codes, recovery email and account recovery, the prose scanner and the settings frame rebuild (uncommitted)
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,8 +14,8 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **293 / 293 pass** | 21 Nov |
-| Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 21 Nov |
+| Unit / contract — server | `npm test` | **341 / 341 pass** | 24 Nov |
+| Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 24 Nov |
 | E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 21 Nov |
 | E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 21 Nov |
 | E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 21 Nov |
@@ -26,13 +26,15 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 21 Nov |
 | E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 21 Nov |
 | E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 21 Nov |
-| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **82 / 82 pass** | 21 Nov |
+| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **83 / 83 pass** | 24 Nov |
+| E2E — 8-digit email codes, recovery email, account recovery | `scripts/e2e-phase18.js` | **30 / 30 pass** | 24 Nov |
 | E2E — catalog, admin console, media ledger | `scripts/e2e-phase15.js` | **41 / 41 pass** | 21 Nov |
 | E2E — stories, clips filter, upload limit, broadcast channels | `scripts/e2e-phase16.js` | **36 / 36 pass** | 21 Nov |
-| Client production build | `npm run build --prefix client` | **pass** — 232 modules, 181.81 kB CSS / 756.58 kB JS (211.93 kB gzip) | 21 Nov |
-| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 21 Nov |
+| Client production build | `npm run build --prefix client` | **pass** — 179.13 kB CSS / 792.29 kB JS (211.60 kB gzip), with Vite's chunk-size warning above 500 kB | 24 Nov |
+| Secret-leak gate | `npm run scan:secrets` | **0 hits** | 24 Nov |
 | Dependency audit (including dev) | `npm audit` (root and `client/`) | **0 advisories** | 21 Nov |
-| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 21 Nov |
+| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 24 Nov |
+| UI smoke — pass 10 | browser + live API: registration landed on `/verify-email` → wrong code refused with tries left → right code confirmed → security panel showed verified → recovery email added with a code to the backup address → confirmed row with a masked address and a 12 Dec eligibility date → recovery start sent a code → new password accepted at sign-in | **pass** — throwaway database; code found in the DOM, cookies and both web storages during the wait returned `false` | 24 Nov |
 | UI smoke — pass 9 | browser + live API: registration → onboarding → story post/view → anonymous public story → channel create/publish with no auto-read → account deletion removed the story and channel | **pass** — temporary account, story and channel deleted at the end | 21 Nov |
 | UI smoke — pass 7 | browser + live API: admin notification bell → open/click, `/admin` activation funnel and Refresh | **pass** — temporary admin/actor accounts and their data deleted afterwards | 16 Nov |
 | UI smoke — pass 8 | browser + live API: temporary admin login, bell open → notification row click → read state, `/admin` cohort funnel and Refresh | **pass** — temporary account, product events and notification deleted afterwards | 16 Nov |
@@ -41,7 +43,10 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | UI smoke — pass 4 | browser, 404 + settings skeleton | **pass** — 404 renders the requested path, no console errors | 5 Nov |
 | UI smoke — pass 3 | browser, `/settings` × 5 tabs | **pass** — every panel renders, `?tab=` addressable, no console errors | 5 Nov |
 | UI smoke — pass 2 | browser, 8 pages × 3–5 viewports | **pass** (pre-phase-8 pages only) | 25 Oct (that pass) |
-| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 15 Nov |
+| Design-system gate | `node scripts/scan-emoji.js` | **0 hits** (+8 allowlisted reaction glyphs) | 24 Nov |
+| Prose sweep — UI copy, emails, legal drafts | scanner pass, then `npm test --prefix client` | **46 fixes in 17 files** — no em dash, word-list hit or cheerleading exclamation left in the UI copy or the two legal drafts; two deliberate spans kept (one sample quote, one code fragment) | 24 Nov |
+| Prose regression — unslop eval cases | `npm run test:unslop` | **36 / 36 pass** — 12 cases, 11 samples flagged as expected, 11 repairs clean, case 12 clean | 24 Nov |
+| Prose gate — shipped copy | `npm run scan:prose` | **clean** — 0 P0/P1 across client copy, the two legal drafts and the email templates; 14 P2 triad notices left as review notes, each one a three-item enumeration of real things (allowed characters, searchable types, legal section names, a provider list) rather than a decorative triad | 24 Nov |
 | Migration tracks | `npm run migrate:status`, `npm run migrate:domains:status` | **pass** — 4 main applied; auth 5 (incl. onboarding and notification-settings backfills); communities 1 (game tags); squads 1; feed 3 authored (notification retention TTL, product events, Phase 16 stories/broadcasts — the last is authored and linted, not yet applied to the working DB) | 19 Nov |
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
@@ -853,6 +858,79 @@ banner. Cold-load cost: the page pulls the five panels in one chunk; the bundle
 is 516 kB uncompressed, which is the same warning the build has carried since
 phase 6.
 
+### What the reported settings scroll issue turned out to be
+
+Reported twice: the settings page moves its top bar up and down instead of
+scrolling the page, most visibly with the pointer over the header.
+
+Measurement results:
+
+- `.navbar` is `position: fixed` and its `getBoundingClientRect().top` is 0 at
+  every scroll offset tested. Its ancestor chain (`#root`, `body`, the app
+  wrapper) carries no transform, filter, backdrop-filter, contain or
+  will-change, so nothing can turn the fixed box into an in-flow one.
+- Removing the header's `backdrop-filter` and promoting it with `translateZ(0)`
+  changed neither the layout rect nor the painted offset.
+- The drift reproduced exactly, with no page change, once the preview browser's
+  viewport was larger than the panel showing it. A `preview_resize` to 900 px of
+  height in a panel about 760 px tall paints the page into the taller surface,
+  the panel displays a slice of that surface, and the fixed header sits at the
+  surface top outside the visible slice. The header therefore appears below the
+  content and slides as the page scrolls, and the page's dark background fills
+  the gap above it. A fresh tab at 498x762, and the same page reset to 500x740,
+  both render the header at y 0 with the page scrolled 320 px.
+
+One page-level detail found on the way: the verification banner sits in flow
+before the navbar, and the navbar covers its first 46 px at scroll 0, so a
+sliver of the banner buttons can show above the header in a capture.
+
+The page CSS does not move the header. One rule was kept: `overflow-x: clip` on
+the body, so it never becomes the scroll container and the fixed header keeps
+the viewport as its containing block. Four other candidates were measured and
+reverted for no effect: `overflow-anchor: none` on the settings page, removing
+`background-attachment: fixed`, moving the page's bottom padding inside the
+shell, and re-anchoring the scroll on tab switch.
+
+Two header fixes went in with the same pass. The verification banner now starts
+below the fixed navbar (`margin-top: var(--nav-h)` in `phase14.css`) instead of
+losing its first 56 px behind the bar: measured at 480x660, the banner box runs
+from 56 to 159 and its content sits entirely below the navbar. The settings rail
+also scrolls its selected tab into the strip when the rail is narrower than the
+list (`SettingsPage.jsx`), so `/settings?tab=security` loads with the Security
+button inside the strip instead of nothing highlighted in view; switching back
+to Profile returns it to 0.
+
+The settings frame was then rebuilt around one owner of the vertical rhythm.
+`.page`'s top padding and the three competing `.settings-page` overrides are
+gone: `.settings-frame` holds `calc(var(--nav-h) + clamp(1.1rem, 2.4vw, 1.9rem))`
+and `.settings-page` keeps only its bottom padding, so the navbar, the banner in
+flow above it and the dock below resolve in one place. The page no longer
+inherits `.page`'s `min-height: 100vh`, which had stacked a banner-height of
+empty scroll under every short settings state. The hero lost its 760 px cap, so
+its divider ends where the shell does (946 of 946 px at 1000 wide). Below 900 px
+the rail scrolls with the page. It was pinned for one pass: a sticky strip with
+`z-index: 20`, `backdrop-filter: blur(20px)` and a 72% opaque background stayed
+at y 64 while the panel moved under it, which read as the tab frame sliding over
+a body that stood still and as a darkened band over the panel. That variant is
+removed; the strip is static, has no backdrop filter and keeps its 17 px gap to
+the panel. Its selected button is placed into view on mount, on tab change and on resize.
+Measured at 430 wide across all seven tabs, scrollLeft runs 0, 0, 102, 262, 415,
+569, 720 and every active button sits inside the strip's 17 to 408 span. The
+first version of that placement used `offsetLeft`, which ignored the strip's
+border and left Profile clipped by 7 px at scrollLeft 14; the rect-based version
+keeps it at 0. At 1000 wide the shell is 208 + 18 + 720 px, the hero matches the
+shell at 946, and the rail pins 14 px under the 60 px navbar (rail top 74, bottom
+506 at scrollY 600) beside the panel without overlapping it.
+
+On the preview surface itself: a capture is 765x1178 device px. Corner markers
+injected at the viewport edges were painted at 524x724, while the page reported
+`innerWidth` 430 and `innerHeight` 620, so the panel draws the page at about
+1.22x inside a surface that is 241 px wider and 454 px taller than the page
+rect. That gap is panel chrome, not page background, and it is why a raw capture
+looks like a floating frame. In captures at scrollY 0 and scrollY 700 the fixed
+navbar paints in rows 0 to 68 of the page rect with no dark band above it, and
+the page's own scrollbar sits at x 512 to 520 inside that rect.
+
 ---
 
 ## 4. Changes made in pass 2
@@ -1046,9 +1124,17 @@ npm test --prefix client      # client components, 31 checks, jsdom
 npm run test:e2e              # nine suites, 581 checks, throwaway DB
 npm run scan:secrets           # must print "0 hit(s)"
 npm run build --prefix client
+npm run test:unslop            # prose rule cases, 36 checks
+npm run scan:prose             # prose gate, 0 P0/P1; --strict exits 1 on any P0/P1
 npm run migrate:status
 npm run migrate:domains:status
 
 # 3. design-system gate
 node scripts/scan-emoji.js     # must print "0 line(s)" (reaction glyphs are listed separately)
 ```
+
+A browser pass needs an account. The local harness starts the API with
+`EMAIL_TRANSPORT=memory`, so registration cannot be finished from an inbox:
+the message stays in an in-process outbox and the harness prints the code to
+its own console. An account written straight into the harness database with
+`emailVerifiedAt` set skips both `/verify-email` and `/welcome`.

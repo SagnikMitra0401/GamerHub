@@ -373,7 +373,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
 
                 {hardwareRigs.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    No gaming devices added yet. Click "+ Add Device" to set up your battle station!
+                    No gaming devices added yet. Use + Add Device to add one.
                   </div>
                 ) : (
                   hardwareRigs.map((rig, idx) => (

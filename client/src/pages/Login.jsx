@@ -12,10 +12,15 @@ const Login = () => {
   const redirect = safeRedirect(location.search);
 
   useEffect(() => {
-    if (!loading && user) {
-      navigate(redirect, { replace: true });
+    if (loading || !user) return;
+    // Verification is part of signing in: an unconfirmed account goes to the
+    // code screen, and keeps its original destination in the query string.
+    if (user.emailVerified === false) {
+      navigate(withRedirect('/verify-email', location.search), { replace: true });
+      return;
     }
-  }, [user, loading, navigate, redirect]);
+    navigate(redirect, { replace: true });
+  }, [user, loading, navigate, redirect, location.search]);
 
   return (
     <div className="auth-page">

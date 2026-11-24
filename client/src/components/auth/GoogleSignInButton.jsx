@@ -264,7 +264,7 @@ const GoogleSignInButton = ({
   const labelMap = {
     idle:    isLink ? 'Slide to connect Google' : 'Slide to continue with Google',
     loading: 'Connecting…',
-    success: isLink ? 'Connected!' : 'Signed in!',
+    success: isLink ? 'Google connected.' : 'Signed in with Google.',
     error:   'Try again',
   };
 
