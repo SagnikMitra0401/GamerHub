@@ -178,6 +178,21 @@ gate in the chain, `npm run scan:secrets` 0 hits, 167 server files and 0
 hardcoded origins. An empty `JWT_SECRET` and a 5-character one each exit 1 and
 name the key without printing it.
 
+**Follow-up (25 November 2026).** The array rule matched any `ALLOWED_*`
+constant, so `ALLOWED_METHODS` would have failed the gate without being origin
+policy. It now matches only names about an origin or an allow-list
+(`ALLOWED_ORIGINS`, `EXTRA_ORIGIN`, `ALLOWLIST`, `ALLOWED_HOSTS`) and catches a
+single-line array as well as a multi-line one. Separately, `originProblems`
+refuses a plain-http origin when `NODE_ENV` is production: the session cookie is
+credentialed, so an http origin would send it in cleartext. The scheme rule stays
+off outside production because Vite serves the client over http. Seven gate
+checks (`server/tests/hostGate.test.js`) and four environment checks cover the
+two rules.
+
+Measured: 26 boot and gate checks, 367 server tests, 167 files and 0 hardcoded
+origins, with an unused-looking `ALLOWED_METHODS` array accepted and
+`http://gamerhub.example` refused in production.
+
 **Risk:** a missing key in the developer's own `.env` turns into a loud boot
 failure. That is the point, but the message has to name the key and the file.
 

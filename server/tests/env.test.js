@@ -68,6 +68,36 @@ test('an origin with a path is refused', () => {
   assert.match(errorsOf(validEnv({ CLIENT_URL: 'https://gamerhub.example/app' })), /path/);
 });
 
+test('production refuses a plain-http origin', () => {
+  const env = validEnv({
+    NODE_ENV: 'production',
+    CLIENT_URL: 'http://gamerhub.example',
+    EMAIL_CODE_PEPPER: 'p'.repeat(32)
+  });
+  assert.match(errorsOf(env), /CLIENT_URL\[1\] must use https in production/);
+});
+
+test('production refuses a plain-http extra origin even with an https client url', () => {
+  const env = validEnv({
+    NODE_ENV: 'production',
+    CLIENT_URL: 'https://gamerhub.example',
+    EXTRA_ALLOWED_ORIGINS: 'https://preview.gamerhub.example, http://old.gamerhub.example',
+    EMAIL_CODE_PEPPER: 'p'.repeat(32)
+  });
+  const text = errorsOf(env);
+  assert.match(text, /EXTRA_ALLOWED_ORIGINS\[2\] must use https in production/);
+  assert.doesNotMatch(text, /EXTRA_ALLOWED_ORIGINS\[1\]/);
+});
+
+test('development accepts an http origin', () => {
+  assert.deepEqual(validateEnv(validEnv({ CLIENT_URL: 'http://localhost:3000' })).errors, []);
+});
+
+test('a non-http scheme is refused in every environment', () => {
+  const text = errorsOf(validEnv({ CLIENT_URL: 'ftp://gamerhub.example' }));
+  assert.match(text, /must use http or https/);
+});
+
 test('a second entry in the origin list is reported by position', () => {
   const text = errorsOf(validEnv({ EXTRA_ALLOWED_ORIGINS: 'https://a.example, not-a-url' }));
   assert.match(text, /EXTRA_ALLOWED_ORIGINS\[2\] is not an absolute URL/);

@@ -11,8 +11,11 @@
  *
  * Scope is deliberately narrow. Third-party API endpoints (YouTube, IGDB,
  * Cloudinary) are legitimate literals and are not origin policy, so a blanket
- * "no hostname" rule would only produce noise. Tests are excluded: they use
- * fixture origins to prove a spoofed host is refused.
+ * "no hostname" rule would only produce noise. The array rule matches names that
+ * are about origins or are an allow-list (`ALLOWED_ORIGINS`, `EXTRA_ORIGIN`,
+ * `ALLOWLIST`, `ALLOWED_HOSTS`) and leaves unrelated constants such as
+ * `ALLOWED_METHODS` alone. Tests are excluded: they use fixture origins to
+ * prove a spoofed host is refused.
  *
  * Run: `node scripts/scan-hosts.js` -- exits 1 on any hit.
  */
@@ -28,9 +31,11 @@ const SKIP_DIRS = new Set(['node_modules', 'tests', 'test']);
 const PLATFORM_HOST =
   /(?:[a-z0-9-]+\.)*(?:vercel\.app|onrender\.com|netlify\.app|herokuapp\.com|railway\.app|fly\.dev|pages\.dev)\b/i;
 
-// A `const SOMETHING_ORIGINS = [` (or ALLOW / ALLOWED) array is a built-in
-// allow-list by another name. Production origins belong in the environment.
-const LITERAL_ORIGIN_ARRAY = /^\s*(?:const|let|var)\s+[A-Z0-9_]*(?:ORIGIN|ORIGINS|ALLOW)[A-Z0-9_]*\s*=\s*\[\s*$/;
+// `const ALLOWED_ORIGINS = [` and `const ALLOWLIST = ['https://...']` are a
+// built-in allow-list by another name. Production origins belong in the
+// environment.
+const LITERAL_ARRAY = /^\s*(?:const|let|var)\s+([A-Z][A-Z0-9_]*)\s*=\s*\[/;
+const ORIGIN_OR_ALLOW_LIST = /(?:^|_)(?:ORIGINS?|ALLOWLIST|ALLOW_LIST|ALLOWED_HOSTS?|TRUSTED_HOSTS?)(?:_|$)/;
 
 function walk(dir, files = []) {
   if (!fs.existsSync(dir)) return files;
@@ -46,18 +51,29 @@ function walk(dir, files = []) {
   return files;
 }
 
-function scanFile(file) {
+/**
+ * Scan JS source text for hardcoded origins.
+ *
+ * @param {string} source
+ * @param {string} file name used in the finding, for reporting only
+ * @returns {{ file: string, line: number, reason: string, text: string }[]}
+ */
+function scanSource(source, file = '<source>') {
   const findings = [];
-  const lines = fs.readFileSync(file, 'utf8').split('\n');
-  lines.forEach((line, index) => {
+  source.split('\n').forEach((line, index) => {
     if (PLATFORM_HOST.test(line)) {
       findings.push({ file, line: index + 1, reason: 'shared hosting domain', text: line.trim() });
     }
-    if (LITERAL_ORIGIN_ARRAY.test(line)) {
+    const assignment = LITERAL_ARRAY.exec(line);
+    if (assignment && ORIGIN_OR_ALLOW_LIST.test(assignment[1])) {
       findings.push({ file, line: index + 1, reason: 'literal origin allow-list', text: line.trim() });
     }
   });
   return findings;
+}
+
+function scanFile(file) {
+  return scanSource(fs.readFileSync(file, 'utf8'), file);
 }
 
 function main() {
@@ -80,4 +96,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { main, walk, scanFile };
+module.exports = { main, walk, scanFile, scanSource };

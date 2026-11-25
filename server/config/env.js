@@ -82,8 +82,16 @@ const splitList = (value) =>
  * A browser sends `scheme://host[:port]` in the Origin header, so a wildcard, a
  * path, a query or a missing scheme can never match. Each of those is reported
  * instead of being accepted as a rule that silently rejects real requests.
+ *
+ * Production origins must be https. The session cookie is credentialed, so an
+ * http origin in production would send it in cleartext on every mutation.
+ *
+ * @param {string} key environment key, used in the message
+ * @param {string|undefined} value
+ * @param {{ production?: boolean }} [options]
+ * @returns {string[]}
  */
-function originProblems(key, value) {
+function originProblems(key, value, { production = false } = {}) {
   return splitList(value).flatMap((entry, index) => {
     const label = `${key}[${index + 1}]`;
     if (entry.includes('*')) {
@@ -97,6 +105,9 @@ function originProblems(key, value) {
     }
     if (!/^https?:$/.test(url.protocol)) {
       return [`${label} must use http or https.`];
+    }
+    if (production && url.protocol !== 'https:') {
+      return [`${label} must use https in production; http is for local development only.`];
     }
     if (url.pathname !== '/' || url.search || url.hash) {
       return [`${label} includes a path, query or fragment; an origin is scheme, host and port only.`];
@@ -142,11 +153,11 @@ function validateEnv(env = process.env) {
       errors.push('CLIENT_URL is not set; production needs the web origin for CORS and share links.');
     }
   } else {
-    errors.push(...originProblems('CLIENT_URL', env.CLIENT_URL));
+    errors.push(...originProblems('CLIENT_URL', env.CLIENT_URL, { production }));
   }
 
   if (present(env.EXTRA_ALLOWED_ORIGINS)) {
-    errors.push(...originProblems('EXTRA_ALLOWED_ORIGINS', env.EXTRA_ALLOWED_ORIGINS));
+    errors.push(...originProblems('EXTRA_ALLOWED_ORIGINS', env.EXTRA_ALLOWED_ORIGINS, { production }));
   }
 
   if (production) {
