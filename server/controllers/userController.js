@@ -12,6 +12,7 @@ const { badRequest, notFound, forbidden } = require('../utils/httpError');
 const { getIO } = require('../config/socket');
 const { publicPresence } = require('../utils/presence');
 const { blockedIdsFor, hiddenAccountIds } = require('../utils/visibility');
+const relations = require('../utils/relations');
 const { describeDmPolicy } = require('../utils/dmPolicy');
 const { publicBusinessProfile } = require('../utils/business');
 const { notifyFollow } = require('../utils/socialNotifications');
@@ -44,19 +45,14 @@ const getProfile = async (req, res, next) => {
       // Sign-in identities, session counters and personal block lists are not
       // public profile data.
       .select(
-        '-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers -recoveryEmail -recoveryEmailVerifiedAt -recoveryEligibleAt',
+        '-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers -recoveryEmail -recoveryEmailVerifiedAt -recoveryEligibleAt -followers -following',
       )
-      .populate('followers', 'username')
-      .populate('following', 'username')
       .lean();
     if (!user) throw notFound('User not found');
 
     const isSelf = req.user && String(req.user._id) === String(user._id);
     const isStaff = req.user?.role === 'admin';
-    const blocked =
-      Boolean(req.user) &&
-      ((req.user.blockedUsers || []).some((entry) => String(entry) === String(user._id)) ||
-        (user.blockedUsers || []).some((entry) => String(entry) === String(req.user._id)));
+    const blocked = Boolean(req.user) && (await relations.isBlockedPair(req.user._id, user._id));
 
     // Frozen, suspended and deleted profiles are not a back door into content
     // the feed and search already hide. A symmetric block is a 404.
@@ -69,9 +65,14 @@ const getProfile = async (req, res, next) => {
 
     const postCount = await Post.countDocuments({ userId: user._id });
 
-    const isFollowing = req.user
-      ? req.user.following.some((id) => id.toString() === user._id.toString())
-      : false;
+    const [isFollowing, relationship, viewerBlockedIds] = req.user
+      ? await Promise.all([
+          relations.isFollowing(req.user._id, user._id),
+          relations.relationshipBetween(req.user._id, user._id),
+          relations.blockedIds(req.user._id),
+        ])
+      : [false, null, []];
+    const viewerHasBlocked = viewerBlockedIds.includes(String(user._id));
 
     // Server memberships + the role held in each (role badge integration).
     const rows = await Community.find({ 'members.userId': user._id })
@@ -111,9 +112,16 @@ const getProfile = async (req, res, next) => {
       recipient: user,
       viewer: req.user,
       viewerIsBusiness: viewerBusiness?.verificationStatus === 'verified',
+      relationshipHint: relationship,
     });
+    // A counter is undefined until the backfill reaches the account; the
+    // fallback reads the mirrored arrays so a profile never reports a false
+    // zero during the rollout.
+    const counts = await relations.countsFor(user);
     const profile = {
       ...user,
+      ...counts,
+      viewerHasBlocked,
       // A frozen account reads offline even to itself and staff.
       presence:
         user.status === 'frozen'
@@ -130,10 +138,12 @@ const getProfile = async (req, res, next) => {
     // the one row that applies to them in `dm`.
     delete profile.dmSettings;
     delete profile.blockedUsers;
+    // The bookmark list is only served by its own endpoint, never as a profile
+    // field: a large account must not ship its whole list with every view.
+    delete profile.savedPosts;
 
-    // Bookmarks, followed channels and discovery preferences are private.
+    // Followed channels and discovery preferences are private.
     if (!isSelf) {
-      delete profile.savedPosts;
       delete profile.favoriteChannels;
       delete profile.preferences;
     }
@@ -148,14 +158,11 @@ const getProfile = async (req, res, next) => {
 const getUserPosts = async (req, res, next) => {
   try {
     const target = await User.findOne({ username: req.params.username })
-      .select('_id status blockedUsers')
+      .select('_id status')
       .lean();
     if (!target) throw notFound('User not found');
 
-    const blocked =
-      Boolean(req.user) &&
-      ((req.user.blockedUsers || []).some((entry) => String(entry) === String(target._id)) ||
-        (target.blockedUsers || []).some((entry) => String(entry) === String(req.user._id)));
+    const blocked = Boolean(req.user) && (await relations.isBlockedPair(req.user._id, target._id));
     if (
       (['frozen', 'suspended', 'deleted'].includes(target.status) &&
         String(req.user?._id) !== String(target._id) &&
@@ -196,37 +203,33 @@ const toggleFollow = async (req, res, next) => {
       throw badRequest('You cannot follow yourself');
     }
 
-    const alreadyFollowing = req.user.following.some(
-      (id) => id.toString() === target._id.toString(),
-    );
+    const alreadyFollowing = await relations.isFollowing(req.user._id, target._id);
 
     if (alreadyFollowing) {
-      await User.findByIdAndUpdate(req.user._id, { $pull: { following: target._id } });
-      await User.findByIdAndUpdate(target._id, { $pull: { followers: req.user._id } });
+      await relations.unfollow({ followerId: req.user._id, followingId: target._id });
     } else {
-      await User.findByIdAndUpdate(req.user._id, { $addToSet: { following: target._id } });
-      await User.findByIdAndUpdate(target._id, { $addToSet: { followers: req.user._id } });
-      recordFirstEvent('first_follow', req.user._id, { surface: 'profile' });
+      const result = await relations.follow({
+        followerId: req.user._id,
+        followingId: target._id,
+      });
+      if (result.created) {
+        recordFirstEvent('first_follow', req.user._id, { surface: 'profile' });
 
-      const updatedCaller = await User.findById(req.user._id).select('following').lean();
-      if (updatedCaller?.following?.length === 5) {
-        awardXp(req.user._id, 20, 'community_builder');
+        const updatedCaller = await User.findById(req.user._id).select('followingCount').lean();
+        if (updatedCaller?.followingCount === 5) {
+          awardXp(req.user._id, 20, 'community_builder');
+        }
+
+        // Only a new follow creates a ping; unfollowing is silent. The dedupe
+        // key prevents follow/unfollow/re-follow churn from spamming the target.
+        await notifyFollow({ target, actor: req.user });
       }
-
-      // Only a new follow creates a ping; unfollowing is silent. The dedupe
-      // key prevents follow/unfollow/re-follow churn from spamming the target.
-      await notifyFollow({ target, actor: req.user });
     }
 
-    const updated = await User.findById(target._id)
-      .select('followers')
-      .populate('followers', 'username')
-      .lean();
+    const updated = await User.findById(target._id).select('followerCount followers').lean();
+    const { followerCount } = await relations.countsFor(updated);
 
-    res.status(200).json({
-      following: !alreadyFollowing,
-      followers: updated.followers,
-    });
+    res.status(200).json({ following: !alreadyFollowing, followerCount });
   } catch (err) {
     next(err);
   }
@@ -238,13 +241,14 @@ const toggleSavePost = async (req, res, next) => {
     const { postId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(postId)) throw badRequest('Invalid post id');
 
-    const alreadySaved = req.user.savedPosts.some((id) => id.toString() === postId);
+    const alreadySaved = await relations.isSaved({ userId: req.user._id, postId });
 
-    const update = alreadySaved
-      ? { $pull: { savedPosts: postId } }
-      : { $addToSet: { savedPosts: postId } };
+    if (alreadySaved) {
+      await relations.unsavePost({ userId: req.user._id, postId });
+    } else {
+      await relations.savePost({ userId: req.user._id, postId });
+    }
 
-    await User.findByIdAndUpdate(req.user._id, update);
     res.status(200).json({ saved: !alreadySaved, postId });
   } catch (err) {
     next(err);
@@ -279,21 +283,102 @@ const toggleFavouriteChannel = async (req, res, next) => {
 // GET /api/users/me/saved — saved posts for the logged-in user
 const getSavedPosts = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
-      .select('savedPosts')
-      .populate({
-        path: 'savedPosts',
-        populate: { path: 'userId', select: 'username level role' },
-      })
+    // Bookmark order comes from the edges, so a heavy account never loads its
+    // whole saved list through the user document.
+    const ids = await relations.savedPostIds(req.user._id);
+    if (!ids.length) return res.status(200).json([]);
+
+    const posts = await Post.find({ _id: { $in: ids } })
+      .populate('userId', 'username level role')
       .lean();
+    const byId = new Map(posts.map((post) => [String(post._id), post]));
 
     // Deleted posts must not appear as nulls.
-    const posts = (user?.savedPosts || []).filter(Boolean).reverse();
-    res.status(200).json(posts);
+    res.status(200).json(ids.map((id) => byId.get(id)).filter(Boolean));
   } catch (err) {
     next(err);
   }
 };
+
+// GET /api/users/me/saved-ids — bookmark ids for the session user
+const getSavedPostIds = async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json({ savedPostIds: await relations.savedPostIds(req.user._id) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/users/:username/followers and /following
+ *
+ * A page of ids from the edge collection, then one projection for the accounts
+ * on it. Capped at 50 rows like every other list this API serves.
+ */
+const followList = async (req, res, next, kind) => {
+  try {
+    const target = await User.findOne({ username: req.params.username })
+      .select('_id status')
+      .lean();
+    if (!target) throw notFound('User not found');
+
+    const isSelf = String(req.user?._id || '') === String(target._id);
+    if (
+      ['frozen', 'suspended', 'deleted'].includes(target.status) &&
+      !isSelf &&
+      req.user?.role !== 'admin'
+    ) {
+      throw notFound('User not found');
+    }
+    if (req.user && (await relations.isBlockedPair(req.user._id, target._id))) {
+      throw notFound('User not found');
+    }
+
+    const { skip, limit } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 50 });
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : null;
+    const page =
+      kind === 'followers'
+        ? await relations.followersPage(target._id, { skip, limit, cursor })
+        : await relations.followingPage(target._id, { skip, limit, cursor });
+
+    const rows = page.userIds.length
+      ? await User.find({ _id: { $in: page.userIds } })
+          .select('username level profileType status presence')
+          .lean()
+      : [];
+    const byId = new Map(rows.map((row) => [String(row._id), row]));
+
+    const items = page.userIds
+      .map((id) => byId.get(id))
+      .filter(
+        (row) =>
+          row &&
+          (!['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(row.status) ||
+            String(row._id) === String(req.user?._id)),
+      )
+      .map((row) => ({
+        _id: String(row._id),
+        username: row.username,
+        level: row.level,
+        profileType: row.profileType,
+        presence: publicPresence(row.presence),
+      }));
+
+    res.set('Cache-Control', 'private, max-age=15');
+    res.status(200).json({
+      items,
+      total: page.total,
+      hasMore: page.hasMore,
+      nextCursor: page.nextCursor,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getFollowers = (req, res, next) => followList(req, res, next, 'followers');
+const getFollowing = (req, res, next) => followList(req, res, next, 'following');
 
 // GET /api/users/search — unified search for posts, users, and tags
 const searchAll = async (req, res, next) => {
@@ -310,13 +395,10 @@ const searchAll = async (req, res, next) => {
     // The "who blocked me" and "who is frozen" lookups are cached for a few
     // seconds (and invalidated by freeze/block), so a signed-in search does not
     // scan the user collection on every keystroke.
-    const [blockedByThem, hiddenAccounts] = await Promise.all([
+    const [blockedIds, hiddenAccounts] = await Promise.all([
       blockedIdsFor(req.user?._id),
       hiddenAccountIds(),
     ]);
-    const blockedIds = [
-      ...new Set([...(req.user?.blockedUsers || []).map(String), ...blockedByThem]),
-    ];
 
     // Post authors are filtered after the populate, which is cheaper than
     // loading every frozen account into a `$nin` before the text query.
@@ -544,6 +626,9 @@ module.exports = {
   toggleSavePost,
   toggleFavouriteChannel,
   getSavedPosts,
+  getSavedPostIds,
+  getFollowers,
+  getFollowing,
   searchAll,
   updateGamerPassport,
   updatePreferences,

@@ -8,6 +8,9 @@ const {
   toggleSavePost,
   toggleFavouriteChannel,
   getSavedPosts,
+  getSavedPostIds,
+  getFollowers,
+  getFollowing,
   searchAll,
   updateGamerPassport,
   updatePreferences,
@@ -26,6 +29,7 @@ router.patch('/me/preferences', protect, updatePreferences);
 router.patch('/presence', protect, updatePresence);
 router.patch('/privacy-settings', protect, updatePrivacySettings);
 router.get('/me/saved', protect, getSavedPosts);
+router.get('/me/saved-ids', protect, getSavedPostIds);
 router.get('/me/muted', protect, getMutedUsers);
 
 // Personal mute (hides their content from YOUR view; not a moderation action)
@@ -34,6 +38,8 @@ router.post('/:id/mute', protect, toggleMute);
 // Public routes (with optional auth for isFollowing flag)
 router.get('/:username', optionalProtect, getProfile);
 router.get('/:username/posts', optionalProtect, getUserPosts);
+router.get('/:username/followers', optionalProtect, getFollowers);
+router.get('/:username/following', optionalProtect, getFollowing);
 
 // Protected routes
 router.post('/:username/follow', protect, activeOnly, toggleFollow);

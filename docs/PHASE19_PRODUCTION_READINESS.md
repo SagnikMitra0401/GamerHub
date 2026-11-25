@@ -1,6 +1,6 @@
 # Phase 19 — production readiness
 
-> **Status:** steps 1 and 2 implemented and verified on 25 November 2026. Steps 3
+> **Status:** steps 1 to 3 implemented and verified on 25 November 2026. Steps 4
 > to 11 are still plan.
 > **Scope owner:** engineering.
 > **Source of the work:** the critical review of 24 November 2026, which scored
@@ -327,6 +327,81 @@ twice to prove idempotence, and keep the arrays until step 9 has shipped.
 during this step.
 
 **Effort:** 4 days.
+
+**Result (25 November 2026).** Implemented, uncommitted, with the numbers below
+measured on this working tree. Sub-steps were verified in order: schema and
+indexes, the edge service, the backfill migration, the write paths, the read
+paths, then the session projection.
+
+- **Schema:** `server/models/Follow.js`, `SavedPost.js`, `UserBlock.js` and
+  `UserMute.js`, each with a unique pair index and the read index its list
+  needs. `User` gains `followerCount`, `followingCount` and `savedCount`: new
+  accounts start at zero, while an account that predates the field keeps
+  `undefined` until the backfill reaches it.
+- **Migration:** `migrations/auth/20261125090000-relation-edges.js` creates the
+  indexes, backfills from the arrays in duplicate-safe batches, recomputes every
+  counter from the edge collections, then verifies two things: the total number
+  of array entries equals the row count per relationship, and every user's
+  counters equal the row counts for that account. A mismatch throws and rolls
+  the run back to the operator. Running it twice changed no row, and `down`
+  followed by `up` restored the same rows from the arrays.
+- **Writes:** `server/utils/relations.js` owns follow, bookmark, block, mute,
+  post deletion, erasure and report-and-block. It upserts the pair, keeps the
+  legacy array current for one release, and recomputes the affected counters
+  rather than incrementing them, so a retried request cannot drift. A block also
+  removes follow edges in both directions.
+- **Reads:** gated per call by `RELATION_EDGES`, default off. Converted sites
+  are feed ranking, the following feed, profile, saved list, block and mute
+  filters, story visibility, discover, DM policy, notifications, invitations,
+  the public business card and the data export. The following feed uses a
+  `$lookup` against `follows` per candidate author, and the For You boost asks
+  `followedAmong` about the page's authors, so neither path loads a follow list
+  into the request.
+- **Pagination:** `GET /api/users/:username/followers` and `/following` return
+  `items`, `total`, `hasMore` and an opaque `nextCursor` built from edge date and
+  id. `limit` is capped at 50. Offset paging remains available for the flag-off
+  array fallback.
+- **Session:** `SESSION_FIELDS` and `/auth/me` no longer load the four arrays, and
+  the profile response carries `followerCount`, `followingCount` and
+  `viewerHasBlocked` instead of follower documents. The client fetches
+  `/api/users/me/saved-ids` on boot so post cards keep their bookmark state, and
+  the profile page requests one 50-row page when a follower list is opened.
+- **Deployment window:** a counter that is `undefined` means the backfill has not
+  reached that account. `relations.countsFor` then counts the mirrored arrays for
+  the profile, the follow response and the public business card, so no reader
+  shows zero while the migration is still running. `recount` leaves an undefined
+  counter alone rather than publishing a count derived from the few rows written
+  since the deploy. Unfollow, unsave, unblock and unmute clear the arrays whether
+  or not an edge row existed, because a removal can arrive before the backfill.
+  New accounts start with the counters at zero, so only pre-existing documents
+  rely on the fallback.
+
+Measured: `scripts/e2e-phase19.js` 39/39 checks against a throwaway database,
+including an account with arrays and no counters and a removal made before the
+backfill. `npm run test:e2e` passed 891/891 across sixteen suites (888 before
+this follow-up, 852 before the step). `npm test` passed 367/367 and
+`npm run migration:lint` reported 0 errors. `npm test --prefix client` passed
+51/51; client build 179.23 kB CSS and 792.74 kB JS (211.77 kB gzip);
+`npm run lint` 0 errors and the recorded 67 warnings; `npm run typecheck`,
+`npm run format:check` and `npm run scan:secrets` exit 0. The 200,000-edge fixture
+built in 39.3 s, served one 20-row follower page in 0.98 s, and accepted a new
+follow with an exact counter in 0.49 s.
+
+**Browser check (25 November 2026).** Two accounts in a throwaway database held
+populated arrays and no counters, the state of an account the backfill has not
+reached. Signed in as the first: the second profile showed 1 Followers rather
+than zero, its followers modal listed the first account, its following modal
+said there was nothing to show, unfollow dropped the count to 0, and following
+again returned it to 1 with the account back in the list. The first account's
+own profile showed 1 Following and 0 Followers, and `/api/users/clickalice`
+reported `savedCount: 1` while its counters were undefined.
+
+**Not verified:** `npm run db:indexes` still lists the four new collections as
+absent from the development database because `npm run migrate:auth` has not been
+run there; the same audit reports 52 differences in older collections that
+predate this step. Index parity for the four new collections is checked inside the
+throwaway database by the e2e suite instead. `RELATION_EDGES` has not been turned
+on in a deployed environment.
 
 ### Step 4 — Transaction boundaries
 

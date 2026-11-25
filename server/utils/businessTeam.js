@@ -12,7 +12,7 @@ const User = require('../models/User');
 
 const { badRequest, notFound, forbidden, conflict } = require('./httpError');
 const { usernameFilter, normalizeUsername } = require('./username');
-const { isBlockedBetween } = require('./privacy');
+const relations = require('./relations');
 const { notifyUser } = require('./notify');
 
 const TEAM_ROLES = Object.freeze(['viewer', 'agent']);
@@ -95,7 +95,7 @@ async function inviteTeamMember({ ownerId, username, role }) {
   if (!normalizedRole) throw badRequest('Choose the viewer or agent role.');
 
   const target = await User.findOne(usernameFilter(parsedName.value))
-    .select('_id username profileType status blockedUsers')
+    .select('_id username profileType status')
     .lean();
   if (!target) throw notFound('Player not found.');
   if (String(target._id) === String(owner._id))
@@ -103,7 +103,7 @@ async function inviteTeamMember({ ownerId, username, role }) {
   if (['deleted', 'deletion_pending', 'suspended', 'frozen'].includes(target.status)) {
     throw badRequest('That account cannot join a shared inbox.');
   }
-  if (isBlockedBetween(owner, target)) {
+  if (await relations.isBlockedPair(owner._id, target._id)) {
     throw forbidden('That player cannot be invited.', { code: 'TEAM_BLOCKED' });
   }
 

@@ -48,9 +48,20 @@ const UserSchema = new mongoose.Schema(
       enum: ['PC', 'PlayStation', 'Xbox', 'Switch'],
       default: [],
     },
+    // Deprecated in favour of the Follow/SavedPost edge collections. The arrays
+    // are kept for one release so a rollback needs no data recovery; no request
+    // session loads them any more (see RELATION_EDGES in utils/relations.js).
     followers: { type: [mongoose.Schema.Types.ObjectId], ref: 'User', default: [] },
     following: { type: [mongoose.Schema.Types.ObjectId], ref: 'User', default: [] },
     savedPosts: { type: [mongoose.Schema.Types.ObjectId], ref: 'Post', default: [] },
+
+    // Denormalised counts maintained by utils/relations.js. Accounts created
+    // after this field exists start at zero; an older account keeps `undefined`
+    // until the backfill writes it, and readers then fall back to the array
+    // length instead of reporting a false zero.
+    followerCount: { type: Number, min: 0, default: 0 },
+    followingCount: { type: Number, min: 0, default: 0 },
+    savedCount: { type: Number, min: 0, default: 0 },
     favoriteChannels: { type: [String], default: [] },
 
     // Gamification (SRS §4.6)

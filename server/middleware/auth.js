@@ -3,9 +3,12 @@ const User = require('../models/User');
 const { accountGate, canParticipate } = require('../utils/privacy');
 const { releaseExpiredSuspension } = require('../utils/moderation');
 
+// Relationship arrays are deliberately absent: follows, bookmarks, blocks and
+// mutes live in their own collections now, so a signed-in request never loads
+// them. `favoriteChannels` stays because it is a bounded preference list.
 const SESSION_FIELDS =
-  '_id username email emailVerifiedAt following favoriteChannels savedPosts role ' +
-  'sessionVersion status profileType privacySettings blockedUsers mutedUsers ' +
+  '_id username email emailVerifiedAt favoriteChannels role ' +
+  'sessionVersion status profileType privacySettings ' +
   'createdAt authIdentities dmSettings moderation preferences';
 
 /** 401 when the account is deleted, 403 when it is suspended. */

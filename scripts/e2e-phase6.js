@@ -453,7 +453,8 @@ async function scenarios(ctx) {
   check('follow toggles on', () => {
     assert.equal(follow.status, 200);
     assert.equal(follow.data.following, true);
-    assert.ok(follow.data.followers.some((f) => f.username === 'ben'));
+    // Counts instead of the whole follower array: the list has its own page.
+    assert.ok(follow.data.followerCount >= 1);
   });
 
   const selfFollow = await api(`/api/users/${ben.username}/follow`, {

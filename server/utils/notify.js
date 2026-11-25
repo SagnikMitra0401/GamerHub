@@ -2,7 +2,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { getIO } = require('../config/socket');
 const { sanitizeLine, isHttpUrl } = require('./sanitize');
-const { isBlockedBetween } = require('./privacy');
+const relations = require('./relations');
 const {
   notificationCategory,
   isNotificationCategoryEnabled,
@@ -60,9 +60,7 @@ async function notifyUser({
 
     // Stealth mode silences pings: nothing is written or pushed while frozen,
     // suspended or deleted.
-    const recipient = await User.findById(userId)
-      .select('status notificationSettings blockedUsers')
-      .lean();
+    const recipient = await User.findById(userId).select('status notificationSettings').lean();
     if (
       !recipient ||
       ['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(recipient.status)
@@ -73,11 +71,11 @@ async function notifyUser({
     // Social actions must not leak through a block in either direction. Calls
     // without an actor (system-generated pings, bot finds) skip this read.
     if (actorId) {
-      const actor = await User.findById(actorId).select('status blockedUsers').lean();
+      const actor = await User.findById(actorId).select('status').lean();
       if (
         !actor ||
         ['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(actor.status) ||
-        isBlockedBetween(recipient, actor)
+        (await relations.isBlockedPair(recipient._id, actor._id))
       ) {
         return null;
       }

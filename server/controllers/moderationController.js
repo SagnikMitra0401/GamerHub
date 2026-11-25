@@ -13,6 +13,7 @@ const Message = require('../models/Message');
 const ForumPost = require('../models/ForumPost');
 const Report = require('../models/Report');
 const User = require('../models/User');
+const relations = require('../utils/relations');
 
 const {
   CAP,
@@ -502,22 +503,18 @@ const toggleMute = async (req, res, next) => {
     const target = await User.findById(req.params.id).select('_id username').lean();
     if (!target) throw notFound('User not found.');
 
-    const me = await User.findById(req.user._id).select('mutedUsers').lean();
-    const alreadyMuted = (me?.mutedUsers || []).some((id) => String(id) === String(target._id));
+    const alreadyMuted = (await relations.mutedIds(req.user._id)).includes(String(target._id));
 
-    await User.updateOne(
-      { _id: req.user._id },
-      alreadyMuted
-        ? { $pull: { mutedUsers: target._id } }
-        : { $addToSet: { mutedUsers: target._id } },
-    );
+    if (alreadyMuted) {
+      await relations.unmute({ muterId: req.user._id, mutedId: target._id });
+    } else {
+      await relations.mute({ muterId: req.user._id, mutedId: target._id });
+    }
 
     res.status(200).json({
       userId: String(target._id),
       muted: !alreadyMuted,
-      mutedUsers: alreadyMuted
-        ? (me.mutedUsers || []).map(String).filter((id) => id !== String(target._id))
-        : [...(me?.mutedUsers || []).map(String), String(target._id)],
+      mutedUsers: await relations.mutedIds(req.user._id),
     });
   } catch (err) {
     next(err);
@@ -526,9 +523,8 @@ const toggleMute = async (req, res, next) => {
 
 const getMutedUsers = async (req, res, next) => {
   try {
-    const me = await User.findById(req.user._id).select('mutedUsers').lean();
     res.set('Cache-Control', 'private, no-store');
-    res.status(200).json({ mutedUsers: (me?.mutedUsers || []).map(String) });
+    res.status(200).json({ mutedUsers: await relations.mutedIds(req.user._id) });
   } catch (err) {
     next(err);
   }

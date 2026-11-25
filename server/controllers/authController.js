@@ -396,7 +396,11 @@ const googleLogin = async (req, res, next) => {
 // Returns full profile — refetch so bio/preferredPlatforms/createdAt are included
 const getMe = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).select('-passwordHash');
+    // Relationship arrays are not part of the session: the client asks for the
+    // one it needs (bookmark ids, a follower page) through its own endpoint.
+    const user = await User.findById(req.user._id).select(
+      '-passwordHash -followers -following -savedPosts -blockedUsers -mutedUsers',
+    );
     if (!user) return res.status(404).json({ message: 'User not found' });
     const payload = /** @type {any} */ (user.toObject());
     payload.emailVerified = Boolean(payload.emailVerifiedAt);

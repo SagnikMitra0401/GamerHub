@@ -29,6 +29,10 @@ const MODELS = [
   'Game',
   'MediaAsset',
   'Attachment',
+  'Follow',
+  'SavedPost',
+  'UserBlock',
+  'UserMute',
 ];
 
 async function run() {

@@ -8,7 +8,8 @@ const SquadChat = require('../models/SquadChat');
 
 const { notifyUser } = require('../utils/notify');
 const { recordFirstEvent } = require('../utils/productEvents');
-const { canInvite, containsId } = require('../utils/privacy');
+const { canInvite } = require('../utils/privacy');
+const relations = require('../utils/relations');
 const { openSlots } = require('../utils/partyRules');
 const { communityPermissions, CAP } = require('../utils/permissions');
 const { isOpen } = require('../utils/squadLifecycle');
@@ -61,17 +62,18 @@ const createInvitation = async (req, res, next) => {
     }
 
     const [recipient, inviter] = await Promise.all([
-      User.findById(recipientId).select('_id username status privacySettings blockedUsers').lean(),
-      User.findById(req.user._id).select('_id username status following blockedUsers').lean(),
+      User.findById(recipientId).select('_id username status privacySettings').lean(),
+      User.findById(req.user._id).select('_id username status').lean(),
     ]);
     if (!recipient) throw notFound('User not found');
 
-    const followsRecipient = containsId(inviter?.following, recipient._id);
+    const followsRecipient = await relations.isFollowing(req.user._id, recipient._id);
     const consent = canInvite({
       targetType,
       recipient,
       inviter,
       inviterFollowsRecipient: followsRecipient,
+      blockedBetween: await relations.isBlockedPair(req.user._id, recipient._id),
     });
     if (!consent.ok) {
       const status =
@@ -378,7 +380,7 @@ const migrateSquadToServer = async (req, res, next) => {
     const [party, community, inviter] = await Promise.all([
       Party.findById(req.params.id).select('_id gameTitle leaderId members status').lean(),
       Community.findById(communityId).select('_id name members ownerId').lean(),
-      User.findById(req.user._id).select('_id following blockedUsers').lean(),
+      User.findById(req.user._id).select('_id username').lean(),
     ]);
 
     if (!party) throw notFound('Squad not found');
@@ -399,7 +401,7 @@ const migrateSquadToServer = async (req, res, next) => {
       .filter((id) => id !== String(req.user._id));
 
     const recipients = await User.find({ _id: { $in: memberIds } })
-      .select('_id username status privacySettings blockedUsers')
+      .select('_id username status privacySettings')
       .lean();
 
     const created = [];
@@ -414,7 +416,8 @@ const migrateSquadToServer = async (req, res, next) => {
         targetType: 'community_server',
         recipient,
         inviter,
-        inviterFollowsRecipient: containsId(inviter?.following, recipient._id),
+        inviterFollowsRecipient: await relations.isFollowing(req.user._id, recipient._id),
+        blockedBetween: await relations.isBlockedPair(req.user._id, recipient._id),
       });
       if (!consent.ok) {
         skipped.push({ userId: String(recipient._id), reason: consent.code });

@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { openSlots } = require('../utils/partyRules');
 const { publicPresence } = require('../utils/presence');
 const { blockedIdsFor } = require('../utils/visibility');
+const relations = require('../utils/relations');
 const { escapeRegex } = require('../utils/sanitize');
 const {
   MAX_ONBOARDING_GAMES,
@@ -40,10 +41,8 @@ const getOnboardingSuggestions = async (req, res, next) => {
     const games = normalizeGames(req.query.games, { limit: MAX_ONBOARDING_GAMES });
     const platforms = normalizePlatforms(req.query.platforms);
 
-    const blockedByThem = await blockedIdsFor(viewerId);
-    const blockedIds = [
-      ...new Set([...(req.user.blockedUsers || []).map(String), ...blockedByThem]),
-    ];
+    // blockedIdsFor already returns both directions of a block.
+    const blockedIds = await blockedIdsFor(viewerId);
     const gameRegexes = games.map((game) => new RegExp(`^${escapeRegex(game)}`, 'i'));
 
     // ── Squads ──────────────────────────────────────────────────────────────
@@ -160,13 +159,20 @@ const getOnboardingSuggestions = async (req, res, next) => {
         .limit(30)
         .lean();
 
+      const followed = new Set(
+        await relations.followedAmong(
+          req.user._id,
+          playerRows.map((player) => player._id),
+        ),
+      );
+
       players = playerRows
         .map((player) => ({
           ...publicSuggestionPlayer(
             { ...player, presence: publicPresence(player.presence) },
             games,
           ),
-          following: (req.user.following || []).some((id) => sameId(id, player._id)),
+          following: followed.has(String(player._id)),
         }))
         .filter((player) => player.sharedGames.length > 0)
         .slice(0, 5);

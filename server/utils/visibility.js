@@ -12,16 +12,16 @@
  * effective on the very next request.
  */
 const User = require('../models/User');
+const relations = require('./relations');
 const { createTtlCache } = require('./cache');
 
 const CACHE_TTL_MS = 15_000;
 const visibilityCache = createTtlCache({ ttlMs: CACHE_TTL_MS, maxEntries: 200 });
 
-/** Ids of accounts that blocked the caller. */
+/** Symmetric block set: accounts the caller blocked plus accounts blocking them. */
 async function blockedByOthers(userId) {
   if (!userId) return [];
-  const rows = await User.find({ blockedUsers: userId }).select('_id').lean();
-  return rows.map((row) => String(row._id));
+  return relations.hiddenPairIds(userId);
 }
 
 /**

@@ -39,20 +39,20 @@ function isBlockedBetween(a, b) {
  * May `inviter` invite `recipient` to a squad / server?
  *
  * @param {object} input
- * @param {'squad'|'community_server'} input.targetType
+ * @param {string} input.targetType `squad` or `community_server`
  * @param {object} input.recipient  recipient user document
  * @param {object} input.inviter    inviter user document
- * @param {boolean} input.inviterFollowsRecipient
+ * @param {boolean} [input.inviterFollowsRecipient]
+ * @param {boolean} [input.blockedBetween] answer from the edge collections
  * @returns {{ok: boolean, reason?: string, code?: string}}
  */
-/**
- * @param {object} input
- * @param {string} input.targetType `squad` or `community_server`
- * @param {object} input.recipient
- * @param {object} input.inviter
- * @param {boolean} [input.inviterFollowsRecipient]
- */
-function canInvite({ targetType, recipient, inviter, inviterFollowsRecipient = false }) {
+function canInvite({
+  targetType,
+  recipient,
+  inviter,
+  inviterFollowsRecipient = false,
+  blockedBetween,
+}) {
   if (!recipient || !inviter) {
     return { ok: false, code: 'NOT_FOUND', reason: 'That player could not be found.' };
   }
@@ -79,7 +79,11 @@ function canInvite({ targetType, recipient, inviter, inviterFollowsRecipient = f
   if (['deleted', 'deletion_pending', 'suspended', 'frozen'].includes(recipient.status)) {
     return { ok: false, code: 'UNAVAILABLE', reason: 'This player cannot be invited.' };
   }
-  if (isBlockedBetween(inviter, recipient)) {
+  // Callers that read blocks from the edge collections pass the answer in;
+  // the document check remains for callers that already hold both users.
+  const blocked =
+    typeof blockedBetween === 'boolean' ? blockedBetween : isBlockedBetween(inviter, recipient);
+  if (blocked) {
     // Deliberately generic: a blocked inviter must not learn they were blocked.
     return { ok: false, code: 'BLOCKED', reason: 'This player cannot be invited.' };
   }

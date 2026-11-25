@@ -10,6 +10,7 @@ const { mediaPublicId: buildMediaPublicId } = require('../utils/mediaPaths');
 const { sanitizeLine } = require('../utils/sanitize');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { canViewStory, groupStories, idOf } = require('../utils/storyAccess');
+const relations = require('../utils/relations');
 const { STORY_TTL_MS, STORY_BACKGROUNDS, STORY_VISIBILITY } = require('../models/Story');
 
 const HIDDEN_STATUS = ['frozen', 'suspended', 'deleted', 'deletion_pending'];
@@ -140,8 +141,13 @@ const getStories = async (req, res, next) => {
   try {
     const viewer = req.user || null;
     const viewerId = viewer?._id ? String(viewer._id) : null;
-    const followingIds = viewer?.following || [];
-    const blockedIds = viewer?.blockedUsers || [];
+    const [followingIds, blockedIds, blockedByIds] = viewer
+      ? await Promise.all([
+          relations.followedIds(viewer._id),
+          relations.blockedIds(viewer._id),
+          relations.blockerIds(viewer._id),
+        ])
+      : [[], [], []];
 
     // Filter by visibility in the database, not after a fixed 300-row window:
     // a burst of public stories must not crowd followed authors out of the rail.
@@ -157,7 +163,7 @@ const getStories = async (req, res, next) => {
     })
       .sort({ createdAt: -1 })
       .limit(300)
-      .populate('authorId', 'username level role status blockedUsers avatarUrl')
+      .populate('authorId', 'username level role status avatarUrl')
       .lean();
 
     const visible = stories.filter((story) => {
@@ -168,10 +174,7 @@ const getStories = async (req, res, next) => {
       if (HIDDEN_STATUS.includes(author.status) && authorId !== viewerId) return false;
 
       // A block in either direction removes the story, even a public one.
-      if (viewerId) {
-        const authorBlockedViewer = (author.blockedUsers || []).map(String).includes(viewerId);
-        if (authorBlockedViewer) return false;
-      }
+      if (viewerId && blockedByIds.includes(authorId)) return false;
 
       return canViewStory({ story, viewerId, followingIds, blockedIds });
     });
@@ -202,11 +205,15 @@ const viewStory = async (req, res, next) => {
     const story = await Story.findOne({ _id: id, expiresAt: { $gt: new Date() } }).lean();
     if (!story) throw notFound('That story has expired.');
 
+    const [followingIds, blockedIds] = await Promise.all([
+      relations.followedIds(req.user._id),
+      relations.blockedIds(req.user._id),
+    ]);
     const allowed = canViewStory({
       story,
       viewerId: req.user._id,
-      followingIds: req.user.following || [],
-      blockedIds: req.user.blockedUsers || [],
+      followingIds,
+      blockedIds,
     });
     if (!allowed) throw forbidden('You cannot view this story.');
 

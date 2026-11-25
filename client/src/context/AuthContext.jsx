@@ -12,9 +12,19 @@ export const AuthProvider = ({ children }) => {
   const fetchMe = useCallback(async () => {
     try {
       const { data } = await axiosInstance.get('/auth/me');
-      setUser(data.user);
+      // Bookmark state is needed by post cards, so it arrives as its own small
+      // list instead of riding along in every authenticated response.
+      let savedPosts = data.user?.savedPosts || [];
+      try {
+        const saved = await axiosInstance.get('/users/me/saved-ids');
+        if (Array.isArray(saved.data?.savedPostIds)) savedPosts = saved.data.savedPostIds;
+      } catch {
+        // A failed bookmark load must not sign the user out.
+      }
+      const next = { ...data.user, savedPosts };
+      setUser(next);
       if (data.token) setToken(data.token);
-      return data.user;
+      return next;
     } catch {
       setUser(null);
       setToken(null);

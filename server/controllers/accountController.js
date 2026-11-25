@@ -18,6 +18,7 @@ const generateToken = require('../utils/generateToken');
 const { normalizeUsername, usernameFilter } = require('../utils/username');
 const { planSuccessionForUser } = require('../utils/succession');
 const { eraseAccount } = require('../utils/accountErasure');
+const relations = require('../utils/relations');
 const { clearAuthCookie } = require('./authController');
 const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
 const { idOf } = require('../utils/privacy');
@@ -46,18 +47,19 @@ const getAccount = async (req, res, next) => {
     const user = await User.findById(req.user._id)
       .select(
         'username email emailVerifiedAt profileType status privacySettings dmSettings notificationSettings ' +
-          'blockedUsers deletionRequestedAt createdAt authIdentities hasLocalPassword frozenAt feedResetAt ' +
+          'deletionRequestedAt createdAt authIdentities hasLocalPassword frozenAt feedResetAt ' +
           'preferences favoriteChannels recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt',
       )
       .lean();
     if (!user) throw notFound('User not found');
 
-    const [blocked, businessProfile] = await Promise.all([
-      User.find({ _id: { $in: user.blockedUsers || [] } })
-        .select('username level')
-        .lean(),
+    const [blockedIds, businessProfile] = await Promise.all([
+      relations.blockedIds(user._id),
       BusinessProfile.findOne({ userId: user._id }).lean(),
     ]);
+    const blocked = await User.find({ _id: { $in: blockedIds } })
+      .select('username level')
+      .lean();
 
     res.status(200).json({
       username: user.username,
@@ -449,17 +451,7 @@ const blockUser = async (req, res, next) => {
 
     // Blocking also drops the follow edges both ways: a blocked account must
     // not keep appearing in a feed because of an old follow.
-    await User.updateOne(
-      { _id: req.user._id },
-      {
-        $addToSet: { blockedUsers: target._id },
-        $pull: { following: target._id, followers: target._id },
-      },
-    );
-    await User.updateOne(
-      { _id: target._id },
-      { $pull: { followers: req.user._id, following: req.user._id } },
-    );
+    await relations.block({ blockerId: req.user._id, blockedId: target._id });
 
     // A block is also a conversation decision: stop delivery both ways and
     // leave a cooldown so unblocking cannot be used to instantly resume.
@@ -491,7 +483,7 @@ const unblockUser = async (req, res, next) => {
     const targetId = String(req.params.userId || '');
     if (!isId(targetId)) throw badRequest('Invalid user id');
 
-    await User.updateOne({ _id: req.user._id }, { $pull: { blockedUsers: targetId } });
+    await relations.unblock({ blockerId: req.user._id, blockedId: targetId });
     await Conversation.updateMany(
       { participantIds: { $all: [req.user._id, targetId] }, state: 'blocked' },
       {
@@ -512,8 +504,8 @@ const unblockUser = async (req, res, next) => {
 /** GET /api/account/blocked */
 const listBlocked = async (req, res, next) => {
   try {
-    const me = await User.findById(req.user._id).select('blockedUsers').lean();
-    const users = await User.find({ _id: { $in: me?.blockedUsers || [] } })
+    const blockedIds = await relations.blockedIds(req.user._id);
+    const users = await User.find({ _id: { $in: blockedIds } })
       .select('username level')
       .lean();
 
@@ -549,7 +541,9 @@ const exportData = async (req, res, next) => {
       notifications,
       productEvents,
     ] = await Promise.all([
-      User.findById(userId).select('-passwordHash -__v').lean(),
+      User.findById(userId)
+        .select('-passwordHash -__v -followers -following -savedPosts -blockedUsers -mutedUsers')
+        .lean(),
       Post.find({ userId })
         .select('title content tags createdAt updatedAt')
         .limit(EXPORT_ROW_LIMIT)
@@ -590,7 +584,12 @@ const exportData = async (req, res, next) => {
         .lean(),
     ]);
 
-    const blockedIds = (user?.blockedUsers || []).map(String);
+    const [followingIds, followerIds, savedIds, blockedIds] = await Promise.all([
+      relations.followedIds(userId),
+      relations.followerIds(userId),
+      relations.savedPostIds(userId),
+      relations.blockedIds(userId),
+    ]);
     const blockedUsers = await User.find({ _id: { $in: blockedIds } })
       .select('username')
       .lean();
@@ -615,9 +614,9 @@ const exportData = async (req, res, next) => {
         deletionRequestedAt: user?.deletionRequestedAt,
       },
       social: {
-        following: (user?.following || []).map(String),
-        followers: (user?.followers || []).map(String),
-        savedPostIds: (user?.savedPosts || []).map(String),
+        following: followingIds.map(String),
+        followers: followerIds.map(String),
+        savedPostIds: savedIds.map(String),
         favouriteChannels: user?.favoriteChannels || [],
         blockedUsers: blockedUsers.map((u) => ({ id: String(u._id), username: u.username })),
         posts,

@@ -482,7 +482,12 @@ function evaluateDmPermission({
  * Public, non-sensitive projection used on a profile card. Never expose the
  * whole policy matrix; only the row that applies to this viewer.
  */
-function describeDmPolicy({ recipient, viewer, viewerIsBusiness = false }) {
+function describeDmPolicy({
+  recipient,
+  viewer,
+  viewerIsBusiness = false,
+  relationshipHint = null,
+}) {
   const settings = normalizeDmSettings(recipient?.dmSettings);
   const viewerId = idOf(viewer);
   const recipientId = idOf(recipient);
@@ -500,7 +505,7 @@ function describeDmPolicy({ recipient, viewer, viewerIsBusiness = false }) {
   let relationship = 'stranger';
   let mode = settings.policy.stranger;
   if (viewerId) {
-    relationship = relationshipFor({ sender: viewer, recipient });
+    relationship = relationshipHint || relationshipFor({ sender: viewer, recipient });
     mode = settings.policy[policyContextFor(relationship, 'profile', viewerIsBusiness)];
   }
 

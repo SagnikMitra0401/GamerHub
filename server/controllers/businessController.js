@@ -19,6 +19,7 @@ const {
   verificationDomainFor,
 } = require('../utils/business');
 const { checkDnsToken, normalizeDomain } = require('../utils/domainVerification');
+const relations = require('../utils/relations');
 const { recordPlatformAudit } = require('../utils/audit');
 const { sendBusinessReviewEmail } = require('../utils/email');
 
@@ -38,7 +39,7 @@ const auditExcerpt = (value) => {
 const getPublicBusiness = async (req, res, next) => {
   try {
     const user = await User.findOne({ username: req.params.username })
-      .select('username level role profileType status followers')
+      .select('username level role profileType status followerCount followers')
       .lean();
     if (!user || user.profileType !== 'creator_business') throw notFound('Business not found.');
     if (['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(user.status)) {
@@ -47,13 +48,14 @@ const getPublicBusiness = async (req, res, next) => {
 
     const profile = await BusinessProfile.findOne({ userId: user._id }).lean();
     if (!profile) throw notFound('Business not found.');
+    const { followerCount } = await relations.countsFor(user);
 
     res.status(200).json({
       username: user.username,
       level: user.level || 1,
       role: user.role || 'user',
       profileType: 'creator_business',
-      followerCount: (user.followers || []).length,
+      followerCount,
       business: publicBusinessProfile(profile),
     });
   } catch (err) {

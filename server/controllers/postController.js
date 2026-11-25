@@ -22,6 +22,7 @@ const { parsePagination } = require('../utils/pagination');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { rankPostsForUser } = require('../utils/feedRanking');
 const { bufferLikeEvent, readPendingLike, likePipeline } = require('../utils/likeBuffer');
+const relations = require('../utils/relations');
 const { notifyLikeMilestone } = require('../utils/socialNotifications');
 const { parseYouTubeId, findYouTubeIdInText, normalizeDuration } = require('../utils/videoSource');
 const { blockedIdsFor } = require('../utils/visibility');
@@ -183,10 +184,39 @@ const getPosts = async (req, res, next) => {
     const mediaType = String(req.query.mediaType || '').toLowerCase();
     if (mediaType === 'video' || mediaType === 'image') matchStage.mediaType = mediaType;
 
+    // The following feed asks the edge collection about each candidate author
+    // instead of putting an account's whole follow list into an $in. The legacy
+    // array path stays available for the flag-off rollout.
+    /** @type {object[]} */
+    const followingStages = [];
     if (req.query.feed === 'following') {
-      const following = req.user?.following ?? [];
-      if (!following.length) return res.status(200).json([]);
-      matchStage.userId = { $in: following };
+      if (!req.user) return res.status(200).json([]);
+      if (relations.edgesEnabled()) {
+        followingStages.push(
+          {
+            $lookup: {
+              from: 'follows',
+              let: { authorId: '$userId' },
+              pipeline: [
+                {
+                  $match: {
+                    follower: req.user._id,
+                    $expr: { $eq: ['$following', '$$authorId'] },
+                  },
+                },
+                { $limit: 1 },
+                { $project: { _id: 1 } },
+              ],
+              as: 'followEdge',
+            },
+          },
+          { $match: { 'followEdge.0': { $exists: true } } },
+        );
+      } else {
+        const following = await relations.followedIds(req.user._id);
+        if (!following.length) return res.status(200).json([]);
+        matchStage.userId = { $in: following };
+      }
     }
 
     const favChannels = (req.user?.favoriteChannels ?? [])
@@ -240,6 +270,7 @@ const getPosts = async (req, res, next) => {
 
     const posts = await Post.aggregate([
       { $match: matchStage },
+      ...followingStages,
       { $addFields: addFieldsStage },
       { $sort: sortStage },
       ...(forYou ? [{ $limit: FOR_YOU_POOL }] : [{ $skip: skip }, { $limit: limit }]),
@@ -287,11 +318,18 @@ const getPosts = async (req, res, next) => {
     if (forYou) {
       const prefs = await User.findById(req.user._id).select('preferences favoriteChannels').lean();
 
+      // Only authors present in this page can earn the follow boost, so the
+      // check is bounded by the candidate pool, not by the follow count.
+      const following = await relations.followedAmong(
+        req.user._id,
+        posts.map((post) => post.userId?._id || post.userId),
+      );
+
       const ranked = rankPostsForUser(posts, {
         favoriteGames: prefs?.preferences?.favoriteGames || [],
         favoriteGenres: prefs?.preferences?.favoriteGenres || [],
         favoriteChannels: prefs?.favoriteChannels || [],
-        following: req.user.following || [],
+        following,
       });
 
       return res.status(200).json(ranked.slice(skip, skip + limit));
@@ -309,16 +347,14 @@ const getPostById = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(id)) throw badRequest('Invalid post id');
 
     const post = await Post.findById(id)
-      .populate('userId', 'username level role profileType status blockedUsers')
+      .populate('userId', 'username level role profileType status')
       .lean({ virtuals: true });
     if (!post) throw notFound('Post not found');
 
     const viewerId = String(req.user?._id || '');
     const author = post.userId;
     const blocked =
-      Boolean(viewerId && author) &&
-      ((req.user?.blockedUsers || []).some((entry) => String(entry) === String(author._id)) ||
-        (author.blockedUsers || []).some((entry) => String(entry) === viewerId));
+      Boolean(viewerId && author) && (await relations.isBlockedPair(viewerId, author._id));
     if (blocked) throw notFound('Post not found');
 
     // Same rule as the feed: hidden from everybody except its author.
@@ -405,10 +441,7 @@ const deletePost = async (req, res, next) => {
     }
 
     await Comment.deleteMany({ postId: req.resource._id });
-    await User.updateMany(
-      { savedPosts: req.resource._id },
-      { $pull: { savedPosts: req.resource._id } },
-    );
+    await relations.removeSavedForPost(req.resource._id);
     await req.resource.deleteOne();
 
     res.status(200).json({ message: 'Post deleted' });

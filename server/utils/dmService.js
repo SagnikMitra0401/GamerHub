@@ -19,7 +19,7 @@ const Community = require('../models/Community');
 const Party = require('../models/Party');
 
 const { badRequest, forbidden, notFound, conflict } = require('./httpError');
-const { isBlockedBetween } = require('./privacy');
+const relations = require('./relations');
 const { sanitizeLine } = require('./sanitize');
 const { notifyUser } = require('./notify');
 const { recordFirstEvent } = require('./productEvents');
@@ -32,7 +32,6 @@ const {
   idOf,
   normalizeDmSettings,
   evaluateDmPermission,
-  relationshipFor,
   validateRequestText,
   validateBusinessRequest,
   normalizeDmMessage,
@@ -51,7 +50,7 @@ const REQUEST_TTL_MS = REQUEST_LIMITS.expiryDays * DAY_MS;
 
 const PARTICIPANT_FIELDS = '_id username level role profileType status';
 const RECIPIENT_FIELDS =
-  '_id username level role profileType status followers following blockedUsers dmSettings createdAt authIdentities';
+  '_id username level role profileType status dmSettings createdAt authIdentities';
 
 function unreadFor(conversation, userId) {
   const raw = conversation?.unreadCounts;
@@ -347,7 +346,7 @@ async function createRequest({
   const recipient = await User.findById(recipientId).select(RECIPIENT_FIELDS).lean();
   if (!recipient) throw notFound('Player not found.');
 
-  if (isBlockedBetween(sender, recipient)) {
+  if (await relations.isBlockedPair(sender._id, recipient._id)) {
     throw forbidden('You cannot message this player.', { code: 'DM_BLOCKED' });
   }
   if (['deleted', 'deletion_pending', 'suspended', 'frozen'].includes(recipient.status)) {
@@ -363,7 +362,7 @@ async function createRequest({
   const businessProfile = senderIsBusiness
     ? await BusinessProfile.findOne({ userId: sender._id }).lean()
     : null;
-  const relationship = relationshipFor({ sender, recipient });
+  const relationship = await relations.relationshipBetween(sender._id, recipient._id);
   const gate = evaluateDmPermission({
     sender,
     recipient,
@@ -1363,17 +1362,9 @@ async function reportConversation({
     conversation.requestText = '';
     await conversation.save();
 
-    // Keep the account-level block list in sync so invitations, search and any
-    // future surface enforce the same decision.
-    await User.updateOne({ _id: reporterId }, { $addToSet: { blockedUsers: reportedUserId } });
-    await User.updateOne(
-      { _id: reportedUserId },
-      { $pull: { followers: reporterId, following: reporterId } },
-    );
-    await User.updateOne(
-      { _id: reporterId },
-      { $pull: { followers: reportedUserId, following: reportedUserId } },
-    );
+    // Keep the account-level block in sync so invitations, search and any
+    // future surface enforce the same decision. The block drops follows too.
+    await relations.block({ blockerId: reporterId, blockedId: reportedUserId });
     // Report-and-block must invalidate the same caches as the standalone block
     // endpoint, otherwise the blocked account can linger in feeds/search.
     invalidateVisibility();

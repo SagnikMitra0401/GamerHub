@@ -31,7 +31,7 @@ import { ListIcon, GridIcon } from '../components/common/icons';
 
 const ProfilePage = () => {
   const { username } = useParams();
-  const { user: me, updateUser } = useAuth();
+  const { user: me } = useAuth();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState(null);
@@ -46,11 +46,14 @@ const ProfilePage = () => {
   const [invitesOpen, setInvitesOpen] = useState(false);
   const [dmOpen, setDmOpen] = useState(false);
   const [blockError, setBlockError] = useState('');
+  // Follower lists are fetched per modal: a profile response carries counts,
+  // never a whole follower array.
+  const [followLists, setFollowLists] = useState({ followers: [], following: [] });
+  const [followListLoading, setFollowListLoading] = useState(false);
 
   const isOwnProfile = me?.username === username;
-  const isBlocked = Boolean(
-    me && profile && (me.blockedUsers || []).some((id) => String(id) === String(profile._id)),
-  );
+  // The server answers this per viewer without shipping block lists to the client.
+  const isBlocked = Boolean(profile?.viewerHasBlocked);
 
   const toggleBlock = async () => {
     if (!profile) return;
@@ -60,16 +63,30 @@ const ProfilePage = () => {
       if (isBlocked) await axiosInstance.delete(path);
       else await axiosInstance.post(path);
 
-      const current = (me.blockedUsers || []).map(String);
-      updateUser({
-        blockedUsers: isBlocked
-          ? current.filter((id) => id !== String(profile._id))
-          : [...current, String(profile._id)],
-      });
+      setProfile((prev) => (prev ? { ...prev, viewerHasBlocked: !isBlocked } : prev));
     } catch (err) {
       setBlockError(err.response?.data?.message || 'Could not update that block.');
     }
   };
+
+  useEffect(() => {
+    if (!activeModal || !profile?.username) return undefined;
+    let cancelled = false;
+    setFollowListLoading(true);
+    axiosInstance
+      .get(`/users/${profile.username}/${activeModal}`, { params: { limit: 50 } })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setFollowLists((prev) => ({ ...prev, [activeModal]: data.items || [] }));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setFollowListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeModal, profile?.username]);
 
   useEffect(() => {
     const load = async () => {
@@ -108,8 +125,8 @@ const ProfilePage = () => {
     }
   }, [tab, profile]);
 
-  const handleFollowToggle = ({ followers }) => {
-    setProfile((prev) => (prev ? { ...prev, followers } : prev));
+  const handleFollowToggle = ({ followerCount }) => {
+    setProfile((prev) => (prev ? { ...prev, followerCount } : prev));
   };
 
   const handleDelete = (id) => {
@@ -142,8 +159,8 @@ const ProfilePage = () => {
     month: 'long',
   });
 
-  const followersList = profile.followers || [];
-  const followingList = profile.following || [];
+  const followersList = followLists.followers;
+  const followingList = followLists.following;
 
   return (
     <main className="page">
@@ -483,7 +500,7 @@ const ProfilePage = () => {
                       onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
                       title="View followers"
                     >
-                      {followersList.length} Followers
+                      {profile.followerCount ?? 0} Followers
                     </span>
 
                     <span
@@ -494,7 +511,7 @@ const ProfilePage = () => {
                       onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
                       title="View following list"
                     >
-                      {followingList.length} Following
+                      {profile.followingCount ?? 0} Following
                     </span>
                   </div>
 
@@ -607,7 +624,7 @@ const ProfilePage = () => {
             <div style={{ maxHeight: '280px', overflowY: 'auto', paddingRight: '0.25rem' }}>
               {(activeModal === 'followers' ? followersList : followingList).length === 0 ? (
                 <p className="text-muted" style={{ textAlign: 'center', padding: '2rem 0' }}>
-                  No users to show.
+                  {followListLoading ? 'Loading…' : 'No users to show.'}
                 </p>
               ) : (
                 (activeModal === 'followers' ? followersList : followingList).map((u) => (

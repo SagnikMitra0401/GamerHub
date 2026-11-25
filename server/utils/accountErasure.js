@@ -15,6 +15,7 @@ const mongoose = require('mongoose');
 
 const User = require('../models/User');
 const { invalidateVisibility } = require('./visibility');
+const relations = require('./relations');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const Community = require('../models/Community');
@@ -259,18 +260,8 @@ async function eraseAccount(user) {
     // of this person's words after erasure.
     tombstoneUserDm(userId),
 
-    User.updateMany(
-      { _id: { $ne: userId } },
-      { $pull: { followers: userId, following: userId, blockedUsers: userId, mutedUsers: userId } },
-    ),
-    ...(postIds.length
-      ? [
-          User.updateMany(
-            { savedPosts: { $in: postIds } },
-            { $pull: { savedPosts: { $in: postIds } } },
-          ),
-        ]
-      : []),
+    relations.eraseRelations(userId),
+    ...(postIds.length ? [relations.removeSavedForPosts(postIds)] : []),
   ]);
 
   return { erased: true, succession };

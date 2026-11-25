@@ -65,6 +65,59 @@ checks and two scripts; step 2 adds no checks, only a warning ceiling.
 Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
 YouTube facade tests; Phase 15 re-ran clean at 41/41.
 
+### Pass 25 (25 Nov) — relationship edges
+
+Step 3 of [Phase 19](PHASE19_PRODUCTION_READINESS.md). Follows, bookmarks, blocks
+and mutes left the user document, which every signed-in request used to load and
+which caps a heavy account at 16 MB.
+
+- **Schema:** `Follow`, `SavedPost`, `UserBlock` and `UserMute` each keep one row
+  per pair behind a unique compound index, plus the index their list query needs.
+  `User` carries `followerCount`, `followingCount` and `savedCount`. New accounts
+  start at zero; an account that predates the field keeps `undefined` until the
+  backfill writes it.
+- **Deployment window:** a reader that finds `undefined` counters counts the
+  mirrored arrays instead of reporting zero, so a profile stays right while the
+  backfill is still running. `recount` leaves an `undefined` counter alone for
+  the same reason, and unfollow, unsave, unblock and unmute clear the arrays even
+  when no edge row existed, so a removal made before the backfill still lands.
+- **Backfill:** `migrations/auth/20261125090000-relation-edges.js` copies the
+  arrays into rows in duplicate-safe batches, recomputes the counters from the
+  rows, and then refuses to finish unless the total array entries equal the row
+  count per relationship and every account's counters equal its row counts. A
+  second run wrote nothing; `down` then `up` restored the same rows.
+- **Writes and reads:** `server/utils/relations.js` is the single writer, and it
+  keeps the arrays current for one release so a rollback is a flag. Reads switch
+  with `RELATION_EDGES`, default off, across the feed, profile, saved list, block
+  and mute filters, stories, discover, DM policy, notifications, invitations,
+  the business card and the data export. The following feed asks the collection
+  about each candidate author instead of putting a follow list into an `$in`.
+- **Session and pagination:** the session projection and `/auth/me` no longer
+  load the four arrays; the client asks for `/users/me/saved-ids` on boot.
+  `GET /api/users/:username/followers` and `/following` page with an opaque
+  cursor at a hard cap of 50 rows.
+- **Measured:** `scripts/e2e-phase19.js` 39/39 checks, and `npm run test:e2e`
+  891/891 across sixteen suites, both after the deployment-window work;
+  `npm test` 367/367 and `npm run migration:lint` with 0 errors on the same tree.
+  The client suite was 51/51, the build 179.23 kB CSS and 792.74 kB JS
+  (211.77 kB gzip), lint 0 errors and 67 warnings, typecheck 0, format check
+  clean, secret scan 0 hits. The 200,000-edge fixture
+  built in 39.3 s, paged in 0.98 s and accepted a follow in 0.49 s with an exact
+  counter.
+- **Browser check (25 Nov):** a throwaway database held two accounts with
+  populated arrays and no counters, which is an account the backfill has not
+  reached. Signed in as the first account: its own profile showed 1 Following
+  and 0 Followers, the second profile showed 1 Followers (not zero), the
+  followers list listed the first account, the following list said there was
+  nothing to show, unfollow dropped the second profile to 0, and following again
+  returned it to 1 with the account back in the list. The same session read
+  `savedCount: 1` from `/api/users/clickalice` while that account's counters were
+  still undefined.
+- **Open:** the development database has not had `migrate:auth` applied, so
+  `npm run db:indexes` lists the four collections as absent and the 52 older
+  differences remain. Index parity is proven in the throwaway database instead.
+  Nothing was committed for this step.
+
 ### Pass 24 (25 Nov) — lint, format and type baseline
 
 Step 2 of [Phase 19](PHASE19_PRODUCTION_READINESS.md), plus a tightening of the
@@ -1194,9 +1247,9 @@ npm run dev            # API :5000
 npm run dev --prefix client   # Vite :3000
 
 # 2. automated tiers (see §1 for when to skip)
-npm test                      # server units, 175 checks, no database
-npm test --prefix client      # client components, 31 checks, jsdom
-npm run test:e2e              # nine suites, 581 checks, throwaway DB
+npm test                      # server units, 367 checks, no database
+npm test --prefix client      # client components, 51 checks, jsdom
+npm run test:e2e              # sixteen suites, 888 checks, throwaway DB
 npm run scan:secrets           # must print "0 hit(s)"
 npm run test:env               # boot configuration, 15 checks
 npm run test:origins           # origin allow-list, 3 checks
