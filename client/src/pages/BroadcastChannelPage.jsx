@@ -56,7 +56,9 @@ const ChannelPage = () => {
     }
   }, [slug]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Live posts for this channel, only after the server accepts the join.
   useEffect(() => {
@@ -66,9 +68,9 @@ const ChannelPage = () => {
 
     const onMessage = (payload) => {
       if (payload.channelId !== channel._id) return;
-      setMessages((previous) => (
-        previous.some((message) => message._id === payload._id) ? previous : [payload, ...previous]
-      ));
+      setMessages((previous) =>
+        previous.some((message) => message._id === payload._id) ? previous : [payload, ...previous],
+      );
     };
 
     socket.emit('join_broadcast', { channelId: channel._id });
@@ -100,7 +102,7 @@ const ChannelPage = () => {
     if (!channel?.isSubscribed) return;
     try {
       const { data } = await axiosInstance.patch(`/channels/${channel.slug}/subscription`, {
-        muted: !channel.muted
+        muted: !channel.muted,
       });
       setChannel({ ...channel, muted: data.muted });
     } catch {
@@ -124,7 +126,9 @@ const ChannelPage = () => {
 
   const loadMore = async () => {
     if (!nextBefore) return;
-    const { data } = await axiosInstance.get(`/channels/${slug}/messages`, { params: { before: nextBefore } });
+    const { data } = await axiosInstance.get(`/channels/${slug}/messages`, {
+      params: { before: nextBefore },
+    });
     setMessages((previous) => [...previous, ...(data.items || [])]);
     setNextBefore(data.nextBefore || null);
   };
@@ -147,7 +151,10 @@ const ChannelPage = () => {
 
   const publish = async (event) => {
     event.preventDefault();
-    if (!text.trim() && !file) { setComposerError('Write something or attach media.'); return; }
+    if (!text.trim() && !file) {
+      setComposerError('Write something or attach media.');
+      return;
+    }
     setSending(true);
     setComposerError('');
     try {
@@ -156,11 +163,11 @@ const ChannelPage = () => {
       if (file) formData.append('media', file);
 
       const { data } = await axiosInstance.post(`/channels/${slug}/messages`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setMessages((previous) => (
-        previous.some((message) => message._id === data._id) ? previous : [data, ...previous]
-      ));
+      setMessages((previous) =>
+        previous.some((message) => message._id === data._id) ? previous : [data, ...previous],
+      );
       setText('');
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
@@ -181,15 +188,18 @@ const ChannelPage = () => {
   };
 
   if (loading) {
-    return <main className="container channels-layout"><div className="channels-empty">Loading channel…</div></main>;
+    return (
+      <main className="container channels-layout">
+        <div className="channels-empty">Loading channel…</div>
+      </main>
+    );
   }
 
   if (error || !channel) {
     return (
       <main className="container channels-layout">
         <div className="channels-empty">
-          {error || 'Channel not found.'}{' '}
-          <Link to="/channels">Back to channels</Link>
+          {error || 'Channel not found.'} <Link to="/channels">Back to channels</Link>
         </div>
       </main>
     );
@@ -199,21 +209,36 @@ const ChannelPage = () => {
     <main className="container channels-layout">
       <header className="channel-hero">
         <span className="channel-avatar">
-          {channel.avatarUrl ? <SafeImage src={channel.avatarUrl} alt="" /> : (channel.name?.[0]?.toUpperCase() || '#')}
+          {channel.avatarUrl ? (
+            <SafeImage src={channel.avatarUrl} alt="" />
+          ) : (
+            channel.name?.[0]?.toUpperCase() || '#'
+          )}
         </span>
         <div className="channel-hero-body">
           <h1>{channel.name}</h1>
-          <span className="channel-slug">@{channel.slug} · {channel.category}</span>
+          <span className="channel-slug">
+            @{channel.slug} · {channel.category}
+          </span>
           <p>{channel.description || 'A one-way channel for updates.'}</p>
           <div className="channel-card-meta">
-            <span>{channel.subscriberCount} subscriber{channel.subscriberCount === 1 ? '' : 's'}</span>
-            <span>{channel.messageCount} post{channel.messageCount === 1 ? '' : 's'}</span>
+            <span>
+              {channel.subscriberCount} subscriber{channel.subscriberCount === 1 ? '' : 's'}
+            </span>
+            <span>
+              {channel.messageCount} post{channel.messageCount === 1 ? '' : 's'}
+            </span>
             {!channel.isPublic && <span>Private</span>}
           </div>
         </div>
         <div className="channel-hero-actions">
           {user && !channel.isOwner && (
-            <button type="button" className={`btn ${channel.isSubscribed ? 'btn-ghost' : 'btn-primary'}`} onClick={toggleSubscription} disabled={busy}>
+            <button
+              type="button"
+              className={`btn ${channel.isSubscribed ? 'btn-ghost' : 'btn-primary'}`}
+              onClick={toggleSubscription}
+              disabled={busy}
+            >
               {channel.isSubscribed ? 'Unsubscribe' : 'Follow'}
             </button>
           )}
@@ -249,7 +274,9 @@ const ChannelPage = () => {
                 onChange={pickFile}
                 className="story-file-input"
               />
-              <label htmlFor="broadcast-media" className="btn btn-ghost btn-sm">Attach</label>
+              <label htmlFor="broadcast-media" className="btn btn-ghost btn-sm">
+                Attach
+              </label>
               {file && <span className="broadcast-composer-meta">{file.name}</span>}
               <span className="broadcast-composer-meta">Image ≤ 5MB · Video ≤ 50MB</span>
             </div>
@@ -270,7 +297,9 @@ const ChannelPage = () => {
             <article className="broadcast-post" key={message._id}>
               <div className="broadcast-post-head">
                 <span className="broadcast-badge">Broadcast</span>
-                <span>{message.author?.username || channel.name} · {timeAgo(message.publishedAt)}</span>
+                <span>
+                  {message.author?.username || channel.name} · {timeAgo(message.publishedAt)}
+                </span>
               </div>
               {message.text && <p className="broadcast-post-text">{message.text}</p>}
               {message.mediaType === 'image' && message.mediaUrl && (
@@ -288,7 +317,11 @@ const ChannelPage = () => {
               )}
               {channel.canPublish && (
                 <div className="broadcast-post-actions">
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => deleteMessage(message._id)}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => deleteMessage(message._id)}
+                  >
                     Delete
                   </button>
                 </div>
@@ -299,7 +332,9 @@ const ChannelPage = () => {
 
         {nextBefore && (
           <div style={{ textAlign: 'center' }}>
-            <button type="button" className="btn btn-ghost" onClick={loadMore}>Load older posts</button>
+            <button type="button" className="btn btn-ghost" onClick={loadMore}>
+              Load older posts
+            </button>
           </div>
         )}
       </section>

@@ -6,7 +6,7 @@ const {
   normalizeNotificationSettings,
   sanitizeNotificationSettingsPatch,
   notificationCategory,
-  isNotificationCategoryEnabled
+  isNotificationCategoryEnabled,
 } = require('../utils/notificationPreferences');
 
 test('missing preferences default to enabled without sharing the frozen object', () => {
@@ -20,7 +20,7 @@ test('missing preferences default to enabled without sharing the frozen object',
     likes: true,
     lfg: true,
     bot: true,
-    broadcast: true
+    broadcast: true,
   });
 });
 
@@ -30,10 +30,10 @@ test('a stored non-boolean is treated as enabled rather than silently muting', (
 });
 
 test('a partial patch accepts booleans and rejects unknown or non-boolean keys', () => {
-  assert.deepEqual(
-    sanitizeNotificationSettingsPatch({ comments: false, lfg: true }),
-    { ok: true, value: { comments: false, lfg: true } }
-  );
+  assert.deepEqual(sanitizeNotificationSettingsPatch({ comments: false, lfg: true }), {
+    ok: true,
+    value: { comments: false, lfg: true },
+  });
 
   const empty = sanitizeNotificationSettingsPatch({});
   assert.equal(empty.ok, false);
@@ -56,7 +56,10 @@ test('notification categories map existing and future kinds to preference rows',
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'comment' } }), 'comments');
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'reply' } }), 'comments');
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'follow' } }), 'follows');
-  assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'like_milestone' } }), 'likes');
+  assert.equal(
+    notificationCategory({ type: 'social', metadata: { kind: 'like_milestone' } }),
+    'likes',
+  );
   assert.equal(notificationCategory({ type: 'social', metadata: { kind: 'mention' } }), null);
   assert.equal(notificationCategory({ type: 'social' }), null);
 });

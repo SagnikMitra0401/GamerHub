@@ -7,33 +7,33 @@ const ROWS = [
   {
     key: 'comments',
     label: 'Comments and replies',
-    hint: 'When someone comments on your post or replies to your comment.'
+    hint: 'When someone comments on your post or replies to your comment.',
   },
   {
     key: 'follows',
     label: 'New followers',
-    hint: 'When another player follows you.'
+    hint: 'When another player follows you.',
   },
   {
     key: 'likes',
     label: 'Likes',
-    hint: 'When your posts and comments reach a like milestone.'
+    hint: 'When your posts and comments reach a like milestone.',
   },
   {
     key: 'lfg',
     label: 'Squad activity',
-    hint: 'Requests, acceptances and members leaving your squads.'
+    hint: 'Requests, acceptances and members leaving your squads.',
   },
   {
     key: 'bot',
     label: 'Gaming-bot picks',
-    hint: 'New videos and finds for the games you follow.'
+    hint: 'New videos and finds for the games you follow.',
   },
   {
     key: 'broadcast',
     label: 'Channel broadcasts',
-    hint: 'New posts from broadcast channels you subscribe to.'
-  }
+    hint: 'New posts from broadcast channels you subscribe to.',
+  },
 ];
 
 const DEFAULTS = {
@@ -42,13 +42,14 @@ const DEFAULTS = {
   likes: true,
   lfg: true,
   bot: true,
-  broadcast: true
+  broadcast: true,
 };
 
-const normalize = (raw) => ROWS.reduce((settings, row) => {
-  settings[row.key] = typeof raw?.[row.key] === 'boolean' ? raw[row.key] : DEFAULTS[row.key];
-  return settings;
-}, {});
+const normalize = (raw) =>
+  ROWS.reduce((settings, row) => {
+    settings[row.key] = typeof raw?.[row.key] === 'boolean' ? raw[row.key] : DEFAULTS[row.key];
+    return settings;
+  }, {});
 
 const NotificationPanel = ({ account, refresh, notify }) => {
   const [settings, setSettings] = useState(() => normalize(account.notificationSettings));
@@ -59,7 +60,8 @@ const NotificationPanel = ({ account, refresh, notify }) => {
     setSettings(normalize(account.notificationSettings));
   }, [account.notificationSettings]);
 
-  const dirty = JSON.stringify(settings) !== JSON.stringify(normalize(account.notificationSettings));
+  const dirty =
+    JSON.stringify(settings) !== JSON.stringify(normalize(account.notificationSettings));
 
   const toggle = (key) => setSettings((previous) => ({ ...previous, [key]: !previous[key] }));
 
@@ -98,9 +100,9 @@ const NotificationPanel = ({ account, refresh, notify }) => {
         <div className="settings-section-head">
           <h3>In-app notifications</h3>
           <p>
-            These switches are checked by the server when a notification is created, not just
-            hidden by this browser. Turning one off stops new pings in that category; everything
-            already in your history stays readable.
+            These switches are checked by the server when a notification is created, not just hidden
+            by this browser. Turning one off stops new pings in that category; everything already in
+            your history stays readable.
           </p>
         </div>
 
@@ -145,8 +147,8 @@ const NotificationPanel = ({ account, refresh, notify }) => {
         <div className="settings-section-head">
           <h3>Your history</h3>
           <p>
-            Every notification you receive is kept in one cursor-paged list. Open it from the
-            bell or go straight to your full history.
+            Every notification you receive is kept in one cursor-paged list. Open it from the bell
+            or go straight to your full history.
           </p>
         </div>
         <div className="settings-actions">

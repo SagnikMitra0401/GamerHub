@@ -29,7 +29,7 @@ export const CAP = Object.freeze({
   TIMEOUT_MEMBERS: 'TIMEOUT_MEMBERS',
   PIN_MESSAGES: 'PIN_MESSAGES',
   MANAGE_FORUM_POSTS: 'MANAGE_FORUM_POSTS',
-  VIEW_REPORTS: 'VIEW_REPORTS'
+  VIEW_REPORTS: 'VIEW_REPORTS',
 });
 
 const ROLE_LEVELS = Object.freeze({ member: 0, moderator: 1, admin: 2, owner: 3 });
@@ -38,14 +38,14 @@ export const ROLE_LABELS = Object.freeze({
   owner: 'Owner',
   admin: 'Admin',
   moderator: 'Moderator',
-  member: 'Member'
+  member: 'Member',
 });
 
 export const ROLE_COLORS = Object.freeze({
   owner: '#ffd700',
   admin: '#a855f7',
   moderator: '#3b82f6',
-  member: 'var(--text-muted)'
+  member: 'var(--text-muted)',
 });
 
 const roleLevel = (role) => ROLE_LEVELS[role] ?? -1;

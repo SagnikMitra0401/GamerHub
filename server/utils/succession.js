@@ -59,7 +59,7 @@ function orderSuccessors(members, departingUserId, weights = COMMUNITY_ROLE_WEIG
     .map((member) => ({
       userId: idOf(member.userId),
       role: member.role || 'member',
-      joinedAt: member.joinedAt || null
+      joinedAt: member.joinedAt || null,
     }))
     .filter((member) => member.userId)
     .sort((a, b) => {
@@ -94,7 +94,7 @@ async function dissolveCommunity(community) {
     Attachment.deleteMany({ communityId: id }),
     Report.deleteMany({ communityId: id }),
     Invitation.deleteMany({ targetType: 'community_server', targetId: id }),
-    AuditLog.deleteMany({ communityId: id })
+    AuditLog.deleteMany({ communityId: id }),
   ]);
   const result = await Community.deleteOne({ _id: id });
 
@@ -115,9 +115,10 @@ async function dissolveCommunity(community) {
  * Returns null when the caller is not the owner (nothing to do).
  */
 async function transferCommunityOwnership(communityOrId, departingUserId) {
-  const community = typeof communityOrId === 'object' && communityOrId?.members
-    ? communityOrId
-    : await Community.findById(communityOrId).lean();
+  const community =
+    typeof communityOrId === 'object' && communityOrId?.members
+      ? communityOrId
+      : await Community.findById(communityOrId).lean();
   if (!community) return null;
   if (idOf(community.ownerId) !== String(departingUserId)) return null;
 
@@ -128,7 +129,7 @@ async function transferCommunityOwnership(communityOrId, departingUserId) {
       communityId: idOf(community._id),
       name: community.name,
       dissolved,
-      successor: null
+      successor: null,
     };
   }
 
@@ -137,7 +138,7 @@ async function transferCommunityOwnership(communityOrId, departingUserId) {
   const updated = await Community.findOneAndUpdate(
     { _id: community._id, ownerId: departingUserId, 'members.userId': successor.userId },
     { $set: { ownerId: successor.userId, 'members.$.role': 'owner' } },
-    { new: true, projection: { name: 1 } }
+    { new: true, projection: { name: 1 } },
   ).lean();
   if (!updated) return null;
 
@@ -150,15 +151,15 @@ async function transferCommunityOwnership(communityOrId, departingUserId) {
     metadata: {
       reason: 'account_deletion',
       previousOwner: String(departingUserId),
-      successorRole: successor.role
-    }
+      successorRole: successor.role,
+    },
   });
 
   return {
     communityId: idOf(community._id),
     name: community.name,
     dissolved: false,
-    successor: { userId: successor.userId, role: 'owner' }
+    successor: { userId: successor.userId, role: 'owner' },
   };
 }
 
@@ -167,9 +168,10 @@ async function transferCommunityOwnership(communityOrId, departingUserId) {
  * The temporary chat's refresh right moves with the leadership.
  */
 async function transferSquadLeadership(partyOrId, departingUserId) {
-  const party = typeof partyOrId === 'object' && partyOrId?.members
-    ? partyOrId
-    : await Party.findById(partyOrId).lean();
+  const party =
+    typeof partyOrId === 'object' && partyOrId?.members
+      ? partyOrId
+      : await Party.findById(partyOrId).lean();
   if (!party) return null;
   if (idOf(party.leaderId) !== String(departingUserId)) return null;
 
@@ -179,18 +181,18 @@ async function transferSquadLeadership(partyOrId, departingUserId) {
       { _id: party._id },
       {
         $set: { status: 'closed', state: 'cancelled', completedAt: new Date() },
-        $pull: { members: { userId: departingUserId } }
-      }
+        $pull: { members: { userId: departingUserId } },
+      },
     );
     await SquadChat.updateMany(
       { squadId: party._id, state: { $ne: 'expired' } },
-      { $set: { state: 'closed' } }
+      { $set: { state: 'closed' } },
     );
     return {
       partyId: idOf(party._id),
       gameTitle: party.gameTitle,
       dissolved: true,
-      successor: null
+      successor: null,
     };
   }
 
@@ -198,7 +200,7 @@ async function transferSquadLeadership(partyOrId, departingUserId) {
   const updated = await Party.findOneAndUpdate(
     { _id: party._id, leaderId: departingUserId, 'members.userId': successor.userId },
     { $set: { leaderId: successor.userId, 'members.$.role': 'leader' } },
-    { new: true, projection: { gameTitle: 1 } }
+    { new: true, projection: { gameTitle: 1 } },
   ).lean();
   if (!updated) return null;
 
@@ -207,16 +209,16 @@ async function transferSquadLeadership(partyOrId, departingUserId) {
     {
       $set: {
         ownerUserId: successor.userId,
-        ownerUsername: nextLeader?.username || ''
-      }
-    }
+        ownerUsername: nextLeader?.username || '',
+      },
+    },
   );
 
   return {
     partyId: idOf(party._id),
     gameTitle: updated.gameTitle,
     dissolved: false,
-    successor: { userId: successor.userId, username: nextLeader?.username || null }
+    successor: { userId: successor.userId, username: nextLeader?.username || null },
   };
 }
 
@@ -229,7 +231,7 @@ async function planSuccessionForUser(userId) {
     Community.find({ ownerId: userId }).select('name members').lean(),
     Party.find({ leaderId: userId, status: { $ne: 'closed' } })
       .select('gameTitle members state')
-      .lean()
+      .lean(),
   ]);
 
   const successorIds = [];
@@ -241,7 +243,7 @@ async function planSuccessionForUser(userId) {
       name: community.name,
       memberCount: community.members?.length || 0,
       action: successor ? 'transfer' : 'dissolve',
-      successor: successor ? { userId: successor.userId, username: null } : null
+      successor: successor ? { userId: successor.userId, username: null } : null,
     };
   });
 
@@ -253,7 +255,7 @@ async function planSuccessionForUser(userId) {
       gameTitle: party.gameTitle,
       memberCount: party.members?.length || 0,
       action: successor ? 'transfer' : 'close',
-      successor: successor ? { userId: successor.userId, username: null } : null
+      successor: successor ? { userId: successor.userId, username: null } : null,
     };
   });
 
@@ -271,7 +273,7 @@ async function planSuccessionForUser(userId) {
     communities: communityPlan,
     squads: squadPlan,
     dissolves: communityPlan.filter((entry) => entry.action === 'dissolve').length,
-    closes: squadPlan.filter((entry) => entry.action === 'close').length
+    closes: squadPlan.filter((entry) => entry.action === 'close').length,
   };
 }
 
@@ -281,7 +283,7 @@ async function transferAllForUser(userId) {
     Community.find({ ownerId: userId }).select('name members ownerId').lean(),
     Party.find({ leaderId: userId, status: { $ne: 'closed' } })
       .select('gameTitle members leaderId status')
-      .lean()
+      .lean(),
   ]);
 
   const summary = { communities: [], squads: [] };
@@ -308,5 +310,5 @@ module.exports = {
   transferCommunityOwnership,
   transferSquadLeadership,
   planSuccessionForUser,
-  transferAllForUser
+  transferAllForUser,
 };

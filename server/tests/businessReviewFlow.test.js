@@ -23,7 +23,7 @@ const User = require('../models/User');
 
 const {
   contactBusinessVerification,
-  respondToBusinessReview
+  respondToBusinessReview,
 } = require('../controllers/businessController');
 const { demotionReadiness } = require('../utils/business');
 
@@ -35,7 +35,7 @@ const originals = {
   profileFindById: BusinessProfile.findById,
   profileFindOne: BusinessProfile.findOne,
   userFindById: User.findById,
-  auditCreate: BusinessVerificationAudit.create
+  auditCreate: BusinessVerificationAudit.create,
 };
 
 test.beforeEach(() => {
@@ -46,7 +46,7 @@ test.beforeEach(() => {
     return payload;
   };
   User.findById = () => ({
-    select: () => ({ lean: async () => ({ username: 'neonrift', email: 'owner@example.com' }) })
+    select: () => ({ lean: async () => ({ username: 'neonrift', email: 'owner@example.com' }) }),
   });
 });
 
@@ -66,11 +66,11 @@ test('a repeat contact clears the previous answer and restarts the window', asyn
     verificationRequestedAt: ago(12),
     reviewContactedAt: oldContact,
     reviewRespondedAt: ago(9.5),
-    reviewResponseNote: 'The old answer, which must not survive a new question.'
+    reviewResponseNote: 'The old answer, which must not survive a new question.',
   });
 
   const result = await invokeContact(profile, {
-    message: 'The registry page you sent no longer resolves. Please send a working filing link.'
+    message: 'The registry page you sent no longer resolves. Please send a working filing link.',
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -85,7 +85,7 @@ test('a repeat contact clears the previous answer and restarts the window', asyn
   assert.equal(readiness.daysRemaining, 7);
   assert.equal(
     readiness.earliestDemotionAt.getTime(),
-    profile.reviewContactedAt.getTime() + 7 * DAY
+    profile.reviewContactedAt.getTime() + 7 * DAY,
   );
 
   assert.equal(sent.length, 1);
@@ -98,7 +98,7 @@ test('the contact audit keeps an excerpt, not the whole message body', async () 
   const profile = fakeProfile({
     verificationStatus: 'pending',
     verificationRequestedAt: ago(2),
-    reviewContactedAt: null
+    reviewContactedAt: null,
   });
   const longMessage = `${'Please send the corrected filing. '.repeat(12)}TAIL-MARKER-SHOULD-NOT-BE-STORED`;
 
@@ -116,12 +116,12 @@ test('a verified business may answer a review contact', async () => {
     verificationStatus: 'verified',
     verificationRequestedAt: ago(40),
     verifiedAt: ago(30),
-    reviewContactedAt: ago(1)
+    reviewContactedAt: ago(1),
   });
   BusinessProfile.findOne = async () => profile;
 
   const result = await invokeRespond(profile, {
-    note: 'The registry entry is under the trading name; the filing names the same director.'
+    note: 'The registry entry is under the trading name; the filing names the same director.',
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -137,11 +137,13 @@ test('a pending business may answer a review contact', async () => {
   const profile = fakeProfile({
     verificationStatus: 'pending',
     verificationRequestedAt: ago(3),
-    reviewContactedAt: ago(1)
+    reviewContactedAt: ago(1),
   });
   BusinessProfile.findOne = async () => profile;
 
-  const result = await invokeRespond(profile, { note: 'Here is the corrected public filing link.' });
+  const result = await invokeRespond(profile, {
+    note: 'Here is the corrected public filing link.',
+  });
 
   assert.equal(result.failure, null, result.failure?.message);
   assert.equal(result.response.payload?.responded, true);
@@ -152,10 +154,12 @@ test('a rejected application and a profile with no contact cannot answer', async
   const rejected = fakeProfile({
     verificationStatus: 'rejected',
     verificationRequestedAt: ago(5),
-    reviewContactedAt: ago(4)
+    reviewContactedAt: ago(4),
   });
   BusinessProfile.findOne = async () => rejected;
-  const rejectedResult = await invokeRespond(rejected, { note: 'This rejection should not be answerable.' });
+  const rejectedResult = await invokeRespond(rejected, {
+    note: 'This rejection should not be answerable.',
+  });
   assert.equal(rejectedResult.failure?.statusCode, 400);
   assert.match(rejectedResult.failure.message, /not awaiting a response/i);
   assert.equal(rejected.saves, 0);
@@ -163,10 +167,12 @@ test('a rejected application and a profile with no contact cannot answer', async
   const neverContacted = fakeProfile({
     verificationStatus: 'pending',
     verificationRequestedAt: ago(2),
-    reviewContactedAt: null
+    reviewContactedAt: null,
   });
   BusinessProfile.findOne = async () => neverContacted;
-  const noContactResult = await invokeRespond(neverContacted, { note: 'There is no review contact to answer.' });
+  const noContactResult = await invokeRespond(neverContacted, {
+    note: 'There is no review contact to answer.',
+  });
   assert.equal(noContactResult.failure?.statusCode, 400);
   assert.match(noContactResult.failure.message, /no review contact/i);
 });
@@ -199,7 +205,7 @@ function fakeProfile(overrides = {}) {
     async save() {
       this.saves += 1;
       return this;
-    }
+    },
   };
 }
 
@@ -214,7 +220,7 @@ function fakeResponse() {
     json(payload) {
       this.payload = payload;
       return this;
-    }
+    },
   };
 }
 
@@ -226,10 +232,12 @@ async function invokeContact(profile, { message, channel = 'email' } = {}) {
     {
       params: { id: profile._id },
       body: { message, channel },
-      user: { _id: 'd'.repeat(24), username: 'reviewadmin' }
+      user: { _id: 'd'.repeat(24), username: 'reviewadmin' },
     },
     response,
-    (err) => { failure = err; }
+    (err) => {
+      failure = err;
+    },
   );
   return { failure, response };
 }
@@ -240,10 +248,12 @@ async function invokeRespond(profile, body) {
   await respondToBusinessReview(
     {
       body,
-      user: { _id: profile.userId, username: 'neonrift' }
+      user: { _id: profile.userId, username: 'neonrift' },
     },
     response,
-    (err) => { failure = err; }
+    (err) => {
+      failure = err;
+    },
   );
   return { failure, response };
 }

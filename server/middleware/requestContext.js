@@ -1,8 +1,4 @@
-const {
-  REQUEST_ID_HEADER,
-  resolveRequestId,
-  logJson
-} = require('../utils/observability');
+const { REQUEST_ID_HEADER, resolveRequestId, logJson } = require('../utils/observability');
 
 /**
  * Attach a request id to every request and response, then emit one structured
@@ -22,7 +18,7 @@ function requestContext(req, res, next) {
       method: req.method,
       path: req.path,
       status: res.statusCode,
-      durationMs: Math.round(durationMs * 100) / 100
+      durationMs: Math.round(durationMs * 100) / 100,
     });
   });
 

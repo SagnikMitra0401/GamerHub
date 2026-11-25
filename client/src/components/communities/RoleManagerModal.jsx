@@ -8,7 +8,7 @@ import {
   ROLE_LABELS,
   ROLE_COLORS,
   assignableRoles,
-  hasCapability
+  hasCapability,
 } from '../../utils/permissions';
 
 /**
@@ -16,7 +16,14 @@ import {
  * Only the maintenance roles exist here: owner / admin / moderator / member.
  * These roles grant power inside this server only — never application-wide.
  */
-const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions = [], onChanged }) => {
+const RoleManagerModal = ({
+  isOpen,
+  onClose,
+  community,
+  callerRole,
+  permissions = [],
+  onChanged,
+}) => {
   const [members, setMembers] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -35,10 +42,10 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
   const [bans, setBans] = useState([]);
 
   const canManageRoles = hasCapability(permissions, CAP.MANAGE_ROLES);
-  const canKick        = hasCapability(permissions, CAP.KICK_MEMBERS);
-  const canAdd         = hasCapability(permissions, CAP.ADD_MEMBERS);
-  const canTimeout     = hasCapability(permissions, CAP.TIMEOUT_MEMBERS);
-  const grantable      = assignableRoles(callerRole);
+  const canKick = hasCapability(permissions, CAP.KICK_MEMBERS);
+  const canAdd = hasCapability(permissions, CAP.ADD_MEMBERS);
+  const canTimeout = hasCapability(permissions, CAP.TIMEOUT_MEMBERS);
+  const grantable = assignableRoles(callerRole);
 
   const load = useCallback(async () => {
     if (!community?._id) return;
@@ -92,11 +99,13 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     try {
       const { data } = await axiosInstance.post(
         `/communities/${community._id}/members/${member.userId}/timeout`,
-        { durationMinutes }
+        { durationMinutes },
       );
-      setMembers(prev => prev.map(row => (
-        row.userId === member.userId ? { ...row, timeoutUntil: data.timeoutUntil } : row
-      )));
+      setMembers((prev) =>
+        prev.map((row) =>
+          row.userId === member.userId ? { ...row, timeoutUntil: data.timeoutUntil } : row,
+        ),
+      );
     } catch (err) {
       setError(err.response?.data?.message || 'Could not time that member out.');
     } finally {
@@ -109,9 +118,9 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     setError('');
     try {
       await axiosInstance.delete(`/communities/${community._id}/members/${member.userId}/timeout`);
-      setMembers(prev => prev.map(row => (
-        row.userId === member.userId ? { ...row, timeoutUntil: null } : row
-      )));
+      setMembers((prev) =>
+        prev.map((row) => (row.userId === member.userId ? { ...row, timeoutUntil: null } : row)),
+      );
     } catch (err) {
       setError(err.response?.data?.message || 'Could not lift that timeout.');
     } finally {
@@ -125,7 +134,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     setError('');
     try {
       await axiosInstance.post(`/communities/${community._id}/bans/${pendingBan.userId}`);
-      setMembers(prev => prev.filter(m => m.userId !== pendingBan.userId));
+      setMembers((prev) => prev.filter((m) => m.userId !== pendingBan.userId));
       onChanged?.();
     } catch (err) {
       setError(err.response?.data?.message || 'Could not ban that member.');
@@ -139,7 +148,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     setError('');
     try {
       await axiosInstance.delete(`/communities/${community._id}/bans/${userId}`);
-      setBans(prev => prev.filter(entry => entry.userId !== userId));
+      setBans((prev) => prev.filter((entry) => entry.userId !== userId));
     } catch (err) {
       setError(err.response?.data?.message || 'Could not lift that ban.');
     }
@@ -151,8 +160,12 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     setBusyId(member.userId);
     setError('');
     try {
-      await axiosInstance.patch(`/communities/${community._id}/members/${member.userId}/role`, { newRole });
-      setMembers(prev => prev.map(m => (m.userId === member.userId ? { ...m, role: newRole } : m)));
+      await axiosInstance.patch(`/communities/${community._id}/members/${member.userId}/role`, {
+        newRole,
+      });
+      setMembers((prev) =>
+        prev.map((m) => (m.userId === member.userId ? { ...m, role: newRole } : m)),
+      );
       onChanged?.();
     } catch (err) {
       setError(err.response?.data?.message || 'Could not update that role.');
@@ -167,7 +180,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     setError('');
     try {
       await axiosInstance.delete(`/communities/${community._id}/members/${pendingKick.userId}`);
-      setMembers(prev => prev.filter(m => m.userId !== pendingKick.userId));
+      setMembers((prev) => prev.filter((m) => m.userId !== pendingKick.userId));
       onChanged?.();
     } catch (err) {
       setError(err.response?.data?.message || 'Could not remove that member.');
@@ -185,7 +198,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
     try {
       await axiosInstance.post(`/communities/${community._id}/members`, {
         username: addUsername.trim(),
-        role: addRole
+        role: addRole,
       });
       setAddUsername('');
       await load();
@@ -198,19 +211,33 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
   };
 
   return ReactDOM.createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="role-manager-title">
-      <div className="modal-box role-manager-box" onClick={e => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="role-manager-title"
+    >
+      <div className="modal-box role-manager-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div>
-            <h2 id="role-manager-title" className="modal-title" style={{ margin: 0 }}>Members &amp; Roles</h2>
+            <h2 id="role-manager-title" className="modal-title" style={{ margin: 0 }}>
+              Members &amp; Roles
+            </h2>
             <p className="text-muted" style={{ fontSize: '0.78rem', margin: '0.2rem 0 0' }}>
               Server roles only control this server. Application roles are separate.
             </p>
           </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+          <button onClick={onClose} className="modal-close" aria-label="Close">
+            <CloseIcon size={16} />
+          </button>
         </div>
 
-        {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
+        {error && (
+          <div className="form-error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+          </div>
+        )}
 
         {canAdd && (
           <form onSubmit={addMember} className="role-add-form">
@@ -218,18 +245,20 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
               className="form-input"
               placeholder="Add member by username…"
               value={addUsername}
-              onChange={e => setAddUsername(e.target.value)}
+              onChange={(e) => setAddUsername(e.target.value)}
               maxLength={20}
               aria-label="Username to add"
             />
             <select
               className="form-input"
               value={addRole}
-              onChange={e => setAddRole(e.target.value)}
+              onChange={(e) => setAddRole(e.target.value)}
               aria-label="Role for new member"
             >
-              {['member', 'moderator', ...(callerRole === 'owner' ? ['admin'] : [])].map(role => (
-                <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+              {['member', 'moderator', ...(callerRole === 'owner' ? ['admin'] : [])].map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
               ))}
             </select>
             <button className="btn btn-primary btn-sm" disabled={adding || !addUsername.trim()}>
@@ -247,12 +276,14 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
             >
               {bansOpen ? 'Hide banned users' : 'Banned users'}
             </button>
-            {bansOpen && (
-              bans.length === 0 ? (
-                <p className="text-muted" style={{ fontSize: '0.75rem', margin: '0.4rem 0 0' }}>Nobody is banned.</p>
+            {bansOpen &&
+              (bans.length === 0 ? (
+                <p className="text-muted" style={{ fontSize: '0.75rem', margin: '0.4rem 0 0' }}>
+                  Nobody is banned.
+                </p>
               ) : (
                 <div className="role-bans-list">
-                  {bans.map(entry => (
+                  {bans.map((entry) => (
                     <div key={entry.userId} className="role-ban-row">
                       <span className="role-ban-name">{entry.username}</span>
                       <button
@@ -265,8 +296,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
                     </div>
                   ))}
                 </div>
-              )
-            )}
+              ))}
           </div>
         )}
 
@@ -274,7 +304,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
           className="form-input"
           placeholder="Filter members…"
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={(e) => setQuery(e.target.value)}
           maxLength={40}
           style={{ marginBottom: '0.6rem' }}
           aria-label="Filter members"
@@ -289,93 +319,98 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
             </p>
           )}
 
-          {!loading && members.map(member => {
-            const isOwner = member.role === 'owner';
-            return (
-              <div key={member.userId} className="role-member-row">
-                <div className="member-avatar">{String(member.username || '?')[0].toUpperCase()}</div>
+          {!loading &&
+            members.map((member) => {
+              const isOwner = member.role === 'owner';
+              return (
+                <div key={member.userId} className="role-member-row">
+                  <div className="member-avatar">
+                    {String(member.username || '?')[0].toUpperCase()}
+                  </div>
 
-                <div className="role-member-info">
-                  <span className="role-member-name">{member.username}</span>
-                  <span className="role-member-meta" style={{ color: ROLE_COLORS[member.role] }}>
-                    {ROLE_LABELS[member.role] || member.role}
-                  </span>
-                </div>
+                  <div className="role-member-info">
+                    <span className="role-member-name">{member.username}</span>
+                    <span className="role-member-meta" style={{ color: ROLE_COLORS[member.role] }}>
+                      {ROLE_LABELS[member.role] || member.role}
+                    </span>
+                  </div>
 
-                {canManageRoles && !isOwner && grantable.length > 0 ? (
-                  <select
-                    className="form-input role-select"
-                    value={member.role}
-                    disabled={busyId === member.userId}
-                    onChange={e => changeRole(member, e.target.value)}
-                    aria-label={`Role for ${member.username}`}
-                  >
-                    {[member.role, ...grantable.filter(r => r !== member.role)].map(role => (
-                      <option key={role} value={role}>{ROLE_LABELS[role]}</option>
-                    ))}
-                  </select>
-                ) : (
-                  !isOwner && <span className="role-member-locked">—</span>
-                )}
-
-                <div className="role-member-actions">
-                  {canTimeout && !isOwner && (
-                    member.timeoutUntil && new Date(member.timeoutUntil) > new Date() ? (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-ghost"
-                        disabled={busyId === member.userId}
-                        onClick={() => liftTimeout(member)}
-                        title={`Timeout ends ${new Date(member.timeoutUntil).toLocaleTimeString()}. Click to lift.`}
-                      >
-                        Timed out
-                      </button>
-                    ) : (
-                      <select
-                        className="form-input role-select role-timeout-select"
-                        defaultValue=""
-                        disabled={busyId === member.userId}
-                        aria-label={`Time out ${member.username}`}
-                        onChange={(event) => {
-                          applyTimeout(member, Number(event.target.value));
-                          event.target.value = '';
-                        }}
-                      >
-                        <option value="">Timeout…</option>
-                        <option value="5">5 min</option>
-                        <option value="10">10 min</option>
-                        <option value="60">1 hour</option>
-                        <option value="1440">1 day</option>
-                      </select>
-                    )
+                  {canManageRoles && !isOwner && grantable.length > 0 ? (
+                    <select
+                      className="form-input role-select"
+                      value={member.role}
+                      disabled={busyId === member.userId}
+                      onChange={(e) => changeRole(member, e.target.value)}
+                      aria-label={`Role for ${member.username}`}
+                    >
+                      {[member.role, ...grantable.filter((r) => r !== member.role)].map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    !isOwner && <span className="role-member-locked">—</span>
                   )}
 
-                  {canKick && !isOwner && (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-ghost"
-                        disabled={busyId === member.userId}
-                        onClick={() => setPendingKick(member)}
-                        title="Remove from server (can rejoin)"
-                      >
-                        Kick
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        disabled={busyId === member.userId}
-                        onClick={() => setPendingBan(member)}
-                        title="Ban from this server"
-                      >
-                        Ban
-                      </button>
-                    </>
-                  )}
+                  <div className="role-member-actions">
+                    {canTimeout &&
+                      !isOwner &&
+                      (member.timeoutUntil && new Date(member.timeoutUntil) > new Date() ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          disabled={busyId === member.userId}
+                          onClick={() => liftTimeout(member)}
+                          title={`Timeout ends ${new Date(member.timeoutUntil).toLocaleTimeString()}. Click to lift.`}
+                        >
+                          Timed out
+                        </button>
+                      ) : (
+                        <select
+                          className="form-input role-select role-timeout-select"
+                          defaultValue=""
+                          disabled={busyId === member.userId}
+                          aria-label={`Time out ${member.username}`}
+                          onChange={(event) => {
+                            applyTimeout(member, Number(event.target.value));
+                            event.target.value = '';
+                          }}
+                        >
+                          <option value="">Timeout…</option>
+                          <option value="5">5 min</option>
+                          <option value="10">10 min</option>
+                          <option value="60">1 hour</option>
+                          <option value="1440">1 day</option>
+                        </select>
+                      ))}
+
+                    {canKick && !isOwner && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          disabled={busyId === member.userId}
+                          onClick={() => setPendingKick(member)}
+                          title="Remove from server (can rejoin)"
+                        >
+                          Kick
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          disabled={busyId === member.userId}
+                          onClick={() => setPendingBan(member)}
+                          title="Ban from this server"
+                        >
+                          Ban
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         <p className="text-muted" style={{ fontSize: '0.72rem', margin: '0.75rem 0 0' }}>
@@ -386,9 +421,11 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
         <ConfirmModal
           isOpen={!!pendingKick}
           title="Remove member"
-          message={pendingKick
-            ? `Remove ${pendingKick.username} from this server? They can rejoin public servers unless you make this server private.`
-            : ''}
+          message={
+            pendingKick
+              ? `Remove ${pendingKick.username} from this server? They can rejoin public servers unless you make this server private.`
+              : ''
+          }
           confirmText="Remove"
           isDanger
           onConfirm={kick}
@@ -398,9 +435,11 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
         <ConfirmModal
           isOpen={!!pendingBan}
           title="Ban member"
-          message={pendingBan
-            ? `Ban ${pendingBan.username}? They are removed immediately and cannot rejoin until an admin unbans them.`
-            : ''}
+          message={
+            pendingBan
+              ? `Ban ${pendingBan.username}? They are removed immediately and cannot rejoin until an admin unbans them.`
+              : ''
+          }
           confirmText="Ban"
           isDanger
           onConfirm={ban}
@@ -408,7 +447,7 @@ const RoleManagerModal = ({ isOpen, onClose, community, callerRole, permissions 
         />
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

@@ -5,7 +5,14 @@ const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const { checkOwnership } = require('../middleware/ownership');
 const upload = require('../middleware/upload');
 const {
-  createPost, getPosts, getPostById, updatePost, deletePost, toggleLike, previewLink, suggestTags
+  createPost,
+  getPosts,
+  getPostById,
+  updatePost,
+  deletePost,
+  toggleLike,
+  previewLink,
+  suggestTags,
 } = require('../controllers/postController');
 
 const router = express.Router();
@@ -16,13 +23,13 @@ const previewLimiter = /** @type {any} */ (rateLimit)({
   max: Number(process.env.PREVIEW_RATE_LIMIT_MAX) || 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Too many link previews. Please wait a moment.' }
+  message: { message: 'Too many link previews. Please wait a moment.' },
 });
 
-router.get('/',        optionalProtect, getPosts);
+router.get('/', optionalProtect, getPosts);
 router.get('/preview', protect, previewLimiter, previewLink); // before /:id
-router.get('/tags/suggest', optionalProtect, suggestTags);    // before /:id
-router.get('/:id',     optionalProtect, getPostById);
+router.get('/tags/suggest', optionalProtect, suggestTags); // before /:id
+router.get('/:id', optionalProtect, getPostById);
 router.post('/', protect, activeOnly, upload.single('media'), createPost);
 router.put('/:id', protect, activeOnly, checkOwnership(Post), updatePost);
 router.delete('/:id', protect, activeOnly, checkOwnership(Post), deletePost);

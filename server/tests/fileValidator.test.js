@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const {
   detectImageMime,
   validateImageUpload,
-  MAX_ATTACHMENT_BYTES
+  MAX_ATTACHMENT_BYTES,
 } = require('../utils/fileValidator');
 
 const pad = (header, extra = 8) => Buffer.concat([header, Buffer.alloc(extra, 0)]);
@@ -56,7 +56,10 @@ test('the detected type wins when the client sends no type', () => {
 });
 
 test('svg and polyglot payloads are rejected', () => {
-  assert.equal(validateImageUpload({ buffer: Buffer.from('<svg/>'), claimedMime: 'image/svg+xml' }).ok, false);
+  assert.equal(
+    validateImageUpload({ buffer: Buffer.from('<svg/>'), claimedMime: 'image/svg+xml' }).ok,
+    false,
+  );
 
   // PHP behind a real PNG header: the header passes, but the declared mime was
   // never in the allowlist, so the route's fileFilter would already refuse it.
@@ -66,7 +69,10 @@ test('svg and polyglot payloads are rejected', () => {
 });
 
 test('empty and oversized files are rejected', () => {
-  assert.equal(validateImageUpload({ buffer: Buffer.alloc(0), claimedMime: 'image/png' }).ok, false);
+  assert.equal(
+    validateImageUpload({ buffer: Buffer.alloc(0), claimedMime: 'image/png' }).ok,
+    false,
+  );
 
   const huge = Buffer.concat([PNG, Buffer.alloc(MAX_ATTACHMENT_BYTES)]);
   const result = validateImageUpload({ buffer: huge, claimedMime: 'image/png' });

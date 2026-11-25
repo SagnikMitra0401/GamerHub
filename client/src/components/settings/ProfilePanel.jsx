@@ -13,7 +13,7 @@ const STATUS_LABELS = {
   frozen: 'Frozen',
   suspended: 'Suspended',
   deletion_pending: 'Deletion scheduled',
-  deleted: 'Deleted'
+  deleted: 'Deleted',
 };
 
 const formatDate = (value) => {
@@ -96,9 +96,7 @@ const ProfilePanel = ({ account, user, updateUser, fetchMe, refresh, notify }) =
       <header className="settings-panel-head">
         <div>
           <h2 className="settings-panel-title">Profile &amp; identity</h2>
-          <p className="settings-panel-sub">
-            How you appear across the feed, servers and squads.
-          </p>
+          <p className="settings-panel-sub">How you appear across the feed, servers and squads.</p>
         </div>
         <span className={`settings-status is-${account.status === 'active' ? 'good' : 'warn'}`}>
           {STATUS_LABELS[account.status] || account.status}
@@ -106,11 +104,14 @@ const ProfilePanel = ({ account, user, updateUser, fetchMe, refresh, notify }) =
       </header>
 
       <section className="settings-identity">
-        <span className="settings-avatar" aria-hidden="true">{initial}</span>
+        <span className="settings-avatar" aria-hidden="true">
+          {initial}
+        </span>
         <div className="settings-identity-text">
           <strong>@{user?.username}</strong>
           <span>
-            {account.email} · Level {user?.level || 1} · Member since {formatDate(account.createdAt)}
+            {account.email} · Level {user?.level || 1} · Member since{' '}
+            {formatDate(account.createdAt)}
           </span>
         </div>
         <Link to={`/u/${user?.username}`} className="btn btn-ghost btn-sm">
@@ -122,8 +123,8 @@ const ProfilePanel = ({ account, user, updateUser, fetchMe, refresh, notify }) =
         <div className="settings-section-head">
           <h3>Username</h3>
           <p>
-            Changing your handle keeps everything you have posted, earned and joined. Your
-            profile URL changes with it.
+            Changing your handle keeps everything you have posted, earned and joined. Your profile
+            URL changes with it.
           </p>
         </div>
 
@@ -142,7 +143,9 @@ const ProfilePanel = ({ account, user, updateUser, fetchMe, refresh, notify }) =
                 spellCheck={false}
               />
             </div>
-            <span className={`settings-help${usernameValid ? '' : ' is-warn'}`}>{usernameHint}</span>
+            <span className={`settings-help${usernameValid ? '' : ' is-warn'}`}>
+              {usernameHint}
+            </span>
           </label>
 
           {usernameError && (
@@ -208,8 +211,8 @@ const ProfilePanel = ({ account, user, updateUser, fetchMe, refresh, notify }) =
         <div className="settings-section-head">
           <h3>Gaming passport</h3>
           <p>
-            Riot, Steam, PSN, Xbox and Discord IDs, the games you are on right now, and the
-            hardware you play on.
+            Riot, Steam, PSN, Xbox and Discord IDs, the games you are on right now, and the hardware
+            you play on.
           </p>
         </div>
         <div className="settings-actions">

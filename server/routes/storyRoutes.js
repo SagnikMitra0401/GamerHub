@@ -3,7 +3,11 @@ const rateLimit = require('express-rate-limit');
 const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const {
-  createStory, getStories, viewStory, getStoryViewers, deleteStory
+  createStory,
+  getStories,
+  viewStory,
+  getStoryViewers,
+  deleteStory,
 } = require('../controllers/storyController');
 
 const router = express.Router();
@@ -14,7 +18,7 @@ const storyWriteLimiter = /** @type {any} */ (rateLimit)({
   max: Number(process.env.STORY_RATE_LIMIT_MAX) || 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'You are posting stories too quickly. Try again shortly.' }
+  message: { message: 'You are posting stories too quickly. Try again shortly.' },
 });
 
 router.get('/', optionalProtect, getStories);

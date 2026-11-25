@@ -28,7 +28,8 @@ const DangerPanel = ({ account, refresh, notify }) => {
   const [preview, setPreview] = useState({ loading: false, data: null, error: '' });
 
   const requiresPassword = account.hasLocalPassword !== false;
-  const nameMatches = confirmName.trim().toLowerCase() === String(account.username || '').toLowerCase();
+  const nameMatches =
+    confirmName.trim().toLowerCase() === String(account.username || '').toLowerCase();
   const credentialReady = requiresPassword ? password.length > 0 : true;
 
   const resetForms = () => {
@@ -43,13 +44,16 @@ const DangerPanel = ({ account, refresh, notify }) => {
     setMode((current) => (current === next ? null : next));
     if (next === 'now' && !preview.data && !preview.loading) {
       setPreview({ loading: true, data: null, error: '' });
-      axiosInstance.get('/account/succession-preview')
+      axiosInstance
+        .get('/account/succession-preview')
         .then(({ data }) => setPreview({ loading: false, data, error: '' }))
-        .catch(() => setPreview({
-          loading: false,
-          data: null,
-          error: 'Could not preview what happens to your servers and squads.'
-        }));
+        .catch(() =>
+          setPreview({
+            loading: false,
+            data: null,
+            error: 'Could not preview what happens to your servers and squads.',
+          }),
+        );
     }
   };
 
@@ -73,7 +77,7 @@ const DangerPanel = ({ account, refresh, notify }) => {
         'success',
         frozen
           ? 'Account unfrozen. Your content is visible again.'
-          : 'Account frozen. Your content is hidden and participation is paused.'
+          : 'Account frozen. Your content is hidden and participation is paused.',
       );
     } catch (err) {
       setError(err.response?.data?.message || 'Could not update your account state.');
@@ -101,7 +105,7 @@ const DangerPanel = ({ account, refresh, notify }) => {
     try {
       await axiosInstance.post('/account/delete-now', {
         confirmUsername: confirmName.trim(),
-        ...(requiresPassword ? { password } : {})
+        ...(requiresPassword ? { password } : {}),
       });
       // The cookie is cleared server-side; reload so no stale session survives.
       window.location.href = '/login?deleted=1';
@@ -154,7 +158,8 @@ const DangerPanel = ({ account, refresh, notify }) => {
             <h3>Deletion is scheduled</h3>
             <p>
               Requested on {formatDate(account.deletionRequestedAt)}. The account is erased after{' '}
-              {account.deletionGraceDays || 30} days. Signing in or cancelling now stops the erasure.
+              {account.deletionGraceDays || 30} days. Signing in or cancelling now stops the
+              erasure.
             </p>
           </div>
           <div className="settings-actions">
@@ -176,17 +181,23 @@ const DangerPanel = ({ account, refresh, notify }) => {
             <LockIcon size={15} /> {frozen ? 'Account is frozen' : 'Freeze account'}
           </h3>
           <p>
-            Freezing is a reversible stealth mode. Your posts disappear from feeds, search and
-            your public profile, your presence reads offline, invitations are refused, and you
-            cannot post, react, join servers or send squad messages. Your account, data and
-            memberships are kept.
+            Freezing is a reversible stealth mode. Your posts disappear from feeds, search and your
+            public profile, your presence reads offline, invitations are refused, and you cannot
+            post, react, join servers or send squad messages. Your account, data and memberships are
+            kept.
           </p>
         </div>
 
         <ul className="settings-bullet-list">
-          <li><CheckIcon size={13} /> Content hidden from everyone else while frozen</li>
-          <li><CheckIcon size={13} /> Existing servers, squads and chats are not deleted</li>
-          <li><CheckIcon size={13} /> Unfreeze at any time with the same confirmation</li>
+          <li>
+            <CheckIcon size={13} /> Content hidden from everyone else while frozen
+          </li>
+          <li>
+            <CheckIcon size={13} /> Existing servers, squads and chats are not deleted
+          </li>
+          <li>
+            <CheckIcon size={13} /> Unfreeze at any time with the same confirmation
+          </li>
         </ul>
 
         {mode === 'freeze' ? (
@@ -229,19 +240,17 @@ const DangerPanel = ({ account, refresh, notify }) => {
                 type="button"
                 className={frozen ? 'btn btn-primary btn-sm' : 'btn btn-danger btn-sm'}
                 onClick={submitFreeze}
-                disabled={
-                  busy === 'freeze' ||
-                  (requiresPassword ? !password : !nameMatches)
-                }
+                disabled={busy === 'freeze' || (requiresPassword ? !password : !nameMatches)}
               >
-                {busy === 'freeze'
-                  ? 'Working…'
-                  : frozen ? 'Unfreeze account' : 'Freeze account'}
+                {busy === 'freeze' ? 'Working…' : frozen ? 'Unfreeze account' : 'Freeze account'}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => { setMode(null); resetForms(); }}
+                onClick={() => {
+                  setMode(null);
+                  resetForms();
+                }}
                 disabled={busy === 'freeze'}
               >
                 Cancel
@@ -269,8 +278,8 @@ const DangerPanel = ({ account, refresh, notify }) => {
               <TrashIcon size={15} /> Delete account
             </h3>
             <p>
-              Two paths. Scheduling gives you 30 days to change your mind. Immediate deletion
-              erases the account now, after handing your servers and squads to their next owner.
+              Two paths. Scheduling gives you 30 days to change your mind. Immediate deletion erases
+              the account now, after handing your servers and squads to their next owner.
             </p>
           </div>
 
@@ -278,9 +287,8 @@ const DangerPanel = ({ account, refresh, notify }) => {
             <div className="settings-confirm">
               <strong>Schedule deletion in 30 days?</strong>
               <p>
-                Your profiles and content stay readable until then. You can cancel from this page
-                or by signing in. After 30 days the account is anonymised and your content is
-                removed.
+                Your profiles and content stay readable until then. You can cancel from this page or
+                by signing in. After 30 days the account is anonymised and your content is removed.
               </p>
               <div className="settings-actions">
                 <button
@@ -324,14 +332,18 @@ const DangerPanel = ({ account, refresh, notify }) => {
             <div className="settings-confirm is-danger">
               <strong>This cannot be undone</strong>
               <p>
-                Your posts, comments, notifications, invitations, squad messages and sign-in
-                methods are removed. The email is released, so registering again creates a fresh
-                account with no history.
+                Your posts, comments, notifications, invitations, squad messages and sign-in methods
+                are removed. The email is released, so registering again creates a fresh account
+                with no history.
               </p>
 
               <div className="settings-section-head settings-preview-head">
-                <h4><UsersIcon size={14} /> Succession preview</h4>
-                {preview.loading && <span className="settings-help">Reading your servers and squads…</span>}
+                <h4>
+                  <UsersIcon size={14} /> Succession preview
+                </h4>
+                {preview.loading && (
+                  <span className="settings-help">Reading your servers and squads…</span>
+                )}
                 {preview.error && <span className="settings-inline-error">{preview.error}</span>}
               </div>
 
@@ -414,19 +426,17 @@ const DangerPanel = ({ account, refresh, notify }) => {
                   type="button"
                   className="btn btn-danger btn-sm"
                   onClick={deleteNow}
-                  disabled={
-                    busy === 'delete' ||
-                    !acknowledged ||
-                    !nameMatches ||
-                    !credentialReady
-                  }
+                  disabled={busy === 'delete' || !acknowledged || !nameMatches || !credentialReady}
                 >
                   {busy === 'delete' ? 'Deleting…' : 'Delete permanently'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  onClick={() => { setMode(null); resetForms(); }}
+                  onClick={() => {
+                    setMode(null);
+                    resetForms();
+                  }}
                   disabled={busy === 'delete'}
                 >
                   Keep my account

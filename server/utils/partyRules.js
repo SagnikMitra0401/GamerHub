@@ -51,9 +51,8 @@ function normalizePartyInput(body = {}) {
     errors.push(`Squad size must be between ${MIN_SLOTS} and ${MAX_SLOTS} players.`);
   }
 
-  const requirements = body.requirements && typeof body.requirements === 'object'
-    ? body.requirements
-    : {};
+  const requirements =
+    body.requirements && typeof body.requirements === 'object' ? body.requirements : {};
 
   return {
     ok: errors.length === 0,
@@ -65,9 +64,9 @@ function normalizePartyInput(body = {}) {
       maxSlots,
       requirements: {
         minRank: sanitizeLine(requirements.minRank, 20),
-        micRequired: !!requirements.micRequired
-      }
-    }
+        micRequired: !!requirements.micRequired,
+      },
+    },
   };
 }
 
@@ -84,7 +83,10 @@ function canRequestJoin(party, userId, now = Date.now()) {
   if (party.status !== 'open') {
     return {
       ok: false,
-      reason: party.status === 'full' ? 'This squad is already full.' : 'This squad is no longer recruiting.'
+      reason:
+        party.status === 'full'
+          ? 'This squad is already full.'
+          : 'This squad is no longer recruiting.',
     };
   }
 
@@ -119,7 +121,13 @@ function matchesFilters(party, filters = {}, now = Date.now()) {
   if (!party || party.status !== 'open' || isExpired(party, now)) return false;
 
   const game = sanitizeLine(filters.game, 60).toLowerCase();
-  if (game && !String(party.gameTitle || '').toLowerCase().includes(game)) return false;
+  if (
+    game &&
+    !String(party.gameTitle || '')
+      .toLowerCase()
+      .includes(game)
+  )
+    return false;
 
   if (filters.mic === '1' || filters.mic === 'true') {
     if (!party.requirements?.micRequired) return false;
@@ -141,5 +149,5 @@ module.exports = {
   normalizePartyInput,
   canRequestJoin,
   membershipOf,
-  matchesFilters
+  matchesFilters,
 };

@@ -6,7 +6,10 @@ const youtubeBot = require('../utils/youtubeBot');
 
 test('notification action URLs only allow internal routes or https', () => {
   assert.equal(safeActionUrl('/lfg'), '/lfg');
-  assert.equal(safeActionUrl('https://www.youtube.com/watch?v=abc'), 'https://www.youtube.com/watch?v=abc');
+  assert.equal(
+    safeActionUrl('https://www.youtube.com/watch?v=abc'),
+    'https://www.youtube.com/watch?v=abc',
+  );
 
   assert.equal(safeActionUrl('//evil.example.com'), null);
   assert.equal(safeActionUrl('javascript:alert(1)'), null);
@@ -36,10 +39,7 @@ test('the bot reports an unconfigured state without exposing a key', async () =>
     assert.equal('apiKey' in status, false);
     assert.equal(JSON.stringify(status).includes('YOUTUBE_API_KEY='), false);
 
-    await assert.rejects(
-      () => youtubeBot.searchLatestVideos('Valorant'),
-      /not configured/i
-    );
+    await assert.rejects(() => youtubeBot.searchLatestVideos('Valorant'), /not configured/i);
   } finally {
     if (original === undefined) delete process.env.YOUTUBE_API_KEY;
     else process.env.YOUTUBE_API_KEY = original;

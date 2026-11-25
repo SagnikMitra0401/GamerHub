@@ -78,7 +78,9 @@ const PostTile = ({ post }) => {
         ) : (
           <div
             className="post-tile-text"
-            style={{ background: `linear-gradient(145deg, hsl(${hueFor(post._id)} 55% 22%), hsl(${(hueFor(post._id) + 40) % 360} 45% 12%))` }}
+            style={{
+              background: `linear-gradient(145deg, hsl(${hueFor(post._id)} 55% 22%), hsl(${(hueFor(post._id) + 40) % 360} 45% 12%))`,
+            }}
           >
             <span>{post.title}</span>
           </div>
@@ -91,7 +93,9 @@ const PostTile = ({ post }) => {
         {post.tags?.length > 0 && (
           <div className="post-tile-tags">
             {post.tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="tag">#{tag}</span>
+              <span key={tag} className="tag">
+                #{tag}
+              </span>
             ))}
           </div>
         )}
@@ -100,8 +104,12 @@ const PostTile = ({ post }) => {
       <div className="post-tile-footer">
         <span className="post-tile-author">@{author}</span>
         <span className="post-tile-stats">
-          <span><HeartIcon size={13} /> {likeCount}</span>
-          <span><CommentIcon size={13} /> {post.commentCount ?? 0}</span>
+          <span>
+            <HeartIcon size={13} /> {likeCount}
+          </span>
+          <span>
+            <CommentIcon size={13} /> {post.commentCount ?? 0}
+          </span>
         </span>
       </div>
     </article>

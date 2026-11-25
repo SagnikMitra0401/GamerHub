@@ -19,13 +19,13 @@ const REDIS_MODULE_PATH = require.resolve('@upstash/redis');
  */
 function createStore() {
   return {
-    strings: new Map(),   // key -> value
-    hashes: new Map(),    // key -> Map(field -> value)
-    sets: new Map(),      // key -> Set(member)
-    calls: [],            // every command name, in order
+    strings: new Map(), // key -> value
+    hashes: new Map(), // key -> Map(field -> value)
+    sets: new Map(), // key -> Set(member)
+    calls: [], // every command name, in order
     failCommands: new Set(),
-    ttl: new Map(),       // key -> number of seconds from the last SET
-    expiry: new Map(),    // key -> absolute ms timestamp for PEXPIRE
+    ttl: new Map(), // key -> number of seconds from the last SET
+    expiry: new Map(), // key -> absolute ms timestamp for PEXPIRE
 
     reset() {
       this.strings.clear();
@@ -49,8 +49,8 @@ function createStore() {
 
     /** Count of a command since the last reset — cheaper than filtering. */
     count(command) {
-      return this.calls.filter(name => name === command).length;
-    }
+      return this.calls.filter((name) => name === command).length;
+    },
   };
 }
 
@@ -141,9 +141,10 @@ class FakeRedis {
   hset(key, fieldOrObject, maybeValue) {
     return run('hset', () => {
       const hash = store.hash(key);
-      const entries = typeof fieldOrObject === 'object'
-        ? Object.entries(fieldOrObject)
-        : [[fieldOrObject, maybeValue]];
+      const entries =
+        typeof fieldOrObject === 'object'
+          ? Object.entries(fieldOrObject)
+          : [[fieldOrObject, maybeValue]];
       let created = 0;
       for (const [field, value] of entries) {
         if (!hash.has(field)) created += 1;
@@ -204,7 +205,7 @@ function installFakeRedis() {
     id: REDIS_MODULE_PATH,
     filename: REDIS_MODULE_PATH,
     loaded: true,
-    exports: fakeModule
+    exports: fakeModule,
   };
   return store;
 }

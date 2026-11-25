@@ -25,7 +25,10 @@ const VideoPlayer = ({ src, poster = null, title = 'Video', resumeKey, className
     const { currentTime, duration } = videoRef.current;
     if (!Number.isFinite(duration) || duration <= 0) return;
     try {
-      window.localStorage.setItem(storageKey, String(Math.min(currentTime, Math.max(0, duration - 3))));
+      window.localStorage.setItem(
+        storageKey,
+        String(Math.min(currentTime, Math.max(0, duration - 3))),
+      );
     } catch {
       // Private mode or a full quota must never break playback.
     }
@@ -189,9 +192,15 @@ const VideoPlayer = ({ src, poster = null, title = 'Video', resumeKey, className
       <div className="video-player-tools">
         <label className="video-player-rate">
           <span className="sr-only">Playback speed</span>
-          <select value={rate} onChange={(event) => changeRate(event.target.value)} aria-label="Playback speed">
+          <select
+            value={rate}
+            onChange={(event) => changeRate(event.target.value)}
+            aria-label="Playback speed"
+          >
             {[0.5, 0.75, 1, 1.25, 1.5, 2].map((value) => (
-              <option key={value} value={value}>{value}×</option>
+              <option key={value} value={value}>
+                {value}×
+              </option>
             ))}
           </select>
         </label>
@@ -213,7 +222,11 @@ const VideoPlayer = ({ src, poster = null, title = 'Video', resumeKey, className
         >
           Fullscreen
         </button>
-        {notice && <span className="video-player-notice" role="status">{notice}</span>}
+        {notice && (
+          <span className="video-player-notice" role="status">
+            {notice}
+          </span>
+        )}
       </div>
       <p className="video-player-hint">
         Space play/pause · Left/Right seek · F fullscreen · M mute

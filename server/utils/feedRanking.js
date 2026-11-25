@@ -19,20 +19,26 @@ const FOLLOWED_AUTHOR_BOOST = 15;
 const MAX_ENGAGEMENT_BONUS = 60;
 const AGE_PENALTY_PER_HOUR = 0.5;
 
-const norm = (value) => String(value ?? '').trim().toLowerCase();
+const norm = (value) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase();
 
 /** Letters and digits only: "#Elden-Ring" and "elden ring" both become "eldenring". */
 const tagKey = (value) =>
-  norm(value).replace(/^#+/, '').replace(/[^\p{L}\p{N}]+/gu, '');
+  norm(value)
+    .replace(/^#+/, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
-const keySet = (list) =>
-  new Set((Array.isArray(list) ? list : []).map(tagKey).filter(Boolean));
+const keySet = (list) => new Set((Array.isArray(list) ? list : []).map(tagKey).filter(Boolean));
 
 const authorId = (post) => String(post?.userId?._id ?? post?.userId ?? '');
 
 /** Ids only, so ranking never depends on populated user documents. */
 const followSet = (list) =>
-  new Set((Array.isArray(list) ? list : []).map((entry) => String(entry?._id ?? entry)).filter(Boolean));
+  new Set(
+    (Array.isArray(list) ? list : []).map((entry) => String(entry?._id ?? entry)).filter(Boolean),
+  );
 
 /**
  * @param {object[]} posts     post documents (lean) with tags/likes/commentCount/createdAt
@@ -80,7 +86,7 @@ function rankPostsForUser(posts, prefs = {}, { now = Date.now() } = {}) {
       return {
         ...post,
         rankScore: Math.round(score * 100) / 100,
-        matchedTags: [...matched]
+        matchedTags: [...matched],
       };
     })
     .sort((a, b) => {
@@ -97,5 +103,5 @@ module.exports = {
   GAME_TAG_WEIGHT,
   CHANNEL_TAG_WEIGHT,
   FOLLOWED_AUTHOR_BOOST,
-  tagKey
+  tagKey,
 };

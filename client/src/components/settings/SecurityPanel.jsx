@@ -33,7 +33,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     password: '',
-    confirm: ''
+    confirm: '',
   });
   const [recoveryForm, setRecoveryForm] = useState({ email: '' });
   const [recoveryCode, setRecoveryCode] = useState('');
@@ -47,7 +47,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
   const emailVerified = account.emailVerified === true;
   const hasLocalPassword = account.hasLocalPassword !== false;
   const recoveryUsable = Boolean(
-    account.recoveryEligibleAt && new Date(account.recoveryEligibleAt).getTime() <= Date.now()
+    account.recoveryEligibleAt && new Date(account.recoveryEligibleAt).getTime() <= Date.now(),
   );
 
   const unlinkGoogle = async () => {
@@ -113,11 +113,11 @@ const SecurityPanel = ({ account, refresh, notify }) => {
     try {
       await axiosInstance.patch('/auth/password', {
         ...(hasLocalPassword ? { currentPassword: passwordForm.currentPassword } : {}),
-        password: passwordForm.password
+        password: passwordForm.password,
       });
       await logout();
       navigate('/login', {
-        state: { notice: 'Password changed. Sign in again with your new password.' }
+        state: { notice: 'Password changed. Sign in again with your new password.' },
       });
     } catch (err) {
       setPasswordError(err.response?.data?.message || 'Could not change the password.');
@@ -202,10 +202,12 @@ const SecurityPanel = ({ account, refresh, notify }) => {
 
       <section className="settings-section">
         <div className="settings-section-head">
-          <h3><MailIcon size={15} /> Email verification</h3>
+          <h3>
+            <MailIcon size={15} /> Email verification
+          </h3>
           <p>
-            Confirming your email proves you own the address and lets you change your
-            password. Existing accounts were verified when this feature launched.
+            Confirming your email proves you own the address and lets you change your password.
+            Existing accounts were verified when this feature launched.
           </p>
         </div>
 
@@ -220,7 +222,13 @@ const SecurityPanel = ({ account, refresh, notify }) => {
           </div>
           <div className="settings-actions">
             <span className={`settings-chip${emailVerified ? ' is-good' : ''}`}>
-              {emailVerified ? <><CheckIcon size={13} /> Verified</> : 'Unverified'}
+              {emailVerified ? (
+                <>
+                  <CheckIcon size={13} /> Verified
+                </>
+              ) : (
+                'Unverified'
+              )}
             </span>
             {!emailVerified && (
               <button
@@ -240,11 +248,13 @@ const SecurityPanel = ({ account, refresh, notify }) => {
 
       <section className="settings-section">
         <div className="settings-section-head">
-          <h3><MailIcon size={15} /> Recovery email</h3>
+          <h3>
+            <MailIcon size={15} /> Recovery email
+          </h3>
           <p>
             A second address that can reset this account when the main inbox stops working. It
-            cannot sign in and it never appears on your profile. A newly confirmed address
-            becomes usable after seven days.
+            cannot sign in and it never appears on your profile. A newly confirmed address becomes
+            usable after seven days.
           </p>
         </div>
 
@@ -261,7 +271,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
               </span>
             </div>
             <div className="settings-actions">
-              <span className="settings-chip is-good"><CheckIcon size={13} /> Confirmed</span>
+              <span className="settings-chip is-good">
+                <CheckIcon size={13} /> Confirmed
+              </span>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
@@ -363,9 +375,8 @@ const SecurityPanel = ({ account, refresh, notify }) => {
         <div className="settings-section-head">
           <h3>Sign-in methods</h3>
           <p>
-            Google is verified server-side on every sign-in. Linking is refused if the Google
-            email differs from this account's email, so two identities cannot be mixed by
-            accident.
+            Google is verified server-side on every sign-in. Linking is refused if the Google email
+            differs from this account's email, so two identities cannot be mixed by accident.
           </p>
         </div>
 
@@ -394,7 +405,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
           </div>
           {googleLinked ? (
             <div className="settings-actions">
-              <span className="settings-chip is-good"><CheckIcon size={13} /> Connected</span>
+              <span className="settings-chip is-good">
+                <CheckIcon size={13} /> Connected
+              </span>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
@@ -423,7 +436,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
 
       <section className="settings-section">
         <div className="settings-section-head">
-          <h3><LockIcon size={15} /> {hasLocalPassword ? 'Change password' : 'Set a password'}</h3>
+          <h3>
+            <LockIcon size={15} /> {hasLocalPassword ? 'Change password' : 'Set a password'}
+          </h3>
           <p>
             {hasLocalPassword
               ? 'Changing your password signs out every other device. Your current session is closed too, so sign in again with the new password.'
@@ -442,7 +457,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
         <form className="settings-password-form" onSubmit={changePassword}>
           {hasLocalPassword && (
             <div className="form-group">
-              <label className="form-label" htmlFor="settings-current-password">Current password</label>
+              <label className="form-label" htmlFor="settings-current-password">
+                Current password
+              </label>
               <input
                 id="settings-current-password"
                 className="form-input"
@@ -456,7 +473,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
             </div>
           )}
           <div className="form-group">
-            <label className="form-label" htmlFor="settings-new-password">New password</label>
+            <label className="form-label" htmlFor="settings-new-password">
+              New password
+            </label>
             <input
               id="settings-new-password"
               className="form-input"
@@ -470,7 +489,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
             />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="settings-confirm-password">Confirm new password</label>
+            <label className="form-label" htmlFor="settings-confirm-password">
+              Confirm new password
+            </label>
             <input
               id="settings-confirm-password"
               className="form-input"
@@ -488,9 +509,7 @@ const SecurityPanel = ({ account, refresh, notify }) => {
             className="btn btn-primary btn-sm"
             disabled={!emailVerified || passwordBusy}
           >
-            {passwordBusy
-              ? 'Saving…'
-              : hasLocalPassword ? 'Change password' : 'Set password'}
+            {passwordBusy ? 'Saving…' : hasLocalPassword ? 'Change password' : 'Set password'}
           </button>
         </form>
       </section>
@@ -512,7 +531,9 @@ const SecurityPanel = ({ account, refresh, notify }) => {
             <strong>This browser</strong>
             <span>Active now</span>
           </div>
-          <span className="settings-chip is-good"><CheckIcon size={13} /> Current</span>
+          <span className="settings-chip is-good">
+            <CheckIcon size={13} /> Current
+          </span>
         </div>
 
         <div className="settings-actions">
@@ -554,7 +575,10 @@ const SecurityPanel = ({ account, refresh, notify }) => {
         confirmText="Unlink Google"
         busy={busy === 'unlink'}
         onCancel={() => setConfirmAction(null)}
-        onConfirm={() => { setConfirmAction(null); unlinkGoogle(); }}
+        onConfirm={() => {
+          setConfirmAction(null);
+          unlinkGoogle();
+        }}
       />
 
       <ConfirmModal
@@ -565,7 +589,10 @@ const SecurityPanel = ({ account, refresh, notify }) => {
         isDanger
         busy={recoveryBusy}
         onCancel={() => setConfirmAction(null)}
-        onConfirm={() => { setConfirmAction(null); removeRecoveryEmail(); }}
+        onConfirm={() => {
+          setConfirmAction(null);
+          removeRecoveryEmail();
+        }}
       />
 
       <ConfirmModal
@@ -576,7 +603,10 @@ const SecurityPanel = ({ account, refresh, notify }) => {
         isDanger
         busy={busy === 'logout-all'}
         onCancel={() => setConfirmAction(null)}
-        onConfirm={() => { setConfirmAction(null); signOutEverywhere(); }}
+        onConfirm={() => {
+          setConfirmAction(null);
+          signOutEverywhere();
+        }}
       />
     </>
   );

@@ -2,7 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  canPublish, canReadChannel, slugifyBroadcastName, uniqueSlug
+  canPublish,
+  canReadChannel,
+  slugifyBroadcastName,
+  uniqueSlug,
 } = require('../utils/broadcastAccess');
 
 const owner = { _id: 'o1', role: 'user' };
@@ -13,7 +16,7 @@ const channel = (overrides = {}) => ({
   _id: 'c1',
   ownerId: owner,
   isPublic: true,
-  ...overrides
+  ...overrides,
 });
 
 test('only the owner or platform staff can publish', () => {
@@ -33,8 +36,14 @@ test('private channels need a subscription, ownership or staff', () => {
   const privateChannel = channel({ isPublic: false });
 
   assert.equal(canReadChannel({ channel: privateChannel, user: null, subscription: null }), false);
-  assert.equal(canReadChannel({ channel: privateChannel, user: reader, subscription: null }), false);
-  assert.equal(canReadChannel({ channel: privateChannel, user: reader, subscription: { muted: false } }), true);
+  assert.equal(
+    canReadChannel({ channel: privateChannel, user: reader, subscription: null }),
+    false,
+  );
+  assert.equal(
+    canReadChannel({ channel: privateChannel, user: reader, subscription: { muted: false } }),
+    true,
+  );
   assert.equal(canReadChannel({ channel: privateChannel, user: owner, subscription: null }), true);
   assert.equal(canReadChannel({ channel: privateChannel, user: admin, subscription: null }), true);
 });

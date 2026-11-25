@@ -8,9 +8,9 @@ const LoginForm = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -29,7 +29,9 @@ const LoginForm = () => {
     <form onSubmit={handleSubmit}>
       {error && <div className="form-error">{error}</div>}
       <div className="form-group">
-        <label className="form-label" htmlFor="login-email">Email</label>
+        <label className="form-label" htmlFor="login-email">
+          Email
+        </label>
         <input
           id="login-email"
           className="form-input"
@@ -42,7 +44,9 @@ const LoginForm = () => {
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="login-password">Password</label>
+        <label className="form-label" htmlFor="login-password">
+          Password
+        </label>
         <input
           id="login-password"
           className="form-input"

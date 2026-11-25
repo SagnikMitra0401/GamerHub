@@ -5,7 +5,7 @@ const { sanitizeLine, isHttpUrl } = require('./sanitize');
 const { isBlockedBetween } = require('./privacy');
 const {
   notificationCategory,
-  isNotificationCategoryEnabled
+  isNotificationCategoryEnabled,
 } = require('./notificationPreferences');
 
 const MAX_TITLE = 120;
@@ -53,7 +53,7 @@ async function notifyUser({
   mediaThumbnail = null,
   metadata = {},
   dedupeKey,
-  silent = false
+  silent = false,
 }) {
   try {
     if (!userId) return null;
@@ -63,7 +63,10 @@ async function notifyUser({
     const recipient = await User.findById(userId)
       .select('status notificationSettings blockedUsers')
       .lean();
-    if (!recipient || ['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(recipient.status)) {
+    if (
+      !recipient ||
+      ['frozen', 'suspended', 'deleted', 'deletion_pending'].includes(recipient.status)
+    ) {
       return null;
     }
 
@@ -94,7 +97,7 @@ async function notifyUser({
       message: sanitizeLine(message, MAX_MESSAGE),
       actionUrl: safeActionUrl(actionUrl),
       mediaThumbnail: safeThumbnail(mediaThumbnail),
-      metadata: metadata && typeof metadata === 'object' ? metadata : {}
+      metadata: metadata && typeof metadata === 'object' ? metadata : {},
     };
 
     if (dedupeKey) {
@@ -107,10 +110,12 @@ async function notifyUser({
     const notification = await Notification.create(doc);
 
     if (!silent) {
-      getIO()?.to(`user:${String(userId)}`).emit('notification', {
-        ...notification.toObject(),
-        unread: true
-      });
+      getIO()
+        ?.to(`user:${String(userId)}`)
+        .emit('notification', {
+          ...notification.toObject(),
+          unread: true,
+        });
     }
 
     return notification;

@@ -21,7 +21,7 @@ export default function useDmSummary() {
       setCounts({
         requests: Number(data?.requests) || 0,
         unread: Number(data?.unread) || 0,
-        inbox: Number(data?.inbox) || 0
+        inbox: Number(data?.inbox) || 0,
       });
     } catch {
       // A badge is not worth surfacing an error for; the next event retries.

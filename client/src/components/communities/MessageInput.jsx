@@ -15,7 +15,7 @@ const MessageInput = ({
   replyTo = null,
   onCancelReply,
   onNotice,
-  placeholder
+  placeholder,
 }) => {
   const [text, setText] = useState('');
   const [cooldown, setCooldown] = useState(0);
@@ -29,14 +29,18 @@ const MessageInput = ({
   const bypassSlowmode = hasCapability(permissions, CAP.BYPASS_SLOWMODE);
   const slowmodeForMe = !bypassSlowmode ? slowModeSeconds : 0;
 
-  const { start: startDictation, stop: stopDictation, listening, supported: dictationSupported } =
-    useSpeechCompose({
-      onTranscript: (transcript) => {
-        // Dictation only fills the draft; the user still presses Send.
-        setText(previous => `${previous}${previous ? ' ' : ''}${transcript}`.slice(0, MAX_LENGTH));
-      },
-      onError: (message) => onNotice?.(message)
-    });
+  const {
+    start: startDictation,
+    stop: stopDictation,
+    listening,
+    supported: dictationSupported,
+  } = useSpeechCompose({
+    onTranscript: (transcript) => {
+      // Dictation only fills the draft; the user still presses Send.
+      setText((previous) => `${previous}${previous ? ' ' : ''}${transcript}`.slice(0, MAX_LENGTH));
+    },
+    onError: (message) => onNotice?.(message),
+  });
 
   // Reset the composer when switching channels
   useEffect(() => {
@@ -51,7 +55,7 @@ const MessageInput = ({
   // Cooldown countdown
   useEffect(() => {
     if (cooldown <= 0) return undefined;
-    const timer = setInterval(() => setCooldown(c => Math.max(0, c - 1)), 1000);
+    const timer = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
 
@@ -85,7 +89,7 @@ const MessageInput = ({
       const { data } = await axiosInstance.post(
         `/communities/channels/${channelId}/attachments`,
         form,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type': 'multipart/form-data' } },
       );
       setAttachment(data.attachment);
     } catch (err) {
@@ -112,7 +116,7 @@ const MessageInput = ({
       channelId,
       text: value,
       attachmentIds: attachment ? [attachment._id] : [],
-      replyTo: replyTo ? { messageId: replyTo._id } : null
+      replyTo: replyTo ? { messageId: replyTo._id } : null,
     });
     setText('');
     setAttachment(null);
@@ -211,7 +215,7 @@ const MessageInput = ({
               ? 'You don’t have permission to send messages here.'
               : cooldown > 0
                 ? `Slowmode active (${cooldown}s)…`
-                : (placeholder || 'Send a message…')
+                : placeholder || 'Send a message…'
           }
           value={text}
           onChange={handleChange}

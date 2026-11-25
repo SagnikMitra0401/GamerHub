@@ -9,13 +9,13 @@ const {
   communityScore,
   sharedGamesFor,
   publicSuggestionPlayer,
-  countMatchingTags
+  countMatchingTags,
 } = require('../utils/onboarding');
 
 test('games are trimmed, de-duplicated case-insensitively and capped', () => {
   assert.deepEqual(
     normalizeGames(' Valorant, valorant, Apex Legends, , Elden Ring ', { limit: 3 }),
-    ['Valorant', 'Apex Legends', 'Elden Ring']
+    ['Valorant', 'Apex Legends', 'Elden Ring'],
   );
   assert.deepEqual(normalizeGames(['Valorant', 'VALORANT']), ['Valorant']);
   assert.deepEqual(normalizeGames(null), []);
@@ -27,10 +27,7 @@ test('a game longer than the display limit is clipped, not stored raw', () => {
 });
 
 test('only the four supported platforms survive normalization', () => {
-  assert.deepEqual(
-    normalizePlatforms(['PC', 'Dreamcast', 'Xbox', 'PC']),
-    ['PC', 'Xbox']
-  );
+  assert.deepEqual(normalizePlatforms(['PC', 'Dreamcast', 'Xbox', 'PC']), ['PC', 'Xbox']);
   assert.deepEqual(normalizePlatforms('PC, PlayStation'), ['PC', 'PlayStation']);
 });
 
@@ -56,12 +53,12 @@ test('a tagged community outranks a name-only community', () => {
 test('shared games use both preferences and the passport', () => {
   const player = {
     preferences: { favoriteGames: ['Valorant', 'Minecraft'] },
-    gamerPassport: { activeGames: [{ gameName: 'Apex Legends' }] }
+    gamerPassport: { activeGames: [{ gameName: 'Apex Legends' }] },
   };
-  assert.deepEqual(
-    sharedGamesFor(player, ['Valorant', 'Apex Legends', 'Elden Ring']),
-    ['Valorant', 'Apex Legends']
-  );
+  assert.deepEqual(sharedGamesFor(player, ['Valorant', 'Apex Legends', 'Elden Ring']), [
+    'Valorant',
+    'Apex Legends',
+  ]);
   assert.deepEqual(sharedGamesFor(player, []), []);
 });
 
@@ -73,11 +70,17 @@ test('the suggested-player projection excludes email, preferences and passport',
     level: 9,
     presence: { status: 'online' },
     preferences: { favoriteGames: ['Valorant'], favoriteGenres: ['FPS'] },
-    gamerPassport: { activeGames: [{ gameName: 'Valorant' }] }
+    gamerPassport: { activeGames: [{ gameName: 'Valorant' }] },
   };
 
   const projection = publicSuggestionPlayer(player, ['Valorant']);
-  assert.deepEqual(Object.keys(projection).sort(), ['id', 'level', 'presence', 'sharedGames', 'username']);
+  assert.deepEqual(Object.keys(projection).sort(), [
+    'id',
+    'level',
+    'presence',
+    'sharedGames',
+    'username',
+  ]);
   assert.equal(projection.email, undefined);
   assert.equal(projection.preferences, undefined);
   assert.equal(projection.gamerPassport, undefined);
@@ -89,16 +92,13 @@ test('tag counts only include matching games and cap at five', () => {
     { tags: ['valorant', 'valorant', 'apex legends'] },
     { tags: ['valorant', 'minecraft'] },
     { tags: ['elden ring', 'apex legends'] },
-    { tags: ['valorant'] }
+    { tags: ['valorant'] },
   ];
 
-  assert.deepEqual(
-    countMatchingTags(posts, ['Valorant', 'Apex']),
-    [
-      { tag: 'valorant', postCount: 4 },
-      { tag: 'apex legends', postCount: 2 }
-    ]
-  );
+  assert.deepEqual(countMatchingTags(posts, ['Valorant', 'Apex']), [
+    { tag: 'valorant', postCount: 4 },
+    { tag: 'apex legends', postCount: 2 },
+  ]);
 
   const many = Array.from({ length: 8 }, (_, index) => ({ tags: [`tag${index}`] }));
   assert.equal(countMatchingTags(many, []).length, 5);

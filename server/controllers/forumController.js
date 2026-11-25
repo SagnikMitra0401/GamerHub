@@ -27,7 +27,7 @@ const STATUS_AUDIT = {
   answered: 'FORUM_POST_REOPEN',
   locked: 'FORUM_POST_LOCK',
   archived: 'FORUM_POST_ARCHIVE',
-  open: 'FORUM_POST_REOPEN'
+  open: 'FORUM_POST_REOPEN',
 };
 
 /** Forum channel gate: members-only, and the channel must actually be a forum. */
@@ -76,7 +76,7 @@ const listForumPosts = async (req, res, next) => {
         .limit(limit)
         .populate('authorId', 'username level')
         .lean(),
-      ForumPost.countDocuments(filter)
+      ForumPost.countDocuments(filter),
     ]);
 
     res.status(200).json({
@@ -85,12 +85,12 @@ const listForumPosts = async (req, res, next) => {
         author: post.authorId
           ? { _id: post.authorId._id, username: post.authorId.username, level: post.authorId.level }
           : null,
-        authorId: undefined
+        authorId: undefined,
       })),
       total,
       page,
       hasMore: skip + posts.length < total,
-      forumConfig: channel.forumConfig
+      forumConfig: channel.forumConfig,
     });
   } catch (err) {
     next(err);
@@ -101,7 +101,9 @@ const listForumPosts = async (req, res, next) => {
 const createForumPost = async (req, res, next) => {
   try {
     const { channel, community, role } = await loadForumChannel(
-      req.params.channelId, req.user._id, CAP.CREATE_FORUM_POSTS
+      req.params.channelId,
+      req.user._id,
+      CAP.CREATE_FORUM_POSTS,
     );
 
     if (!roleAtLeast(role, channel.forumConfig?.postCreationRoleMin || 'member')) {
@@ -129,7 +131,7 @@ const createForumPost = async (req, res, next) => {
       authorId: req.user._id,
       title,
       body,
-      tags
+      tags,
     });
 
     emitToChannel(channel._id, 'forum_post_created', {
@@ -137,12 +139,12 @@ const createForumPost = async (req, res, next) => {
       postId: String(post._id),
       title: post.title,
       tags: post.tags,
-      author: { _id: String(req.user._id), username: req.user.username }
+      author: { _id: String(req.user._id), username: req.user.username },
     });
 
     res.status(201).json({
       ...post.toObject(),
-      author: { _id: req.user._id, username: req.user.username, level: req.user.level }
+      author: { _id: req.user._id, username: req.user.username, level: req.user.level },
     });
   } catch (err) {
     next(err);
@@ -160,8 +162,10 @@ const getForumPost = async (req, res, next) => {
     const post = await ForumPost.findOne({
       _id: req.params.postId,
       channelId: channel._id,
-      communityId: community._id
-    }).populate('authorId', 'username level').lean();
+      communityId: community._id,
+    })
+      .populate('authorId', 'username level')
+      .lean();
 
     if (!post) throw notFound('Post not found.');
 
@@ -174,7 +178,7 @@ const getForumPost = async (req, res, next) => {
         .limit(limit)
         .populate('authorId', 'username level')
         .lean(),
-      ForumReply.countDocuments({ postId: post._id })
+      ForumReply.countDocuments({ postId: post._id }),
     ]);
 
     res.status(200).json({
@@ -183,18 +187,22 @@ const getForumPost = async (req, res, next) => {
         author: post.authorId
           ? { _id: post.authorId._id, username: post.authorId.username, level: post.authorId.level }
           : null,
-        authorId: undefined
+        authorId: undefined,
       },
       replies: replies.map((reply) => ({
         ...reply,
         author: reply.authorId
-          ? { _id: reply.authorId._id, username: reply.authorId.username, level: reply.authorId.level }
+          ? {
+              _id: reply.authorId._id,
+              username: reply.authorId.username,
+              level: reply.authorId.level,
+            }
           : null,
-        authorId: undefined
+        authorId: undefined,
       })),
       totalReplies: total,
       page,
-      hasMore: skip + replies.length < total
+      hasMore: skip + replies.length < total,
     });
   } catch (err) {
     next(err);
@@ -205,14 +213,15 @@ const getForumPost = async (req, res, next) => {
 const updateForumPost = async (req, res, next) => {
   try {
     const { channel, community, permissions } = await loadForumChannel(
-      req.params.channelId, req.user._id
+      req.params.channelId,
+      req.user._id,
     );
 
     const post = await ForumPost.findOne({
       _id: req.params.postId,
       channelId: channel._id,
       communityId: community._id,
-      isDeleted: false
+      isDeleted: false,
     });
     if (!post) throw notFound('Post not found.');
 
@@ -244,7 +253,7 @@ const updateForumPost = async (req, res, next) => {
       channelId: String(channel._id),
       postId: String(post._id),
       title: post.title,
-      tags: post.tags
+      tags: post.tags,
     });
 
     res.status(200).json(post);
@@ -257,13 +266,14 @@ const updateForumPost = async (req, res, next) => {
 const deleteForumPost = async (req, res, next) => {
   try {
     const { channel, community, permissions } = await loadForumChannel(
-      req.params.channelId, req.user._id
+      req.params.channelId,
+      req.user._id,
     );
 
     const post = await ForumPost.findOne({
       _id: req.params.postId,
       channelId: channel._id,
-      communityId: community._id
+      communityId: community._id,
     });
     if (!post || post.isDeleted) throw notFound('Post not found.');
 
@@ -286,13 +296,13 @@ const deleteForumPost = async (req, res, next) => {
         actionType: 'FORUM_POST_DELETE',
         targetId: post._id,
         targetModel: 'ForumPost',
-        metadata: { channelId: String(channel._id) }
+        metadata: { channelId: String(channel._id) },
       });
     }
 
     emitToChannel(channel._id, 'forum_post_deleted', {
       channelId: String(channel._id),
-      postId: String(post._id)
+      postId: String(post._id),
     });
 
     res.status(200).json({ message: 'Post deleted.', postId: String(post._id) });
@@ -305,7 +315,9 @@ const deleteForumPost = async (req, res, next) => {
 const setForumPostStatus = async (req, res, next) => {
   try {
     const { channel, community } = await loadForumChannel(
-      req.params.channelId, req.user._id, CAP.MANAGE_FORUM_POSTS
+      req.params.channelId,
+      req.user._id,
+      CAP.MANAGE_FORUM_POSTS,
     );
 
     const status = sanitizeLine(req.body.status, 20).toLowerCase();
@@ -314,9 +326,14 @@ const setForumPostStatus = async (req, res, next) => {
     }
 
     const post = await ForumPost.findOneAndUpdate(
-      { _id: req.params.postId, channelId: channel._id, communityId: community._id, isDeleted: false },
+      {
+        _id: req.params.postId,
+        channelId: channel._id,
+        communityId: community._id,
+        isDeleted: false,
+      },
       { $set: { status } },
-      { new: true }
+      { new: true },
     );
     if (!post) throw notFound('Post not found.');
 
@@ -326,13 +343,13 @@ const setForumPostStatus = async (req, res, next) => {
       actionType: STATUS_AUDIT[status] || 'SETTINGS_UPDATE',
       targetId: post._id,
       targetModel: 'ForumPost',
-      metadata: { status, channelId: String(channel._id) }
+      metadata: { status, channelId: String(channel._id) },
     });
 
     emitToChannel(channel._id, 'forum_post_updated', {
       channelId: String(channel._id),
       postId: String(post._id),
-      status: post.status
+      status: post.status,
     });
 
     res.status(200).json({ postId: String(post._id), status: post.status });
@@ -345,7 +362,9 @@ const setForumPostStatus = async (req, res, next) => {
 const createForumReply = async (req, res, next) => {
   try {
     const { channel, community, role } = await loadForumChannel(
-      req.params.channelId, req.user._id, CAP.REPLY_FORUM_POSTS
+      req.params.channelId,
+      req.user._id,
+      CAP.REPLY_FORUM_POSTS,
     );
 
     if (!roleAtLeast(role, channel.forumConfig?.replyRoleMin || 'member')) {
@@ -356,7 +375,7 @@ const createForumReply = async (req, res, next) => {
       _id: req.params.postId,
       channelId: channel._id,
       communityId: community._id,
-      isDeleted: false
+      isDeleted: false,
     }).lean();
     if (!post) throw notFound('Post not found.');
     if (post.status !== 'open' && post.status !== 'answered') {
@@ -371,24 +390,24 @@ const createForumReply = async (req, res, next) => {
       channelId: channel._id,
       communityId: community._id,
       authorId: req.user._id,
-      body
+      body,
     });
 
     await ForumPost.updateOne(
       { _id: post._id },
-      { $inc: { replyCount: 1 }, $set: { lastReplyAt: new Date() } }
+      { $inc: { replyCount: 1 }, $set: { lastReplyAt: new Date() } },
     );
 
     emitToChannel(channel._id, 'forum_reply_created', {
       channelId: String(channel._id),
       postId: String(post._id),
       replyId: String(reply._id),
-      replyCount: post.replyCount + 1
+      replyCount: post.replyCount + 1,
     });
 
     res.status(201).json({
       ...reply.toObject(),
-      author: { _id: req.user._id, username: req.user.username, level: req.user.level }
+      author: { _id: req.user._id, username: req.user.username, level: req.user.level },
     });
   } catch (err) {
     next(err);
@@ -405,7 +424,7 @@ const updateForumReply = async (req, res, next) => {
       postId: req.params.postId,
       channelId: channel._id,
       communityId: community._id,
-      isDeleted: false
+      isDeleted: false,
     });
     if (!reply) throw notFound('Reply not found.');
     if (String(reply.authorId) !== String(req.user._id)) {
@@ -426,7 +445,7 @@ const updateForumReply = async (req, res, next) => {
       channelId: String(channel._id),
       postId: String(req.params.postId),
       replyId: String(reply._id),
-      body: reply.body
+      body: reply.body,
     });
 
     res.status(200).json(reply);
@@ -437,13 +456,16 @@ const updateForumReply = async (req, res, next) => {
 
 const deleteForumReply = async (req, res, next) => {
   try {
-    const { channel, community, permissions } = await loadForumChannel(req.params.channelId, req.user._id);
+    const { channel, community, permissions } = await loadForumChannel(
+      req.params.channelId,
+      req.user._id,
+    );
 
     const reply = await ForumReply.findOne({
       _id: req.params.replyId,
       postId: req.params.postId,
       channelId: channel._id,
-      communityId: community._id
+      communityId: community._id,
     });
     if (!reply || reply.isDeleted) throw notFound('Reply not found.');
 
@@ -459,13 +481,13 @@ const deleteForumReply = async (req, res, next) => {
 
     await ForumPost.updateOne(
       { _id: reply.postId, replyCount: { $gt: 0 } },
-      { $inc: { replyCount: -1 } }
+      { $inc: { replyCount: -1 } },
     );
 
     emitToChannel(channel._id, 'forum_reply_deleted', {
       channelId: String(channel._id),
       postId: String(reply.postId),
-      replyId: String(reply._id)
+      replyId: String(reply._id),
     });
 
     res.status(200).json({ message: 'Reply deleted.', replyId: String(reply._id) });
@@ -483,5 +505,5 @@ module.exports = {
   setForumPostStatus,
   createForumReply,
   updateForumReply,
-  deleteForumReply
+  deleteForumReply,
 };

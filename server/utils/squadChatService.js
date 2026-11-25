@@ -5,7 +5,13 @@ const SquadChatMessage = require('../models/SquadChatMessage');
 const { CHAT_POLICY } = require('../config/chatPolicy');
 const { normalizeMessageText } = require('./sanitize');
 const {
-  expiryFrom, isExpired, isOpen, isChatMember, canRefresh, msRemaining, formatRemaining
+  expiryFrom,
+  isExpired,
+  isOpen,
+  isChatMember,
+  canRefresh,
+  msRemaining,
+  formatRemaining,
 } = require('./squadLifecycle');
 const { badRequest, forbidden, notFound, conflict } = require('./httpError');
 
@@ -22,7 +28,7 @@ const toChatView = (chat, userId, now = new Date()) => ({
   isOwner: String(chat.ownerUserId) === String(userId),
   canRefresh: canRefresh(chat, userId, now).ok,
   participantCount: (chat.memberIds || []).length,
-  lastRefreshedAt: chat.lastRefreshedAt
+  lastRefreshedAt: chat.lastRefreshedAt,
 });
 
 const toMessageView = (message) => ({
@@ -32,11 +38,11 @@ const toMessageView = (message) => ({
   author: {
     id: String(message.authorUserId),
     username: message.authorUsername || 'player',
-    level: message.authorLevel || 1
+    level: message.authorLevel || 1,
   },
   text: message.text,
   isDeleted: Boolean(message.isDeleted),
-  createdAt: message.createdAt
+  createdAt: message.createdAt,
 });
 
 /**
@@ -50,7 +56,9 @@ async function ensureSquadChat({ party, ownerUsername = '' }) {
   const existing = await SquadChat.findOne({ squadId: party._id });
   if (existing) return existing;
 
-  const memberIds = [...new Set((party.members || []).map((m) => String(m.userId?._id ?? m.userId)))]
+  const memberIds = [
+    ...new Set((party.members || []).map((m) => String(m.userId?._id ?? m.userId))),
+  ]
     .filter(Boolean)
     .map((id) => new mongoose.Types.ObjectId(id));
 
@@ -65,7 +73,7 @@ async function ensureSquadChat({ party, ownerUsername = '' }) {
       ownerUsername,
       memberIds,
       state: 'active',
-      expiresAt: expiryFrom()
+      expiresAt: expiryFrom(),
     });
   } catch (err) {
     if (err.code === 11000) return SquadChat.findOne({ squadId: party._id });
@@ -78,7 +86,7 @@ async function markExpired(chat) {
   if (!chat || chat.state !== 'active') return chat;
   await SquadChat.updateOne(
     { _id: chat._id, state: 'active' },
-    { $set: { state: 'expired' } }
+    { $set: { state: 'expired' } },
   ).catch(() => {});
   chat.state = 'expired';
   return chat;
@@ -121,7 +129,7 @@ async function postSquadMessage({ chat, user, text }) {
     authorUserId: user._id,
     authorUsername: user.username,
     authorLevel: user.level || 1,
-    text: normalized.text
+    text: normalized.text,
   });
 
   // Keep `lastRefreshedAt` distinct from activity: refresh is consent to keep
@@ -171,7 +179,7 @@ async function listSquadMessages(chatId, { before, limit = 50 } = {}) {
   const rows = await SquadChatMessage.find(query).sort({ createdAt: -1 }).limit(cap).lean();
   return {
     items: rows.reverse().map(toMessageView),
-    nextCursor: rows.length === cap ? rows[0].createdAt : null
+    nextCursor: rows.length === cap ? rows[0].createdAt : null,
   };
 }
 
@@ -181,7 +189,7 @@ async function addMemberToChat(squadId, userId) {
   return SquadChat.findOneAndUpdate(
     { squadId },
     { $addToSet: { memberIds: new mongoose.Types.ObjectId(String(userId)) } },
-    { new: true }
+    { new: true },
   );
 }
 
@@ -191,7 +199,7 @@ async function removeMemberFromChat(squadId, userId) {
   return SquadChat.findOneAndUpdate(
     { squadId },
     { $pull: { memberIds: new mongoose.Types.ObjectId(String(userId)) } },
-    { new: true }
+    { new: true },
   );
 }
 
@@ -201,7 +209,7 @@ async function closeChatForSquad(squadId) {
   return SquadChat.findOneAndUpdate(
     { squadId, state: { $ne: 'closed' } },
     { $set: { state: 'closed' } },
-    { new: true }
+    { new: true },
   );
 }
 
@@ -216,5 +224,5 @@ module.exports = {
   listSquadMessages,
   addMemberToChat,
   removeMemberFromChat,
-  closeChatForSquad
+  closeChatForSquad,
 };

@@ -11,29 +11,29 @@ const DirectMessageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Conversation',
       required: true,
-      index: true
+      index: true,
     },
     authorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     text: {
       type: String,
       required: true,
-      maxlength: 2000
+      maxlength: 2000,
     },
     kind: {
       type: String,
       enum: ['text', 'system'],
-      default: 'text'
+      default: 'text',
     },
     reportedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
-    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 DirectMessageSchema.index({ conversationId: 1, createdAt: -1 });

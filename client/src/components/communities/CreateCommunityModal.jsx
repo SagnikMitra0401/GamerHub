@@ -5,12 +5,12 @@ import axiosInstance from '../../api/axiosInstance';
 import CommunitySigil from './CommunitySigil';
 
 const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
-  const [name, setName]             = useState('');
+  const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [games, setGames]           = useState('');
-  const [isPrivate, setIsPrivate]   = useState(false);
-  const [saving, setSaving]         = useState(false);
-  const [error, setError]           = useState('');
+  const [games, setGames] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,12 +24,18 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
       const { data } = await axiosInstance.post('/communities', {
         name: name.trim(),
         description: description.trim(),
-        games: games.split(',').map((game) => game.trim()).filter(Boolean),
-        isPrivate
+        games: games
+          .split(',')
+          .map((game) => game.trim())
+          .filter(Boolean),
+        isPrivate,
       });
       onCreated(data);
       onClose();
-      setName(''); setDescription(''); setGames(''); setIsPrivate(false);
+      setName('');
+      setDescription('');
+      setGames('');
+      setIsPrivate(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create community.');
     } finally {
@@ -41,13 +47,28 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
 
   return ReactDOM.createPortal(
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h2 className="modal-title" style={{ margin: 0 }}>Create a Community</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1.25rem',
+          }}
+        >
+          <h2 className="modal-title" style={{ margin: 0 }}>
+            Create a Community
+          </h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close">
+            <CloseIcon size={16} />
+          </button>
         </div>
 
-        {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+        {error && (
+          <div className="auth-error" style={{ marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -59,7 +80,7 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
                 placeholder="e.g. Valorant Elite APAC"
                 value={name}
                 maxLength={40}
-                onChange={e => setName(e.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 required
               />
             </div>
@@ -76,36 +97,55 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
               placeholder="What is this community about? Who should join?"
               value={description}
               maxLength={200}
-              onChange={e => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
             />
-            <span className="text-muted" style={{ fontSize: '0.75rem' }}>{description.length}/200</span>
+            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+              {description.length}/200
+            </span>
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="community-games">Games (optional)</label>
+            <label className="form-label" htmlFor="community-games">
+              Games (optional)
+            </label>
             <input
               id="community-games"
               className="form-input"
               placeholder="Valorant, Apex Legends"
               value={games}
               maxLength={200}
-              onChange={e => setGames(e.target.value)}
+              onChange={(e) => setGames(e.target.value)}
             />
             <span className="text-muted" style={{ fontSize: '0.75rem' }}>
               Up to 5 comma-separated games. They help new players find this server.
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
+              marginBottom: '1.25rem',
+            }}
+          >
             <input
               type="checkbox"
               id="isPrivate"
               checked={isPrivate}
-              onChange={e => setIsPrivate(e.target.checked)}
-              style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              onChange={(e) => setIsPrivate(e.target.checked)}
+              style={{
+                width: '16px',
+                height: '16px',
+                accentColor: 'var(--accent)',
+                cursor: 'pointer',
+              }}
             />
             <label htmlFor="isPrivate" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>
-              Private Community <span className="text-muted" style={{ fontSize: '0.8rem' }}>(only visible to members)</span>
+              Private Community{' '}
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                (only visible to members)
+              </span>
             </label>
           </div>
 
@@ -114,7 +154,9 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? 'Creating...' : 'Create Community'}
             </button>
@@ -122,7 +164,7 @@ const CreateCommunityModal = ({ isOpen, onClose, onCreated }) => {
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

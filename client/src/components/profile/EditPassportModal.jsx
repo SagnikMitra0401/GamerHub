@@ -16,7 +16,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
     steamId: '',
     psnTag: '',
     xboxTag: '',
-    discordTag: ''
+    discordTag: '',
   });
   const [activeGames, setActiveGames] = useState([]);
   const [hardwareRigs, setHardwareRigs] = useState([]);
@@ -29,20 +29,26 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       setError('');
       setCustomQuote(initialPassport?.customQuote || '');
       setGameIds({
-        riotId:     initialPassport?.gameIds?.riotId || '',
-        steamId:    initialPassport?.gameIds?.steamId || '',
-        psnTag:     initialPassport?.gameIds?.psnTag || '',
-        xboxTag:    initialPassport?.gameIds?.xboxTag || '',
-        discordTag: initialPassport?.gameIds?.discordTag || ''
+        riotId: initialPassport?.gameIds?.riotId || '',
+        steamId: initialPassport?.gameIds?.steamId || '',
+        psnTag: initialPassport?.gameIds?.psnTag || '',
+        xboxTag: initialPassport?.gameIds?.xboxTag || '',
+        discordTag: initialPassport?.gameIds?.discordTag || '',
       });
-      setActiveGames(Array.isArray(initialPassport?.activeGames) ? [...initialPassport.activeGames] : []);
-      setHardwareRigs(Array.isArray(initialPassport?.hardwareRigs) ? [...initialPassport.hardwareRigs] : []);
+      setActiveGames(
+        Array.isArray(initialPassport?.activeGames) ? [...initialPassport.activeGames] : [],
+      );
+      setHardwareRigs(
+        Array.isArray(initialPassport?.hardwareRigs) ? [...initialPassport.hardwareRigs] : [],
+      );
     }
   }, [isOpen, initialPassport]);
 
   // Handle Escape
   useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
@@ -52,11 +58,11 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
   // Games handlers
   const addGame = () => {
     if (activeGames.length >= 10) return;
-    setActiveGames(prev => [...prev, { gameName: '', platform: 'PC', rankOrLevel: '' }]);
+    setActiveGames((prev) => [...prev, { gameName: '', platform: 'PC', rankOrLevel: '' }]);
   };
 
   const updateGame = (index, field, value) => {
-    setActiveGames(prev => {
+    setActiveGames((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
       return copy;
@@ -64,26 +70,26 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
   };
 
   const removeGame = (index) => {
-    setActiveGames(prev => prev.filter((_, i) => i !== index));
+    setActiveGames((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Rigs handlers
   const addRig = () => {
     if (hardwareRigs.length >= 5) return;
     const isFirst = hardwareRigs.length === 0;
-    setHardwareRigs(prev => [
+    setHardwareRigs((prev) => [
       ...prev,
       {
         rigName: `Rig #${prev.length + 1}`,
         deviceType: 'PC',
         isPrimary: isFirst,
-        specs: { cpu: '', gpu: '', ram: '', monitor: '', peripherals: '' }
-      }
+        specs: { cpu: '', gpu: '', ram: '', monitor: '', peripherals: '' },
+      },
     ]);
   };
 
   const updateRig = (index, field, value) => {
-    setHardwareRigs(prev => {
+    setHardwareRigs((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
       return copy;
@@ -91,27 +97,25 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
   };
 
   const updateRigSpec = (index, specField, value) => {
-    setHardwareRigs(prev => {
+    setHardwareRigs((prev) => {
       const copy = [...prev];
       copy[index] = {
         ...copy[index],
-        specs: { ...copy[index].specs, [specField]: value }
+        specs: { ...copy[index].specs, [specField]: value },
       };
       return copy;
     });
   };
 
   const setPrimaryRig = (index) => {
-    setHardwareRigs(prev =>
-      prev.map((r, i) => ({ ...r, isPrimary: i === index }))
-    );
+    setHardwareRigs((prev) => prev.map((r, i) => ({ ...r, isPrimary: i === index })));
   };
 
   const removeRig = (index) => {
-    setHardwareRigs(prev => {
+    setHardwareRigs((prev) => {
       const filtered = prev.filter((_, i) => i !== index);
       // Ensure at least one primary if any remain
-      if (filtered.length > 0 && !filtered.some(r => r.isPrimary)) {
+      if (filtered.length > 0 && !filtered.some((r) => r.isPrimary)) {
         filtered[0].isPrimary = true;
       }
       return filtered;
@@ -119,19 +123,19 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
   };
 
   const applyDetectedDevice = (rigIndex, detected) => {
-    setHardwareRigs(prev => {
+    setHardwareRigs((prev) => {
       const copy = [...prev];
       const target = copy[rigIndex] || {};
       copy[rigIndex] = {
         ...target,
         deviceType: detected.deviceType,
         specs: {
-          cpu:         detected.specs.cpu || '',
-          gpu:         detected.specs.gpu || '',
-          ram:         detected.specs.ram || '',
-          monitor:     detected.specs.monitor || '',
-          peripherals: target.specs?.peripherals || ''
-        }
+          cpu: detected.specs.cpu || '',
+          gpu: detected.specs.gpu || '',
+          ram: detected.specs.ram || '',
+          monitor: detected.specs.monitor || '',
+          peripherals: target.specs?.peripherals || '',
+        },
       };
       return copy;
     });
@@ -143,9 +147,18 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
     // Warn before saving a second rig with the same hardware.
     const similarRigs = hardwareRigs.filter((rig, idx) => {
       if (idx === rigIndex) return false;
-      const sameGpu = detected.specs.gpu && rig.specs?.gpu && detected.specs.gpu.toLowerCase() === rig.specs.gpu.toLowerCase();
-      const sameMonitor = detected.specs.monitor && rig.specs?.monitor && detected.specs.monitor.toLowerCase() === rig.specs.monitor.toLowerCase();
-      const sameCpu = detected.specs.cpu && rig.specs?.cpu && detected.specs.cpu.toLowerCase() === rig.specs.cpu.toLowerCase();
+      const sameGpu =
+        detected.specs.gpu &&
+        rig.specs?.gpu &&
+        detected.specs.gpu.toLowerCase() === rig.specs.gpu.toLowerCase();
+      const sameMonitor =
+        detected.specs.monitor &&
+        rig.specs?.monitor &&
+        detected.specs.monitor.toLowerCase() === rig.specs.monitor.toLowerCase();
+      const sameCpu =
+        detected.specs.cpu &&
+        rig.specs?.cpu &&
+        detected.specs.cpu.toLowerCase() === rig.specs.cpu.toLowerCase();
       return (sameGpu && sameMonitor) || sameGpu || (sameCpu && sameMonitor);
     });
 
@@ -153,9 +166,10 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       setSimilarPrompt({
         rigIndex,
         detected,
-        details: similarRigs.map(rig => (
-          `${rig.rigName} (GPU: ${rig.specs?.gpu || 'N/A'}, Display: ${rig.specs?.monitor || 'N/A'})`
-        ))
+        details: similarRigs.map(
+          (rig) =>
+            `${rig.rigName} (GPU: ${rig.specs?.gpu || 'N/A'}, Display: ${rig.specs?.monitor || 'N/A'})`,
+        ),
       });
       return;
     }
@@ -172,8 +186,8 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       const payload = {
         customQuote,
         gameIds,
-        activeGames: activeGames.filter(g => g.gameName.trim()),
-        hardwareRigs: hardwareRigs.filter(r => r.rigName.trim())
+        activeGames: activeGames.filter((g) => g.gameName.trim()),
+        hardwareRigs: hardwareRigs.filter((r) => r.rigName.trim()),
       };
 
       const { data } = await axiosInstance.put('/users/me/passport', payload);
@@ -188,15 +202,31 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
 
   return ReactDOM.createPortal(
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-box passport-modal" onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 className="modal-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div className="modal-box passport-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1rem',
+          }}
+        >
+          <h2
+            className="modal-title"
+            style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
             Edit Gamer Passport
           </h2>
-          <button className="search-clear" onClick={onClose} aria-label="Close"><CloseIcon size={15} /></button>
+          <button className="search-clear" onClick={onClose} aria-label="Close">
+            <CloseIcon size={15} />
+          </button>
         </div>
 
-        {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+        {error && (
+          <div className="auth-error" style={{ marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="search-tabs" style={{ marginBottom: '1.25rem', padding: '0 0 0.5rem 0' }}>
@@ -236,7 +266,8 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
             {activeTab === 'ids' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-                  Add your game handles and gamer tags so other gamers can connect and play with you.
+                  Add your game handles and gamer tags so other gamers can connect and play with
+                  you.
                 </p>
 
                 <div className="form-group">
@@ -246,7 +277,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                     placeholder="Username#TAG"
                     value={gameIds.riotId}
                     maxLength={40}
-                    onChange={e => setGameIds({ ...gameIds, riotId: e.target.value })}
+                    onChange={(e) => setGameIds({ ...gameIds, riotId: e.target.value })}
                   />
                 </div>
 
@@ -257,7 +288,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                     placeholder="e.g. 76561198... or CustomName"
                     value={gameIds.steamId}
                     maxLength={40}
-                    onChange={e => setGameIds({ ...gameIds, steamId: e.target.value })}
+                    onChange={(e) => setGameIds({ ...gameIds, steamId: e.target.value })}
                   />
                 </div>
 
@@ -268,7 +299,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                     placeholder="e.g. PSN_Gamer"
                     value={gameIds.psnTag}
                     maxLength={40}
-                    onChange={e => setGameIds({ ...gameIds, psnTag: e.target.value })}
+                    onChange={(e) => setGameIds({ ...gameIds, psnTag: e.target.value })}
                   />
                 </div>
 
@@ -279,7 +310,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                     placeholder="e.g. MasterChief#123"
                     value={gameIds.xboxTag}
                     maxLength={40}
-                    onChange={e => setGameIds({ ...gameIds, xboxTag: e.target.value })}
+                    onChange={(e) => setGameIds({ ...gameIds, xboxTag: e.target.value })}
                   />
                 </div>
 
@@ -290,7 +321,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                     placeholder="e.g. gamer_tag"
                     value={gameIds.discordTag}
                     maxLength={40}
-                    onChange={e => setGameIds({ ...gameIds, discordTag: e.target.value })}
+                    onChange={(e) => setGameIds({ ...gameIds, discordTag: e.target.value })}
                   />
                 </div>
               </div>
@@ -299,7 +330,9 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
             {/* Tab 2: Games & Ranks */}
             {activeTab === 'games' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
                   <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>
                     Feature games you play and your current self-reported ranks/levels.
                   </p>
@@ -316,24 +349,39 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                   </div>
                 ) : (
                   activeGames.map((game, idx) => (
-                    <div key={idx} className="card" style={{ padding: '0.75rem', background: 'var(--bg-elevated)' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                    <div
+                      key={idx}
+                      className="card"
+                      style={{ padding: '0.75rem', background: 'var(--bg-elevated)' }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '0.5rem',
+                          marginBottom: '0.5rem',
+                          alignItems: 'center',
+                        }}
+                      >
                         <input
                           className="form-input"
                           style={{ flex: 2 }}
                           placeholder="Game Title (e.g. Valorant, Apex)"
                           value={game.gameName}
                           maxLength={40}
-                          onChange={e => updateGame(idx, 'gameName', e.target.value)}
+                          onChange={(e) => updateGame(idx, 'gameName', e.target.value)}
                           required
                         />
                         <select
                           className="form-input"
                           style={{ flex: 1.2 }}
                           value={game.platform}
-                          onChange={e => updateGame(idx, 'platform', e.target.value)}
+                          onChange={(e) => updateGame(idx, 'platform', e.target.value)}
                         >
-                          {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
+                          {PLATFORMS.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
                         </select>
                         <button
                           type="button"
@@ -349,7 +397,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                         placeholder="Current Rank or Level (e.g. Diamond 2, AR 60, Master)"
                         value={game.rankOrLevel}
                         maxLength={40}
-                        onChange={e => updateGame(idx, 'rankOrLevel', e.target.value)}
+                        onChange={(e) => updateGame(idx, 'rankOrLevel', e.target.value)}
                       />
                     </div>
                   ))
@@ -360,7 +408,9 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
             {/* Tab 3: Multi-Rig Battle Station */}
             {activeTab === 'rigs' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
                   <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>
                     Add up to 5 devices (Desktop PC, Laptop, Mobile, Consoles).
                   </p>
@@ -377,25 +427,46 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                   </div>
                 ) : (
                   hardwareRigs.map((rig, idx) => (
-                    <div key={idx} className="card" style={{ padding: '0.85rem', background: 'var(--bg-elevated)', marginBottom: '0.5rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                    <div
+                      key={idx}
+                      className="card"
+                      style={{
+                        padding: '0.85rem',
+                        background: 'var(--bg-elevated)',
+                        marginBottom: '0.5rem',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '0.65rem',
+                        }}
+                      >
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}
+                        >
                           <input
                             className="form-input"
                             style={{ fontWeight: 700, maxWidth: '180px' }}
                             placeholder="Rig / Setup Name"
                             value={rig.rigName}
                             maxLength={40}
-                            onChange={e => updateRig(idx, 'rigName', e.target.value)}
+                            onChange={(e) => updateRig(idx, 'rigName', e.target.value)}
                             required
                           />
                           <select
                             className="form-input"
                             style={{ maxWidth: '120px' }}
                             value={rig.deviceType}
-                            onChange={e => updateRig(idx, 'deviceType', e.target.value)}
+                            onChange={(e) => updateRig(idx, 'deviceType', e.target.value)}
                           >
-                            {DEVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                            {DEVICE_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
@@ -424,64 +495,81 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
-                        style={{ width: '100%', marginBottom: '0.65rem', fontSize: '0.78rem', borderColor: 'var(--accent)' }}
+                        style={{
+                          width: '100%',
+                          marginBottom: '0.65rem',
+                          fontSize: '0.78rem',
+                          borderColor: 'var(--accent)',
+                        }}
                         onClick={() => handleAutoDetect(idx)}
                       >
                         Auto-Detect This Device's Specs
                       </button>
 
                       {/* Specs Fields */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      <div
+                        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}
+                      >
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem' }}>CPU</label>
+                          <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                            CPU
+                          </label>
                           <input
                             className="form-input"
                             placeholder="e.g. Ryzen 7 7800X3D"
                             value={rig.specs?.cpu || ''}
                             maxLength={60}
-                            onChange={e => updateRigSpec(idx, 'cpu', e.target.value)}
+                            onChange={(e) => updateRigSpec(idx, 'cpu', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem' }}>GPU / Graphics</label>
+                          <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                            GPU / Graphics
+                          </label>
                           <input
                             className="form-input"
                             placeholder="e.g. RTX 4080 16GB"
                             value={rig.specs?.gpu || ''}
                             maxLength={60}
-                            onChange={e => updateRigSpec(idx, 'gpu', e.target.value)}
+                            onChange={(e) => updateRigSpec(idx, 'gpu', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem' }}>RAM / Memory</label>
+                          <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                            RAM / Memory
+                          </label>
                           <input
                             className="form-input"
                             placeholder="e.g. 32GB DDR5"
                             value={rig.specs?.ram || ''}
                             maxLength={40}
-                            onChange={e => updateRigSpec(idx, 'ram', e.target.value)}
+                            onChange={(e) => updateRigSpec(idx, 'ram', e.target.value)}
                           />
                         </div>
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem' }}>Monitor / Display</label>
+                          <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                            Monitor / Display
+                          </label>
                           <input
                             className="form-input"
                             placeholder="e.g. 27'' 240Hz OLED"
                             value={rig.specs?.monitor || ''}
                             maxLength={60}
-                            onChange={e => updateRigSpec(idx, 'monitor', e.target.value)}
+                            onChange={(e) => updateRigSpec(idx, 'monitor', e.target.value)}
                           />
                         </div>
                       </div>
 
                       <div style={{ marginTop: '0.5rem' }}>
-                        <label className="form-label" style={{ fontSize: '0.75rem' }}>Peripherals / Accessories</label>
+                        <label className="form-label" style={{ fontSize: '0.75rem' }}>
+                          Peripherals / Accessories
+                        </label>
                         <input
                           className="form-input"
                           placeholder="e.g. Wooting 60HE, Logitech Superlight, DualSense"
                           value={rig.specs?.peripherals || ''}
                           maxLength={120}
-                          onChange={e => updateRigSpec(idx, 'peripherals', e.target.value)}
+                          onChange={(e) => updateRigSpec(idx, 'peripherals', e.target.value)}
                         />
                       </div>
                     </div>
@@ -494,7 +582,8 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
             {activeTab === 'quote' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                 <p className="text-muted" style={{ fontSize: '0.85rem' }}>
-                  Personalize your profile with a signature gamer quote, motto, or playstyle statement.
+                  Personalize your profile with a signature gamer quote, motto, or playstyle
+                  statement.
                 </p>
                 <div className="form-group">
                   <label className="form-label">Signature Quote / Motto</label>
@@ -504,9 +593,12 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
                     placeholder="e.g. 'Never back down, never what? GLHF!'"
                     value={customQuote}
                     maxLength={120}
-                    onChange={e => setCustomQuote(e.target.value)}
+                    onChange={(e) => setCustomQuote(e.target.value)}
                   />
-                  <span className="text-muted" style={{ fontSize: '0.75rem', textAlign: 'right', display: 'block' }}>
+                  <span
+                    className="text-muted"
+                    style={{ fontSize: '0.75rem', textAlign: 'right', display: 'block' }}
+                  >
                     {customQuote.length}/120
                   </span>
                 </div>
@@ -514,7 +606,16 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              marginTop: '1.25rem',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--border)',
+            }}
+          >
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
               Cancel
             </button>
@@ -528,9 +629,11 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
       <ConfirmModal
         isOpen={Boolean(similarPrompt)}
         title="Similar device detected"
-        message={similarPrompt
-          ? `These specs match an existing battle station: ${similarPrompt.details.join('; ')}. Save this as another setup?`
-          : ''}
+        message={
+          similarPrompt
+            ? `These specs match an existing battle station: ${similarPrompt.details.join('; ')}. Save this as another setup?`
+            : ''
+        }
         confirmText="Save duplicate setup"
         onCancel={() => setSimilarPrompt(null)}
         onConfirm={() => {
@@ -540,7 +643,7 @@ const EditPassportModal = ({ isOpen, onClose, initialPassport, onSave }) => {
         }}
       />
     </div>,
-    document.body
+    document.body,
   );
 };
 

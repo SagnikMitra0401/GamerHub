@@ -14,7 +14,7 @@ const errorHandler = (err, req, res, next) => {
   if (err instanceof HttpError) {
     return res.status(err.statusCode).json({
       message: err.message,
-      ...(err.code ? { code: err.code } : {})
+      ...(err.code ? { code: err.code } : {}),
     });
   }
 
@@ -32,16 +32,20 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === 11000) {
     return res.status(409).json({
       message: 'That value is already taken',
-      field: Object.keys(err.keyValue || {})[0] || null
+      field: Object.keys(err.keyValue || {})[0] || null,
     });
   }
 
   if (err.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: 'That file is too large. Images are limited to 8 MB.' });
+      return res
+        .status(400)
+        .json({ message: 'That file is too large. Images are limited to 8 MB.' });
     }
     if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ message: 'Only JPEG, PNG, WEBP and GIF images are allowed, one at a time.' });
+      return res
+        .status(400)
+        .json({ message: 'Only JPEG, PNG, WEBP and GIF images are allowed, one at a time.' });
     }
     return res.status(400).json({ message: 'Upload failed' });
   }
@@ -59,7 +63,7 @@ const errorHandler = (err, req, res, next) => {
   captureServerError(err, req);
   return res.status(500).json({
     message: 'Internal server error',
-    ...(req.id ? { requestId: req.id } : {})
+    ...(req.id ? { requestId: req.id } : {}),
   });
 };
 

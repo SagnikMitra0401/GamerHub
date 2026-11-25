@@ -3,9 +3,9 @@ const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 
 const Community = require('../models/Community');
-const Channel   = require('../models/Channel');
-const Message   = require('../models/Message');
-const User      = require('../models/User');
+const Channel = require('../models/Channel');
+const Message = require('../models/Message');
+const User = require('../models/User');
 const Attachment = require('../models/Attachment');
 const MediaAsset = require('../models/MediaAsset');
 const Conversation = require('../models/Conversation');
@@ -15,15 +15,25 @@ const BroadcastSubscription = require('../models/BroadcastSubscription');
 
 const { CHAT_POLICY } = require('./chatPolicy');
 const {
-  CAP, communityPermissions, roleAtLeast, isAppStaff, findMember
+  CAP,
+  communityPermissions,
+  roleAtLeast,
+  isAppStaff,
+  findMember,
 } = require('../utils/permissions');
 const { normalizeMessageText, escapeRegex } = require('../utils/sanitize');
 const {
-  extractMentionNames, mentionsEveryone, replyPreview, MAX_MENTIONS_PER_MESSAGE
+  extractMentionNames,
+  mentionsEveryone,
+  replyPreview,
+  MAX_MENTIONS_PER_MESSAGE,
 } = require('../utils/mentions');
 const { resolveAttachments } = require('../utils/attachmentRefs');
 const {
-  toChatView, toMessageView, loadChatForUser, postSquadMessage
+  toChatView,
+  toMessageView,
+  loadChatForUser,
+  postSquadMessage,
 } = require('../utils/squadChatService');
 const { createSlidingWindowLimiter, createRecentEventTracker } = require('../utils/rateLimiter');
 const { recordAudit } = require('../utils/audit');
@@ -81,8 +91,10 @@ async function evictUserFromBusinessThreads(userId, businessOwnerId) {
 
   const conversations = await Conversation.find({
     businessThread: true,
-    participantIds: businessOwnerId
-  }).select('_id').lean();
+    participantIds: businessOwnerId,
+  })
+    .select('_id')
+    .lean();
   if (!conversations.length) return;
 
   for (const socket of ioInstance.sockets.sockets.values()) {
@@ -160,7 +172,7 @@ async function resolveMentions({ text, community, permissions }) {
   const users = await User.find({ username: pattern }).select('_id username').lean();
 
   const memberIds = new Set(
-    (community.members || []).map((member) => String(member.userId?._id ?? member.userId))
+    (community.members || []).map((member) => String(member.userId?._id ?? member.userId)),
   );
 
   const mentions = [];
@@ -176,26 +188,26 @@ async function resolveMentions({ text, community, permissions }) {
 // ── Abuse control (per-user, shared across tabs/sockets) ────────────────────
 const floodLimiter = createSlidingWindowLimiter({
   windowMs: CHAT_POLICY.flood.windowMs,
-  max: CHAT_POLICY.flood.maxMessages
+  max: CHAT_POLICY.flood.maxMessages,
 });
 const slowmodeTracker = createRecentEventTracker({
-  maxAgeMs: CHAT_POLICY.slowmode.maxSeconds * 1000
+  maxAgeMs: CHAT_POLICY.slowmode.maxSeconds * 1000,
 });
 const typingTracker = createRecentEventTracker({
-  maxAgeMs: CHAT_POLICY.typing.indicatorTtlMs
+  maxAgeMs: CHAT_POLICY.typing.indicatorTtlMs,
 });
 // Separate budget for temporary squad chat: a rapid squad exchange must not
 // consume the community-chat allowance (or vice versa).
 const squadFloodLimiter = createSlidingWindowLimiter({
   windowMs: CHAT_POLICY.flood.windowMs,
-  max: CHAT_POLICY.flood.maxMessages
+  max: CHAT_POLICY.flood.maxMessages,
 });
 // Room joins run two database reads each. A tab joins a handful of times per
 // session; a script can join thousands of times a minute, so the budget is
 // generous for people and prohibitive for a loop.
 const joinLimiter = createSlidingWindowLimiter({
   windowMs: 60_000,
-  max: Number(process.env.SOCKET_JOIN_RATE_MAX) || 60
+  max: Number(process.env.SOCKET_JOIN_RATE_MAX) || 60,
 });
 const MAX_SOCKETS_PER_USER = Number(process.env.SOCKET_MAX_PER_USER) || 8;
 
@@ -220,7 +232,8 @@ function parseCookie(cookieStr) {
   }, {});
 }
 
-const fail = (socket, message, code) => socket.emit('error_msg', { message, ...(code ? { code } : {}) });
+const fail = (socket, message, code) =>
+  socket.emit('error_msg', { message, ...(code ? { code } : {}) });
 
 // ── Presence ────────────────────────────────────────────────────────────────
 // Counted per user, not per socket: closing one of three tabs must not make a
@@ -242,13 +255,13 @@ async function markPresenceOnConnect(socket, userId) {
 
     await User.updateOne(
       { _id: userId },
-      { $set: { 'presence.status': 'online', 'presence.lastActive': new Date() } }
+      { $set: { 'presence.status': 'online', 'presence.lastActive': new Date() } },
     );
     ioInstance?.emit('presence_change', {
       userId,
       username: user?.username || socket.user?.username || null,
       status: 'online',
-      activeGame: user?.presence?.activeGame || ''
+      activeGame: user?.presence?.activeGame || '',
     });
   } catch (err) {
     console.error('[Socket] presence connect error:', err.message);
@@ -273,13 +286,19 @@ async function markPresenceOnDisconnect(io, userId) {
 
     await User.updateOne(
       { _id: userId },
-      { $set: { 'presence.status': 'offline', 'presence.activeGame': '', 'presence.lastActive': new Date() } }
+      {
+        $set: {
+          'presence.status': 'offline',
+          'presence.activeGame': '',
+          'presence.lastActive': new Date(),
+        },
+      },
     );
     io.emit('presence_change', {
       userId,
       username: user.username,
       status: 'offline',
-      activeGame: ''
+      activeGame: '',
     });
   } catch (err) {
     console.error('[Socket] presence disconnect error:', err.message);
@@ -309,7 +328,7 @@ function initSocket(httpServer) {
     transports: ['websocket', 'polling'],
     maxHttpBufferSize: 1e5, // 100 kB — a message is at most 1000 chars
     pingTimeout: 20000,
-    pingInterval: 25000
+    pingInterval: 25000,
   });
   ioInstance = io;
 
@@ -395,7 +414,8 @@ function initSocket(httpServer) {
     // ── join_channel ────────────────────────────────────────────────────────
     socket.on('join_channel', async (payload = {}) => {
       try {
-        if (!userId) return fail(socket, 'You must be logged in to read this channel.', 'UNAUTHENTICATED');
+        if (!userId)
+          return fail(socket, 'You must be logged in to read this channel.', 'UNAUTHENTICATED');
 
         const joins = joinLimiter.consume(userId);
         if (!joins.allowed) {
@@ -425,7 +445,7 @@ function initSocket(httpServer) {
           channelId: String(channel._id),
           communityId: String(community._id),
           role,
-          permissions
+          permissions,
         });
       } catch (err) {
         console.error('[Socket] join_channel error:', err.message);
@@ -444,7 +464,8 @@ function initSocket(httpServer) {
     // ── send_message ────────────────────────────────────────────────────────
     socket.on('send_message', async (payload = {}) => {
       try {
-        if (!userId) return fail(socket, 'You must be logged in to send messages.', 'UNAUTHENTICATED');
+        if (!userId)
+          return fail(socket, 'You must be logged in to send messages.', 'UNAUTHENTICATED');
 
         // A frozen account may read, but not take part. Mirrors the REST guard.
         const gate = canParticipate(socket.user);
@@ -464,7 +485,10 @@ function initSocket(httpServer) {
         const { channel, community } = ctx;
         const { role, permissions } = communityPermissions(community, userId);
 
-        if (!permissions.includes(CAP.SEND_MESSAGES) || !roleAtLeast(role, channel.minRoleToWrite)) {
+        if (
+          !permissions.includes(CAP.SEND_MESSAGES) ||
+          !roleAtLeast(role, channel.minRoleToWrite)
+        ) {
           return fail(socket, 'You do not have permission to post in this channel.', 'FORBIDDEN');
         }
 
@@ -484,7 +508,7 @@ function initSocket(httpServer) {
           return fail(
             socket,
             `You are timed out until ${new Date(member.timeoutUntil).toLocaleString()}.`,
-            'TIMEOUT'
+            'TIMEOUT',
           );
         }
 
@@ -493,7 +517,7 @@ function initSocket(httpServer) {
           attachmentIds: payload.attachmentIds,
           channelId: channel._id,
           communityId: community._id,
-          uploaderId: userId
+          uploaderId: userId,
         });
 
         // Uploads disabled after the fact must not be attachable either.
@@ -523,17 +547,23 @@ function initSocket(httpServer) {
 
         // 7. Reply context: only a message in the SAME channel may be quoted.
         let replyTo = null;
-        if (payload.replyTo?.messageId && mongoose.Types.ObjectId.isValid(String(payload.replyTo.messageId))) {
+        if (
+          payload.replyTo?.messageId &&
+          mongoose.Types.ObjectId.isValid(String(payload.replyTo.messageId))
+        ) {
           const target = await Message.findOne({
             _id: payload.replyTo.messageId,
-            channelId: channel._id
-          }).select('senderId text isDeleted').populate('senderId', 'username').lean();
+            channelId: channel._id,
+          })
+            .select('senderId text isDeleted')
+            .populate('senderId', 'username')
+            .lean();
 
           if (target) {
             replyTo = {
               messageId: target._id,
               senderName: target.senderId?.username || null,
-              preview: target.isDeleted ? '[deleted]' : replyPreview(target.text)
+              preview: target.isDeleted ? '[deleted]' : replyPreview(target.text),
             };
           }
         }
@@ -542,7 +572,7 @@ function initSocket(httpServer) {
         const { mentions, everyoneRequested, everyoneAllowed } = await resolveMentions({
           text,
           community,
-          permissions
+          permissions,
         });
 
         // 9. Persist raw text (React escapes on render — no double encoding)
@@ -553,7 +583,7 @@ function initSocket(httpServer) {
           text,
           replyTo,
           mentions,
-          attachments: attachmentIds
+          attachments: attachmentIds,
         });
         recordFirstEvent('first_message', userId, { surface: 'community' });
 
@@ -564,18 +594,18 @@ function initSocket(httpServer) {
           await Promise.all([
             Attachment.updateMany(
               { _id: { $in: attachmentIds } },
-              { $set: { messageId: message._id } }
+              { $set: { messageId: message._id } },
             ),
             MediaAsset.updateMany(
               { _id: { $in: attachmentRows.map((row) => row.assetId).filter(Boolean) } },
-              { $set: { refType: 'Message', refId: message._id } }
-            )
+              { $set: { refType: 'Message', refId: message._id } },
+            ),
           ]);
         }
 
         const populated = await message.populate([
           { path: 'senderId', select: 'username level role medals' },
-          { path: 'attachments', select: 'mimeType sizeBytes width height' }
+          { path: 'attachments', select: 'mimeType sizeBytes width height' },
         ]);
 
         const payloadOut = {
@@ -583,7 +613,7 @@ function initSocket(httpServer) {
           // `communityRole` is the *server* role — distinct from the platform role
           // inside senderId.role — so clients can render the right badge.
           communityRole: role,
-          mentionsEveryone: everyoneRequested && everyoneAllowed
+          mentionsEveryone: everyoneRequested && everyoneAllowed,
         };
 
         emitToChannel(channel._id, 'new_message', payloadOut);
@@ -603,8 +633,8 @@ function initSocket(httpServer) {
               kind: 'mention',
               communityId: String(community._id),
               channelId: String(channel._id),
-              messageId: String(message._id)
-            }
+              messageId: String(message._id),
+            },
           });
         }
       } catch (err) {
@@ -651,15 +681,15 @@ function initSocket(httpServer) {
             metadata: {
               channelId: String(message.channelId),
               authorId: String(message.senderId),
-              role
-            }
+              role,
+            },
           });
         }
 
         // Broadcast to the message's real channel, not a client-supplied one.
         emitToChannel(message.channelId, 'message_deleted', {
           messageId: String(message._id),
-          channelId: String(message.channelId)
+          channelId: String(message.channelId),
         });
       } catch (err) {
         console.error('[Socket] delete_message error:', err.message);
@@ -677,7 +707,11 @@ function initSocket(httpServer) {
 
         const joins = joinLimiter.consume(userId);
         if (!joins.allowed) {
-          return fail(socket, 'You are opening conversations too quickly. Slow down.', 'RATE_LIMITED');
+          return fail(
+            socket,
+            'You are opening conversations too quickly. Slow down.',
+            'RATE_LIMITED',
+          );
         }
 
         const conversationId = String(payload.conversationId || '');
@@ -691,13 +725,16 @@ function initSocket(httpServer) {
         const isParticipant = conversation?.participantIds?.some((id) => String(id) === userId);
         // An active shared-inbox teammate may open the business thread even
         // though the owner, not the teammate, is the conversation participant.
-        const isTeamMember = !isParticipant && conversation?.businessThread
-          ? Boolean(await BusinessTeamMember.exists({
-              memberId: userId,
-              businessOwnerId: { $in: conversation.participantIds },
-              status: 'active'
-            }))
-          : false;
+        const isTeamMember =
+          !isParticipant && conversation?.businessThread
+            ? Boolean(
+                await BusinessTeamMember.exists({
+                  memberId: userId,
+                  businessOwnerId: { $in: conversation.participantIds },
+                  status: 'active',
+                }),
+              )
+            : false;
         if (!conversation || (!isParticipant && !isTeamMember)) {
           return fail(socket, 'Conversation not found.', 'NOT_FOUND');
         }
@@ -735,7 +772,8 @@ function initSocket(httpServer) {
 
         socket.emit('joined_squad_chat', { chat: toChatView(chat, userId) });
       } catch (err) {
-        const code = err.statusCode === 404 ? 'NOT_FOUND' : err.statusCode === 403 ? 'FORBIDDEN' : 'INTERNAL';
+        const code =
+          err.statusCode === 404 ? 'NOT_FOUND' : err.statusCode === 403 ? 'FORBIDDEN' : 'INTERNAL';
         fail(socket, err.message || 'Could not open that squad chat.', code);
       }
     });
@@ -758,10 +796,14 @@ function initSocket(httpServer) {
 
         ioInstance.to(`squad:${chat._id}`).emit('squad_message', toMessageView(message));
       } catch (err) {
-        const code = err.statusCode === 404 ? 'NOT_FOUND'
-          : err.statusCode === 403 ? 'FORBIDDEN'
-            : err.statusCode === 400 ? 'INVALID_MESSAGE'
-              : 'INTERNAL';
+        const code =
+          err.statusCode === 404
+            ? 'NOT_FOUND'
+            : err.statusCode === 403
+              ? 'FORBIDDEN'
+              : err.statusCode === 400
+                ? 'INVALID_MESSAGE'
+                : 'INTERNAL';
         fail(socket, err.message || 'Could not send that message.', code);
       }
     });
@@ -792,8 +834,11 @@ function initSocket(httpServer) {
         if (!channel) return fail(socket, 'Channel not found.', 'NOT_FOUND');
 
         const isOwner = String(channel.ownerId) === String(userId);
-        const allowed = channel.isPublic || isOwner || isAppStaff(socket.user)
-          || Boolean(await BroadcastSubscription.exists({ channelId: channel._id, userId }));
+        const allowed =
+          channel.isPublic ||
+          isOwner ||
+          isAppStaff(socket.user) ||
+          Boolean(await BroadcastSubscription.exists({ channelId: channel._id, userId }));
 
         if (!allowed) return fail(socket, 'This channel is private.', 'FORBIDDEN');
 
@@ -822,11 +867,12 @@ function initSocket(httpServer) {
       const ctx = await loadChannelContext(cid);
       if (!ctx) return;
       const { role, permissions } = communityPermissions(ctx.community, userId);
-      if (!permissions.includes(CAP.VIEW_CHANNEL) || !roleAtLeast(role, ctx.channel.minRoleToRead)) return;
+      if (!permissions.includes(CAP.VIEW_CHANNEL) || !roleAtLeast(role, ctx.channel.minRoleToRead))
+        return;
 
       socket.to(`channel:${cid}`).emit(typing ? 'user_typing' : 'user_stopped_typing', {
         userId,
-        username: socket.user.username
+        username: socket.user.username,
       });
     };
 
@@ -838,7 +884,7 @@ function initSocket(httpServer) {
         if (room.startsWith('channel:')) {
           socket.to(room).emit('user_stopped_typing', {
             userId,
-            username: socket.user?.username
+            username: socket.user?.username,
           });
         }
       }
@@ -859,5 +905,5 @@ module.exports = {
   evictUserFromSquadChat,
   disconnectUser,
   setUserFrozenState,
-  resetChatTrackers
+  resetChatTrackers,
 };

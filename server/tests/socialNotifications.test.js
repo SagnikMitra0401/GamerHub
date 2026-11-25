@@ -3,10 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  LIKE_MILESTONES,
-  likeMilestoneFor
-} = require('../utils/socialNotifications');
+const { LIKE_MILESTONES, likeMilestoneFor } = require('../utils/socialNotifications');
 
 test('like milestones are the expected thresholds', () => {
   assert.deepEqual([...LIKE_MILESTONES], [1, 5, 10, 25, 50, 100]);

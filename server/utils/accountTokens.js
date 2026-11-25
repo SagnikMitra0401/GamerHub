@@ -3,12 +3,12 @@ const AccountToken = require('../models/AccountToken');
 
 const PURPOSES = Object.freeze({
   VERIFY_EMAIL: 'verify_email',
-  RESET_PASSWORD: 'reset_password'
+  RESET_PASSWORD: 'reset_password',
 });
 
 const TTL_MS = Object.freeze({
   [PURPOSES.VERIFY_EMAIL]: 24 * 60 * 60 * 1000,
-  [PURPOSES.RESET_PASSWORD]: 30 * 60 * 1000
+  [PURPOSES.RESET_PASSWORD]: 30 * 60 * 1000,
 });
 
 /** SHA-256 is enough here: the token itself has 256 bits of entropy. */
@@ -29,17 +29,14 @@ async function issueAccountToken(userId, purpose) {
   if (!ttl) throw new Error(`Unknown account token purpose: ${purpose}`);
 
   const now = new Date();
-  await AccountToken.updateMany(
-    { userId, purpose, usedAt: null },
-    { $set: { usedAt: now } }
-  );
+  await AccountToken.updateMany({ userId, purpose, usedAt: null }, { $set: { usedAt: now } });
 
   const token = newToken();
   await AccountToken.create({
     userId,
     purpose,
     tokenHash: hashToken(token),
-    expiresAt: new Date(now.getTime() + ttl)
+    expiresAt: new Date(now.getTime() + ttl),
   });
 
   return token;
@@ -59,17 +56,17 @@ async function consumeAccountToken(token, purpose) {
       tokenHash: hashToken(value),
       purpose,
       usedAt: null,
-      expiresAt: { $gt: new Date() }
+      expiresAt: { $gt: new Date() },
     },
     { $set: { usedAt: new Date() } },
-    { new: true }
+    { new: true },
   ).lean();
 }
 
 async function invalidateAccountTokens(userId, purpose) {
   await AccountToken.updateMany(
     { userId, purpose, usedAt: null },
-    { $set: { usedAt: new Date() } }
+    { $set: { usedAt: new Date() } },
   );
 }
 
@@ -79,5 +76,5 @@ module.exports = {
   hashToken,
   issueAccountToken,
   consumeAccountToken,
-  invalidateAccountTokens
+  invalidateAccountTokens,
 };

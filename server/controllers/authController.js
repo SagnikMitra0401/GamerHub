@@ -8,7 +8,7 @@ const {
   PURPOSES,
   issueAccountToken,
   consumeAccountToken,
-  invalidateAccountTokens
+  invalidateAccountTokens,
 } = require('../utils/accountTokens');
 const {
   sendVerificationCodeEmail,
@@ -17,26 +17,21 @@ const {
   sendAccountRecoveryCodeEmail,
   sendRecoveryEmailChangedEmail,
   sendAccountRecoveryCompletedEmail,
-  resetUrl
+  resetUrl,
 } = require('../utils/email');
 const {
   PURPOSES: CODE_PURPOSES,
   issueEmailChallenge,
   consumeEmailChallenge,
-  invalidateEmailChallenges
+  invalidateEmailChallenges,
 } = require('../utils/emailCodes');
-const {
-  validatePassword,
-  hashPassword,
-  verifyPassword
-} = require('../utils/passwords');
+const { validatePassword, hashPassword, verifyPassword } = require('../utils/passwords');
 const { recordEvent } = require('../utils/productEvents');
 const { releaseExpiredSuspension } = require('../utils/moderation');
 
 const PLATFORMS = ['PC', 'PlayStation', 'Xbox', 'Switch'];
 
-const GENERIC_RESET_MESSAGE =
-  'If an account exists for that email, a reset link has been sent.';
+const GENERIC_RESET_MESSAGE = 'If an account exists for that email, a reset link has been sent.';
 const GENERIC_TOKEN_ERROR = 'This link is invalid or has expired.';
 const GENERIC_CODE_ERROR = 'That code is invalid or has expired. Request a new one.';
 const RECOVERY_COOLING_OFF_MS = 7 * 24 * 60 * 60 * 1000;
@@ -53,10 +48,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * element inspector or a network response cannot reveal it.
  */
 async function deliverVerificationCode(user) {
-  const { code, expiresAt } = await issueEmailChallenge(
-    user._id,
-    CODE_PURPOSES.VERIFY_EMAIL
-  );
+  const { code, expiresAt } = await issueEmailChallenge(user._id, CODE_PURPOSES.VERIFY_EMAIL);
   await sendVerificationCodeEmail({ to: user.email, username: user.username, code });
   return expiresAt;
 }
@@ -67,11 +59,12 @@ const googleClientId = () => String(process.env.GOOGLE_CLIENT_ID || '').trim();
 
 /** Build a unique, valid GamerHub username from a Google profile. */
 async function usernameFromGoogle({ email, name }) {
-  const base = String(name || email || 'player')
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 16) || 'player';
+  const base =
+    String(name || email || 'player')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 16) || 'player';
 
   const seed = base.length >= 3 ? base : `player_${base}`.slice(0, 16);
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -121,7 +114,7 @@ const register = async (req, res, next) => {
       email,
       passwordHash,
       preferredPlatforms,
-      emailVerifiedAt: null
+      emailVerifiedAt: null,
     });
 
     let verificationSent = false;
@@ -143,12 +136,12 @@ const register = async (req, res, next) => {
         username: user.username,
         email: user.email,
         emailVerified: false,
-        onboardingCompletedAt: user.onboardingCompletedAt || null
+        onboardingCompletedAt: user.onboardingCompletedAt || null,
       },
       verificationSent,
       // Expiry only. The code itself leaves the building in the email.
       verificationExpiresAt,
-      token
+      token,
     });
   } catch (err) {
     next(err);
@@ -190,9 +183,9 @@ const login = async (req, res, next) => {
         username: user.username,
         email: user.email,
         emailVerified: Boolean(user.emailVerifiedAt),
-        onboardingCompletedAt: user.onboardingCompletedAt || null
+        onboardingCompletedAt: user.onboardingCompletedAt || null,
       },
-      token
+      token,
     });
   } catch (err) {
     next(err);
@@ -205,7 +198,7 @@ const clearAuthCookie = (res) => {
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     expires: new Date(0),
-    path: '/'
+    path: '/',
   });
 };
 
@@ -224,7 +217,7 @@ const logoutAll = async (req, res, next) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $inc: { sessionVersion: 1 } },
-      { new: true, select: 'sessionVersion' }
+      { new: true, select: 'sessionVersion' },
     );
     clearAuthCookie(res);
     disconnectUser(req.user._id);
@@ -237,7 +230,7 @@ const logoutAll = async (req, res, next) => {
 /** Public sign-in configuration. The client id is public by design. */
 const getProviders = (req, res) => {
   res.status(200).json({
-    google: { enabled: Boolean(googleClientId()), clientId: googleClientId() || null }
+    google: { enabled: Boolean(googleClientId()), clientId: googleClientId() || null },
   });
 };
 
@@ -257,7 +250,8 @@ const googleLogin = async (req, res, next) => {
     }
 
     const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
-    const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
+    const accessToken =
+      typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
 
     if (!credential && !accessToken) {
       return res.status(400).json({ message: 'Missing Google credential' });
@@ -301,19 +295,26 @@ const googleLogin = async (req, res, next) => {
         return res.status(401).json({ message: 'Google credential could not be verified' });
       }
 
-      if (tokenInfo.aud && tokenInfo.aud !== clientId && /** @type {any} */ (tokenInfo).issued_to !== clientId) {
+      if (
+        tokenInfo.aud &&
+        tokenInfo.aud !== clientId &&
+        /** @type {any} */ (tokenInfo).issued_to !== clientId
+      ) {
         return res.status(401).json({ message: 'Google token audience mismatch' });
       }
 
       subject = tokenInfo.sub || tokenInfo.user_id;
       email = sanitizeLine(tokenInfo.email, 254).toLowerCase();
-      if (tokenInfo.email_verified === false || /** @type {any} */ (tokenInfo).verified_email === false) {
+      if (
+        tokenInfo.email_verified === false ||
+        /** @type {any} */ (tokenInfo).verified_email === false
+      ) {
         return res.status(403).json({ message: 'That Google account has no verified email.' });
       }
 
       try {
         const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` }
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (userRes.ok) {
           const userObj = await userRes.json();
@@ -330,14 +331,15 @@ const googleLogin = async (req, res, next) => {
 
     let isNewGoogleAccount = false;
     let user = await User.findOne({
-      authIdentities: { $elemMatch: { provider: 'google', providerSubject: subject } }
+      authIdentities: { $elemMatch: { provider: 'google', providerSubject: subject } },
     });
 
     if (!user) {
       const emailOwner = await User.findOne({ email }).select('_id').lean();
       if (emailOwner) {
         return res.status(409).json({
-          message: 'An account already uses this email. Sign in with your password, then link Google from settings.'
+          message:
+            'An account already uses this email. Sign in with your password, then link Google from settings.',
         });
       }
 
@@ -353,7 +355,7 @@ const googleLogin = async (req, res, next) => {
         profileType: 'personal',
         status: 'active',
         emailVerifiedAt: new Date(),
-        authIdentities: [{ provider: 'google', providerSubject: subject, emailVerified: true }]
+        authIdentities: [{ provider: 'google', providerSubject: subject, emailVerified: true }],
       });
       isNewGoogleAccount = true;
     } else {
@@ -365,7 +367,7 @@ const googleLogin = async (req, res, next) => {
       }
       await User.updateOne(
         { _id: user._id, 'authIdentities.providerSubject': subject },
-        { $set: { 'authIdentities.$.emailVerified': true } }
+        { $set: { 'authIdentities.$.emailVerified': true } },
       );
       // A Google-verified email is proof of ownership even for an account that
       // was created before the local verification flow existed.
@@ -382,9 +384,9 @@ const googleLogin = async (req, res, next) => {
         username: user.username,
         email: user.email,
         emailVerified: true,
-        onboardingCompletedAt: user.onboardingCompletedAt || null
+        onboardingCompletedAt: user.onboardingCompletedAt || null,
       },
-      token
+      token,
     });
   } catch (err) {
     next(err);
@@ -417,7 +419,7 @@ const verifyEmail = async (req, res, next) => {
     const user = await User.findOneAndUpdate(
       { _id: record.userId, status: { $nin: ['suspended', 'deleted'] } },
       { $set: { emailVerifiedAt: new Date() } },
-      { new: true, select: '_id email emailVerifiedAt' }
+      { new: true, select: '_id email emailVerifiedAt' },
     ).lean();
 
     if (!user) return res.status(400).json({ message: GENERIC_TOKEN_ERROR });
@@ -442,7 +444,7 @@ const resendVerification = async (req, res, next) => {
     } catch (err) {
       console.error('[Auth] verification resend failed:', err.message);
       return res.status(503).json({
-        message: 'We could not send that email right now. Try again later.'
+        message: 'We could not send that email right now. Try again later.',
       });
     }
 
@@ -466,14 +468,14 @@ const verifyEmailWithCode = async (req, res, next) => {
       return res.status(400).json({
         message: GENERIC_CODE_ERROR,
         code: 'EMAIL_CODE_INVALID',
-        attemptsRemaining: result.attemptsRemaining
+        attemptsRemaining: result.attemptsRemaining,
       });
     }
 
     const user = await User.findOneAndUpdate(
       { _id: req.user._id, status: { $nin: ['suspended', 'deleted'] } },
       { $set: { emailVerifiedAt: new Date() } },
-      { new: true, select: '_id email emailVerifiedAt' }
+      { new: true, select: '_id email emailVerifiedAt' },
     ).lean();
 
     if (!user) {
@@ -498,7 +500,7 @@ const setRecoveryEmail = async (req, res, next) => {
     if (!req.user.emailVerifiedAt) {
       return res.status(403).json({
         message: 'Confirm your own email address before adding a recovery email.',
-        code: 'EMAIL_NOT_VERIFIED'
+        code: 'EMAIL_NOT_VERIFIED',
       });
     }
 
@@ -508,14 +510,14 @@ const setRecoveryEmail = async (req, res, next) => {
     }
     if (email === String(req.user.email || '').toLowerCase()) {
       return res.status(400).json({
-        message: 'That is already your sign-in address. Use a different address.'
+        message: 'That is already your sign-in address. Use a different address.',
       });
     }
 
     const { code, expiresAt } = await issueEmailChallenge(
       req.user._id,
       CODE_PURPOSES.VERIFY_RECOVERY,
-      { target: email }
+      { target: email },
     );
 
     try {
@@ -523,7 +525,7 @@ const setRecoveryEmail = async (req, res, next) => {
     } catch (err) {
       console.error('[Auth] recovery setup email failed:', err.message);
       return res.status(503).json({
-        message: 'We could not send that email right now. Try again later.'
+        message: 'We could not send that email right now. Try again later.',
       });
     }
 
@@ -543,7 +545,7 @@ const verifyRecoveryEmail = async (req, res, next) => {
       return res.status(400).json({
         message: GENERIC_CODE_ERROR,
         code: 'EMAIL_CODE_INVALID',
-        attemptsRemaining: result.attemptsRemaining
+        attemptsRemaining: result.attemptsRemaining,
       });
     }
 
@@ -554,13 +556,13 @@ const verifyRecoveryEmail = async (req, res, next) => {
         $set: {
           recoveryEmail: result.target,
           recoveryEmailVerifiedAt: new Date(),
-          recoveryEligibleAt: eligibleAt
-        }
+          recoveryEligibleAt: eligibleAt,
+        },
       },
       {
         new: true,
-        select: '_id username email recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt'
-      }
+        select: '_id username email recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt',
+      },
     ).lean();
 
     if (!user) {
@@ -574,20 +576,20 @@ const verifyRecoveryEmail = async (req, res, next) => {
       username: user.username,
       action: 'added',
       address: user.recoveryEmail,
-      eligibleAt
+      eligibleAt,
     }).catch((err) => console.error('[Auth] recovery change notice failed:', err.message));
     sendRecoveryEmailChangedEmail({
       to: user.recoveryEmail,
       username: user.username,
       action: 'added',
       address: user.recoveryEmail,
-      eligibleAt
+      eligibleAt,
     }).catch((err) => console.error('[Auth] recovery change notice failed:', err.message));
 
     res.status(200).json({
       recoveryEmail: user.recoveryEmail,
       recoveryEmailVerifiedAt: user.recoveryEmailVerifiedAt,
-      recoveryEligibleAt: eligibleAt
+      recoveryEligibleAt: eligibleAt,
     });
   } catch (err) {
     next(err);
@@ -603,10 +605,10 @@ const removeRecoveryEmail = async (req, res, next) => {
         $set: {
           recoveryEmail: '',
           recoveryEmailVerifiedAt: null,
-          recoveryEligibleAt: null
-        }
+          recoveryEligibleAt: null,
+        },
       },
-      { new: true, select: '_id username email recoveryEmail' }
+      { new: true, select: '_id username email recoveryEmail' },
     ).lean();
 
     await invalidateEmailChallenges(req.user._id, CODE_PURPOSES.VERIFY_RECOVERY);
@@ -618,7 +620,7 @@ const removeRecoveryEmail = async (req, res, next) => {
       sendRecoveryEmailChangedEmail({
         to: user.email,
         username: user.username,
-        action: 'removed'
+        action: 'removed',
       }).catch((err) => console.error('[Auth] recovery change notice failed:', err.message));
     }
 
@@ -647,21 +649,21 @@ const startRecovery = async (req, res, next) => {
 
       const eligible = Boolean(
         user &&
-          user.status !== 'deleted' &&
-          user.recoveryEmailVerifiedAt &&
-          String(user.recoveryEmail || '').toLowerCase() === recoveryEmail &&
-          user.recoveryEligibleAt &&
-          user.recoveryEligibleAt.getTime() <= Date.now()
+        user.status !== 'deleted' &&
+        user.recoveryEmailVerifiedAt &&
+        String(user.recoveryEmail || '').toLowerCase() === recoveryEmail &&
+        user.recoveryEligibleAt &&
+        user.recoveryEligibleAt.getTime() <= Date.now(),
       );
 
       if (eligible) {
         const { code } = await issueEmailChallenge(user._id, CODE_PURPOSES.RECOVER_ACCOUNT, {
-          target: user.recoveryEmail
+          target: user.recoveryEmail,
         });
         sendAccountRecoveryCodeEmail({
           to: user.recoveryEmail,
           username: user.username,
-          code
+          code,
         }).catch((err) => console.error('[Auth] recovery code email failed:', err.message));
       }
     }
@@ -673,7 +675,7 @@ const startRecovery = async (req, res, next) => {
   await wait(Math.max(0, 350 - (Date.now() - started)));
   res.status(202).json({
     message:
-      'If those details match an account with a confirmed recovery email, a code is on its way.'
+      'If those details match an account with a confirmed recovery email, a code is on its way.',
   });
 };
 
@@ -699,10 +701,10 @@ const verifyRecovery = async (req, res, next) => {
 
     const stillEligible = Boolean(
       user &&
-        user.status !== 'deleted' &&
-        user.recoveryEmailVerifiedAt &&
-        user.recoveryEligibleAt &&
-        user.recoveryEligibleAt.getTime() <= Date.now()
+      user.status !== 'deleted' &&
+      user.recoveryEmailVerifiedAt &&
+      user.recoveryEligibleAt &&
+      user.recoveryEligibleAt.getTime() <= Date.now(),
     );
     if (!stillEligible) return res.status(400).json({ message: GENERIC_CODE_ERROR });
 
@@ -710,7 +712,7 @@ const verifyRecovery = async (req, res, next) => {
     if (!result.ok) {
       return res.status(400).json({
         message: GENERIC_CODE_ERROR,
-        attemptsRemaining: result.attemptsRemaining
+        attemptsRemaining: result.attemptsRemaining,
       });
     }
 
@@ -718,7 +720,7 @@ const verifyRecovery = async (req, res, next) => {
     await User.updateOne(
       { _id: user._id },
       { $set: { passwordHash, hasLocalPassword: true }, $inc: { sessionVersion: 1 } },
-      { runValidators: true }
+      { runValidators: true },
     );
     await invalidateAccountTokens(user._id, PURPOSES.RESET_PASSWORD);
     await invalidateEmailChallenges(user._id, CODE_PURPOSES.RECOVER_ACCOUNT);
@@ -726,12 +728,12 @@ const verifyRecovery = async (req, res, next) => {
 
     recordEvent('account_recovered', user._id);
     sendAccountRecoveryCompletedEmail({ to: user.email, username: user.username }).catch((err) =>
-      console.error('[Auth] recovery notice failed:', err.message)
+      console.error('[Auth] recovery notice failed:', err.message),
     );
     if (user.recoveryEmail) {
       sendAccountRecoveryCompletedEmail({
         to: user.recoveryEmail,
-        username: user.username
+        username: user.username,
       }).catch((err) => console.error('[Auth] recovery notice failed:', err.message));
     }
 
@@ -763,7 +765,7 @@ const forgotPassword = async (req, res, next) => {
           sendPasswordResetEmail({
             to: user.email,
             username: user.username,
-            url: resetUrl(req, token)
+            url: resetUrl(req, token),
           }).catch((err) => console.error('[Auth] reset email failed:', err.message));
         }
       }
@@ -806,10 +808,10 @@ const resetPassword = async (req, res, next) => {
           // account; the settings hub must stop treating it as passwordless.
           hasLocalPassword: true,
           // Possession of the link proves control of the address.
-          emailVerifiedAt: user.emailVerifiedAt || new Date()
+          emailVerifiedAt: user.emailVerifiedAt || new Date(),
         },
-        $inc: { sessionVersion: 1 }
-      }
+        $inc: { sessionVersion: 1 },
+      },
     );
 
     recordEvent('password_reset_completed', user._id);
@@ -833,14 +835,13 @@ const changePassword = async (req, res, next) => {
     if (!req.user.emailVerifiedAt) {
       return res.status(403).json({
         code: 'EMAIL_NOT_VERIFIED',
-        message: 'Verify your email before changing your password.'
+        message: 'Verify your email before changing your password.',
       });
     }
 
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
-    const currentPassword = typeof req.body?.currentPassword === 'string'
-      ? req.body.currentPassword
-      : '';
+    const currentPassword =
+      typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
     const check = validatePassword(password);
     if (!check.ok) return res.status(400).json({ message: check.message });
 
@@ -865,8 +866,8 @@ const changePassword = async (req, res, next) => {
       { _id: req.user._id },
       {
         $set: { passwordHash, hasLocalPassword: true },
-        $inc: { sessionVersion: 1 }
-      }
+        $inc: { sessionVersion: 1 },
+      },
     );
 
     clearAuthCookie(res);
@@ -894,8 +895,10 @@ const linkGoogle = async (req, res, next) => {
     }
 
     const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
-    const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
-    if (!credential && !accessToken) return res.status(400).json({ message: 'Missing Google credential' });
+    const accessToken =
+      typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
+    if (!credential && !accessToken)
+      return res.status(400).json({ message: 'Missing Google credential' });
     if (credential.length > 8000 || accessToken.length > 2000) {
       return res.status(400).json({ message: 'Invalid Google credential' });
     }
@@ -933,13 +936,20 @@ const linkGoogle = async (req, res, next) => {
         return res.status(401).json({ message: 'Google credential could not be verified' });
       }
 
-      if (tokenInfo.aud && tokenInfo.aud !== clientId && /** @type {any} */ (tokenInfo).issued_to !== clientId) {
+      if (
+        tokenInfo.aud &&
+        tokenInfo.aud !== clientId &&
+        /** @type {any} */ (tokenInfo).issued_to !== clientId
+      ) {
         return res.status(401).json({ message: 'Google token audience mismatch' });
       }
 
       subject = tokenInfo.sub || tokenInfo.user_id;
       email = sanitizeLine(tokenInfo.email, 254).toLowerCase();
-      if (tokenInfo.email_verified === false || /** @type {any} */ (tokenInfo).verified_email === false) {
+      if (
+        tokenInfo.email_verified === false ||
+        /** @type {any} */ (tokenInfo).verified_email === false
+      ) {
         return res.status(403).json({ message: 'That Google account has no verified email.' });
       }
     }
@@ -949,29 +959,35 @@ const linkGoogle = async (req, res, next) => {
     }
     if (email !== String(req.user.email).toLowerCase()) {
       return res.status(409).json({
-        message: 'That Google account uses a different email from your GamerHub account.'
+        message: 'That Google account uses a different email from your GamerHub account.',
       });
     }
 
     const linkedElsewhere = await User.findOne({
       _id: { $ne: req.user._id },
-      authIdentities: { $elemMatch: { provider: 'google', providerSubject: subject } }
-    }).select('_id').lean();
+      authIdentities: { $elemMatch: { provider: 'google', providerSubject: subject } },
+    })
+      .select('_id')
+      .lean();
     if (linkedElsewhere) {
-      return res.status(409).json({ message: 'That Google account is already linked to another player.' });
+      return res
+        .status(409)
+        .json({ message: 'That Google account is already linked to another player.' });
     }
 
     await User.updateOne(
       { _id: req.user._id },
       {
-        $addToSet: { authIdentities: { provider: 'google', providerSubject: subject, emailVerified: true } },
-        $set: { emailVerifiedAt: new Date() }
-      }
+        $addToSet: {
+          authIdentities: { provider: 'google', providerSubject: subject, emailVerified: true },
+        },
+        $set: { emailVerifiedAt: new Date() },
+      },
     );
 
     const fresh = await User.findById(req.user._id).select('authIdentities').lean();
     res.status(200).json({
-      providers: [...new Set((fresh.authIdentities || []).map((identity) => identity.provider))]
+      providers: [...new Set((fresh.authIdentities || []).map((identity) => identity.provider))],
     });
   } catch (err) {
     next(err);
@@ -984,21 +1000,25 @@ const linkGoogle = async (req, res, next) => {
  */
 const unlinkGoogle = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
-      .select('authIdentities hasLocalPassword')
-      .lean();
+    const user = await User.findById(req.user._id).select('authIdentities hasLocalPassword').lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const linked = (user.authIdentities || []).some((identity) => identity.provider === 'google');
-    if (!linked) return res.status(200).json({ providers: [...new Set((user.authIdentities || []).map((i) => i.provider))] });
+    if (!linked)
+      return res
+        .status(200)
+        .json({ providers: [...new Set((user.authIdentities || []).map((i) => i.provider))] });
 
     if (user.hasLocalPassword === false) {
       return res.status(409).json({
-        message: 'This account signs in with Google only. Set a password before unlinking it.'
+        message: 'This account signs in with Google only. Set a password before unlinking it.',
       });
     }
 
-    await User.updateOne({ _id: req.user._id }, { $pull: { authIdentities: { provider: 'google' } } });
+    await User.updateOne(
+      { _id: req.user._id },
+      { $pull: { authIdentities: { provider: 'google' } } },
+    );
     res.status(200).json({ providers: ['local'] });
   } catch (err) {
     next(err);
@@ -1024,10 +1044,10 @@ const updateProfile = async (req, res, next) => {
       if (!Array.isArray(preferredPlatforms)) {
         return res.status(400).json({ message: 'preferredPlatforms must be an array' });
       }
-      const invalid = preferredPlatforms.filter(p => !ALLOWED_PLATFORMS.includes(p));
+      const invalid = preferredPlatforms.filter((p) => !ALLOWED_PLATFORMS.includes(p));
       if (invalid.length) {
         return res.status(400).json({
-          message: `Invalid platform(s): ${invalid.join(', ')}. Allowed: ${ALLOWED_PLATFORMS.join(', ')}`
+          message: `Invalid platform(s): ${invalid.join(', ')}. Allowed: ${ALLOWED_PLATFORMS.join(', ')}`,
         });
       }
       updates.preferredPlatforms = [...new Set(preferredPlatforms)]; // deduplicate
@@ -1040,7 +1060,7 @@ const updateProfile = async (req, res, next) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select('-passwordHash');
 
     res.status(200).json({ user });
@@ -1071,5 +1091,5 @@ module.exports = {
   resetPassword,
   changePassword,
   updateProfile,
-  clearAuthCookie
+  clearAuthCookie,
 };

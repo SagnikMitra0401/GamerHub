@@ -7,11 +7,10 @@ import { videoPosterUrl } from '../utils/videoPoster';
 
 const PAGE_SIZE = 8;
 
-const prefersReducedMotion = () => (
+const prefersReducedMotion = () =>
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    : false
-);
+    : false;
 
 /**
  * Reels: one autoplaying clip per viewport.
@@ -45,7 +44,7 @@ const ClipsPage = () => {
     setError('');
     try {
       const { data } = await axiosInstance.get('/posts', {
-        params: { mediaType: 'video', sort: 'latest', page: nextPage, limit: PAGE_SIZE }
+        params: { mediaType: 'video', sort: 'latest', page: nextPage, limit: PAGE_SIZE },
       });
       const list = Array.isArray(data) ? data : [];
       setClips((prev) => (nextPage === 1 ? list : [...prev, ...list]));
@@ -58,7 +57,9 @@ const ClipsPage = () => {
     }
   }, []);
 
-  useEffect(() => { load(1); }, [load]);
+  useEffect(() => {
+    load(1);
+  }, [load]);
 
   // Server-derived reaction state, with this session's optimistic responses on
   // top. Deriving it during render means a late `fetchMe` (which supplies
@@ -67,11 +68,13 @@ const ClipsPage = () => {
     likeCount: clip.likeCount ?? clip.likes?.length ?? 0,
     liked: Boolean(user && (clip.likes || []).some((id) => String(id) === String(user._id))),
     saved: Boolean(user?.savedPosts?.some((id) => String(id) === String(clip._id))),
-    ...(reactions[clip._id] || {})
+    ...(reactions[clip._id] || {}),
   });
 
   // A new clip starts at 0% instead of inheriting the previous clip's bar.
-  useEffect(() => { setProgress(0); }, [activeIndex]);
+  useEffect(() => {
+    setProgress(0);
+  }, [activeIndex]);
 
   // Play only the visible clip.
   useEffect(() => {
@@ -101,7 +104,7 @@ const ClipsPage = () => {
           }
         });
       },
-      { root: container, threshold: [0.6] }
+      { root: container, threshold: [0.6] },
     );
     slideRefs.current.forEach((slide) => slide && observer.observe(slide));
     return () => observer.disconnect();
@@ -129,9 +132,12 @@ const ClipsPage = () => {
     };
   }, [activeIndex, paused]);
 
-  useEffect(() => () => {
-    videoRefs.current.forEach((video) => video && video.pause());
-  }, []);
+  useEffect(
+    () => () => {
+      videoRefs.current.forEach((video) => video && video.pause());
+    },
+    [],
+  );
 
   const scrollToIndex = (index) => {
     const target = slideRefs.current[index];
@@ -139,7 +145,10 @@ const ClipsPage = () => {
     if (!target || !container) return;
     // Scroll the feed itself, not every scrollable ancestor: `scrollIntoView`
     // also moved the page around the reel.
-    const top = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+    const top =
+      target.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop;
     container.scrollTo({ top, behavior: reducedMotion.current ? 'auto' : 'smooth' });
     setActiveIndex(index);
     setPaused(reducedMotion.current);
@@ -167,21 +176,32 @@ const ClipsPage = () => {
       return;
     }
     if (kind === 'like') {
-      axiosInstance.post(`/posts/${clip._id}/like`).then(({ data }) => {
-        setReactions((prev) => ({ ...prev, [clip._id]: { ...prev[clip._id], liked: data.liked, likeCount: data.likeCount } }));
-      }).catch(() => {});
+      axiosInstance
+        .post(`/posts/${clip._id}/like`)
+        .then(({ data }) => {
+          setReactions((prev) => ({
+            ...prev,
+            [clip._id]: { ...prev[clip._id], liked: data.liked, likeCount: data.likeCount },
+          }));
+        })
+        .catch(() => {});
       return;
     }
-    axiosInstance.post(`/users/saved/${clip._id}`).then(({ data }) => {
-      setReactions((prev) => ({ ...prev, [clip._id]: { ...prev[clip._id], saved: data.saved } }));
-      updateSavedPosts(clip._id, data.saved);
-    }).catch(() => {});
+    axiosInstance
+      .post(`/users/saved/${clip._id}`)
+      .then(({ data }) => {
+        setReactions((prev) => ({ ...prev, [clip._id]: { ...prev[clip._id], saved: data.saved } }));
+        updateSavedPosts(clip._id, data.saved);
+      })
+      .catch(() => {});
   };
 
   if (loading && clips.length === 0) {
     return (
       <main className="page clips-page">
-        <div className="clips-loading" role="status">Loading clips…</div>
+        <div className="clips-loading" role="status">
+          Loading clips…
+        </div>
       </main>
     );
   }
@@ -200,7 +220,9 @@ const ClipsPage = () => {
           <div className="clips-empty">
             <h1>No clips yet</h1>
             <p>Upload a video post and it will show up here.</p>
-            <Link to="/" className="btn btn-primary">Go to the feed</Link>
+            <Link to="/" className="btn btn-primary">
+              Go to the feed
+            </Link>
           </div>
         ) : (
           clips.map((clip, index) => {
@@ -210,11 +232,15 @@ const ClipsPage = () => {
                 key={clip._id}
                 className="clip-slide"
                 data-index={index}
-                ref={(node) => { slideRefs.current[index] = node; }}
+                ref={(node) => {
+                  slideRefs.current[index] = node;
+                }}
                 aria-label={clip.title}
               >
                 <video
-                  ref={(node) => { videoRefs.current[index] = node; }}
+                  ref={(node) => {
+                    videoRefs.current[index] = node;
+                  }}
                   className="clip-slide-video"
                   src={clip.mediaUrl}
                   poster={videoPosterUrl(clip.mediaUrl) || undefined}
@@ -235,8 +261,15 @@ const ClipsPage = () => {
                 </div>
 
                 {paused && index === activeIndex && (
-                  <button type="button" className="clip-slide-play" onClick={() => setPaused(false)} aria-label="Play clip">
-                    <svg viewBox="0 0 24 24" width="34" height="34"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg>
+                  <button
+                    type="button"
+                    className="clip-slide-play"
+                    onClick={() => setPaused(false)}
+                    aria-label="Play clip"
+                  >
+                    <svg viewBox="0 0 24 24" width="34" height="34">
+                      <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
+                    </svg>
                   </button>
                 )}
 
@@ -248,7 +281,9 @@ const ClipsPage = () => {
                   {clip.content && <p className="clip-slide-caption">{clip.content}</p>}
                   <div className="clip-slide-tags">
                     {(clip.tags || []).slice(0, 3).map((tag) => (
-                      <Link key={tag} to={`/c/${encodeURIComponent(tag)}`} className="tag">#{tag}</Link>
+                      <Link key={tag} to={`/c/${encodeURIComponent(tag)}`} className="tag">
+                        #{tag}
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -283,11 +318,20 @@ const ClipsPage = () => {
                     <BookmarkIcon size={22} />
                     <span>Save</span>
                   </button>
-                  <button type="button" className="clip-action" onClick={() => setMuted((value) => !value)} aria-label={muted ? 'Unmute' : 'Mute'}>
-                    <span className="clip-action-glyph" aria-hidden="true">{muted ? 'M+' : 'M−'}</span>
+                  <button
+                    type="button"
+                    className="clip-action"
+                    onClick={() => setMuted((value) => !value)}
+                    aria-label={muted ? 'Unmute' : 'Mute'}
+                  >
+                    <span className="clip-action-glyph" aria-hidden="true">
+                      {muted ? 'M+' : 'M−'}
+                    </span>
                     <span>{muted ? 'Sound' : 'Muted'}</span>
                   </button>
-                  <Link to={`/watch/${clip._id}`} className="clip-action clip-action-link">Open</Link>
+                  <Link to={`/watch/${clip._id}`} className="clip-action clip-action-link">
+                    Open
+                  </Link>
                 </div>
               </section>
             );
@@ -295,11 +339,20 @@ const ClipsPage = () => {
         )}
       </div>
 
-      {error && <p className="clips-error" role="alert">{error}</p>}
+      {error && (
+        <p className="clips-error" role="alert">
+          {error}
+        </p>
+      )}
 
       {clips.length > 0 && hasMore && (
         <div className="clips-more">
-          <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => load(page + 1)}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={loading}
+            onClick={() => load(page + 1)}
+          >
             {loading ? 'Loading…' : 'Load more clips'}
           </button>
         </div>

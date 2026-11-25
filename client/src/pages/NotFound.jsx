@@ -15,7 +15,7 @@ const TRAILS = [
   { to: '/', label: 'Feed', hint: 'What everyone is playing', icon: CompassIcon },
   { to: '/communities', label: 'Servers', hint: 'Find a community', icon: ServerIcon },
   { to: '/lfg', label: 'Squads', hint: 'Looking for group', icon: UsersIcon },
-  { to: '/games', label: 'Games', hint: 'Browse the catalog', icon: GamepadIcon }
+  { to: '/games', label: 'Games', hint: 'Browse the catalog', icon: GamepadIcon },
 ];
 
 const NotFound = () => {
@@ -23,7 +23,9 @@ const NotFound = () => {
 
   useEffect(() => {
     document.title = 'Page not found · GamingHub';
-    return () => { document.title = 'Gaming Hub'; };
+    return () => {
+      document.title = 'Gaming Hub';
+    };
   }, []);
 
   return (
@@ -39,8 +41,12 @@ const NotFound = () => {
             <span className="nf-eyebrow">Signal lost</span>
             <h1 className="nf-title">This page is not on the map.</h1>
             <p className="nf-text">
-              Nothing is served at <code className="mono">{pathname}{search}</code>.
-              The link may be old, mistyped, or the post or server behind it may have been
+              Nothing is served at{' '}
+              <code className="mono">
+                {pathname}
+                {search}
+              </code>
+              . The link may be old, mistyped, or the post or server behind it may have been
               removed. Nothing you did caused this, and no data was changed.
             </p>
             <div className="nf-actions">
@@ -56,7 +62,9 @@ const NotFound = () => {
           <nav className="nf-trails" aria-label="Popular destinations">
             {TRAILS.map(({ to, label, hint, icon: Icon }) => (
               <Link key={to} className="nf-trail" to={to}>
-                <strong><Icon size={14} /> {label}</strong>
+                <strong>
+                  <Icon size={14} /> {label}
+                </strong>
                 <small>{hint}</small>
               </Link>
             ))}

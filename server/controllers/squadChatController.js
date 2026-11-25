@@ -8,7 +8,7 @@ const {
   loadChatForUser,
   postSquadMessage,
   refreshSquadChat,
-  listSquadMessages
+  listSquadMessages,
 } = require('../utils/squadChatService');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 
@@ -32,13 +32,13 @@ const getSquadMessages = async (req, res, next) => {
     const chat = await loadChatForUser(req.params.chatId, req.user._id);
     const page = await listSquadMessages(chat._id, {
       before: req.query.before,
-      limit: req.query.limit
+      limit: req.query.limit,
     });
 
     res.status(200).json({
       chat: toChatView(chat, req.user._id),
       items: page.items,
-      nextCursor: page.nextCursor
+      nextCursor: page.nextCursor,
     });
   } catch (err) {
     next(err);
@@ -70,11 +70,13 @@ const refreshSquadChatHandler = async (req, res, next) => {
     const chat = await refreshSquadChat(req.params.chatId, req.user._id);
     const view = toChatView(chat, req.user._id);
 
-    getIO()?.to(squadRoom(chat._id)).emit('squad_chat_refreshed', {
-      chatId: String(chat._id),
-      expiresAt: chat.expiresAt,
-      refreshCount: chat.refreshCount
-    });
+    getIO()
+      ?.to(squadRoom(chat._id))
+      .emit('squad_chat_refreshed', {
+        chatId: String(chat._id),
+        expiresAt: chat.expiresAt,
+        refreshCount: chat.refreshCount,
+      });
 
     res.status(200).json({ chat: view });
   } catch (err) {
@@ -90,7 +92,7 @@ const deleteSquadMessage = async (req, res, next) => {
     const chat = await loadChatForUser(req.params.chatId, req.user._id);
     const message = await SquadChatMessage.findOne({
       _id: req.params.messageId,
-      chatId: chat._id
+      chatId: chat._id,
     });
     if (!message || message.isDeleted) throw notFound('Message not found');
 
@@ -106,10 +108,12 @@ const deleteSquadMessage = async (req, res, next) => {
     message.text = '';
     await message.save();
 
-    getIO()?.to(squadRoom(chat._id)).emit('squad_message_deleted', {
-      chatId: String(chat._id),
-      messageId: String(message._id)
-    });
+    getIO()
+      ?.to(squadRoom(chat._id))
+      .emit('squad_message_deleted', {
+        chatId: String(chat._id),
+        messageId: String(message._id),
+      });
 
     res.status(200).json({ deleted: true, messageId: String(message._id) });
   } catch (err) {
@@ -123,5 +127,5 @@ module.exports = {
   sendSquadMessage,
   refreshSquadChat: refreshSquadChatHandler,
   deleteSquadMessage,
-  squadRoom
+  squadRoom,
 };

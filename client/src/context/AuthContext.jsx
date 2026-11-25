@@ -5,8 +5,8 @@ import { connectSocket, disconnectSocket } from '../api/socket';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);
-  const [token, setToken]     = useState(null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchMe = useCallback(async () => {
@@ -24,7 +24,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => { fetchMe(); }, [fetchMe]);
+  useEffect(() => {
+    fetchMe();
+  }, [fetchMe]);
 
   // One authenticated socket for the whole app: notifications, LFG pushes and
   // presence all arrive without visiting a chat page first.
@@ -57,7 +59,7 @@ export const AuthProvider = ({ children }) => {
       username,
       email,
       password,
-      preferredPlatforms
+      preferredPlatforms,
     });
     if (data.token) setToken(data.token);
     await fetchMe();
@@ -77,29 +79,40 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateFavouriteChannels = (channels) => {
-    setUser(prev => prev ? { ...prev, favoriteChannels: channels } : prev);
+    setUser((prev) => (prev ? { ...prev, favoriteChannels: channels } : prev));
   };
 
   /** Merge a server-returned fragment (presence/preferences) into the session user. */
   const updateUser = (patch) => {
-    setUser(prev => (prev ? { ...prev, ...patch } : prev));
+    setUser((prev) => (prev ? { ...prev, ...patch } : prev));
   };
 
   const updateSavedPosts = (postId, saved) => {
-    setUser(prev => {
+    setUser((prev) => {
       if (!prev) return prev;
       const savedPosts = saved
         ? [...(prev.savedPosts || []), postId]
-        : (prev.savedPosts || []).filter(id => id !== postId && id?.toString() !== postId);
+        : (prev.savedPosts || []).filter((id) => id !== postId && id?.toString() !== postId);
       return { ...prev, savedPosts };
     });
   };
 
   return (
-    <AuthContext.Provider value={{
-      user, token, loading, login, register, loginWithGoogle, logout, fetchMe, updateUser,
-      updateFavouriteChannels, updateSavedPosts
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        register,
+        loginWithGoogle,
+        logout,
+        fetchMe,
+        updateUser,
+        updateFavouriteChannels,
+        updateSavedPosts,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

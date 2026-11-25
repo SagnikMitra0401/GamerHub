@@ -14,7 +14,7 @@ const {
   report,
   readLimiter,
   writeLimiter,
-  requestLimiter
+  requestLimiter,
 } = require('../controllers/dmController');
 const {
   getWorkspaces,
@@ -25,7 +25,7 @@ const {
   sendMessage: sendTeamMessage,
   accept: acceptTeamRequest,
   decline: declineTeamRequest,
-  read: readTeamThread
+  read: readTeamThread,
 } = require('../controllers/teamController');
 const { protect, activeOnly } = require('../middleware/auth');
 
@@ -44,7 +44,12 @@ router.get('/team/:ownerId/conversations', readLimiter, getTeamConversations);
 router.get('/team/:ownerId/conversations/:id', readLimiter, getTeamThread);
 router.post('/team/:ownerId/conversations/:id/messages', activeOnly, writeLimiter, sendTeamMessage);
 router.post('/team/:ownerId/conversations/:id/accept', activeOnly, writeLimiter, acceptTeamRequest);
-router.delete('/team/:ownerId/conversations/:id/request', activeOnly, writeLimiter, declineTeamRequest);
+router.delete(
+  '/team/:ownerId/conversations/:id/request',
+  activeOnly,
+  writeLimiter,
+  declineTeamRequest,
+);
 router.post('/team/:ownerId/conversations/:id/read', writeLimiter, readTeamThread);
 router.get('/conversations', readLimiter, getConversations);
 router.get('/conversations/:id', readLimiter, getThread);

@@ -8,7 +8,7 @@ const {
   NOTIFICATION_TTL_DAYS,
   NOTIFICATION_TTL_MS,
   isImportantNotification,
-  retentionAtFor
+  retentionAtFor,
 } = require('../utils/notificationRetention');
 
 test('ordinary notifications expire after 15 days', () => {
@@ -30,7 +30,7 @@ test('invitations, follow requests and system notices are durable', () => {
     'system_notice',
     'account_security',
     'security_alert',
-    'community_join_request'
+    'community_join_request',
   ]) {
     assert.equal(isImportantNotification({ metadata: { kind } }), true, kind);
   }
@@ -46,7 +46,7 @@ test('retentionAtFor returns now + 15 days for ordinary pings and null for durab
   const now = new Date('2026-11-15T12:00:00.000Z');
   assert.equal(
     retentionAtFor({ metadata: { kind: 'comment' } }, { now }).toISOString(),
-    '2026-11-30T12:00:00.000Z'
+    '2026-11-30T12:00:00.000Z',
   );
   assert.equal(retentionAtFor({ metadata: { kind: 'follow_request' } }, { now }), null);
   assert.equal(retentionAtFor({ metadata: { important: true } }, { now }), null);

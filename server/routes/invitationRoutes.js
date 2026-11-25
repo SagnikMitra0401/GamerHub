@@ -7,7 +7,7 @@ const {
   listSent,
   acceptInvitation,
   declineInvitation,
-  revokeInvitation
+  revokeInvitation,
 } = require('../controllers/invitationController');
 
 const router = express.Router();
@@ -19,7 +19,7 @@ const inviteLimiter = /** @type {any} */ (rateLimit)({
   max: Number(process.env.INVITE_RATE_LIMIT_MAX) || 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Too many invitations sent. Try again later.' }
+  message: { message: 'Too many invitations sent. Try again later.' },
 });
 
 router.get('/inbox', protect, listInbox);

@@ -33,7 +33,7 @@ async function loadChannelAccess({
   userId,
   capability = CAP.VIEW_CHANNEL,
   mode = 'read',
-  optionalUser = false
+  optionalUser = false,
 }) {
   if (!isObjectId(channelId)) throw badRequest('Invalid channel id');
 
@@ -54,9 +54,11 @@ async function loadChannelAccess({
 
   const gate = mode === 'write' ? channel.minRoleToWrite : channel.minRoleToRead;
   if (!roleAtLeast(role, gate)) {
-    throw forbidden(mode === 'write'
-      ? 'You do not have permission to post in this channel.'
-      : 'You do not have permission to read this channel.');
+    throw forbidden(
+      mode === 'write'
+        ? 'You do not have permission to post in this channel.'
+        : 'You do not have permission to read this channel.',
+    );
   }
 
   return { channel, community, role, permissions };

@@ -8,13 +8,13 @@ const BUSINESS_INTENT_LABELS = {
   support: 'Support',
   press: 'Press',
   partnership: 'Partnership',
-  other: 'Other'
+  other: 'Other',
 };
 
 const BUSINESS_BUDGET_LABELS = {
   under_500: 'Under $500',
   '500_2000': '$500 - $2,000',
-  '2000_plus': '$2,000+'
+  '2000_plus': '$2,000+',
 };
 
 const BusinessBrief = ({ brief }) => {
@@ -26,12 +26,28 @@ const BusinessBrief = ({ brief }) => {
         <strong>{brief.company}</strong>
       </div>
       <dl className="dm-biz-brief-grid">
-        <div><dt>Intent</dt><dd>{BUSINESS_INTENT_LABELS[brief.intent] || brief.intent}</dd></div>
+        <div>
+          <dt>Intent</dt>
+          <dd>{BUSINESS_INTENT_LABELS[brief.intent] || brief.intent}</dd>
+        </div>
         {brief.budgetBand && (
-          <div><dt>Budget</dt><dd>{BUSINESS_BUDGET_LABELS[brief.budgetBand] || brief.budgetBand}</dd></div>
+          <div>
+            <dt>Budget</dt>
+            <dd>{BUSINESS_BUDGET_LABELS[brief.budgetBand] || brief.budgetBand}</dd>
+          </div>
         )}
-        {brief.timeline && <div><dt>Timeline</dt><dd>{brief.timeline}</dd></div>}
-        {brief.website && <div><dt>Website</dt><dd>{brief.website}</dd></div>}
+        {brief.timeline && (
+          <div>
+            <dt>Timeline</dt>
+            <dd>{brief.timeline}</dd>
+          </div>
+        )}
+        {brief.website && (
+          <div>
+            <dt>Website</dt>
+            <dd>{brief.website}</dd>
+          </div>
+        )}
       </dl>
     </div>
   );
@@ -42,7 +58,7 @@ const REPORT_REASONS = [
   { value: 'harassment', label: 'Harassment or threats' },
   { value: 'hate_speech', label: 'Hate speech' },
   { value: 'sexual_content', label: 'Sexual content' },
-  { value: 'other', label: 'Something else' }
+  { value: 'other', label: 'Something else' },
 ];
 
 function formatClock(value) {
@@ -71,7 +87,7 @@ const DmThread = ({
   onReport,
   quickReplies = [],
   sharedInbox = null,
-  onBack
+  onBack,
 }) => {
   const { conversation, messages } = data;
   const [draft, setDraft] = useState('');
@@ -161,7 +177,12 @@ const DmThread = ({
   return (
     <div className="dm-thread">
       <header className="dm-thread-head">
-        <button type="button" className="icon-btn dm-back" aria-label="Back to conversations" onClick={onBack}>
+        <button
+          type="button"
+          className="icon-btn dm-back"
+          aria-label="Back to conversations"
+          onClick={onBack}
+        >
           <ArrowLeftIcon size={16} />
         </button>
 
@@ -246,7 +267,11 @@ const DmThread = ({
                 aria-label="Add a private label"
                 maxLength={24}
               />
-              <button type="submit" className="btn btn-ghost btn-sm" disabled={busy === 'labels' || !labelDraft.trim()}>
+              <button
+                type="submit"
+                className="btn btn-ghost btn-sm"
+                disabled={busy === 'labels' || !labelDraft.trim()}
+              >
                 Add
               </button>
             </form>
@@ -270,7 +295,9 @@ const DmThread = ({
                 onChange={(event) => setReason(event.target.value)}
               >
                 {REPORT_REASONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </label>
@@ -286,17 +313,27 @@ const DmThread = ({
             </label>
           </div>
           <label className="checkbox-row">
-            <input type="checkbox" checked={block} onChange={(event) => setBlock(event.target.checked)} />
+            <input
+              type="checkbox"
+              checked={block}
+              onChange={(event) => setBlock(event.target.checked)}
+            />
             Block @{counterpart?.username} as well
           </label>
           {reportError && (
-            <p className="dm-inline-error" role="alert"><AlertIcon size={13} /> {reportError}</p>
+            <p className="dm-inline-error" role="alert">
+              <AlertIcon size={13} /> {reportError}
+            </p>
           )}
           <div className="dm-report-actions">
             <button type="submit" className="btn btn-primary btn-sm" disabled={reporting}>
               {reporting ? 'Sending…' : 'Send report'}
             </button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setReportOpen(false)}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setReportOpen(false)}
+            >
               Cancel
             </button>
           </div>
@@ -322,13 +359,13 @@ const DmThread = ({
                 ? `Held back by your hidden words${conversation.filterMatched ? ` (${conversation.filterMatched})` : ''}.`
                 : conversation.filterReason === 'campaign'
                   ? 'Held back because this opener matches repeated outreach from the same account.'
-                  : 'Held back because this account has recent reports.'}
-              {' '}It stays out of Requests until you accept.
+                  : 'Held back because this account has recent reports.'}{' '}
+              It stays out of Requests until you accept.
             </p>
           )}
           <p className="dm-request-note">
-            They cannot send anything else until you accept. Declining is silent and gives you
-            both space; the sender sees that the request closed, not that you read it.
+            They cannot send anything else until you accept. Declining is silent and gives you both
+            space; the sender sees that the request closed, not that you read it.
           </p>
           <div className="dm-request-actions">
             <button
@@ -364,12 +401,14 @@ const DmThread = ({
 
       {outgoingRequest && (
         <section className="dm-request-card dm-request-card-sent" aria-label="Sent request">
-          <span className="dm-eyebrow"><ClockIcon size={13} /> Waiting for a reply</span>
+          <span className="dm-eyebrow">
+            <ClockIcon size={13} /> Waiting for a reply
+          </span>
           <BusinessBrief brief={conversation.request?.business} />
           <p className="dm-request-text">{conversation.request?.text}</p>
           <p className="dm-request-note">
-            @{counterpart?.username} has not accepted yet. This request expires after 14 days.
-            You cannot send another message until they accept.
+            @{counterpart?.username} has not accepted yet. This request expires after 14 days. You
+            cannot send another message until they accept.
           </p>
         </section>
       )}
@@ -386,8 +425,16 @@ const DmThread = ({
 
       {isActive && (
         <>
-          <div className="dm-messages" role="log" aria-label={`Messages with @${counterpart?.username || 'player'}`}>
-            {day && <div className="dm-day"><span>{day}</span></div>}
+          <div
+            className="dm-messages"
+            role="log"
+            aria-label={`Messages with @${counterpart?.username || 'player'}`}
+          >
+            {day && (
+              <div className="dm-day">
+                <span>{day}</span>
+              </div>
+            )}
             {messages.length === 0 && (
               <div className="dm-empty-thread">
                 <MailIcon size={20} />
@@ -423,34 +470,40 @@ const DmThread = ({
           )}
 
           {canReply && (
-          <form className="dm-composer" onSubmit={submitMessage}>
-            <textarea
-              className="dm-composer-input"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value.slice(0, 2000))}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  submitMessage();
-                }
-              }}
-              placeholder={`Message @${counterpart?.username || 'player'}…`}
-              rows={2}
-              maxLength={2000}
-              aria-label="Message text"
-            />
-            <div className="dm-composer-bar">
-              <span className="dm-composer-hint">
-                {conversation.muted ? 'Muted: no notification, messages still arrive.' : 'Enter to send · Shift+Enter for a new line'}
-              </span>
-              <span className={`dm-composer-count${draft.length > 1800 ? ' is-low' : ''}`}>
-                {draft.length}/2000
-              </span>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={sending || !draft.trim()}>
-                {sending ? 'Sending…' : 'Send'}
-              </button>
-            </div>
-          </form>
+            <form className="dm-composer" onSubmit={submitMessage}>
+              <textarea
+                className="dm-composer-input"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value.slice(0, 2000))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    submitMessage();
+                  }
+                }}
+                placeholder={`Message @${counterpart?.username || 'player'}…`}
+                rows={2}
+                maxLength={2000}
+                aria-label="Message text"
+              />
+              <div className="dm-composer-bar">
+                <span className="dm-composer-hint">
+                  {conversation.muted
+                    ? 'Muted: no notification, messages still arrive.'
+                    : 'Enter to send · Shift+Enter for a new line'}
+                </span>
+                <span className={`dm-composer-count${draft.length > 1800 ? ' is-low' : ''}`}>
+                  {draft.length}/2000
+                </span>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={sending || !draft.trim()}
+                >
+                  {sending ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            </form>
           )}
         </>
       )}

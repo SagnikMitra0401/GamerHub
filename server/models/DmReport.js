@@ -11,38 +11,38 @@ const DmReportSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     conversationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Conversation',
       required: true,
-      index: true
+      index: true,
     },
     reportedUserId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     messageIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'DirectMessage' }],
     reason: {
       type: String,
       enum: ['spam', 'harassment', 'hate_speech', 'sexual_content', 'other'],
-      required: true
+      required: true,
     },
     note: { type: String, default: '', maxlength: 500 },
     status: {
       type: String,
       enum: ['open', 'reviewed', 'actioned', 'dismissed'],
       default: 'open',
-      index: true
+      index: true,
     },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     reviewedAt: { type: Date, default: null },
-    reviewNote: { type: String, default: '', maxlength: 500 }
+    reviewNote: { type: String, default: '', maxlength: 500 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 DmReportSchema.index({ reporterId: 1, conversationId: 1 }, { unique: true });

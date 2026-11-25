@@ -10,41 +10,53 @@ import StoriesRail from '../components/stories/StoriesRail';
 import PreferencesModal from '../components/profile/PreferencesModal';
 import useCursorGlow from '../hooks/useCursorGlow';
 import SegmentedTabs from '../components/common/SegmentedTabs';
-import { ClipGridSkeleton, PostListSkeleton, PostTileGridSkeleton } from '../components/common/Skeleton';
 import {
-  CompassIcon, UsersIcon, SparklesIcon, ClockIcon, FlameIcon, ListIcon, FilmIcon, GridIcon, PlusIcon
+  ClipGridSkeleton,
+  PostListSkeleton,
+  PostTileGridSkeleton,
+} from '../components/common/Skeleton';
+import {
+  CompassIcon,
+  UsersIcon,
+  SparklesIcon,
+  ClockIcon,
+  FlameIcon,
+  ListIcon,
+  FilmIcon,
+  GridIcon,
+  PlusIcon,
 } from '../components/common/icons';
 
 const FEED_MODE_OPTIONS = [
-  { key: 'global',    label: 'Global',    icon: <CompassIcon size={15} /> },
-  { key: 'following', label: 'Following', icon: <UsersIcon size={15} /> }
+  { key: 'global', label: 'Global', icon: <CompassIcon size={15} /> },
+  { key: 'following', label: 'Following', icon: <UsersIcon size={15} /> },
 ];
 
 const LAYOUT_OPTIONS = [
-  { key: 'list',  label: 'List',  icon: <ListIcon size={15} /> },
-  { key: 'grid',  label: 'Grid',  icon: <GridIcon size={15} /> },
-  { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> }
+  { key: 'list', label: 'List', icon: <ListIcon size={15} /> },
+  { key: 'grid', label: 'Grid', icon: <GridIcon size={15} /> },
+  { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> },
 ];
 
 const LATEST_OPTION = { key: 'latest', label: 'Latest', icon: <ClockIcon size={15} /> };
-const TOP_OPTION    = { key: 'most_liked', label: 'Top', icon: <FlameIcon size={15} /> };
+const TOP_OPTION = { key: 'most_liked', label: 'Top', icon: <FlameIcon size={15} /> };
 const FOR_YOU_OPTION = { key: 'foryou', label: 'For You', icon: <SparklesIcon size={15} /> };
 
 const SORT_OPTIONS_GUEST = [LATEST_OPTION, TOP_OPTION];
-const SORT_OPTIONS_USER  = [FOR_YOU_OPTION, LATEST_OPTION, TOP_OPTION];
+const SORT_OPTIONS_USER = [FOR_YOU_OPTION, LATEST_OPTION, TOP_OPTION];
 
 const Feed = () => {
   const { user, fetchMe } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [posts, setPosts]       = useState([]);
-  const [sort, setSort]         = useState('latest');
+  const [posts, setPosts] = useState([]);
+  const [sort, setSort] = useState('latest');
   const [feedMode, setFeedMode] = useState('global'); // 'global' | 'following'
-  const [layout, setLayout]     = useState('list');   // 'list' | 'clips'
-  const [loading, setLoading]   = useState(true);
+  const [layout, setLayout] = useState('list'); // 'list' | 'clips'
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [draftContent, setDraftContent] = useState('');
-  const [page, setPage]         = useState(1);
-  const [hasMore, setHasMore]   = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [showPrefs, setShowPrefs] = useState(false);
   const [notice, setNotice] = useState('');
   const LIMIT = 15;
@@ -67,24 +79,29 @@ const Feed = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const fetchPosts = useCallback(async (sortVal = sort, pageVal = 1, mode = feedMode) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        sort: sortVal,
-        page: pageVal,
-        limit: LIMIT
-      });
-      if (mode === 'following') params.set('feed', 'following');
+  const fetchPosts = useCallback(
+    async (sortVal = sort, pageVal = 1, mode = feedMode) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          sort: sortVal,
+          page: pageVal,
+          limit: LIMIT,
+        });
+        if (mode === 'following') params.set('feed', 'following');
 
-      const { data } = await axiosInstance.get(`/posts?${params}`);
-      const list = Array.isArray(data) ? data : [];
-      if (pageVal === 1) setPosts(list);
-      else setPosts(prev => [...prev, ...list]);
-      setHasMore(list.length === LIMIT);
-    } catch {}
-    finally { setLoading(false); }
-  }, [sort, feedMode]);
+        const { data } = await axiosInstance.get(`/posts?${params}`);
+        const list = Array.isArray(data) ? data : [];
+        if (pageVal === 1) setPosts(list);
+        else setPosts((prev) => [...prev, ...list]);
+        setHasMore(list.length === LIMIT);
+      } catch {
+      } finally {
+        setLoading(false);
+      }
+    },
+    [sort, feedMode],
+  );
 
   // Re-fetch whenever sort or feed mode changes
   useEffect(() => {
@@ -92,7 +109,7 @@ const Feed = () => {
     fetchPosts(sort, 1, feedMode);
   }, [sort, feedMode]);
 
-  const handlePostCreated = async newPost => {
+  const handlePostCreated = async (newPost) => {
     // Detect session mismatch: if the returned post's author != our local user,
     // the browser's JWT cookie belongs to a different account than what we think.
     const returnedAuthorId = (newPost.userId?._id ?? newPost.userId)?.toString();
@@ -101,17 +118,17 @@ const Feed = () => {
       // Force a re-sync so the UI reflects who the server actually thinks we are
       await fetchMe();
       setNotice(
-        'Your session changed in another tab. The page has been refreshed with the active account; please try posting again.'
+        'Your session changed in another tab. The page has been refreshed with the active account; please try posting again.',
       );
       setShowForm(false);
       return;
     }
-    setPosts(prev => [newPost, ...prev]);
+    setPosts((prev) => [newPost, ...prev]);
     setShowForm(false);
     setDraftContent('');
   };
 
-  const handleDelete = id => setPosts(prev => prev.filter(p => p._id !== id));
+  const handleDelete = (id) => setPosts((prev) => prev.filter((p) => p._id !== id));
 
   const loadMore = () => {
     const next = page + 1;
@@ -120,7 +137,7 @@ const Feed = () => {
   };
 
   // Filter posts that have media files for the clips grid view
-  const mediaPosts = posts.filter(p => p.mediaUrl && p.mediaType && p.mediaType !== 'none');
+  const mediaPosts = posts.filter((p) => p.mediaUrl && p.mediaType && p.mediaType !== 'none');
 
   return (
     <main className="page" ref={glowRef}>
@@ -166,11 +183,14 @@ const Feed = () => {
                 >
                   Interests
                 </button>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => setShowForm(v => !v)}
-                >
-                  {showForm ? 'Cancel' : (<><PlusIcon size={15} /> New post</>)}
+                <button className="btn btn-primary btn-sm" onClick={() => setShowForm((v) => !v)}>
+                  {showForm ? (
+                    'Cancel'
+                  ) : (
+                    <>
+                      <PlusIcon size={15} /> New post
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -202,15 +222,15 @@ const Feed = () => {
               borderRadius: 'var(--radius-md)',
               background: 'rgba(255, 255, 255, 0.02)',
               fontSize: '0.8rem',
-              color: 'var(--text-muted)'
+              color: 'var(--text-muted)',
             }}
           >
             <span>
               Ranked by{' '}
               <strong>{(user.preferences?.favoriteGames || []).length} favourite games</strong>,{' '}
               <strong>{(user.preferences?.favoriteGenres || []).length} genres</strong> and{' '}
-              <strong>{(user.favoriteChannels || []).length} followed channels</strong>, then
-              likes, comments and recency. Each card names the interest that matched.
+              <strong>{(user.favoriteChannels || []).length} followed channels</strong>, then likes,
+              comments and recency. Each card names the interest that matched.
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowPrefs(true)}>
               Edit interests
@@ -222,27 +242,38 @@ const Feed = () => {
           <PostForm
             draftContent={draftContent}
             onSuccess={handlePostCreated}
-            onCancel={() => { setShowForm(false); setDraftContent(''); }}
+            onCancel={() => {
+              setShowForm(false);
+              setDraftContent('');
+            }}
           />
         )}
 
         {loading && page === 1 ? (
-          layout === 'clips'
-            ? <ClipGridSkeleton />
-            : layout === 'grid'
-              ? <PostTileGridSkeleton />
-              : <PostListSkeleton />
+          layout === 'clips' ? (
+            <ClipGridSkeleton />
+          ) : layout === 'grid' ? (
+            <PostTileGridSkeleton />
+          ) : (
+            <PostListSkeleton />
+          )
         ) : (
           <>
             {!loading && posts.length === 0 ? (
               <div className="post-list-empty feed-empty-discovery">
-                <h3>{feedMode === 'following' ? 'Your following feed is quiet' : 'Your feed is waiting for you'}</h3>
+                <h3>
+                  {feedMode === 'following'
+                    ? 'Your following feed is quiet'
+                    : 'Your feed is waiting for you'}
+                </h3>
                 <p>
                   {feedMode === 'following'
                     ? 'Follow a player or join a server and their posts will show up here.'
                     : 'Pick the games you play and we will point you at real squads, servers and players.'}
                 </p>
-                <Link to="/discover" className="btn btn-primary">Find your people</Link>
+                <Link to="/discover" className="btn btn-primary">
+                  Find your people
+                </Link>
               </div>
             ) : layout === 'clips' ? (
               mediaPosts.length === 0 ? (
@@ -252,24 +283,26 @@ const Feed = () => {
                 </div>
               ) : (
                 <div className="media-grid">
-                  {mediaPosts.map(post => (
+                  {mediaPosts.map((post) => (
                     <ClipCard key={post._id} post={post} />
                   ))}
                 </div>
               )
             ) : layout === 'grid' ? (
               <div className="post-tile-grid">
-                {posts.map(post => (
+                {posts.map((post) => (
                   <PostTile key={post._id} post={post} />
                 ))}
               </div>
             ) : (
               <PostList posts={posts} onDelete={handleDelete} />
             )}
-            
+
             {hasMore && !loading && posts.length > 0 && (
               <div style={{ textAlign: 'center', padding: '1.5rem 0 3rem' }}>
-                <button className="btn btn-ghost" onClick={loadMore}>Load More</button>
+                <button className="btn btn-ghost" onClick={loadMore}>
+                  Load More
+                </button>
               </div>
             )}
             {loading && page > 1 && <div className="spinner" />}

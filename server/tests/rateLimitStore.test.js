@@ -12,10 +12,7 @@ const { installFakeRedis, enableRedis, disableRedis, store } = require('./helper
 const redisStore = installFakeRedis();
 
 const { resetRedis, redisKey } = require('../config/redis');
-const {
-  createRateLimitStore,
-  rateLimitStoreStatus
-} = require('../utils/rateLimitStore');
+const { createRateLimitStore, rateLimitStoreStatus } = require('../utils/rateLimitStore');
 
 beforeEach(() => {
   redisStore.reset();

@@ -20,16 +20,16 @@ import ReportModal from '../components/communities/ReportModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { ChatSkeleton, CommunitySkeleton } from '../components/common/Skeleton';
 import {
-  ScrollIcon, SettingsIcon, PlusIcon, MenuIcon, CloseIcon, SearchIcon, AlertIcon
+  ScrollIcon,
+  SettingsIcon,
+  PlusIcon,
+  MenuIcon,
+  CloseIcon,
+  SearchIcon,
+  AlertIcon,
 } from '../components/common/icons';
 
-import {
-  CAP,
-  ROLE_LABELS,
-  ROLE_COLORS,
-  hasCapability,
-  roleAtLeast
-} from '../utils/permissions';
+import { CAP, ROLE_LABELS, ROLE_COLORS, hasCapability, roleAtLeast } from '../utils/permissions';
 
 const CommunityPage = () => {
   const { slug } = useParams();
@@ -72,55 +72,74 @@ const CommunityPage = () => {
   const socketRef = useRef(null);
   const endRef = useRef(null);
 
-  const activeChannel = channels.find(c => c._id === activeChannelId) || null;
+  const activeChannel = channels.find((c) => c._id === activeChannelId) || null;
 
   // Mobile channel drawer: close on route change and on Escape.
-  useEffect(() => { setDrawerOpen(false); }, [slug]);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [slug]);
   useEffect(() => {
     if (!drawerOpen) return undefined;
-    const onKeyDown = (event) => { if (event.key === 'Escape') setDrawerOpen(false); };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setDrawerOpen(false);
+    };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [drawerOpen]);
 
   // ── Data loading ───────────────────────────────────────────────────────────
-  const loadCommunity = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true);
-    try {
-      const { data } = await axiosInstance.get(`/communities/${slug}`);
-      setCommunity(data.community);
-      setChannels(data.channels || []);
-      setMemberCount(data.memberCount ?? data.community?.members?.length ?? 0);
-      setCallerRole(data.callerRole || null);
-      setPermissions(data.callerPermissions || []);
-      setError(null);
-      setActiveChannelId(prev => {
-        if (prev && (data.channels || []).some(c => c._id === prev)) return prev;
-        return data.channels?.[0]?._id || null;
-      });
-    } catch (err) {
-      setError({
-        status: err.response?.status,
-        message: err.response?.data?.message || 'Server not found.'
-      });
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [slug]);
+  const loadCommunity = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setLoading(true);
+      try {
+        const { data } = await axiosInstance.get(`/communities/${slug}`);
+        setCommunity(data.community);
+        setChannels(data.channels || []);
+        setMemberCount(data.memberCount ?? data.community?.members?.length ?? 0);
+        setCallerRole(data.callerRole || null);
+        setPermissions(data.callerPermissions || []);
+        setError(null);
+        setActiveChannelId((prev) => {
+          if (prev && (data.channels || []).some((c) => c._id === prev)) return prev;
+          return data.channels?.[0]?._id || null;
+        });
+      } catch (err) {
+        setError({
+          status: err.response?.status,
+          message: err.response?.data?.message || 'Server not found.',
+        });
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [slug],
+  );
 
-  useEffect(() => { loadCommunity(); }, [loadCommunity]);
+  useEffect(() => {
+    loadCommunity();
+  }, [loadCommunity]);
 
   // A reply belongs to the channel it was started in.
-  useEffect(() => { setReplyTo(null); }, [activeChannelId]);
+  useEffect(() => {
+    setReplyTo(null);
+  }, [activeChannelId]);
 
   // Personal mutes: their messages are hidden from my view only.
   useEffect(() => {
-    if (!user) { setMutedUsers([]); return undefined; }
+    if (!user) {
+      setMutedUsers([]);
+      return undefined;
+    }
     let cancelled = false;
-    axiosInstance.get('/users/me/muted')
-      .then(({ data }) => { if (!cancelled) setMutedUsers(data.mutedUsers || []); })
+    axiosInstance
+      .get('/users/me/muted')
+      .then(({ data }) => {
+        if (!cancelled) setMutedUsers(data.mutedUsers || []);
+      })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user?._id]);
 
   // Live presence badges in the member sidebar (works even before you join).
@@ -130,14 +149,16 @@ const CommunityPage = () => {
 
     const onPresence = (payload) => {
       if (!payload?.userId) return;
-      setPresenceMap(prev => ({
+      setPresenceMap((prev) => ({
         ...prev,
-        [payload.userId]: { status: payload.status, activeGame: payload.activeGame }
+        [payload.userId]: { status: payload.status, activeGame: payload.activeGame },
       }));
     };
 
     sock.on('presence_change', onPresence);
-    return () => { sock.off('presence_change', onPresence); };
+    return () => {
+      sock.off('presence_change', onPresence);
+    };
   }, [user?._id]);
 
   // ── Socket wiring ──────────────────────────────────────────────────────────
@@ -151,46 +172,52 @@ const CommunityPage = () => {
     if (sock.connected) setSocketReady(true);
 
     const onNewMessage = (msg) => {
-      setMessages(prev => (prev.some(m => m._id === msg._id) ? prev : [...prev, msg]));
+      setMessages((prev) => (prev.some((m) => m._id === msg._id) ? prev : [...prev, msg]));
     };
     const onMessageDeleted = ({ messageId }) => {
-      setMessages(prev => prev.map(m => (
-        m._id === messageId ? { ...m, isDeleted: true, text: 'This message was deleted' } : m
-      )));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === messageId ? { ...m, isDeleted: true, text: 'This message was deleted' } : m,
+        ),
+      );
     };
 
     // Broadcasts carry counts only; each client keeps its own "mine" flag so a
     // reaction from someone else never clears the current user's highlight.
     const onReactionUpdated = ({ messageId, reactions }) => {
-      setMessages(prev => prev.map(message => {
-        if (message._id !== messageId) return message;
-        const previous = message.reactions || [];
-        return {
-          ...message,
-          reactions: (reactions || []).map(reaction => ({
-            ...reaction,
-            mine: previous.some(entry => entry.emoji === reaction.emoji && entry.mine)
-          }))
-        };
-      }));
+      setMessages((prev) =>
+        prev.map((message) => {
+          if (message._id !== messageId) return message;
+          const previous = message.reactions || [];
+          return {
+            ...message,
+            reactions: (reactions || []).map((reaction) => ({
+              ...reaction,
+              mine: previous.some((entry) => entry.emoji === reaction.emoji && entry.mine),
+            })),
+          };
+        }),
+      );
     };
 
     const markPinned = (messageId, pinned) => {
-      setMessages(prev => prev.map(message => (
-        message._id === messageId ? { ...message, pinned } : message
-      )));
+      setMessages((prev) =>
+        prev.map((message) => (message._id === messageId ? { ...message, pinned } : message)),
+      );
     };
     const onPinned = ({ messageId }) => markPinned(messageId, true);
     const onUnpinned = ({ messageId }) => markPinned(messageId, false);
 
     const onTimedOut = ({ timeoutUntil }) => {
-      setNotice(`You are timed out until ${new Date(timeoutUntil).toLocaleTimeString()} — you can read, but not post.`);
+      setNotice(
+        `You are timed out until ${new Date(timeoutUntil).toLocaleTimeString()} — you can read, but not post.`,
+      );
     };
     const onTyping = ({ username }) => {
-      setTypingUsers(prev => ({ ...prev, [username]: Date.now() }));
+      setTypingUsers((prev) => ({ ...prev, [username]: Date.now() }));
     };
     const onStopTyping = ({ username }) => {
-      setTypingUsers(prev => {
+      setTypingUsers((prev) => {
         const next = { ...prev };
         delete next[username];
         return next;
@@ -200,14 +227,14 @@ const CommunityPage = () => {
     const onJoined = () => setNotice('');
 
     const onChannelCreated = (channel) => {
-      setChannels(prev => (prev.some(c => c._id === channel._id) ? prev : [...prev, channel]));
+      setChannels((prev) => (prev.some((c) => c._id === channel._id) ? prev : [...prev, channel]));
     };
     const onChannelUpdated = (channel) => {
-      setChannels(prev => prev.map(c => (c._id === channel._id ? { ...c, ...channel } : c)));
+      setChannels((prev) => prev.map((c) => (c._id === channel._id ? { ...c, ...channel } : c)));
     };
     const onChannelDeleted = ({ channelId }) => {
-      setChannels(prev => prev.filter(c => c._id !== channelId));
-      setActiveChannelId(prev => (prev === channelId ? null : prev));
+      setChannels((prev) => prev.filter((c) => c._id !== channelId));
+      setActiveChannelId((prev) => (prev === channelId ? null : prev));
     };
     const onMembershipRevoked = () => loadCommunity({ silent: true });
     const onCommunityUpdated = () => loadCommunity({ silent: true });
@@ -264,7 +291,7 @@ const CommunityPage = () => {
   // Keep a valid active channel after deletes/reloads
   useEffect(() => {
     if (!channels.length) return;
-    if (!activeChannelId || !channels.some(c => c._id === activeChannelId)) {
+    if (!activeChannelId || !channels.some((c) => c._id === activeChannelId)) {
       setActiveChannelId(channels[0]._id);
     }
   }, [channels, activeChannelId]);
@@ -279,12 +306,21 @@ const CommunityPage = () => {
     setMessagesLoading(true);
     setTypingUsers({});
 
-    axiosInstance.get(`/communities/channels/${activeChannel._id}/messages`)
-      .then(({ data }) => { if (!cancelled) setMessages(data.messages || []); })
-      .catch(() => { if (!cancelled) setMessages([]); })
-      .finally(() => { if (!cancelled) setMessagesLoading(false); });
+    axiosInstance
+      .get(`/communities/channels/${activeChannel._id}/messages`)
+      .then(({ data }) => {
+        if (!cancelled) setMessages(data.messages || []);
+      })
+      .catch(() => {
+        if (!cancelled) setMessages([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMessagesLoading(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeChannel?._id, callerRole]);
 
   // Join the socket room once we are connected and allowed to read
@@ -296,7 +332,7 @@ const CommunityPage = () => {
   // Expire typing indicators
   useEffect(() => {
     const timer = setInterval(() => {
-      setTypingUsers(prev => {
+      setTypingUsers((prev) => {
         const now = Date.now();
         const next = {};
         for (const [name, ts] of Object.entries(prev)) {
@@ -347,11 +383,11 @@ const CommunityPage = () => {
     try {
       const { data } = await axiosInstance.post(
         `/communities/channels/${activeChannelId}/messages/${message._id}/react`,
-        { emoji }
+        { emoji },
       );
-      setMessages(prev => prev.map(row => (
-        row._id === message._id ? { ...row, reactions: data.reactions } : row
-      )));
+      setMessages((prev) =>
+        prev.map((row) => (row._id === message._id ? { ...row, reactions: data.reactions } : row)),
+      );
     } catch (err) {
       setNotice(err.response?.data?.message || 'Could not add that reaction.');
     }
@@ -360,12 +396,12 @@ const CommunityPage = () => {
   const pinMessage = async (message) => {
     if (!activeChannelId) return;
     try {
-      const { data } = await axiosInstance[
-        message.pinned ? 'delete' : 'post'
-      ](`/communities/channels/${activeChannelId}/messages/${message._id}/pin`);
-      setMessages(prev => prev.map(row => (
-        row._id === message._id ? { ...row, pinned: data.pinned } : row
-      )));
+      const { data } = await axiosInstance[message.pinned ? 'delete' : 'post'](
+        `/communities/channels/${activeChannelId}/messages/${message._id}/pin`,
+      );
+      setMessages((prev) =>
+        prev.map((row) => (row._id === message._id ? { ...row, pinned: data.pinned } : row)),
+      );
     } catch (err) {
       setNotice(err.response?.data?.message || 'Could not pin that message.');
     }
@@ -373,7 +409,7 @@ const CommunityPage = () => {
 
   const jumpToChannel = (channelId) => {
     if (!channelId) return;
-    if (!channels.some(channel => channel._id === channelId)) return;
+    if (!channels.some((channel) => channel._id === channelId)) return;
     setActiveChannelId(channelId);
     setDrawerOpen(false);
   };
@@ -382,7 +418,9 @@ const CommunityPage = () => {
   if (loading) {
     return (
       <div className="page">
-        <div className="container"><CommunitySkeleton /></div>
+        <div className="container">
+          <CommunitySkeleton />
+        </div>
       </div>
     );
   }
@@ -391,7 +429,11 @@ const CommunityPage = () => {
     return (
       <div className="page" style={{ textAlign: 'center', paddingTop: '4rem' }}>
         <h2>{error.message}</h2>
-        <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => navigate('/communities')}>
+        <button
+          className="btn btn-primary"
+          style={{ marginTop: '1rem' }}
+          onClick={() => navigate('/communities')}
+        >
           Browse servers
         </button>
       </div>
@@ -413,13 +455,15 @@ const CommunityPage = () => {
   // delivers it, so nobody can mistake a mute for a moderation action.
   const mutedSet = new Set(mutedUsers.map(String));
   const visibleMessages = messages.filter(
-    message => !mutedSet.has(String(message.senderId?._id ?? message.senderId))
+    (message) => !mutedSet.has(String(message.senderId?._id ?? message.senderId)),
   );
 
-  const canWrite = isMember && activeChannel
-    && hasCapability(permissions, CAP.SEND_MESSAGES)
-    && roleAtLeast(callerRole, activeChannel.minRoleToWrite)
-    && (activeChannel.type !== 'announcement' || roleAtLeast(callerRole, 'moderator'));
+  const canWrite =
+    isMember &&
+    activeChannel &&
+    hasCapability(permissions, CAP.SEND_MESSAGES) &&
+    roleAtLeast(callerRole, activeChannel.minRoleToWrite) &&
+    (activeChannel.type !== 'announcement' || roleAtLeast(callerRole, 'moderator'));
 
   const visibleMembers = community.members || [];
   const typingNames = Object.keys(typingUsers);
@@ -440,7 +484,9 @@ const CommunityPage = () => {
         <div className="community-sidebar-header">
           <CommunitySigil name={community.name} icon={community.icon} size={34} />
           <div style={{ overflow: 'hidden', flex: 1 }}>
-            <div className="community-title" title={community.name}>{community.name}</div>
+            <div className="community-title" title={community.name}>
+              {community.name}
+            </div>
             <div className="community-subtitle">
               {memberCount} member{memberCount === 1 ? '' : 's'}
               {community.isPrivate ? ' • Private' : ''}
@@ -453,25 +499,35 @@ const CommunityPage = () => {
               title="Close channels"
               aria-label="Close channels"
               onClick={() => setDrawerOpen(false)}
-            ><CloseIcon size={16} /></button>
+            >
+              <CloseIcon size={16} />
+            </button>
             {canViewAudit && (
-              <button className="icon-btn" title="Audit log" aria-label="Audit log" onClick={() => setModal('audit')}>
+              <button
+                className="icon-btn"
+                title="Audit log"
+                aria-label="Audit log"
+                onClick={() => setModal('audit')}
+              >
                 <ScrollIcon size={15} />
               </button>
             )}
             {canManageServer && (
-              <button className="icon-btn" title="Server settings" aria-label="Server settings" onClick={() => setModal('settings')}>
+              <button
+                className="icon-btn"
+                title="Server settings"
+                aria-label="Server settings"
+                onClick={() => setModal('settings')}
+              >
                 <SettingsIcon size={15} />
               </button>
             )}
           </div>
         </div>
 
-        {!isMember && (
-          community.isPrivate ? (
-            <div className="invite-only">
-              Invite-only server. Ask an admin to add you.
-            </div>
+        {!isMember &&
+          (community.isPrivate ? (
+            <div className="invite-only">Invite-only server. Ask an admin to add you.</div>
           ) : user ? (
             <button
               className="btn btn-primary btn-sm"
@@ -485,12 +541,15 @@ const CommunityPage = () => {
             <Link
               to="/login"
               className="btn btn-primary btn-sm"
-              style={{ margin: '0.5rem 0.75rem', width: 'calc(100% - 1.5rem)', textAlign: 'center' }}
+              style={{
+                margin: '0.5rem 0.75rem',
+                width: 'calc(100% - 1.5rem)',
+                textAlign: 'center',
+              }}
             >
               Sign in to join
             </Link>
-          )
-        )}
+          ))}
 
         {isMember && canInvite && (
           <button
@@ -520,30 +579,51 @@ const CommunityPage = () => {
               onClick={() => setShowCreateChannel(true)}
               title="Create channel"
               aria-label="Create channel"
-            >＋</button>
+            >
+              ＋
+            </button>
           )}
         </div>
 
         <nav className="channel-list">
-          {channels.map(channel => (
-            <div key={channel._id} className={`channel-row${channel._id === activeChannelId ? ' active' : ''}`}>
+          {channels.map((channel) => (
+            <div
+              key={channel._id}
+              className={`channel-row${channel._id === activeChannelId ? ' active' : ''}`}
+            >
               <button
                 className="channel-item"
-                onClick={() => { setActiveChannelId(channel._id); setDrawerOpen(false); }}
+                onClick={() => {
+                  setActiveChannelId(channel._id);
+                  setDrawerOpen(false);
+                }}
                 title={channel.topic || `#${channel.name}`}
               >
                 <span className="channel-hash">{channel.type === 'announcement' ? '!' : '#'}</span>
                 <span className="channel-name">{channel.name}</span>
-                {channel.slowModeSeconds > 0 && <span className="channel-flag" title={`Slowmode ${channel.slowModeSeconds}s`}>{channel.slowModeSeconds}s</span>}
-                {channel.minRoleToWrite !== 'member' && <span className="channel-flag" title={`Only ${channel.minRoleToWrite}s can post`}>locked</span>}
+                {channel.slowModeSeconds > 0 && (
+                  <span className="channel-flag" title={`Slowmode ${channel.slowModeSeconds}s`}>
+                    {channel.slowModeSeconds}s
+                  </span>
+                )}
+                {channel.minRoleToWrite !== 'member' && (
+                  <span className="channel-flag" title={`Only ${channel.minRoleToWrite}s can post`}>
+                    locked
+                  </span>
+                )}
               </button>
               {canManageChannel && (
                 <button
                   className="channel-settings-btn"
                   title={`Settings for #${channel.name}`}
                   aria-label={`Settings for ${channel.name}`}
-                  onClick={() => { setChannelToEdit(channel); setModal('channel'); }}
-                ><SettingsIcon size={13} /></button>
+                  onClick={() => {
+                    setChannelToEdit(channel);
+                    setModal('channel');
+                  }}
+                >
+                  <SettingsIcon size={13} />
+                </button>
               )}
             </div>
           ))}
@@ -562,7 +642,9 @@ const CommunityPage = () => {
               onClick={() => setModal('roles')}
               title="Manage members and roles"
               aria-label="Manage members and roles"
-            ><PlusIcon size={13} /></button>
+            >
+              <PlusIcon size={13} />
+            </button>
           )}
         </div>
 
@@ -580,7 +662,10 @@ const CommunityPage = () => {
                 <div style={{ overflow: 'hidden' }}>
                   <div className="member-name">{name}</div>
                   {presence?.status === 'in_game' && presence.activeGame ? (
-                    <div className="member-presence playing" title={`Playing ${presence.activeGame}`}>
+                    <div
+                      className="member-presence playing"
+                      title={`Playing ${presence.activeGame}`}
+                    >
                       {presence.activeGame}
                     </div>
                   ) : presence?.status === 'online' ? (
@@ -608,7 +693,9 @@ const CommunityPage = () => {
         {notice && (
           <div className="chat-notice" role="status">
             <span>{notice}</span>
-            <button onClick={() => setNotice('')} aria-label="Dismiss"><CloseIcon size={14} /></button>
+            <button onClick={() => setNotice('')} aria-label="Dismiss">
+              <CloseIcon size={14} />
+            </button>
           </div>
         )}
 
@@ -632,7 +719,11 @@ const CommunityPage = () => {
                 {joining ? 'Joining…' : 'Join server'}
               </button>
             )}
-            {!user && <Link to="/login" className="btn btn-primary">Sign in to join</Link>}
+            {!user && (
+              <Link to="/login" className="btn btn-primary">
+                Sign in to join
+              </Link>
+            )}
           </div>
         ) : activeChannel ? (
           <>
@@ -647,19 +738,29 @@ const CommunityPage = () => {
               >
                 <MenuIcon size={18} />
               </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', minWidth: 0 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  minWidth: 0,
+                }}
+              >
                 <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
                   {activeChannel.type === 'announcement' ? '!' : '#'}
                 </span>
                 <span style={{ fontWeight: 800, fontSize: '1rem' }}>{activeChannel.name}</span>
-                {activeChannel.topic && (
-                  <span className="chat-topic">{activeChannel.topic}</span>
-                )}
+                {activeChannel.topic && <span className="chat-topic">{activeChannel.topic}</span>}
                 {activeChannel.slowModeSeconds > 0 && (
-                  <span className="chat-badge" title="Slowmode">{activeChannel.slowModeSeconds}s</span>
+                  <span className="chat-badge" title="Slowmode">
+                    {activeChannel.slowModeSeconds}s
+                  </span>
                 )}
                 {activeChannel.retentionDays > 0 && (
-                  <span className="chat-badge" title="Messages auto-delete">{activeChannel.retentionDays}d</span>
+                  <span className="chat-badge" title="Messages auto-delete">
+                    {activeChannel.retentionDays}d
+                  </span>
                 )}
                 {activeChannel.type === 'forum' && <span className="chat-badge">forum</span>}
               </div>
@@ -708,65 +809,84 @@ const CommunityPage = () => {
                 onNotice={setNotice}
               />
             ) : (
-            <>
-            <div className={`chat-messages ${activeChannel.isProtected ? 'protected-chat' : ''}`}>
-              {messagesLoading ? (
-                <ChatSkeleton />
-              ) : messages.length === 0 ? (
-                <div className="chat-empty">
-                  <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>#{activeChannel.name}</p>
-                  <p>This is the beginning of <strong>#{activeChannel.name}</strong>.</p>
+              <>
+                <div
+                  className={`chat-messages ${activeChannel.isProtected ? 'protected-chat' : ''}`}
+                >
+                  {messagesLoading ? (
+                    <ChatSkeleton />
+                  ) : messages.length === 0 ? (
+                    <div className="chat-empty">
+                      <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                        #{activeChannel.name}
+                      </p>
+                      <p>
+                        This is the beginning of <strong>#{activeChannel.name}</strong>.
+                      </p>
+                    </div>
+                  ) : (
+                    visibleMessages.map((message) => {
+                      const sender = message.senderId || {};
+                      const role =
+                        message.communityRole ||
+                        community.members?.find(
+                          (m) => String(m.userId?._id || m.userId) === String(sender._id),
+                        )?.role;
+
+                      return (
+                        <MessageItem
+                          key={message._id}
+                          message={message}
+                          channelId={activeChannel._id}
+                          me={user}
+                          permissions={permissions}
+                          communityRole={role}
+                          canWrite={canWrite}
+                          onDelete={deleteMessage}
+                          onReply={setReplyTo}
+                          onReact={reactToMessage}
+                          onPin={pinMessage}
+                          onReport={setReportTarget}
+                        />
+                      );
+                    })
+                  )}
+
+                  {typingNames.length > 0 && (
+                    <div className="typing-indicator">
+                      <span className="typing-dots">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.82rem',
+                          color: 'var(--text-muted)',
+                          marginLeft: '0.4rem',
+                        }}
+                      >
+                        {typingNames.length === 1
+                          ? `${typingNames[0]} is typing…`
+                          : `${typingNames.slice(0, 2).join(', ')} are typing…`}
+                      </span>
+                    </div>
+                  )}
+                  <div ref={endRef} />
                 </div>
-              ) : (
-                visibleMessages.map(message => {
-                  const sender = message.senderId || {};
-                  const role = message.communityRole
-                    || community.members?.find(m => String(m.userId?._id || m.userId) === String(sender._id))?.role;
 
-                  return (
-                    <MessageItem
-                      key={message._id}
-                      message={message}
-                      channelId={activeChannel._id}
-                      me={user}
-                      permissions={permissions}
-                      communityRole={role}
-                      canWrite={canWrite}
-                      onDelete={deleteMessage}
-                      onReply={setReplyTo}
-                      onReact={reactToMessage}
-                      onPin={pinMessage}
-                      onReport={setReportTarget}
-                    />
-                  );
-                })
-              )}
-
-              {typingNames.length > 0 && (
-                <div className="typing-indicator">
-                  <span className="typing-dots"><span /><span /><span /></span>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: '0.4rem' }}>
-                    {typingNames.length === 1
-                      ? `${typingNames[0]} is typing…`
-                      : `${typingNames.slice(0, 2).join(', ')} are typing…`}
-                  </span>
-                </div>
-              )}
-              <div ref={endRef} />
-            </div>
-
-            <MessageInput
-              channelId={activeChannel._id}
-              communityId={community._id}
-              canWrite={canWrite}
-              slowModeSeconds={activeChannel.slowModeSeconds || 0}
-              permissions={permissions}
-              replyTo={replyTo}
-              onCancelReply={() => setReplyTo(null)}
-              onNotice={setNotice}
-              placeholder={`Message #${activeChannel.name}`}
-            />
-            </>
+                <MessageInput
+                  channelId={activeChannel._id}
+                  communityId={community._id}
+                  canWrite={canWrite}
+                  slowModeSeconds={activeChannel.slowModeSeconds || 0}
+                  permissions={permissions}
+                  replyTo={replyTo}
+                  onCancelReply={() => setReplyTo(null)}
+                  onNotice={setNotice}
+                  placeholder={`Message #${activeChannel.name}`}
+                />
+              </>
             )}
           </>
         ) : (
@@ -802,13 +922,18 @@ const CommunityPage = () => {
 
       <ChannelSettingsModal
         isOpen={modal === 'channel'}
-        onClose={() => { setModal(null); setChannelToEdit(null); }}
+        onClose={() => {
+          setModal(null);
+          setChannelToEdit(null);
+        }}
         communityId={community._id}
-        channel={channels.find(c => c._id === channelToEdit?._id) || channelToEdit}
-        onSaved={(updated) => setChannels(prev => prev.map(c => (c._id === updated._id ? { ...c, ...updated } : c)))}
+        channel={channels.find((c) => c._id === channelToEdit?._id) || channelToEdit}
+        onSaved={(updated) =>
+          setChannels((prev) => prev.map((c) => (c._id === updated._id ? { ...c, ...updated } : c)))
+        }
         onDeleted={(channelId) => {
-          setChannels(prev => prev.filter(c => c._id !== channelId));
-          setActiveChannelId(prev => (prev === channelId ? null : prev));
+          setChannels((prev) => prev.filter((c) => c._id !== channelId));
+          setActiveChannelId((prev) => (prev === channelId ? null : prev));
         }}
       />
 
@@ -826,7 +951,9 @@ const CommunityPage = () => {
         onCreated={(channel) => {
           // The socket broadcast usually arrives before the POST response, so
           // append only when this channel is not already in the sidebar.
-          setChannels(prev => (prev.some(c => c._id === channel._id) ? prev : [...prev, channel]));
+          setChannels((prev) =>
+            prev.some((c) => c._id === channel._id) ? prev : [...prev, channel],
+          );
           setActiveChannelId(channel._id);
         }}
       />

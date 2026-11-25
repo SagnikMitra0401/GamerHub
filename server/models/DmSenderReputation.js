@@ -13,7 +13,7 @@ const DmSenderReputationSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
     coldRequests: { type: Number, default: 0, min: 0 },
     accepted: { type: Number, default: 0, min: 0 },
@@ -25,11 +25,11 @@ const DmSenderReputationSchema = new mongoose.Schema(
       type: String,
       enum: ['standard', 'limited', 'restricted'],
       default: 'standard',
-      index: true
+      index: true,
     },
-    lastRequestAt: { type: Date, default: null }
+    lastRequestAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 DmSenderReputationSchema.index({ tier: 1, updatedAt: -1 });

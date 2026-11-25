@@ -8,7 +8,7 @@ const REASONS = [
   { value: 'harassment', label: 'Harassment or bullying' },
   { value: 'hate_speech', label: 'Hate speech' },
   { value: 'nsfw', label: 'Not safe for work' },
-  { value: 'other', label: 'Something else' }
+  { value: 'other', label: 'Something else' },
 ];
 
 /**
@@ -43,7 +43,7 @@ const ReportModal = ({ isOpen, onClose, communityId, target, onDone }) => {
         targetType: 'message',
         targetId: target._id,
         reason,
-        note: note.trim()
+        note: note.trim(),
       });
       setSent(true);
       onDone?.();
@@ -55,52 +55,81 @@ const ReportModal = ({ isOpen, onClose, communityId, target, onDone }) => {
   };
 
   return ReactDOM.createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="report-title">
-      <div className="modal-box" onClick={event => event.stopPropagation()} style={{ maxWidth: '420px' }}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-title"
+    >
+      <div
+        className="modal-box"
+        onClick={(event) => event.stopPropagation()}
+        style={{ maxWidth: '420px' }}
+      >
         <div className="modal-header-row">
-          <h2 id="report-title" className="modal-title" style={{ margin: 0 }}>Report message</h2>
+          <h2 id="report-title" className="modal-title" style={{ margin: 0 }}>
+            Report message
+          </h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             <CloseIcon size={16} />
           </button>
         </div>
 
         <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-          Moderators of this server will see the message and your reason. {target.senderId?.username || 'The author'} is not told who reported them.
+          Moderators of this server will see the message and your reason.{' '}
+          {target.senderId?.username || 'The author'} is not told who reported them.
         </p>
 
-        {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
-        {sent && <div className="form-success" style={{ marginBottom: '0.75rem' }}>Report received.</div>}
+        {error && (
+          <div className="form-error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+          </div>
+        )}
+        {sent && (
+          <div className="form-success" style={{ marginBottom: '0.75rem' }}>
+            Report received.
+          </div>
+        )}
 
         <form onSubmit={submit}>
           <div className="form-group">
-            <label className="form-label" htmlFor="report-reason">Reason</label>
+            <label className="form-label" htmlFor="report-reason">
+              Reason
+            </label>
             <select
               id="report-reason"
               className="form-input"
               value={reason}
-              onChange={event => setReason(event.target.value)}
+              onChange={(event) => setReason(event.target.value)}
             >
-              {REASONS.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+              {REASONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="report-note">Details (optional)</label>
+            <label className="form-label" htmlFor="report-note">
+              Details (optional)
+            </label>
             <textarea
               id="report-note"
               className="form-textarea"
               rows={3}
               maxLength={300}
               value={note}
-              onChange={event => setNote(event.target.value)}
+              onChange={(event) => setNote(event.target.value)}
               placeholder="Anything a moderator should know"
             />
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
+              Cancel
+            </button>
             <button className="btn btn-danger" disabled={sending || sent}>
               {sending ? 'Sending…' : sent ? 'Sent' : 'Report'}
             </button>
@@ -108,7 +137,7 @@ const ReportModal = ({ isOpen, onClose, communityId, target, onDone }) => {
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

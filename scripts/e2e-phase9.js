@@ -52,10 +52,22 @@ const DmSenderReputation = require('../server/models/DmSenderReputation');
 const Report = require('../server/models/Report');
 const AuditLog = require('../server/models/AuditLog');
 
-const { api, check, connectSocket, registerUser, report, setBase, waitFor } = require('./lib/e2e-harness');
+const {
+  api,
+  check,
+  connectSocket,
+  registerUser,
+  report,
+  setBase,
+  waitFor,
+} = require('./lib/e2e-harness');
 
 async function joinChannel(socket, channelId) {
-  const joined = waitFor(socket, 'joined_channel', (payload) => String(payload?.channelId) === String(channelId));
+  const joined = waitFor(
+    socket,
+    'joined_channel',
+    (payload) => String(payload?.channelId) === String(channelId),
+  );
   socket.emit('join_channel', { channelId });
   const result = await joined;
   assert.ok(result, 'socket did not join the channel');
@@ -84,7 +96,7 @@ async function run() {
   const carol = await registerUser('carol', { probeId: true });
 
   const sockets = {
-    bob: await connectSocket(bob.token)
+    bob: await connectSocket(bob.token),
   };
 
   try {
@@ -107,29 +119,30 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const created = await api('/api/communities', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { name: 'Settings HQ', description: 'phase 9 sandbox' }
+    body: { name: 'Settings HQ', description: 'phase 9 sandbox' },
   });
-  check('the owner creates a server', () => assert.equal(created.status, 201, JSON.stringify(created.data)));
+  check('the owner creates a server', () =>
+    assert.equal(created.status, 201, JSON.stringify(created.data)),
+  );
 
   const communityId = created.data._id;
   const communitySlug = created.data.slug;
 
   const joinedCommunity = await api(`/api/communities/${communityId}/join`, {
     method: 'POST',
-    cookie: bob.cookie
+    cookie: bob.cookie,
   });
   check('a member joins the server', () => assert.equal(joinedCommunity.status, 200));
 
   // Bob must be the highest-ranked successor so the transfer target is unambiguous.
   await Community.updateOne(
     { _id: communityId, 'members.userId': bob.id },
-    { $set: { 'members.$.role': 'admin' } }
+    { $set: { 'members.$.role': 'admin' } },
   );
 
   const detail = await api(`/api/communities/${communitySlug}`, { cookie: bob.cookie });
   const channelId = detail.data?.channels?.[0]?._id;
   check('the default channel is visible to the member', () => assert.ok(channelId));
-
 
   await joinChannel(sockets.bob, channelId);
   await sendMessage(sockets.bob, channelId, 'pre-freeze message');
@@ -139,28 +152,28 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const invalidHandle = await api('/api/account/username', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { username: 'not a handle' }
+    body: { username: 'not a handle' },
   });
   check('a malformed handle is refused', () => assert.equal(invalidHandle.status, 400));
 
   const reservedHandle = await api('/api/account/username', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { username: 'admin' }
+    body: { username: 'admin' },
   });
   check('a reserved handle is refused', () => assert.equal(reservedHandle.status, 400));
 
   const takenHandle = await api('/api/account/username', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { username: 'BOB' }
+    body: { username: 'BOB' },
   });
   check('a handle is unique regardless of case', () => assert.equal(takenHandle.status, 409));
 
   const renamed = await api('/api/account/username', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { username: 'alice_prime' }
+    body: { username: 'alice_prime' },
   });
   check('a valid unused handle is accepted', () => {
     assert.equal(renamed.status, 200, JSON.stringify(renamed.data));
@@ -182,23 +195,25 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const sameHandle = await api('/api/account/username', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { username: 'alice_prime' }
+    body: { username: 'alice_prime' },
   });
-  check('re-submitting the current handle is a no-op error', () => assert.equal(sameHandle.status, 400));
+  check('re-submitting the current handle is a no-op error', () =>
+    assert.equal(sameHandle.status, 400),
+  );
 
   // ── Feed reset ────────────────────────────────────────────────────────────
   console.log('\n[feed reset]');
   const preferences = await api('/api/users/me/preferences', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { favoriteGames: ['Valorant'], favoriteGenres: ['FPS'], platforms: ['PC'] }
+    body: { favoriteGames: ['Valorant'], favoriteGenres: ['FPS'], platforms: ['PC'] },
   });
   check('affinities are stored', () => assert.equal(preferences.status, 200));
 
   const favourite = await api('/api/users/channels/favourite', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { channel: 'valorant' }
+    body: { channel: 'valorant' },
   });
   check('a favourite channel is stored', () => assert.equal(favourite.status, 200));
 
@@ -213,8 +228,16 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const reset = await api('/api/account/feed-reset', { method: 'POST', cookie: alice.cookie });
   check('recommendations reset and report what was cleared', () => {
     assert.equal(reset.status, 200, JSON.stringify(reset.data));
-    assert.deepEqual(reset.data.cleared, { favoriteGames: 1, favoriteGenres: 1, favoriteChannels: 1 });
-    assert.deepEqual(reset.data.kept.platforms, ['PC'], 'platform preference is not a ranking signal');
+    assert.deepEqual(reset.data.cleared, {
+      favoriteGames: 1,
+      favoriteGenres: 1,
+      favoriteChannels: 1,
+    });
+    assert.deepEqual(
+      reset.data.kept.platforms,
+      ['PC'],
+      'platform preference is not a ranking signal',
+    );
   });
 
   const afterReset = await api('/api/account', { cookie: alice.cookie });
@@ -230,9 +253,15 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const post = await api('/api/posts', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { title: 'Freeze probe', content: 'This post should vanish while frozen.', tags: ['valorant'] }
+    body: {
+      title: 'Freeze probe',
+      content: 'This post should vanish while frozen.',
+      tags: ['valorant'],
+    },
   });
-  check('a post is created before freezing', () => assert.equal(post.status, 201, JSON.stringify(post.data)));
+  check('a post is created before freezing', () =>
+    assert.equal(post.status, 201, JSON.stringify(post.data)),
+  );
   const postId = post.data._id;
 
   const visibleBefore = await api('/api/posts?limit=50', { cookie: bob.cookie });
@@ -243,14 +272,14 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const wrongFreeze = await api('/api/account/freeze', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { frozen: true, password: 'wrong-password' }
+    body: { frozen: true, password: 'wrong-password' },
   });
   check('freezing with the wrong password is refused', () => assert.equal(wrongFreeze.status, 403));
 
   const frozen = await api('/api/account/freeze', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { frozen: true, password: 'password123' }
+    body: { frozen: true, password: 'password123' },
   });
   check('freezing with the password succeeds', () => {
     assert.equal(frozen.status, 200, JSON.stringify(frozen.data));
@@ -258,14 +287,19 @@ async function scenarios({ alice, bob, carol, sockets }) {
   });
 
   const hiddenProfile = await api('/api/users/alice_prime', { cookie: bob.cookie });
-  check('a frozen profile is not found by another player', () => assert.equal(hiddenProfile.status, 404));
+  check('a frozen profile is not found by another player', () =>
+    assert.equal(hiddenProfile.status, 404),
+  );
 
   const hiddenPost = await api(`/api/posts/${postId}`, { cookie: bob.cookie });
-  check('a frozen author\'s post is not found by id', () => assert.equal(hiddenPost.status, 404));
+  check("a frozen author's post is not found by id", () => assert.equal(hiddenPost.status, 404));
 
   const hiddenFeed = await api('/api/posts?limit=50', { cookie: bob.cookie });
-  check('a frozen author\'s post leaves the feed', () => {
-    assert.equal(hiddenFeed.data.some((entry) => String(entry._id) === String(postId)), false);
+  check("a frozen author's post leaves the feed", () => {
+    assert.equal(
+      hiddenFeed.data.some((entry) => String(entry._id) === String(postId)),
+      false,
+    );
   });
 
   const hiddenSearch = await api('/api/users/search?q=alice_prime', { cookie: bob.cookie });
@@ -290,7 +324,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const frozenPost = await api('/api/posts', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { title: 'Should not exist', content: 'frozen writes are blocked' }
+    body: { title: 'Should not exist', content: 'frozen writes are blocked' },
   });
   check('a frozen account cannot create content', () => {
     assert.equal(frozenPost.status, 403);
@@ -300,30 +334,38 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const unfreezeWrong = await api('/api/account/freeze', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { frozen: false, password: 'wrong-password' }
+    body: { frozen: false, password: 'wrong-password' },
   });
-  check('unfreezing with the wrong password is refused', () => assert.equal(unfreezeWrong.status, 403));
+  check('unfreezing with the wrong password is refused', () =>
+    assert.equal(unfreezeWrong.status, 403),
+  );
 
   const unfrozen = await api('/api/account/freeze', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { frozen: false, password: 'password123' }
+    body: { frozen: false, password: 'password123' },
   });
   check('unfreezing restores the account', () => assert.equal(unfrozen.data.status, 'active'));
 
   const visibleAgain = await api(`/api/posts/${postId}`, { cookie: bob.cookie });
-  check('the post is readable again after unfreezing', () => assert.equal(visibleAgain.status, 200));
+  check('the post is readable again after unfreezing', () =>
+    assert.equal(visibleAgain.status, 200),
+  );
 
   // ── Freeze: live socket guard ─────────────────────────────────────────────
   console.log('\n[freeze sockets]');
   const bobFrozen = await api('/api/account/freeze', {
     method: 'POST',
     cookie: bob.cookie,
-    body: { frozen: true, password: 'password123' }
+    body: { frozen: true, password: 'password123' },
   });
   check('a connected member can freeze their account', () => assert.equal(bobFrozen.status, 200));
 
-  const refused = waitFor(sockets.bob, 'error_msg', (payload) => payload?.code === 'ACCOUNT_FROZEN');
+  const refused = waitFor(
+    sockets.bob,
+    'error_msg',
+    (payload) => payload?.code === 'ACCOUNT_FROZEN',
+  );
   sockets.bob.emit('send_message', { channelId, text: 'must not arrive' });
   const refusedPayload = await refused;
   check('an open socket is refused immediately after freezing', () => assert.ok(refusedPayload));
@@ -331,7 +373,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const bobUnfrozen = await api('/api/account/freeze', {
     method: 'POST',
     cookie: bob.cookie,
-    body: { frozen: false, password: 'password123' }
+    body: { frozen: false, password: 'password123' },
   });
   check('the member can unfreeze', () => assert.equal(bobUnfrozen.status, 200));
 
@@ -343,7 +385,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const solo = await api('/api/communities', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { name: 'Solo Vault', description: 'nobody else is here' }
+    body: { name: 'Solo Vault', description: 'nobody else is here' },
   });
   check('a second, memberless server is created', () => assert.equal(solo.status, 201));
   const soloSlug = solo.data.slug;
@@ -353,7 +395,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const party = await api('/api/lfg', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { gameTitle: 'Settings Arena', activity: 'Ranked', maxSlots: 2 }
+    body: { gameTitle: 'Settings Arena', activity: 'Ranked', maxSlots: 2 },
   });
   check('a squad is created', () => assert.equal(party.status, 201, JSON.stringify(party.data)));
   const partyId = party.data._id;
@@ -361,14 +403,14 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const requested = await api(`/api/lfg/${partyId}/request`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { message: 'invite me' }
+    body: { message: 'invite me' },
   });
   check('a player requests a slot', () => assert.equal(requested.status, 200));
 
   const accepted = await api(`/api/lfg/${partyId}/respond`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { userId: bob.id, action: 'accept' }
+    body: { userId: bob.id, action: 'accept' },
   });
   check('accepting the last slot locks the squad and opens the chat', () => {
     assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
@@ -416,21 +458,25 @@ async function scenarios({ alice, bob, carol, sockets }) {
     const missingCredential = await api('/api/auth/link-google', {
       method: 'POST',
       cookie: carol.cookie,
-      body: {}
+      body: {},
     });
-    check('linking without a credential is refused', () => assert.equal(missingCredential.status, 400));
+    check('linking without a credential is refused', () =>
+      assert.equal(missingCredential.status, 400),
+    );
 
     const fakeCredential = await api('/api/auth/link-google', {
       method: 'POST',
       cookie: carol.cookie,
-      body: { credential: 'not-a-google-id-token' }
+      body: { credential: 'not-a-google-id-token' },
     });
-    check('an unverifiable Google credential is refused', () => assert.equal(fakeCredential.status, 401));
+    check('an unverifiable Google credential is refused', () =>
+      assert.equal(fakeCredential.status, 401),
+    );
   } else {
     const unavailable = await api('/api/auth/link-google', {
       method: 'POST',
       cookie: carol.cookie,
-      body: { credential: 'anything' }
+      body: { credential: 'anything' },
     });
     check('Google linking is explicitly unavailable when unconfigured', () => {
       assert.equal(unavailable.status, 503);
@@ -439,7 +485,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
 
   const unlinkUnlinked = await api('/api/auth/link-google', {
     method: 'DELETE',
-    cookie: carol.cookie
+    cookie: carol.cookie,
   });
   check('unlinking an unlinked account is a safe no-op', () => {
     assert.equal(unlinkUnlinked.status, 200);
@@ -460,38 +506,54 @@ async function scenarios({ alice, bob, carol, sockets }) {
     channelId,
     communityId,
     senderId: alice.id,
-    text: 'alice private aside'
+    text: 'alice private aside',
   });
   const bobReply = await Message.create({
     channelId,
     communityId,
     senderId: bob.id,
     text: 'replying to alice',
-    replyTo: { messageId: aliceMessage._id, senderName: 'alice_prime', preview: 'alice private aside' },
-    mentions: [{ userId: alice.id, username: 'alice_prime' }]
+    replyTo: {
+      messageId: aliceMessage._id,
+      senderName: 'alice_prime',
+      preview: 'alice private aside',
+    },
+    mentions: [{ userId: alice.id, username: 'alice_prime' }],
   });
   const stalePings = await Notification.insertMany([
-    { userId: bob.id, title: '@alice_prime followed you', metadata: { kind: 'follow', followerId: String(alice.id) } },
-    { userId: bob.id, title: 'New mention', metadata: { kind: 'mention', messageId: String(aliceMessage._id) } },
-    { userId: bob.id, title: 'Join request', metadata: { kind: 'community_join_request', username: 'alice_prime' } }
+    {
+      userId: bob.id,
+      title: '@alice_prime followed you',
+      metadata: { kind: 'follow', followerId: String(alice.id) },
+    },
+    {
+      userId: bob.id,
+      title: 'New mention',
+      metadata: { kind: 'mention', messageId: String(aliceMessage._id) },
+    },
+    {
+      userId: bob.id,
+      title: 'Join request',
+      metadata: { kind: 'community_join_request', username: 'alice_prime' },
+    },
   ]);
   const unrelatedPing = await Notification.create({
     userId: bob.id,
     title: 'Unrelated ping',
-    metadata: { kind: 'follow', followerId: String(carol.id) }
+    metadata: { kind: 'follow', followerId: String(carol.id) },
   });
   const staleJoinRequest = await CommunityJoinRequest.create({
     communityId,
     inviteId: new mongoose.Types.ObjectId(),
     userId: alice.id,
     username: 'alice_prime',
-    status: 'pending'
+    status: 'pending',
   });
   const staleToken = await AccountToken.create({
     userId: alice.id,
     purpose: 'reset_password',
     tokenHash: 'phase9-erasure-token',
-    expiresAt: new Date(Date.now() + 60_000)
+    expiresAt: new Date(Date.now() + 60_000),
   });
   const staleReputation = await DmSenderReputation.create({ userId: alice.id });
   const staleReport = await Report.create({
@@ -499,7 +561,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
     reporterId: alice.id,
     targetType: 'member',
     targetId: bob.id,
-    reason: 'spam'
+    reason: 'spam',
   });
   const auditWithHandle = await AuditLog.create({
     communityId,
@@ -507,7 +569,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
     actionType: 'ROLE_UPDATE',
     targetId: alice.id,
     targetModel: 'User',
-    metadata: { username: 'alice_prime', role: 'admin' }
+    metadata: { username: 'alice_prime', role: 'admin' },
   });
 
   // ── Immediate deletion + succession ───────────────────────────────────────
@@ -515,21 +577,21 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const badName = await api('/api/account/delete-now', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { confirmUsername: 'someone-else', password: 'password123' }
+    body: { confirmUsername: 'someone-else', password: 'password123' },
   });
   check('deletion requires the exact handle', () => assert.equal(badName.status, 400));
 
   const badPassword = await api('/api/account/delete-now', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { confirmUsername: 'alice_prime', password: 'wrong-password' }
+    body: { confirmUsername: 'alice_prime', password: 'wrong-password' },
   });
   check('deletion requires the password', () => assert.equal(badPassword.status, 403));
 
   const deleted = await api('/api/account/delete-now', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { confirmUsername: 'alice_prime', password: 'password123' }
+    body: { confirmUsername: 'alice_prime', password: 'password123' },
   });
   check('the owner can delete immediately', () => {
     assert.equal(deleted.status, 200, JSON.stringify(deleted.data));
@@ -553,18 +615,21 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const transferredCommunity = transferred.data?.community;
   check('the admin inherits the server', () => {
     assert.equal(transferred.status, 200, JSON.stringify(transferred.data));
-    assert.equal(String(transferredCommunity.ownerId?._id || transferredCommunity.ownerId), String(bob.id));
+    assert.equal(
+      String(transferredCommunity.ownerId?._id || transferredCommunity.ownerId),
+      String(bob.id),
+    );
     assert.equal(transferred.data.callerRole, 'owner');
     const bobMember = transferredCommunity.members.find(
-      (m) => String(m.userId?._id || m.userId) === String(bob.id)
+      (m) => String(m.userId?._id || m.userId) === String(bob.id),
     );
     assert.equal(bobMember.role, 'owner');
     assert.equal(
       transferredCommunity.members.some(
-        (m) => String(m.userId?._id || m.userId) === String(alice.id)
+        (m) => String(m.userId?._id || m.userId) === String(alice.id),
       ),
       false,
-      'the deleted account is no longer a member'
+      'the deleted account is no longer a member',
     );
   });
 
@@ -572,9 +637,11 @@ async function scenarios({ alice, bob, carol, sockets }) {
   check('a memberless server is dissolved', () => assert.equal(dissolved.status, 404));
 
   const postGone = await api(`/api/posts/${postId}`, { cookie: bob.cookie });
-  check('the deleted account\'s posts are removed', () => assert.equal(postGone.status, 404));
+  check("the deleted account's posts are removed", () => assert.equal(postGone.status, 404));
 
-  const remainingPings = await Notification.find({ _id: { $in: stalePings.map((ping) => ping._id) } }).lean();
+  const remainingPings = await Notification.find({
+    _id: { $in: stalePings.map((ping) => ping._id) },
+  }).lean();
   const survivingPing = await Notification.findById(unrelatedPing._id).lean();
   const survivingJoinRequest = await CommunityJoinRequest.findById(staleJoinRequest._id).lean();
   const survivingToken = await AccountToken.findById(staleToken._id).lean();
@@ -594,7 +661,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
 
   const scrubCheck = await Message.findById(bobReply._id).lean();
   check('replies and mentions no longer quote the erased account', () => {
-    assert.ok(scrubCheck, 'the other member\'s reply must survive');
+    assert.ok(scrubCheck, "the other member's reply must survive");
     assert.equal(scrubCheck.text, 'replying to alice');
     assert.equal(scrubCheck.replyTo.preview, '[deleted]');
     assert.equal(scrubCheck.replyTo.senderName, '[deleted]');
@@ -623,7 +690,7 @@ async function scenarios({ alice, bob, carol, sockets }) {
 
   const fresh = await api('/api/auth/register', {
     method: 'POST',
-    body: { username: 'alice_fresh', email: 'alice@example.com', password: 'password123' }
+    body: { username: 'alice_fresh', email: 'alice@example.com', password: 'password123' },
   });
   check('the released email can register a genuinely fresh account', () => {
     assert.equal(fresh.status, 201, JSON.stringify(fresh.data));
@@ -636,7 +703,10 @@ async function scenarios({ alice, bob, carol, sockets }) {
   const remainingOwnedCommunities = await Community.countDocuments({ ownerId: alice.id });
   check('no server points at the deleted owner', () => assert.equal(remainingOwnedCommunities, 0));
 
-  const remainingLedSquads = await Party.countDocuments({ leaderId: alice.id, status: { $ne: 'closed' } });
+  const remainingLedSquads = await Party.countDocuments({
+    leaderId: alice.id,
+    status: { $ne: 'closed' },
+  });
   check('no open squad points at the deleted leader', () => assert.equal(remainingLedSquads, 0));
 }
 

@@ -12,7 +12,7 @@ const {
   REACTION_CODES,
   MAX_REACTIONS_PER_MESSAGE,
   normalizeReaction,
-  serializeReactions
+  serializeReactions,
 } = require('../utils/reactions');
 
 test('the catalogue is a frozen short allowlist', () => {
@@ -38,13 +38,13 @@ test('known codes normalise, unknown values are rejected', () => {
 test('serialisation exposes counts, never user ids', () => {
   const reactions = [
     { emoji: 'fire', users: ['a', 'b'] },
-    { emoji: 'gg', users: ['c'] }
+    { emoji: 'gg', users: ['c'] },
   ];
 
   const summary = serializeReactions(reactions, 'b');
   assert.deepEqual(summary, [
     { emoji: 'fire', count: 2, mine: true },
-    { emoji: 'gg', count: 1, mine: false }
+    { emoji: 'gg', count: 1, mine: false },
   ]);
 
   // The serialised form carries no ids at all.
@@ -54,7 +54,7 @@ test('serialisation exposes counts, never user ids', () => {
 test('empty slots are dropped and missing input is safe', () => {
   const summary = serializeReactions([
     { emoji: 'fire', users: [] },
-    { emoji: 'gg', users: ['a'] }
+    { emoji: 'gg', users: ['a'] },
   ]);
   assert.deepEqual(summary, [{ emoji: 'gg', count: 1, mine: false }]);
 
@@ -65,7 +65,7 @@ test('empty slots are dropped and missing input is safe', () => {
 test('populated user documents are still matched by id', () => {
   const summary = serializeReactions(
     [{ emoji: 'heart', users: [{ _id: 'u1', username: 'alice' }] }],
-    'u1'
+    'u1',
   );
   assert.equal(summary[0].mine, true);
   assert.equal(summary[0].count, 1);

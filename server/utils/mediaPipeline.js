@@ -34,7 +34,10 @@ async function normaliseImage(buffer, mimeType) {
   try {
     const pipeline = sharp(buffer, { failOn: 'error' })
       .rotate()
-      .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: 'inside', withoutEnlargement: true });
+      .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      });
     const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
     return { buffer: data, width: info.width, height: info.height };
   } catch {
@@ -53,9 +56,9 @@ function uploadBuffer(buffer, { publicId, resourceType = 'image' }) {
         public_id: publicId,
         resource_type: resourceType,
         image_metadata: false,
-        overwrite: false
+        overwrite: false,
       },
-      (error, result) => (error ? reject(error) : resolve(result))
+      (error, result) => (error ? reject(error) : resolve(result)),
     );
     stream.end(buffer);
   });
@@ -72,14 +75,18 @@ async function storeImageBuffer({
   surface = 'other',
   ownerId = null,
   refType = null,
-  refId = null
+  refId = null,
 }) {
   if (!buffer?.length) throw badRequest('Choose an image to upload.');
   if (Number(sizeBytes || buffer.length) > MAX_ATTACHMENT_BYTES) {
     throw badRequest('Images must be 8 MB or smaller.');
   }
 
-  const validated = validateImageUpload({ buffer, claimedMime: mimeType, sizeBytes: sizeBytes || buffer.length });
+  const validated = validateImageUpload({
+    buffer,
+    claimedMime: mimeType,
+    sizeBytes: sizeBytes || buffer.length,
+  });
   if (!validated.ok) throw badRequest(validated.reason);
 
   const normalised = await normaliseImage(buffer, validated.mimeType);
@@ -101,7 +108,7 @@ async function storeImageBuffer({
     derivatives: deliverySet(result.public_id, { resourceType: 'image' }),
     status: 'ready',
     refType,
-    refId
+    refId,
   });
 
   return { asset, result, delivery: asset.derivatives };
@@ -110,14 +117,16 @@ async function storeImageBuffer({
 /** Record a video that was uploaded through the existing Cloudinary helper. */
 async function linkMediaAsset(assetId, { refType, refId }) {
   if (!assetId || !refType || !refId) return null;
-  return MediaAsset.findOneAndUpdate(
-    { _id: assetId },
-    { $set: { refType, refId } },
-    { new: true }
-  );
+  return MediaAsset.findOneAndUpdate({ _id: assetId }, { $set: { refType, refId } }, { new: true });
 }
 
-async function registerVideoAsset({ result, ownerId, surface = 'post', refType = null, refId = null }) {
+async function registerVideoAsset({
+  result,
+  ownerId,
+  surface = 'post',
+  refType = null,
+  refId = null,
+}) {
   const asset = await MediaAsset.create({
     surface,
     ownerId: ownerId || null,
@@ -129,10 +138,13 @@ async function registerVideoAsset({ result, ownerId, surface = 'post', refType =
     width: result.width || null,
     height: result.height || null,
     url: result.secure_url,
-    derivatives: deliverySet(result.public_id, { resourceType: 'video', format: result.format || 'mp4' }),
+    derivatives: deliverySet(result.public_id, {
+      resourceType: 'video',
+      format: result.format || 'mp4',
+    }),
     status: 'ready',
     refType,
-    refId
+    refId,
   });
   return asset;
 }
@@ -142,5 +154,5 @@ module.exports = {
   normaliseImage,
   storeImageBuffer,
   linkMediaAsset,
-  registerVideoAsset
+  registerVideoAsset,
 };

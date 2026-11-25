@@ -37,7 +37,15 @@ const app = require('../server/app');
 const { initSocket } = require('../server/config/socket');
 const { closeDomainConnections } = require('../server/config/connections');
 
-const { api, check, connectSocket, registerUser, report, setBase, waitFor } = require('./lib/e2e-harness');
+const {
+  api,
+  check,
+  connectSocket,
+  registerUser,
+  report,
+  setBase,
+  waitFor,
+} = require('./lib/e2e-harness');
 
 async function scenarios({ alice, bob, carol, dave, sockets }) {
   const post = await api('/api/posts', {
@@ -46,77 +54,96 @@ async function scenarios({ alice, bob, carol, dave, sockets }) {
     body: {
       title: 'Hardening probe',
       content: 'The hardeningvisibilitytoken appears in this post.',
-      tags: ['valorant']
-    }
+      tags: ['valorant'],
+    },
   });
-  check('the visibility probe post is created', () => assert.equal(post.status, 201, JSON.stringify(post.data)));
+  check('the visibility probe post is created', () =>
+    assert.equal(post.status, 201, JSON.stringify(post.data)),
+  );
 
-  const beforeFreeze = await api('/api/users/search?q=hardeningvisibilitytoken', { cookie: bob.cookie });
+  const beforeFreeze = await api('/api/users/search?q=hardeningvisibilitytoken', {
+    cookie: bob.cookie,
+  });
   check('a search finds the post before the author is frozen', () => {
     assert.equal(beforeFreeze.status, 200, JSON.stringify(beforeFreeze.data));
     assert.ok(
       beforeFreeze.data.posts.some((entry) => String(entry._id) === String(post.data._id)),
-      JSON.stringify(beforeFreeze.data.posts)
+      JSON.stringify(beforeFreeze.data.posts),
     );
   });
 
   const freeze = await api('/api/account/freeze', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { frozen: true, password: 'password123' }
+    body: { frozen: true, password: 'password123' },
   });
   check('the author can freeze with the password', () => {
     assert.equal(freeze.status, 200, JSON.stringify(freeze.data));
     assert.equal(freeze.data.status, 'frozen');
   });
 
-  const whileFrozen = await api('/api/users/search?q=hardeningvisibilitytoken', { cookie: bob.cookie });
-  check('a frozen author leaves search on the very next request (visibility cache invalidated)', () => {
-    assert.equal(whileFrozen.status, 200, JSON.stringify(whileFrozen.data));
-    assert.equal(
-      whileFrozen.data.posts.some((entry) => String(entry._id) === String(post.data._id)),
-      false
-    );
+  const whileFrozen = await api('/api/users/search?q=hardeningvisibilitytoken', {
+    cookie: bob.cookie,
   });
+  check(
+    'a frozen author leaves search on the very next request (visibility cache invalidated)',
+    () => {
+      assert.equal(whileFrozen.status, 200, JSON.stringify(whileFrozen.data));
+      assert.equal(
+        whileFrozen.data.posts.some((entry) => String(entry._id) === String(post.data._id)),
+        false,
+      );
+    },
+  );
 
   await api('/api/account/freeze', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { frozen: false, password: 'password123' }
+    body: { frozen: false, password: 'password123' },
   });
 
-  const afterUnfreeze = await api('/api/users/search?q=hardeningvisibilitytoken', { cookie: bob.cookie });
+  const afterUnfreeze = await api('/api/users/search?q=hardeningvisibilitytoken', {
+    cookie: bob.cookie,
+  });
   check('unfreezing puts the post back in search', () => {
     assert.ok(
       afterUnfreeze.data.posts.some((entry) => String(entry._id) === String(post.data._id)),
-      JSON.stringify(afterUnfreeze.data.posts)
+      JSON.stringify(afterUnfreeze.data.posts),
     );
   });
 
   const presence = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { status: 'invisible' }
+    body: { status: 'invisible' },
   });
-  check('the leader can go invisible', () => assert.equal(presence.status, 200, JSON.stringify(presence.data)));
+  check('the leader can go invisible', () =>
+    assert.equal(presence.status, 200, JSON.stringify(presence.data)),
+  );
 
   const party = await api('/api/lfg', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { gameTitle: 'Hardening Test Game', activity: 'Ranked', maxSlots: 4 }
+    body: { gameTitle: 'Hardening Test Game', activity: 'Ranked', maxSlots: 4 },
   });
-  check('the invisible leader can create a squad', () => assert.equal(party.status, 201, JSON.stringify(party.data)));
+  check('the invisible leader can create a squad', () =>
+    assert.equal(party.status, 201, JSON.stringify(party.data)),
+  );
 
   const board = await api('/api/lfg', { cookie: bob.cookie });
   check('the squad board projects an invisible leader as offline', () => {
-    const entry = (board.data.items || []).find((item) => String(item._id) === String(party.data._id));
+    const entry = (board.data.items || []).find(
+      (item) => String(item._id) === String(party.data._id),
+    );
     assert.ok(entry, 'squad missing from the board');
     assert.equal(entry.leader.presence.status, 'offline');
     assert.equal(entry.leader.presence.activeGame, '');
   });
 
   check('the squad board does not expose the leader account status', () => {
-    const entry = (board.data.items || []).find((item) => String(item._id) === String(party.data._id));
+    const entry = (board.data.items || []).find(
+      (item) => String(item._id) === String(party.data._id),
+    );
     assert.equal(entry.leader.status, undefined);
   });
 
@@ -178,7 +205,7 @@ async function run() {
   const dave = await registerUser('hard10dave', { probeId: true });
 
   const sockets = {
-    carol: await connectSocket(carol.token)
+    carol: await connectSocket(carol.token),
   };
 
   try {

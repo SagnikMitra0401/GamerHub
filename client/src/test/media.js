@@ -7,7 +7,7 @@
 import { vi } from 'vitest';
 
 export function setMedia({ sheet = false, finePointer = true, reducedMotion = false } = {}) {
-  const matches = query => {
+  const matches = (query) => {
     const text = String(query);
     if (text.includes('max-width')) return sheet;
     if (text.includes('pointer: fine')) return finePointer;
@@ -16,7 +16,7 @@ export function setMedia({ sheet = false, finePointer = true, reducedMotion = fa
     return false;
   };
 
-  window.matchMedia = vi.fn(query => ({
+  window.matchMedia = vi.fn((query) => ({
     media: String(query),
     matches: matches(query),
     onchange: null,
@@ -24,7 +24,7 @@ export function setMedia({ sheet = false, finePointer = true, reducedMotion = fa
     removeListener: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn()
+    dispatchEvent: vi.fn(),
   }));
 
   return window.matchMedia;

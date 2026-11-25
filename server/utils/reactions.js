@@ -8,7 +8,14 @@
  */
 
 const REACTION_CODES = Object.freeze([
-  'gg', 'fire', 'heart', 'laugh', 'wow', 'skull', 'clap', 'target'
+  'gg',
+  'fire',
+  'heart',
+  'laugh',
+  'wow',
+  'skull',
+  'clap',
+  'target',
 ]);
 
 /** Distinct reaction slots allowed on one message. */
@@ -38,7 +45,7 @@ function serializeReactions(reactions = [], viewerId = null) {
       return {
         emoji: reaction.emoji,
         count: users.length,
-        mine: me ? users.some((user) => String(user?._id ?? user) === me) : false
+        mine: me ? users.some((user) => String(user?._id ?? user) === me) : false,
       };
     })
     .filter((reaction) => reaction.count > 0);
@@ -48,5 +55,5 @@ module.exports = {
   REACTION_CODES,
   MAX_REACTIONS_PER_MESSAGE,
   normalizeReaction,
-  serializeReactions
+  serializeReactions,
 };

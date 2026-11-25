@@ -23,7 +23,7 @@ test('weekly digest waits for Monday', () => {
 test('digest is skipped during quiet hours and when off', () => {
   const quiet = settings({
     digest: 'daily',
-    quietHours: { enabled: true, start: '07:00', end: '10:00', timezone: 'UTC' }
+    quietHours: { enabled: true, start: '07:00', end: '10:00', timezone: 'UTC' },
   });
   assert.equal(digestDue(quiet, new Date('2026-11-07T09:00:00Z')), false);
   assert.equal(digestDue(settings({ digest: 'off' }), new Date('2026-11-07T09:00:00Z')), false);
@@ -33,12 +33,12 @@ test('digest copy distinguishes requests from unread messages', () => {
   assert.deepEqual(buildDigest({ requests: 2, unread: 1 }), {
     title: 'Your message digest',
     message: '2 requests waiting · 1 unread message',
-    actionUrl: '/messages?folder=requests'
+    actionUrl: '/messages?folder=requests',
   });
   assert.deepEqual(buildDigest({ requests: 0, unread: 3 }), {
     title: 'Your message digest',
     message: '3 unread messages',
-    actionUrl: '/messages'
+    actionUrl: '/messages',
   });
   assert.equal(buildDigest({ requests: 0, unread: 0 }), null);
 });

@@ -11,7 +11,7 @@ const FloatingToolbar = ({ onSearchOpen, onCreateOpen }) => {
   // Only render for authenticated users
   if (!user) return null;
 
-  const level   = user.level || 1;
+  const level = user.level || 1;
   const initial = (user.username?.[0] || '?').toUpperCase();
 
   const isActive = (path) => location.pathname === path;

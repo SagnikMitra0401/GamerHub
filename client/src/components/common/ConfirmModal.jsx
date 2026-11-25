@@ -14,7 +14,7 @@ const FOCUSABLE = [
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])'
+  '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
 let bodyLockCount = 0;
@@ -44,7 +44,7 @@ const ConfirmModal = ({
   cancelText = 'Cancel',
   isDanger = false,
   busy = false,
-  confirmDisabled = false
+  confirmDisabled = false,
 }) => {
   const titleId = useId();
   const messageId = useId();
@@ -94,9 +94,10 @@ const ConfirmModal = ({
 
     document.addEventListener('keydown', onKeyDown, true);
     const focusTimer = window.setTimeout(() => {
-      const preferred = confirmRef.current && !confirmRef.current.disabled
-        ? confirmRef.current
-        : dialogRef.current?.querySelector(FOCUSABLE);
+      const preferred =
+        confirmRef.current && !confirmRef.current.disabled
+          ? confirmRef.current
+          : dialogRef.current?.querySelector(FOCUSABLE);
       preferred?.focus();
     }, 0);
 
@@ -132,8 +133,14 @@ const ConfirmModal = ({
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="modal-title confirm-modal-title">{title}</h2>
-        {message && <p id={messageId} className="confirm-modal-message">{message}</p>}
+        <h2 id={titleId} className="modal-title confirm-modal-title">
+          {title}
+        </h2>
+        {message && (
+          <p id={messageId} className="confirm-modal-message">
+            {message}
+          </p>
+        )}
         {children && <div className="confirm-modal-body">{children}</div>}
         <div className="modal-footer confirm-modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>
@@ -151,7 +158,7 @@ const ConfirmModal = ({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

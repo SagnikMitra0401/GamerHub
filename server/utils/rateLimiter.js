@@ -40,7 +40,7 @@ function createSlidingWindowLimiter({ windowMs, max, maxKeys = 20000 }) {
         return {
           allowed: false,
           remaining: 0,
-          retryAfterMs: Math.max(0, windowMs - (now - hits[0]))
+          retryAfterMs: Math.max(0, windowMs - (now - hits[0])),
         };
       }
       hits.push(now);
@@ -48,7 +48,7 @@ function createSlidingWindowLimiter({ windowMs, max, maxKeys = 20000 }) {
     },
     reset() {
       buckets.clear();
-    }
+    },
   };
 }
 
@@ -91,7 +91,7 @@ function createRecentEventTracker({ maxAgeMs, maxKeys = 20000 }) {
     },
     reset() {
       map.clear();
-    }
+    },
   };
 }
 

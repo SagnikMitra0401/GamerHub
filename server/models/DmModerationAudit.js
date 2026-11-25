@@ -11,21 +11,21 @@ const DmModerationAuditSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'DmReport',
       required: true,
-      index: true
+      index: true,
     },
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true
+      required: true,
     },
     status: {
       type: String,
       enum: ['reviewed', 'actioned', 'dismissed'],
-      required: true
+      required: true,
     },
-    note: { type: String, default: '', maxlength: 500 }
+    note: { type: String, default: '', maxlength: 500 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 DmModerationAuditSchema.index({ reportId: 1, createdAt: -1 });

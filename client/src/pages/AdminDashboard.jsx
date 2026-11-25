@@ -13,13 +13,12 @@ const ADMIN_TABS = [
   { key: 'content', label: 'Content' },
   { key: 'catalog', label: 'Catalog' },
   { key: 'audit', label: 'Audit' },
-  { key: 'storage', label: 'Storage' }
+  { key: 'storage', label: 'Storage' },
 ];
 const STAFF_TABS = ['moderation', 'content', 'audit'];
 
-const tabsForRole = (role) => (
-  role === 'admin' ? ADMIN_TABS : ADMIN_TABS.filter((entry) => STAFF_TABS.includes(entry.key))
-);
+const tabsForRole = (role) =>
+  role === 'admin' ? ADMIN_TABS : ADMIN_TABS.filter((entry) => STAFF_TABS.includes(entry.key));
 
 const formatUptime = (seconds) => {
   if (!Number.isFinite(seconds)) return '—';
@@ -139,7 +138,7 @@ const AdminDashboard = () => {
   const loadVerifications = useCallback(async () => {
     try {
       const { data: payload } = await axiosInstance.get(
-        `/admin/business-verifications?status=${verificationFilter}`
+        `/admin/business-verifications?status=${verificationFilter}`,
       );
       setVerifications(Array.isArray(payload.items) ? payload.items : []);
       setVerificationsError('');
@@ -154,7 +153,7 @@ const AdminDashboard = () => {
     try {
       await axiosInstance.post(`/admin/business-verifications/${profileId}/resolve`, {
         status,
-        note: (verificationNotes[profileId] || '').trim()
+        note: (verificationNotes[profileId] || '').trim(),
       });
       await loadVerifications();
     } catch (err) {
@@ -176,7 +175,7 @@ const AdminDashboard = () => {
     try {
       await axiosInstance.post(`/admin/business-verifications/${profileId}/contact`, {
         message,
-        channel
+        channel,
       });
       await loadVerifications();
     } catch (err) {
@@ -213,7 +212,10 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     // Overview data is admin-only and only needed while its tab is visible.
-    if (user?.role !== 'admin' || tab !== 'overview') { setLoading(false); return undefined; }
+    if (user?.role !== 'admin' || tab !== 'overview') {
+      setLoading(false);
+      return undefined;
+    }
     refreshAll();
     const timer = setInterval(refreshAll, 30_000);
     return () => clearInterval(timer);
@@ -225,7 +227,9 @@ const AdminDashboard = () => {
         <div className="container">
           <div className="post-list-empty">
             <h3>Sign in required</h3>
-            <p><Link to="/login">Log in</Link> with an administrator account.</p>
+            <p>
+              <Link to="/login">Log in</Link> with an administrator account.
+            </p>
           </div>
         </div>
       </main>
@@ -313,14 +317,20 @@ const AdminDashboard = () => {
                         {key.required && <em className="key-req">required</em>}
                       </span>
                       <span className="key-usage">{key.usedBy}</span>
-                      <span className={`key-state ${key.configured ? 'ok' : key.required ? 'bad' : 'muted'}`}>
-                        {key.configured ? (key.strength === 'short' ? 'set (short)' : 'set') : 'not set'}
+                      <span
+                        className={`key-state ${key.configured ? 'ok' : key.required ? 'bad' : 'muted'}`}
+                      >
+                        {key.configured
+                          ? key.strength === 'short'
+                            ? 'set (short)'
+                            : 'set'
+                          : 'not set'}
                       </span>
                     </li>
                   ))}
                 </ul>
 
-                {(security?.secretIsolation?.missingRequired?.length > 0) && (
+                {security?.secretIsolation?.missingRequired?.length > 0 && (
                   <p className="admin-warn">
                     Missing required secrets: {security.secretIsolation.missingRequired.join(', ')}
                   </p>
@@ -335,7 +345,8 @@ const AdminDashboard = () => {
                     : security?.clientBundle?.reason || 'not scanned'}
                 </p>
                 <p className="admin-note">
-                  Secrets are read only by the backend from environment variables. This page never shows their values.
+                  Secrets are read only by the backend from environment variables. This page never
+                  shows their values.
                 </p>
               </div>
 
@@ -348,10 +359,22 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="admin-stats">
-                  <Stat label="Uptime" value={formatUptime(health?.uptimeSeconds)} hint={`node ${health?.node || ''}`} />
+                  <Stat
+                    label="Uptime"
+                    value={formatUptime(health?.uptimeSeconds)}
+                    hint={`node ${health?.node || ''}`}
+                  />
                   <Stat label="Requests" value={traffic?.totalRequests ?? 0} hint="since boot" />
-                  <Stat label="Avg latency" value={`${traffic?.avgLatencyMs ?? 0} ms`} hint={`p95 ${traffic?.p95LatencyMs ?? 0} ms`} />
-                  <Stat label="Server errors" value={traffic?.serverErrors ?? 0} hint={`${traffic?.samples ?? 0} samples`} />
+                  <Stat
+                    label="Avg latency"
+                    value={`${traffic?.avgLatencyMs ?? 0} ms`}
+                    hint={`p95 ${traffic?.p95LatencyMs ?? 0} ms`}
+                  />
+                  <Stat
+                    label="Server errors"
+                    value={traffic?.serverErrors ?? 0}
+                    hint={`${traffic?.samples ?? 0} samples`}
+                  />
                 </div>
 
                 <div className="admin-services">
@@ -363,7 +386,8 @@ const AdminDashboard = () => {
                   </div>
                   {youtube?.configured && (
                     <p className="admin-note">
-                      {youtube.cacheBackend || 'memory'} cache · {youtube.estimatedQuotaUnitsPerSync} quota units per sync
+                      {youtube.cacheBackend || 'memory'} cache ·{' '}
+                      {youtube.estimatedQuotaUnitsPerSync} quota units per sync
                       {youtube.lastSync && ` · last: ${youtube.lastSync.message}`}
                     </p>
                   )}
@@ -375,7 +399,9 @@ const AdminDashboard = () => {
                   </div>
                   <div className="service-row">
                     <span>{health?.services?.gameCatalog?.provider} catalog</span>
-                    <span className="ok">{health?.services?.gameCatalog?.cacheMinutes} min cache</span>
+                    <span className="ok">
+                      {health?.services?.gameCatalog?.cacheMinutes} min cache
+                    </span>
                   </div>
                 </div>
 
@@ -406,7 +432,9 @@ const AdminDashboard = () => {
                   </div>
                   <div className="service-row">
                     <span>Product event retention</span>
-                    <span className="muted">{observability?.productEventRetentionDays ?? 180} days</span>
+                    <span className="muted">
+                      {observability?.productEventRetentionDays ?? 180} days
+                    </span>
                   </div>
                 </div>
 
@@ -415,7 +443,10 @@ const AdminDashboard = () => {
                     <h3 className="admin-subhead">Rate-limit hits</h3>
                     <table className="admin-table">
                       <thead>
-                        <tr><th>Limiter</th><th>Hits</th></tr>
+                        <tr>
+                          <th>Limiter</th>
+                          <th>Hits</th>
+                        </tr>
                       </thead>
                       <tbody>
                         {traffic.rateLimits.map((entry) => (
@@ -432,7 +463,12 @@ const AdminDashboard = () => {
                 {traffic?.topRoutes?.length > 0 && (
                   <table className="admin-table">
                     <thead>
-                      <tr><th>Route</th><th>Hits</th><th>Avg</th><th>Max</th></tr>
+                      <tr>
+                        <th>Route</th>
+                        <th>Hits</th>
+                        <th>Avg</th>
+                        <th>Max</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {traffic.topRoutes.map((route) => (
@@ -461,15 +497,20 @@ const AdminDashboard = () => {
               {funnel && (
                 <>
                   <p className="admin-note">
-                    Distinct accounts per step. Day-7 is a cohort approximation from event timestamps,
-                    not a warehouse-grade retention calculation.
+                    Distinct accounts per step. Day-7 is a cohort approximation from event
+                    timestamps, not a warehouse-grade retention calculation.
                   </p>
                   {funnelSteps.length === 0 ? (
                     <p className="admin-note">No activation events in this window.</p>
                   ) : (
                     <table className="admin-table">
                       <thead>
-                        <tr><th>Step</th><th>Users</th><th>From previous</th><th>From signup</th></tr>
+                        <tr>
+                          <th>Step</th>
+                          <th>Users</th>
+                          <th>From previous</th>
+                          <th>From signup</th>
+                        </tr>
                       </thead>
                       <tbody>
                         {funnelSteps.map((step) => (
@@ -477,11 +518,16 @@ const AdminDashboard = () => {
                             <td>
                               {step.label}
                               {step.eligibleUsers !== undefined && (
-                                <span className="admin-stat-hint"> · {step.eligibleUsers} eligible</span>
+                                <span className="admin-stat-hint">
+                                  {' '}
+                                  · {step.eligibleUsers} eligible
+                                </span>
                               )}
                             </td>
                             <td>{step.users}</td>
-                            <td>{step.rateFromPrevious === null ? '—' : `${step.rateFromPrevious}%`}</td>
+                            <td>
+                              {step.rateFromPrevious === null ? '—' : `${step.rateFromPrevious}%`}
+                            </td>
                             <td>{step.rateFromSignup}%</td>
                           </tr>
                         ))}
@@ -489,8 +535,9 @@ const AdminDashboard = () => {
                     </table>
                   )}
                   <p className="admin-note">
-                    {funnel.skippedOnboarding ?? 0} account{(funnel.skippedOnboarding ?? 0) === 1 ? '' : 's'} skipped onboarding ·{' '}
-                    Day-7: {funnelDay7.returned} of {funnelDay7.cohort} eligible ({funnelDay7.rate}%).
+                    {funnel.skippedOnboarding ?? 0} account
+                    {(funnel.skippedOnboarding ?? 0) === 1 ? '' : 's'} skipped onboarding · Day-7:{' '}
+                    {funnelDay7.returned} of {funnelDay7.cohort} eligible ({funnelDay7.rate}%).
                   </p>
                 </>
               )}
@@ -547,7 +594,8 @@ const AdminDashboard = () => {
                           {report.messages?.length > 0 && (
                             <details>
                               <summary>
-                                {report.messages.length} reported message{report.messages.length === 1 ? '' : 's'}
+                                {report.messages.length} reported message
+                                {report.messages.length === 1 ? '' : 's'}
                               </summary>
                               {report.messages.map((message) => (
                                 <p key={message._id}>{message.text}</p>
@@ -626,15 +674,17 @@ const AdminDashboard = () => {
                         <td>@{item.user?.username || 'deleted'}</td>
                         <td>
                           <strong>{item.business?.displayName || 'Business'}</strong>
-                          <div className="admin-report-note">{item.business?.website || 'No website'}</div>
+                          <div className="admin-report-note">
+                            {item.business?.website || 'No website'}
+                          </div>
                           <details className="admin-report-note">
                             <summary>Proof and contact</summary>
                             <p>
                               Contact: {item.business?.contactMethod || 'email'}
                               {' — '}
                               {item.business?.contactMethod === 'email'
-                                ? (item.business?.contactEmail || 'no contact email')
-                                : (item.business?.contactDetail || 'no detail')}
+                                ? item.business?.contactEmail || 'no contact email'
+                                : item.business?.contactDetail || 'no detail'}
                             </p>
                             <p>
                               Proof: {item.business?.proofType || 'other'}
@@ -649,12 +699,14 @@ const AdminDashboard = () => {
                             </p>
                             {item.business?.proofNote && <p>{item.business.proofNote}</p>}
                             <p>
-                              Last contacted: {item.reviewContactedAt
+                              Last contacted:{' '}
+                              {item.reviewContactedAt
                                 ? formatTime(item.reviewContactedAt)
                                 : 'not yet'}
                             </p>
                             <p>
-                              Decision recorded: {item.business?.reviewDecidedAt
+                              Decision recorded:{' '}
+                              {item.business?.reviewDecidedAt
                                 ? formatTime(item.business.reviewDecidedAt)
                                 : 'not yet'}
                             </p>
@@ -691,13 +743,17 @@ const AdminDashboard = () => {
                           <select
                             className="form-input"
                             style={{ maxWidth: 160, marginBottom: 8 }}
-                            value={verificationChannels[item._id]
-                              || item.business?.contactMethod
-                              || 'email'}
-                            onChange={(event) => setVerificationChannels((previous) => ({
-                              ...previous,
-                              [item._id]: event.target.value
-                            }))}
+                            value={
+                              verificationChannels[item._id] ||
+                              item.business?.contactMethod ||
+                              'email'
+                            }
+                            onChange={(event) =>
+                              setVerificationChannels((previous) => ({
+                                ...previous,
+                                [item._id]: event.target.value,
+                              }))
+                            }
                             aria-label={`Contact channel for ${item.business?.displayName || 'business'}`}
                           >
                             <option value="email">Email</option>
@@ -708,10 +764,12 @@ const AdminDashboard = () => {
                             className="form-input"
                             style={{ minWidth: 180, marginBottom: 8 }}
                             value={verificationNotes[item._id] || ''}
-                            onChange={(event) => setVerificationNotes((previous) => ({
-                              ...previous,
-                              [item._id]: event.target.value
-                            }))}
+                            onChange={(event) =>
+                              setVerificationNotes((previous) => ({
+                                ...previous,
+                                [item._id]: event.target.value,
+                              }))
+                            }
                             placeholder="Message or decision note"
                             aria-label={`Review note for ${item.business?.displayName || 'business'}`}
                           />
@@ -719,17 +777,24 @@ const AdminDashboard = () => {
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
-                              onClick={() => contactVerification(item._id, item.business?.contactMethod)}
-                              disabled={verificationBusy === item._id || !(verificationNotes[item._id] || '').trim()}
-                              title={(verificationChannels[item._id]
-                                || item.business?.contactMethod
-                                || 'email') === 'email'
-                                ? 'Send this message to the official contact by email'
-                                : 'Record a contact you already made by phone or another method; no email is sent'}
+                              onClick={() =>
+                                contactVerification(item._id, item.business?.contactMethod)
+                              }
+                              disabled={
+                                verificationBusy === item._id ||
+                                !(verificationNotes[item._id] || '').trim()
+                              }
+                              title={
+                                (verificationChannels[item._id] ||
+                                  item.business?.contactMethod ||
+                                  'email') === 'email'
+                                  ? 'Send this message to the official contact by email'
+                                  : 'Record a contact you already made by phone or another method; no email is sent'
+                              }
                             >
-                              {(verificationChannels[item._id]
-                                || item.business?.contactMethod
-                                || 'email') === 'email'
+                              {(verificationChannels[item._id] ||
+                                item.business?.contactMethod ||
+                                'email') === 'email'
                                 ? 'Email contact'
                                 : 'Record contact'}
                             </button>
@@ -747,42 +812,47 @@ const AdminDashboard = () => {
                               onClick={() => resolveVerification(item._id, 'verified')}
                               disabled={verificationBusy === item._id}
                             >
-                              {item.business?.verificationStatus === 'verified' ? 'Clear pause' : 'Verify'}
+                              {item.business?.verificationStatus === 'verified'
+                                ? 'Clear pause'
+                                : 'Verify'}
                             </button>
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
                               onClick={() => demoteVerification(item._id)}
                               disabled={
-                                verificationBusy === item._id
-                                || !item.demotion?.canDemote
-                                || (verificationNotes[item._id] || '').trim().length < 5
+                                verificationBusy === item._id ||
+                                !item.demotion?.canDemote ||
+                                (verificationNotes[item._id] || '').trim().length < 5
                               }
-                              title={item.demotion?.canDemote
-                                ? (verificationNotes[item._id] || '').trim().length >= 5
-                                  ? 'Return the account to a personal profile'
-                                  : 'Write the demotion reason first'
-                                : item.demotion?.code === 'BUSINESS_RESPONSE_WINDOW'
-                                  ? `Contact logged. Demote opens ${formatTime(item.demotion.earliestDemotionAt)}.`
-                                  : item.demotion?.reason || 'Contact the business first'}
+                              title={
+                                item.demotion?.canDemote
+                                  ? (verificationNotes[item._id] || '').trim().length >= 5
+                                    ? 'Return the account to a personal profile'
+                                    : 'Write the demotion reason first'
+                                  : item.demotion?.code === 'BUSINESS_RESPONSE_WINDOW'
+                                    ? `Contact logged. Demote opens ${formatTime(item.demotion.earliestDemotionAt)}.`
+                                    : item.demotion?.reason || 'Contact the business first'
+                              }
                             >
                               Demote
                             </button>
                           </div>
-                          {!item.demotion?.canDemote
-                            && (item.reviewContactedAt || item.business?.verificationStatus === 'pending') && (
-                            <p className="admin-note">
-                              {item.demotion?.code === 'BUSINESS_RESPONSE_WINDOW'
-                                ? `Contact logged. Demote opens ${formatTime(item.demotion.earliestDemotionAt)}${item.demotion.daysRemaining
-                                  ? ` (${item.demotion.daysRemaining} day${item.demotion.daysRemaining === 1 ? '' : 's'} left)`
-                                  : ''}.`
-                                : item.demotion?.reason || 'Contact the business first.'}
-                            </p>
-                          )}
+                          {!item.demotion?.canDemote &&
+                            (item.reviewContactedAt ||
+                              item.business?.verificationStatus === 'pending') && (
+                              <p className="admin-note">
+                                {item.demotion?.code === 'BUSINESS_RESPONSE_WINDOW'
+                                  ? `Contact logged. Demote opens ${formatTime(item.demotion.earliestDemotionAt)}${
+                                      item.demotion.daysRemaining
+                                        ? ` (${item.demotion.daysRemaining} day${item.demotion.daysRemaining === 1 ? '' : 's'} left)`
+                                        : ''
+                                    }.`
+                                  : item.demotion?.reason || 'Contact the business first.'}
+                              </p>
+                            )}
                           {item.demotion?.canDemote && item.business?.reviewRespondedAt && (
-                            <p className="admin-note">
-                              Read the response above before deciding.
-                            </p>
+                            <p className="admin-note">Read the response above before deciding.</p>
                           )}
                         </td>
                       </tr>

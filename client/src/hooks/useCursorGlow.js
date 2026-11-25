@@ -46,7 +46,10 @@ export default function useCursorGlow(selector = '.glow-card') {
     };
 
     const onLeave = () => {
-      if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
       pending = null;
     };
 

@@ -21,10 +21,15 @@ const { eraseAccount } = require('../utils/accountErasure');
 const { clearAuthCookie } = require('./authController');
 const { badRequest, notFound, conflict, forbidden } = require('../utils/httpError');
 const { idOf } = require('../utils/privacy');
-const { normalizeDmSettings, sanitizeDmSettingsPatch, REQUEST_LIMITS, DAY_MS } = require('../utils/dmPolicy');
+const {
+  normalizeDmSettings,
+  sanitizeDmSettingsPatch,
+  REQUEST_LIMITS,
+  DAY_MS,
+} = require('../utils/dmPolicy');
 const {
   normalizeNotificationSettings,
-  sanitizeNotificationSettingsPatch
+  sanitizeNotificationSettingsPatch,
 } = require('../utils/notificationPreferences');
 const { ownerBusinessProfile } = require('../utils/business');
 const { disconnectUser, getIO, setUserFrozenState } = require('../config/socket');
@@ -41,8 +46,8 @@ const getAccount = async (req, res, next) => {
     const user = await User.findById(req.user._id)
       .select(
         'username email emailVerifiedAt profileType status privacySettings dmSettings notificationSettings ' +
-        'blockedUsers deletionRequestedAt createdAt authIdentities hasLocalPassword frozenAt feedResetAt ' +
-        'preferences favoriteChannels recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt'
+          'blockedUsers deletionRequestedAt createdAt authIdentities hasLocalPassword frozenAt feedResetAt ' +
+          'preferences favoriteChannels recoveryEmail recoveryEmailVerifiedAt recoveryEligibleAt',
       )
       .lean();
     if (!user) throw notFound('User not found');
@@ -51,7 +56,7 @@ const getAccount = async (req, res, next) => {
       User.find({ _id: { $in: user.blockedUsers || [] } })
         .select('username level')
         .lean(),
-      BusinessProfile.findOne({ userId: user._id }).lean()
+      BusinessProfile.findOne({ userId: user._id }).lean(),
     ]);
 
     res.status(200).json({
@@ -75,13 +80,17 @@ const getAccount = async (req, res, next) => {
       notificationSettings: normalizeNotificationSettings(user.notificationSettings),
       deletionRequestedAt: user.deletionRequestedAt,
       deletionGraceDays: DELETION_GRACE_DAYS,
-      blockedUsers: blocked.map((u) => ({ _id: String(u._id), username: u.username, level: u.level })),
+      blockedUsers: blocked.map((u) => ({
+        _id: String(u._id),
+        username: u.username,
+        level: u.level,
+      })),
       feedSignals: {
         favoriteGames: (user.preferences?.favoriteGames || []).length,
         favoriteGenres: (user.preferences?.favoriteGenres || []).length,
         favoriteChannels: (user.favoriteChannels || []).length,
-        platforms: user.preferences?.platforms || []
-      }
+        platforms: user.preferences?.platforms || [],
+      },
     });
   } catch (err) {
     next(err);
@@ -131,7 +140,7 @@ const updateDmSettings = async (req, res, next) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: update },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .select('dmSettings')
       .lean();
@@ -155,17 +164,19 @@ const updateNotificationSettings = async (req, res, next) => {
     if (!parsed.ok) throw badRequest(parsed.errors[0]);
 
     const update = Object.fromEntries(
-      Object.entries(parsed.value).map(([key, value]) => [`notificationSettings.${key}`, value])
+      Object.entries(parsed.value).map(([key, value]) => [`notificationSettings.${key}`, value]),
     );
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: update },
-      { new: true, runValidators: true, select: 'notificationSettings' }
+      { new: true, runValidators: true, select: 'notificationSettings' },
     ).lean();
     if (!user) throw notFound('User not found');
 
-    res.status(200).json({ notificationSettings: normalizeNotificationSettings(user.notificationSettings) });
+    res
+      .status(200)
+      .json({ notificationSettings: normalizeNotificationSettings(user.notificationSettings) });
   } catch (err) {
     next(err);
   }
@@ -198,7 +209,7 @@ const changeUsername = async (req, res, next) => {
       updated = await User.findByIdAndUpdate(
         req.user._id,
         { $set: { username: parsed.value } },
-        { new: true, runValidators: true, projection: { username: 1 } }
+        { new: true, runValidators: true, projection: { username: 1 } },
       ).lean();
     } catch (err) {
       // The unique index is the final arbiter under a race.
@@ -209,11 +220,14 @@ const changeUsername = async (req, res, next) => {
     // Snapshots exist because squad chat lives on its own connection and cannot
     // populate the identity model. A rename must not leave stale names there.
     await Promise.all([
-      SquadChat.updateMany({ ownerUserId: req.user._id }, { $set: { ownerUsername: updated.username } }),
+      SquadChat.updateMany(
+        { ownerUserId: req.user._id },
+        { $set: { ownerUsername: updated.username } },
+      ),
       SquadChatMessage.updateMany(
         { authorUserId: req.user._id },
-        { $set: { authorUsername: updated.username } }
-      )
+        { $set: { authorUsername: updated.username } },
+      ),
     ]);
 
     res.status(200).json({ username: updated.username });
@@ -231,15 +245,13 @@ const changeUsername = async (req, res, next) => {
  */
 const resetFeedRecommendations = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
-      .select('preferences favoriteChannels')
-      .lean();
+    const user = await User.findById(req.user._id).select('preferences favoriteChannels').lean();
     if (!user) throw notFound('User not found');
 
     const cleared = {
       favoriteGames: (user.preferences?.favoriteGames || []).length,
       favoriteGenres: (user.preferences?.favoriteGenres || []).length,
-      favoriteChannels: (user.favoriteChannels || []).length
+      favoriteChannels: (user.favoriteChannels || []).length,
     };
     const resetAt = new Date();
 
@@ -250,15 +262,15 @@ const resetFeedRecommendations = async (req, res, next) => {
           'preferences.favoriteGames': [],
           'preferences.favoriteGenres': [],
           favoriteChannels: [],
-          feedResetAt: resetAt
-        }
-      }
+          feedResetAt: resetAt,
+        },
+      },
     );
 
     res.status(200).json({
       feedResetAt: resetAt,
       cleared,
-      kept: { platforms: user.preferences?.platforms || [] }
+      kept: { platforms: user.preferences?.platforms || [] },
     });
   } catch (err) {
     next(err);
@@ -327,20 +339,20 @@ const setFreeze = async (req, res, next) => {
             status: 'frozen',
             frozenAt: new Date(),
             'presence.status': 'offline',
-            'presence.activeGame': ''
-          }
+            'presence.activeGame': '',
+          },
         }
       : {
           $set: {
             status: 'active',
             frozenAt: null,
-            'presence.lastActive': new Date()
-          }
+            'presence.lastActive': new Date(),
+          },
         };
 
     const updated = await User.findByIdAndUpdate(req.user._id, update, {
       new: true,
-      select: 'status frozenAt'
+      select: 'status frozenAt',
     }).lean();
 
     // Live sockets keep the status they saw at handshake; flip it in place so
@@ -356,7 +368,7 @@ const setFreeze = async (req, res, next) => {
         userId: String(req.user._id),
         username: user.username,
         status: 'offline',
-        activeGame: ''
+        activeGame: '',
       });
     }
 
@@ -395,7 +407,7 @@ const deleteAccountNow = async (req, res, next) => {
 
     res.status(200).json({
       deleted: true,
-      succession: result.succession
+      succession: result.succession,
     });
   } catch (err) {
     next(err);
@@ -411,8 +423,12 @@ const updatePrivacySettings = async (req, res, next) => {
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { $set: Object.fromEntries(Object.entries(value).map(([k, v]) => [`privacySettings.${k}`, v])) },
-      { new: true, runValidators: true, select: 'privacySettings' }
+      {
+        $set: Object.fromEntries(
+          Object.entries(value).map(([k, v]) => [`privacySettings.${k}`, v]),
+        ),
+      },
+      { new: true, runValidators: true, select: 'privacySettings' },
     ).lean();
 
     res.status(200).json({ privacySettings: user.privacySettings });
@@ -435,11 +451,14 @@ const blockUser = async (req, res, next) => {
     // not keep appearing in a feed because of an old follow.
     await User.updateOne(
       { _id: req.user._id },
-      { $addToSet: { blockedUsers: target._id }, $pull: { following: target._id, followers: target._id } }
+      {
+        $addToSet: { blockedUsers: target._id },
+        $pull: { following: target._id, followers: target._id },
+      },
     );
     await User.updateOne(
       { _id: target._id },
-      { $pull: { followers: req.user._id, following: req.user._id } }
+      { $pull: { followers: req.user._id, following: req.user._id } },
     );
 
     // A block is also a conversation decision: stop delivery both ways and
@@ -447,16 +466,16 @@ const blockUser = async (req, res, next) => {
     await Conversation.updateMany(
       {
         participantIds: { $all: [req.user._id, target._id] },
-        state: { $in: ['request', 'active'] }
+        state: { $in: ['request', 'active'] },
       },
       {
         $set: {
           state: 'blocked',
           blockedBy: req.user._id,
           blockedAt: new Date(),
-          retryAfter: new Date(Date.now() + REQUEST_LIMITS.cooldownDays * DAY_MS)
-        }
-      }
+          retryAfter: new Date(Date.now() + REQUEST_LIMITS.cooldownDays * DAY_MS),
+        },
+      },
     );
 
     invalidateVisibility();
@@ -479,9 +498,9 @@ const unblockUser = async (req, res, next) => {
         $set: {
           state: 'declined',
           declinedAt: new Date(),
-          retryAfter: new Date(Date.now() + REQUEST_LIMITS.cooldownDays * DAY_MS)
-        }
-      }
+          retryAfter: new Date(Date.now() + REQUEST_LIMITS.cooldownDays * DAY_MS),
+        },
+      },
     );
     invalidateVisibility();
     res.status(200).json({ blocked: false, userId: targetId });
@@ -499,7 +518,7 @@ const listBlocked = async (req, res, next) => {
       .lean();
 
     res.status(200).json({
-      items: users.map((u) => ({ _id: String(u._id), username: u.username, level: u.level }))
+      items: users.map((u) => ({ _id: String(u._id), username: u.username, level: u.level })),
     });
   } catch (err) {
     next(err);
@@ -517,45 +536,59 @@ const exportData = async (req, res, next) => {
   try {
     const userId = req.user._id;
 
-    const [user, posts, comments, communities, parties, chats, messages, sentInvites, receivedInvites, notifications, productEvents] =
-      await Promise.all([
-        User.findById(userId).select('-passwordHash -__v').lean(),
-        Post.find({ userId }).select('title content tags createdAt updatedAt').limit(EXPORT_ROW_LIMIT).lean(),
-        Comment.find({ userId }).select('postId text createdAt').limit(EXPORT_ROW_LIMIT).lean(),
-        Community.find({ 'members.userId': userId })
-          .select('name slug members.$ createdAt')
-          .limit(200)
-          .lean(),
-        Party.find({ $or: [{ leaderId: userId }, { 'members.userId': userId }] })
-          .select('gameTitle activity status state maxSlots members createdAt')
-          .limit(500)
-          .lean(),
-        SquadChat.find({ $or: [{ ownerUserId: userId }, { memberIds: userId }] })
-          .select('squadId state expiresAt createdAt')
-          .limit(200)
-          .lean(),
-        SquadChatMessage.find({ authorUserId: userId })
-          .select('chatId squadId text createdAt isDeleted')
-          .limit(EXPORT_ROW_LIMIT)
-          .lean(),
-        Invitation.find({ inviterUserId: userId })
-          .select('recipientUserId targetType targetId status message createdAt')
-          .limit(500)
-          .lean(),
-        Invitation.find({ recipientUserId: userId })
-          .select('inviterUserId targetType targetId status message createdAt')
-          .limit(500)
-          .lean(),
-        Notification.find({ userId })
-          .select('type title message actionUrl createdAt read')
-          .limit(1000)
-          .lean(),
-        ProductEvent.find({ userId })
-          .select('name props createdAt')
-          .sort({ createdAt: -1 })
-          .limit(EXPORT_ROW_LIMIT)
-          .lean()
-      ]);
+    const [
+      user,
+      posts,
+      comments,
+      communities,
+      parties,
+      chats,
+      messages,
+      sentInvites,
+      receivedInvites,
+      notifications,
+      productEvents,
+    ] = await Promise.all([
+      User.findById(userId).select('-passwordHash -__v').lean(),
+      Post.find({ userId })
+        .select('title content tags createdAt updatedAt')
+        .limit(EXPORT_ROW_LIMIT)
+        .lean(),
+      Comment.find({ userId }).select('postId text createdAt').limit(EXPORT_ROW_LIMIT).lean(),
+      Community.find({ 'members.userId': userId })
+        .select('name slug members.$ createdAt')
+        .limit(200)
+        .lean(),
+      Party.find({ $or: [{ leaderId: userId }, { 'members.userId': userId }] })
+        .select('gameTitle activity status state maxSlots members createdAt')
+        .limit(500)
+        .lean(),
+      SquadChat.find({ $or: [{ ownerUserId: userId }, { memberIds: userId }] })
+        .select('squadId state expiresAt createdAt')
+        .limit(200)
+        .lean(),
+      SquadChatMessage.find({ authorUserId: userId })
+        .select('chatId squadId text createdAt isDeleted')
+        .limit(EXPORT_ROW_LIMIT)
+        .lean(),
+      Invitation.find({ inviterUserId: userId })
+        .select('recipientUserId targetType targetId status message createdAt')
+        .limit(500)
+        .lean(),
+      Invitation.find({ recipientUserId: userId })
+        .select('inviterUserId targetType targetId status message createdAt')
+        .limit(500)
+        .lean(),
+      Notification.find({ userId })
+        .select('type title message actionUrl createdAt read')
+        .limit(1000)
+        .lean(),
+      ProductEvent.find({ userId })
+        .select('name props createdAt')
+        .sort({ createdAt: -1 })
+        .limit(EXPORT_ROW_LIMIT)
+        .lean(),
+    ]);
 
     const blockedIds = (user?.blockedUsers || []).map(String);
     const blockedUsers = await User.find({ _id: { $in: blockedIds } })
@@ -579,7 +612,7 @@ const exportData = async (req, res, next) => {
         privacySettings: user?.privacySettings,
         notificationSettings: normalizeNotificationSettings(user?.notificationSettings),
         sessionVersion: user?.sessionVersion,
-        deletionRequestedAt: user?.deletionRequestedAt
+        deletionRequestedAt: user?.deletionRequestedAt,
       },
       social: {
         following: (user?.following || []).map(String),
@@ -588,14 +621,14 @@ const exportData = async (req, res, next) => {
         favouriteChannels: user?.favoriteChannels || [],
         blockedUsers: blockedUsers.map((u) => ({ id: String(u._id), username: u.username })),
         posts,
-        comments
+        comments,
       },
       communities: communities.map((community) => ({
         id: String(community._id),
         name: community.name,
         slug: community.slug,
         role: community.members?.[0]?.role || null,
-        joinedAt: community.members?.[0]?.joinedAt || null
+        joinedAt: community.members?.[0]?.joinedAt || null,
       })),
       squads: {
         parties: parties.map((party) => ({
@@ -605,26 +638,26 @@ const exportData = async (req, res, next) => {
           status: party.status,
           state: party.state,
           maxSlots: party.maxSlots,
-          createdAt: party.createdAt
+          createdAt: party.createdAt,
         })),
         chats: chats.map((chat) => ({
           id: String(chat._id),
           squadId: String(chat.squadId),
           state: chat.state,
           expiresAt: chat.expiresAt,
-          createdAt: chat.createdAt
+          createdAt: chat.createdAt,
         })),
-        messages
+        messages,
       },
       invitations: { sent: sentInvites, received: receivedInvites },
       notifications,
-      analytics: { productEvents }
+      analytics: { productEvents },
     };
 
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="gamerhub-export-${String(user?.username || 'account')}.json"`
+      `attachment; filename="gamerhub-export-${String(user?.username || 'account')}.json"`,
     );
     res.setHeader('Cache-Control', 'private, no-store');
     res.status(200).json(payload);
@@ -642,14 +675,16 @@ const exportData = async (req, res, next) => {
  */
 const requestDeletion = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).select('status deletionRequestedAt sessionVersion').lean();
+    const user = await User.findById(req.user._id)
+      .select('status deletionRequestedAt sessionVersion')
+      .lean();
     if (!user) throw notFound('User not found');
 
     if (user.status === 'deletion_pending' && user.deletionRequestedAt) {
       return res.status(200).json({
         status: 'deletion_pending',
         deletionRequestedAt: user.deletionRequestedAt,
-        graceDays: DELETION_GRACE_DAYS
+        graceDays: DELETION_GRACE_DAYS,
       });
     }
     if (user.status === 'deleted') throw conflict('This account has already been deleted');
@@ -658,9 +693,9 @@ const requestDeletion = async (req, res, next) => {
       req.user._id,
       {
         $set: { status: 'deletion_pending', deletionRequestedAt: new Date() },
-        $inc: { sessionVersion: 1 }
+        $inc: { sessionVersion: 1 },
       },
-      { new: true, select: 'status deletionRequestedAt' }
+      { new: true, select: 'status deletionRequestedAt' },
     ).lean();
 
     clearAuthCookie(res);
@@ -669,7 +704,7 @@ const requestDeletion = async (req, res, next) => {
     res.status(200).json({
       status: updated.status,
       deletionRequestedAt: updated.deletionRequestedAt,
-      graceDays: DELETION_GRACE_DAYS
+      graceDays: DELETION_GRACE_DAYS,
     });
   } catch (err) {
     next(err);
@@ -679,14 +714,16 @@ const requestDeletion = async (req, res, next) => {
 /** POST /api/account/deletion-cancel — change of mind inside the grace period. */
 const cancelDeletion = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).select('status deletionRequestedAt sessionVersion').lean();
+    const user = await User.findById(req.user._id)
+      .select('status deletionRequestedAt sessionVersion')
+      .lean();
     if (!user) throw notFound('User not found');
     if (user.status === 'deleted') throw conflict('This account has already been deleted');
 
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       { $set: { status: 'active', deletionRequestedAt: null } },
-      { new: true, select: 'status sessionVersion' }
+      { new: true, select: 'status sessionVersion' },
     ).lean();
 
     // The deletion request invalidated the old cookie; issue a fresh one so the
@@ -715,5 +752,5 @@ module.exports = {
   exportData,
   requestDeletion,
   cancelDeletion,
-  idOf
+  idOf,
 };

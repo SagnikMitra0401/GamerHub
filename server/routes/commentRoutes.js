@@ -3,7 +3,10 @@ const Comment = require('../models/Comment');
 const { protect, activeOnly } = require('../middleware/auth');
 const { checkOwnership } = require('../middleware/ownership');
 const {
-  createComment, getCommentsForPost, updateComment, deleteComment
+  createComment,
+  getCommentsForPost,
+  updateComment,
+  deleteComment,
 } = require('../controllers/commentController');
 
 const router = express.Router({ mergeParams: true }); // mounted at /api/posts/:postId/comments

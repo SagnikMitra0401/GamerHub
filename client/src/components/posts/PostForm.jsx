@@ -4,82 +4,95 @@ import ConfirmModal from '../common/ConfirmModal';
 import LinkPreviewCard from './LinkPreviewCard';
 import { CloseIcon } from '../common/icons';
 
-const COMMON_TAGS = ['FPS', 'RPG', 'MOBA', 'Battle Royale', 'Strategy', 'Sports', 'Horror', 'Co-op'];
+const COMMON_TAGS = [
+  'FPS',
+  'RPG',
+  'MOBA',
+  'Battle Royale',
+  'Strategy',
+  'Sports',
+  'Horror',
+  'Co-op',
+];
 
 // Detect any URL (with or without https://) in a block of text
 const URL_PATTERN = /(?:https?:\/\/|www\.)[^\s"'<>]+|(?<!\w)[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\/[^\s]*/i;
 
 /** Read a local file's duration without uploading it. */
-const readVideoDuration = (file) => new Promise((resolve) => {
-  const url = URL.createObjectURL(file);
-  const probe = document.createElement('video');
-  const finish = (value) => {
-    URL.revokeObjectURL(url);
-    probe.removeAttribute('src');
-    resolve(value);
-  };
-  probe.preload = 'metadata';
-  probe.onloadedmetadata = () => finish(Number.isFinite(probe.duration) ? probe.duration : 0);
-  probe.onerror = () => finish(0);
-  probe.src = url;
-});
+const readVideoDuration = (file) =>
+  new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const probe = document.createElement('video');
+    const finish = (value) => {
+      URL.revokeObjectURL(url);
+      probe.removeAttribute('src');
+      resolve(value);
+    };
+    probe.preload = 'metadata';
+    probe.onloadedmetadata = () => finish(Number.isFinite(probe.duration) ? probe.duration : 0);
+    probe.onerror = () => finish(0);
+    probe.src = url;
+  });
 
 const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }) => {
   const editing = !!initialData;
 
   const [form, setForm] = useState({
-    title:   initialData?.title   || '',
+    title: initialData?.title || '',
     // A prefilled opener (for example a shared server invite) is still a new post.
     content: initialData?.content || draftContent || '',
-    tags:    initialData?.tags?.join(', ') || ''
+    tags: initialData?.tags?.join(', ') || '',
   });
-  const [file, setFile]               = useState(null);
+  const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState('');
-  const [error, setError]             = useState('');
-  const [loading, setLoading]         = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Link-preview states
-  const [linkPreview, setLinkPreview]       = useState(null);   // scraped preview object
-  const [previewLoading, setPreviewLoading] = useState(false);   // spinner in form
+  const [linkPreview, setLinkPreview] = useState(null); // scraped preview object
+  const [previewLoading, setPreviewLoading] = useState(false); // spinner in form
   const [previewDismissed, setPreviewDismissed] = useState(false); // user hid it
-  const [lastScrapedUrl, setLastScrapedUrl] = useState('');      // avoid re-fetching same url
+  const [lastScrapedUrl, setLastScrapedUrl] = useState(''); // avoid re-fetching same url
   const debounceRef = useRef(null);
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   // ── Live preview detection ──────────────────────────────────────────────────
-  const fetchPreview = useCallback(async (text) => {
-    const match = text.match(URL_PATTERN);
-    if (!match) {
+  const fetchPreview = useCallback(
+    async (text) => {
+      const match = text.match(URL_PATTERN);
+      if (!match) {
+        setLinkPreview(null);
+        setLastScrapedUrl('');
+        return;
+      }
+
+      let raw = match[0];
+      // Normalise: add https:// if missing
+      if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+
+      // Avoid re-fetching the same URL
+      if (raw === lastScrapedUrl) return;
+
+      setLastScrapedUrl(raw);
+      setPreviewDismissed(false);
+      setPreviewLoading(true);
       setLinkPreview(null);
-      setLastScrapedUrl('');
-      return;
-    }
 
-    let raw = match[0];
-    // Normalise: add https:// if missing
-    if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
-
-    // Avoid re-fetching the same URL
-    if (raw === lastScrapedUrl) return;
-
-    setLastScrapedUrl(raw);
-    setPreviewDismissed(false);
-    setPreviewLoading(true);
-    setLinkPreview(null);
-
-    try {
-      const { data } = await axiosInstance.get(`/posts/preview?url=${encodeURIComponent(raw)}`);
-      setLinkPreview(data);
-    } catch {
-      setLinkPreview(null); // fail silently — don't block composing
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, [lastScrapedUrl]);
+      try {
+        const { data } = await axiosInstance.get(`/posts/preview?url=${encodeURIComponent(raw)}`);
+        setLinkPreview(data);
+      } catch {
+        setLinkPreview(null); // fail silently — don't block composing
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [lastScrapedUrl],
+  );
 
   // Debounce: trigger 600ms after the user stops typing
   useEffect(() => {
@@ -94,10 +107,14 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
 
   // ── Dirty check ─────────────────────────────────────────────────────────────
   const isDirty = () => {
-    const titleChanged   = form.title.trim()   !== (initialData?.title   || '');
+    const titleChanged = form.title.trim() !== (initialData?.title || '');
     const contentChanged = form.content.trim() !== (initialData?.content || '');
-    const tagsChanged    = form.tags.split(',').map(t => t.trim()).filter(Boolean).join(',') !==
-                           (initialData?.tags || []).join(',');
+    const tagsChanged =
+      form.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .join(',') !== (initialData?.tags || []).join(',');
     return titleChanged || contentChanged || tagsChanged || !!file;
   };
 
@@ -107,7 +124,7 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
   };
 
   // ── File selection ──────────────────────────────────────────────────────────
-  const handleFileChange = e => {
+  const handleFileChange = (e) => {
     setError('');
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
@@ -131,30 +148,36 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
 
   const clearFile = () => {
     setFile(null);
-    if (filePreview) { URL.revokeObjectURL(filePreview); setFilePreview(''); }
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview);
+      setFilePreview('');
+    }
   };
 
   // ── Submit ──────────────────────────────────────────────────────────────────
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const tagsArray = form.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const tagsArray = form.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
 
       if (editing) {
         const { data } = await axiosInstance.put(`/posts/${initialData._id}`, {
-          title:   form.title.trim(),
+          title: form.title.trim(),
           content: form.content.trim(),
-          tags:    tagsArray,
+          tags: tagsArray,
         });
         onSuccess(data);
       } else {
         const formData = new FormData();
-        formData.append('title',   form.title.trim());
+        formData.append('title', form.title.trim());
         formData.append('content', form.content.trim());
-        formData.append('tags',    JSON.stringify(tagsArray));
+        formData.append('tags', JSON.stringify(tagsArray));
         if (file) {
           formData.append('media', file);
           // The browser is the only place the duration is known; the server
@@ -183,10 +206,17 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
     }
   };
 
-  const addTag = tag => {
-    const key = value => value.toLowerCase().replace(/^#+/, '').replace(/[^a-z0-9]+/g, '');
-    const existing = form.tags.split(',').map(t => t.trim()).filter(Boolean);
-    if (!existing.some(t => key(t) === key(tag))) {
+  const addTag = (tag) => {
+    const key = (value) =>
+      value
+        .toLowerCase()
+        .replace(/^#+/, '')
+        .replace(/[^a-z0-9]+/g, '');
+    const existing = form.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (!existing.some((t) => key(t) === key(tag))) {
       setForm({ ...form, tags: [...existing, tag].join(', ') });
     }
   };
@@ -201,7 +231,9 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
       <form onSubmit={handleSubmit}>
         {/* Title */}
         <div className="form-group">
-          <label className="form-label" htmlFor="post-title">Title</label>
+          <label className="form-label" htmlFor="post-title">
+            Title
+          </label>
           <input
             id="post-title"
             className="form-input"
@@ -215,7 +247,9 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
 
         {/* Description */}
         <div className="form-group">
-          <label className="form-label" htmlFor="post-content">Description (Optional)</label>
+          <label className="form-label" htmlFor="post-content">
+            Description (Optional)
+          </label>
           <textarea
             id="post-content"
             className="form-textarea"
@@ -261,7 +295,10 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
             {!previewLoading && linkPreview && (
               <LinkPreviewCard
                 preview={linkPreview}
-                onDismiss={() => { setPreviewDismissed(true); setLinkPreview(null); }}
+                onDismiss={() => {
+                  setPreviewDismissed(true);
+                  setLinkPreview(null);
+                }}
                 clickable={false}
               />
             )}
@@ -273,7 +310,10 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">Upload Clip / Image</label>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <label className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+              <label
+                className="btn btn-ghost btn-sm"
+                style={{ display: 'inline-flex', cursor: 'pointer' }}
+              >
                 Select File
                 <input
                   type="file"
@@ -294,16 +334,44 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
                   className="btn btn-sm btn-danger"
                   onClick={clearFile}
                   style={{
-                    position: 'absolute', top: '8px', right: '8px', zIndex: 10,
-                    borderRadius: '50%', width: '28px', height: '28px', padding: 0,
-                    minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    zIndex: 10,
+                    borderRadius: '50%',
+                    width: '28px',
+                    height: '28px',
+                    padding: 0,
+                    minWidth: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                   title="Remove media"
-                ><CloseIcon size={14} /></button>
+                >
+                  <CloseIcon size={14} />
+                </button>
                 {file.type.startsWith('video/') ? (
-                  <video src={filePreview} controls style={{ maxHeight: '200px', maxWidth: '100%', borderRadius: 'var(--radius-sm)' }} />
+                  <video
+                    src={filePreview}
+                    controls
+                    style={{
+                      maxHeight: '200px',
+                      maxWidth: '100%',
+                      borderRadius: 'var(--radius-sm)',
+                    }}
+                  />
                 ) : (
-                  <img src={filePreview} alt="Preview" style={{ maxHeight: '200px', maxWidth: '100%', borderRadius: 'var(--radius-sm)', objectFit: 'contain' }} />
+                  <img
+                    src={filePreview}
+                    alt="Preview"
+                    style={{
+                      maxHeight: '200px',
+                      maxWidth: '100%',
+                      borderRadius: 'var(--radius-sm)',
+                      objectFit: 'contain',
+                    }}
+                  />
                 )}
               </div>
             )}
@@ -312,7 +380,9 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
 
         {/* Tags */}
         <div className="form-group">
-          <label className="form-label" htmlFor="post-tags">Tags</label>
+          <label className="form-label" htmlFor="post-tags">
+            Tags
+          </label>
           <input
             id="post-tags"
             className="form-input"
@@ -322,20 +392,29 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
             onChange={handleChange}
           />
           <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-            Separate tags with commas, or just write #hashtags in your title or description.
-            They are lowercased, deduped and become clickable.
+            Separate tags with commas, or just write #hashtags in your title or description. They
+            are lowercased, deduped and become clickable.
           </span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
-            {COMMON_TAGS.map(tag => (
-              <button key={tag} type="button" className="tag" style={{ cursor: 'pointer' }}
-                onClick={() => addTag(tag)}>+ {tag}</button>
+            {COMMON_TAGS.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="tag"
+                style={{ cursor: 'pointer' }}
+                onClick={() => addTag(tag)}
+              >
+                + {tag}
+              </button>
             ))}
           </div>
         </div>
 
         <div className="post-form-actions">
           {onCancel && (
-            <button type="button" className="btn btn-ghost" onClick={handleCancelClick}>Cancel</button>
+            <button type="button" className="btn btn-ghost" onClick={handleCancelClick}>
+              Cancel
+            </button>
           )}
           <button id="post-submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Uploading & Saving…' : editing ? 'Save Changes' : 'Publish Post'}
@@ -350,7 +429,10 @@ const PostForm = ({ onSuccess, initialData = null, draftContent = '', onCancel }
         confirmText="Discard"
         cancelText="Keep Editing"
         isDanger={true}
-        onConfirm={() => { setShowCancelConfirm(false); onCancel?.(); }}
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          onCancel?.();
+        }}
         onCancel={() => setShowCancelConfirm(false)}
       />
     </div>

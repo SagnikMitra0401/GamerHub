@@ -108,5 +108,5 @@ module.exports = {
   cacheWrap,
   cacheDelete,
   resetCacheLayer,
-  DEFAULT_TTL_SECONDS
+  DEFAULT_TTL_SECONDS,
 };

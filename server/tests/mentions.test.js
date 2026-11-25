@@ -13,14 +13,11 @@ const {
   MAX_MENTIONS_PER_MESSAGE,
   extractMentionNames,
   replyPreview,
-  mentionsEveryone
+  mentionsEveryone,
 } = require('../utils/mentions');
 
 test('extracts de-duplicated names, preserving first casing', () => {
-  assert.deepEqual(
-    extractMentionNames('gg @alice and @Bob — @alice again'),
-    ['alice', 'Bob']
-  );
+  assert.deepEqual(extractMentionNames('gg @alice and @Bob — @alice again'), ['alice', 'Bob']);
 });
 
 test('ignores email addresses and bare @', () => {

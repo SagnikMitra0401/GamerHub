@@ -35,7 +35,8 @@ const PLATFORM_HOST =
 // built-in allow-list by another name. Production origins belong in the
 // environment.
 const LITERAL_ARRAY = /^\s*(?:const|let|var)\s+([A-Z][A-Z0-9_]*)\s*=\s*\[/;
-const ORIGIN_OR_ALLOW_LIST = /(?:^|_)(?:ORIGINS?|ALLOWLIST|ALLOW_LIST|ALLOWED_HOSTS?|TRUSTED_HOSTS?)(?:_|$)/;
+const ORIGIN_OR_ALLOW_LIST =
+  /(?:^|_)(?:ORIGINS?|ALLOWLIST|ALLOW_LIST|ALLOWED_HOSTS?|TRUSTED_HOSTS?)(?:_|$)/;
 
 function walk(dir, files = []) {
   if (!fs.existsSync(dir)) return files;
@@ -66,7 +67,12 @@ function scanSource(source, file = '<source>') {
     }
     const assignment = LITERAL_ARRAY.exec(line);
     if (assignment && ORIGIN_OR_ALLOW_LIST.test(assignment[1])) {
-      findings.push({ file, line: index + 1, reason: 'literal origin allow-list', text: line.trim() });
+      findings.push({
+        file,
+        line: index + 1,
+        reason: 'literal origin allow-list',
+        text: line.trim(),
+      });
     }
   });
   return findings;
@@ -84,7 +90,7 @@ function main() {
     console.error(`Found ${findings.length} hardcoded origin(s):`);
     for (const finding of findings) {
       console.error(
-        `  ${path.relative(ROOT, finding.file)}:${finding.line}  ${finding.reason}  ${finding.text}`
+        `  ${path.relative(ROOT, finding.file)}:${finding.line}  ${finding.reason}  ${finding.text}`,
       );
     }
     console.error('\nRead production origins from CLIENT_URL and EXTRA_ALLOWED_ORIGINS instead.');

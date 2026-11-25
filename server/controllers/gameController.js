@@ -1,9 +1,4 @@
-const {
-  listGames,
-  getRails,
-  getGameDetail,
-  toggleFollowGame
-} = require('../services/gameService');
+const { listGames, getRails, getGameDetail, toggleFollowGame } = require('../services/gameService');
 const { badRequest, notFound } = require('../utils/httpError');
 const { UpstreamError } = require('../utils/outbound');
 const { sanitizeLine } = require('../utils/sanitize');
@@ -17,13 +12,15 @@ const getGames = async (req, res, next) => {
       platform: sanitizeLine(req.query.platform, 40),
       sort: sanitizeLine(req.query.sort, 20),
       cursor: typeof req.query.cursor === 'string' ? req.query.cursor.slice(0, 400) : null,
-      limit: req.query.limit
+      limit: req.query.limit,
     });
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
     res.status(200).json(payload);
   } catch (err) {
     if (err instanceof UpstreamError) {
-      return res.status(503).json({ message: 'The game catalog is temporarily unavailable. Try again shortly.' });
+      return res
+        .status(503)
+        .json({ message: 'The game catalog is temporarily unavailable. Try again shortly.' });
     }
     next(err);
   }
@@ -33,7 +30,10 @@ const getGames = async (req, res, next) => {
 const getGameRails = async (req, res, next) => {
   try {
     const payload = await getRails(req.user || null);
-    res.set('Cache-Control', req.user ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300');
+    res.set(
+      'Cache-Control',
+      req.user ? 'private, no-store' : 'public, max-age=60, stale-while-revalidate=300',
+    );
     res.status(200).json(payload);
   } catch (err) {
     next(err);
@@ -50,7 +50,7 @@ const getGame = async (req, res, next) => {
     if (req.user) {
       const titles = req.user.preferences?.favoriteGames || [];
       following = titles.some(
-        (title) => String(title).trim().toLowerCase() === game.title.trim().toLowerCase()
+        (title) => String(title).trim().toLowerCase() === game.title.trim().toLowerCase(),
       );
     }
 

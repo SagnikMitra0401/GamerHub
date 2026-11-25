@@ -18,37 +18,39 @@ const PATTERNS = [
   {
     name: 'database URI with credentials',
     // scheme://user:password@host — a real password is never an all-caps token.
-    regex: /mongodb(?:\+srv)?:\/\/[^\s/:@]{2,}:(?!PASSWORD\b|password\b|pass\b|YOUR_)[^\s@]{3,}@/i
+    regex: /mongodb(?:\+srv)?:\/\/[^\s/:@]{2,}:(?!PASSWORD\b|password\b|pass\b|YOUR_)[^\s@]{3,}@/i,
   },
   {
     name: 'AWS access key id',
-    regex: /\bAKIA[0-9A-Z]{16}\b/
+    regex: /\bAKIA[0-9A-Z]{16}\b/,
   },
   {
     name: 'Google API key',
-    regex: /\bAIza[0-9A-Za-z_-]{35}\b/
+    regex: /\bAIza[0-9A-Za-z_-]{35}\b/,
   },
   {
     name: 'Stripe secret key',
-    regex: /\bsk_(?:live|test)_[0-9A-Za-z]{10,}/
+    regex: /\bsk_(?:live|test)_[0-9A-Za-z]{10,}/,
   },
   {
     name: 'private key block',
-    regex: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/
+    regex: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/,
   },
   {
     name: 'quoted secret assignment',
     // env-like names assigned a quoted value of real length.
-    regex: /(?:JWT_SECRET|API_SECRET|CLOUDINARY_API_SECRET|CLOUDINARY_API_KEY|UPSTASH_REDIS_REST_TOKEN|YOUTUBE_API_KEY|GOOGLE_CLIENT_SECRET)\s*[:=]\s*['"]([^'"]{12,})['"]/i
+    regex:
+      /(?:JWT_SECRET|API_SECRET|CLOUDINARY_API_SECRET|CLOUDINARY_API_KEY|UPSTASH_REDIS_REST_TOKEN|YOUTUBE_API_KEY|GOOGLE_CLIENT_SECRET)\s*[:=]\s*['"]([^'"]{12,})['"]/i,
   },
   {
     name: 'generic assigned API key',
-    regex: /(?:api[_-]?key|access[_-]?token|client[_-]?secret)\s*[:=]\s*['"]([0-9A-Za-z_\-./+]{24,})['"]/i
+    regex:
+      /(?:api[_-]?key|access[_-]?token|client[_-]?secret)\s*[:=]\s*['"]([0-9A-Za-z_\-./+]{24,})['"]/i,
   },
   {
     name: 'literal bearer token',
-    regex: /['"]Bearer\s+eyJ[A-Za-z0-9_-]{20,}/
-  }
+    regex: /['"]Bearer\s+eyJ[A-Za-z0-9_-]{20,}/,
+  },
 ];
 
 /** Hide most of a match so the gate's own output cannot leak the secret. */
@@ -78,7 +80,7 @@ function scanText(text) {
       hits.push({
         name: pattern.name,
         line: index + 1,
-        excerpt: redact(match[0])
+        excerpt: redact(match[0]),
       });
       break; // one finding per line is enough to fail the gate
     }
@@ -89,7 +91,16 @@ function scanText(text) {
 
 /** File extensions worth scanning for embedded credentials. */
 const SCANNED_EXTENSIONS = [
-  '.js', '.jsx', '.ts', '.tsx', '.json', '.css', '.html', '.svg', '.yml', '.yaml'
+  '.js',
+  '.jsx',
+  '.ts',
+  '.tsx',
+  '.json',
+  '.css',
+  '.html',
+  '.svg',
+  '.yml',
+  '.yaml',
 ];
 
 module.exports = { PATTERNS, SCANNED_EXTENSIONS, redact, scanText };

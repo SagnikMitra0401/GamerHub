@@ -33,8 +33,8 @@ const ForgotPassword = () => {
         {sent ? (
           <>
             <div className="notice notice-success" role="status">
-              If an account exists for that email, a reset link is on its way. The link expires
-              in 30 minutes.
+              If an account exists for that email, a reset link is on its way. The link expires in
+              30 minutes.
             </div>
             <p className="auth-footer">
               <Link to="/login">Back to sign in</Link>
@@ -44,7 +44,9 @@ const ForgotPassword = () => {
           <form onSubmit={handleSubmit}>
             {error && <div className="form-error">{error}</div>}
             <div className="form-group">
-              <label className="form-label" htmlFor="forgot-email">Email</label>
+              <label className="form-label" htmlFor="forgot-email">
+                Email
+              </label>
               <input
                 id="forgot-email"
                 className="form-input"

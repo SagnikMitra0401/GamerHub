@@ -19,7 +19,7 @@ const {
   BUSINESS_REVIEW_RESPONSE_DAYS,
   demotionReadiness,
   sanitizeReviewResponse,
-  ownerBusinessProfile
+  ownerBusinessProfile,
 } = require('../utils/business');
 const { demoteBusinessAccount } = require('../controllers/businessController');
 
@@ -36,7 +36,7 @@ const originals = {
   teamUpdateMany: BusinessTeamMember.updateMany,
   auditCreate: BusinessVerificationAudit.create,
   userFindById: User.findById,
-  userUpdateOne: User.updateOne
+  userUpdateOne: User.updateOne,
 };
 
 test.after(() => {
@@ -53,7 +53,7 @@ test.after(() => {
 test('demotion is blocked when the business was never contacted', async () => {
   const profile = fakeProfile({
     verificationRequestedAt: ago(2),
-    reviewContactedAt: null
+    reviewContactedAt: null,
   });
 
   const result = await invokeDemote(profile);
@@ -70,7 +70,7 @@ test('a contact from before the current review request does not authorise demoti
   const profile = fakeProfile({
     verificationRequestedAt: ago(1),
     // The reviewer spoke to them about an older application, not this one.
-    reviewContactedAt: ago(20)
+    reviewContactedAt: ago(20),
   });
 
   const result = await invokeDemote(profile);
@@ -83,7 +83,7 @@ test('a contact from before the current review request does not authorise demoti
 test('demotion waits out the response window after contact', async () => {
   const profile = fakeProfile({
     verificationRequestedAt: ago(3),
-    reviewContactedAt: ago(1)
+    reviewContactedAt: ago(1),
   });
 
   const readiness = demotionReadiness(profile, NOW);
@@ -92,7 +92,7 @@ test('demotion waits out the response window after contact', async () => {
   assert.equal(readiness.daysRemaining, BUSINESS_REVIEW_RESPONSE_DAYS - 1);
   assert.equal(
     readiness.earliestDemotionAt.getTime(),
-    profile.reviewContactedAt.getTime() + BUSINESS_REVIEW_RESPONSE_DAYS * DAY
+    profile.reviewContactedAt.getTime() + BUSINESS_REVIEW_RESPONSE_DAYS * DAY,
   );
 
   const result = await invokeDemote(profile);
@@ -106,7 +106,7 @@ test('an owner response does not shortcut the fairness window', async () => {
     verificationRequestedAt: ago(6),
     reviewContactedAt: ago(5),
     reviewRespondedAt: ago(4),
-    reviewResponseNote: 'The registry entry was updated; here is the public filing.'
+    reviewResponseNote: 'The registry entry was updated; here is the public filing.',
   });
 
   const result = await invokeDemote(profile);
@@ -119,7 +119,7 @@ test('an owner response does not shortcut the fairness window', async () => {
 test('demotion is allowed only after the window has fully elapsed', async () => {
   const profile = fakeProfile({
     verificationRequestedAt: ago(9),
-    reviewContactedAt: ago(BUSINESS_REVIEW_RESPONSE_DAYS)
+    reviewContactedAt: ago(BUSINESS_REVIEW_RESPONSE_DAYS),
   });
 
   const atBoundary = demotionReadiness(profile, NOW);
@@ -155,7 +155,7 @@ test('review responses are trimmed, bounded and at least ten characters', () => 
   assert.equal(sanitizeReviewResponse({ note: '          ' }).ok, false);
 
   const ok = sanitizeReviewResponse({
-    note: '  The filing is public and lists our registered director.  '
+    note: '  The filing is public and lists our registered director.  ',
   });
   assert.equal(ok.ok, true);
   assert.equal(ok.value, 'The filing is public and lists our registered director.');
@@ -171,12 +171,12 @@ test('the owner projection exposes the deadline but never the contact log', () =
     contactEmail: 'owner@studio.example',
     reviewContactedAt: NOW,
     reviewRespondedAt: null,
-    reviewResponseNote: ''
+    reviewResponseNote: '',
   });
 
   assert.equal(
     view.reviewResponseDueAt.getTime(),
-    NOW.getTime() + BUSINESS_REVIEW_RESPONSE_DAYS * DAY
+    NOW.getTime() + BUSINESS_REVIEW_RESPONSE_DAYS * DAY,
   );
   assert.equal(view.reviewRespondedAt, null);
 });
@@ -209,7 +209,7 @@ function fakeProfile(overrides = {}) {
     async save() {
       this.saves += 1;
       return this;
-    }
+    },
   };
 }
 
@@ -217,8 +217,8 @@ async function invokeDemote(profile) {
   BusinessProfile.findById = async () => profile;
   User.findById = () => ({
     select: () => ({
-      lean: async () => ({ username: 'neonrift', email: 'owner@studio.example' })
-    })
+      lean: async () => ({ username: 'neonrift', email: 'owner@studio.example' }),
+    }),
   });
   User.updateOne = async () => ({ modifiedCount: 1 });
   BusinessTeamMember.updateMany = async () => ({ modifiedCount: 2 });
@@ -233,7 +233,7 @@ async function invokeDemote(profile) {
     json(payload) {
       this.payload = payload;
       return this;
-    }
+    },
   };
 
   let failure = null;
@@ -241,10 +241,12 @@ async function invokeDemote(profile) {
     {
       params: { id: profile._id },
       body: { reason: 'Registration details could not be confirmed.' },
-      user: { _id: 'd'.repeat(24) }
+      user: { _id: 'd'.repeat(24) },
     },
     response,
-    (err) => { failure = err; }
+    (err) => {
+      failure = err;
+    },
   );
 
   return { failure, response };

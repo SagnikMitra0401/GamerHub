@@ -25,7 +25,7 @@ const GameSchema = new mongoose.Schema(
     summary: { type: String, default: '', maxlength: 4000 },
     cover: {
       url: { type: String, default: null },
-      imageId: { type: String, default: null }
+      imageId: { type: String, default: null },
     },
     screenshots: { type: [String], default: [] },
     genres: { type: [String], default: [] },
@@ -36,14 +36,14 @@ const GameSchema = new mongoose.Schema(
       processor: { type: String, default: '' },
       memory: { type: String, default: '' },
       graphics: { type: String, default: '' },
-      storage: { type: String, default: '' }
+      storage: { type: String, default: '' },
     },
 
     externalIds: {
       igdb: { type: Number, default: null },
       rawg: { type: Number, default: null },
       freetogame: { type: Number, default: null },
-      steam: { type: Number, default: null }
+      steam: { type: Number, default: null },
     },
 
     // Counters are maintained by the write path (follow, sync) rather than
@@ -53,13 +53,13 @@ const GameSchema = new mongoose.Schema(
       squadCount: { type: Number, default: 0, min: 0 },
       serverCount: { type: Number, default: 0, min: 0 },
       postCount: { type: Number, default: 0, min: 0 },
-      playerCount: { type: Number, default: 0, min: 0 }
+      playerCount: { type: Number, default: 0, min: 0 },
     },
 
     source: {
       type: String,
       enum: ['freetogame', 'igdb', 'user', 'seed'],
-      default: 'user'
+      default: 'user',
     },
     // `provisional` rows come from a player typing a title the providers do not
     // know yet. They are browsable and linkable; an admin can hide or merge them.
@@ -67,7 +67,7 @@ const GameSchema = new mongoose.Schema(
       type: String,
       enum: ['provisional', 'published', 'hidden', 'merged'],
       default: 'provisional',
-      index: true
+      index: true,
     },
     mergedInto: { type: mongoose.Schema.Types.ObjectId, ref: 'Game', default: null },
 
@@ -75,14 +75,14 @@ const GameSchema = new mongoose.Schema(
     // Set after the one-time provider detail import (description, screenshots,
     // requirements), so a page view never repeats the upstream call.
     detailFetchedAt: { type: Date, default: null },
-    schemaVersion: { type: Number, default: 1 }
+    schemaVersion: { type: Number, default: 1 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 GameSchema.index(
   { title: 'text', aliases: 'text', summary: 'text' },
-  { weights: { title: 10, aliases: 6, summary: 1 }, name: 'game_text_search' }
+  { weights: { title: 10, aliases: 6, summary: 1 }, name: 'game_text_search' },
 );
 GameSchema.index({ genres: 1, 'stats.favoriteCount': -1 });
 GameSchema.index({ status: 1, 'stats.favoriteCount': -1 });

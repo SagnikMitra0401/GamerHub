@@ -94,5 +94,5 @@ module.exports = {
   isOpen,
   isChatMember,
   canRefresh,
-  formatRemaining
+  formatRemaining,
 };

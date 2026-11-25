@@ -27,7 +27,7 @@ const {
   sendVerificationEmail,
   sendPasswordResetEmail,
   verificationUrl,
-  resetUrl
+  resetUrl,
 } = require('../utils/email');
 const { STATUS_ACTIONS, moderationReason } = require('../utils/moderation');
 const { sanitizeLine, escapeRegex } = require('../utils/sanitize');
@@ -53,7 +53,7 @@ const beforeCursor = (raw) => {
 // Only a page that filled its limit can have a successor. A short list is the
 // end of the collection, not a cursor to an empty page.
 const pageMeta = (items, limit) => ({
-  nextBefore: items.length >= limit ? items[items.length - 1].createdAt : null
+  nextBefore: items.length >= limit ? items[items.length - 1].createdAt : null,
 });
 
 const publicUser = (user) => ({
@@ -71,9 +71,9 @@ const publicUser = (user) => ({
     ? {
         reason: user.moderation.reason || '',
         at: user.moderation.at,
-        until: user.moderation.until || null
+        until: user.moderation.until || null,
       }
-    : null
+    : null,
 });
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -89,7 +89,11 @@ const listUsers = async (req, res, next) => {
       const pattern = new RegExp(escapeRegex(q), 'i');
       filter.$or = [{ username: pattern }, { email: pattern }];
     }
-    if (['active', 'restricted', 'frozen', 'suspended', 'deletion_pending', 'deleted'].includes(req.query.status)) {
+    if (
+      ['active', 'restricted', 'frozen', 'suspended', 'deletion_pending', 'deleted'].includes(
+        req.query.status,
+      )
+    ) {
       filter.status = req.query.status;
     }
     if (ROLES.includes(req.query.role)) filter.role = req.query.role;
@@ -101,11 +105,13 @@ const listUsers = async (req, res, next) => {
 
     const [items, total] = await Promise.all([
       User.find(filter)
-        .select('username email role status profileType level emailVerifiedAt createdAt presence.lastActive moderation')
+        .select(
+          'username email role status profileType level emailVerifiedAt createdAt presence.lastActive moderation',
+        )
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean(),
-      User.countDocuments(filter)
+      User.countDocuments(filter),
     ]);
 
     res.status(200).json({ items: items.map(publicUser), total, ...pageMeta(items, limit) });
@@ -120,7 +126,9 @@ const getUserDetail = async (req, res, next) => {
     if (!isId(req.params.id)) throw notFound('User not found');
 
     const user = await User.findById(req.params.id)
-      .select('username email role status profileType level xp emailVerifiedAt createdAt updatedAt presence moderation bio frozenAt deletionRequestedAt')
+      .select(
+        'username email role status profileType level xp emailVerifiedAt createdAt updatedAt presence moderation bio frozenAt deletionRequestedAt',
+      )
       .lean();
     if (!user) throw notFound('User not found');
 
@@ -130,7 +138,7 @@ const getUserDetail = async (req, res, next) => {
       Message.countDocuments({ senderId: user._id, isDeleted: false }),
       Report.countDocuments({ targetType: 'member', targetId: user._id }),
       DmReport.countDocuments({ reportedUserId: user._id }),
-      AuditLog.find({ actorId: user._id }).sort({ createdAt: -1 }).limit(10).lean()
+      AuditLog.find({ actorId: user._id }).sort({ createdAt: -1 }).limit(10).lean(),
     ]);
 
     res.status(200).json({
@@ -139,8 +147,8 @@ const getUserDetail = async (req, res, next) => {
       audit: audit.map((entry) => ({
         _id: String(entry._id),
         actionType: entry.actionType,
-        createdAt: entry.createdAt
-      }))
+        createdAt: entry.createdAt,
+      })),
     });
   } catch (err) {
     next(err);
@@ -164,7 +172,8 @@ const updateUserRole = async (req, res, next) => {
       const remaining = await User.countDocuments({ role: 'admin', _id: { $ne: target._id } });
       if (remaining === 0) throw conflict('There must always be at least one administrator.');
     }
-    if (target.role === role) return res.status(200).json({ user: { _id: String(target._id), role } });
+    if (target.role === role)
+      return res.status(200).json({ user: { _id: String(target._id), role } });
 
     await User.updateOne({ _id: target._id }, { $set: { role } });
     await recordPlatformAudit({
@@ -172,7 +181,7 @@ const updateUserRole = async (req, res, next) => {
       actionType: 'PLATFORM_ROLE_UPDATE',
       targetId: target._id,
       targetModel: 'User',
-      metadata: { from: target.role, to: role }
+      metadata: { from: target.role, to: role },
     });
 
     res.status(200).json({ user: { _id: String(target._id), role } });
@@ -229,11 +238,18 @@ const updateUserStatus = async (req, res, next) => {
         byId: req.user._id,
         at: new Date(),
         until,
-        previousStatus: action === 'reinstate' ? null : (target.moderation?.previousStatus || target.status)
-      }
+        previousStatus:
+          action === 'reinstate' ? null : target.moderation?.previousStatus || target.status,
+      },
     };
     if (action === 'reinstate') {
-      set.moderation = { reason, byId: req.user._id, at: new Date(), until: null, previousStatus: null };
+      set.moderation = {
+        reason,
+        byId: req.user._id,
+        at: new Date(),
+        until: null,
+        previousStatus: null,
+      };
     }
 
     const update = { $set: set };
@@ -247,10 +263,12 @@ const updateUserStatus = async (req, res, next) => {
       actionType: 'PLATFORM_STATUS_UPDATE',
       targetId: target._id,
       targetModel: 'User',
-      metadata: { action, from: target.status, to: nextStatus, reason, until }
+      metadata: { action, from: target.status, to: nextStatus, reason, until },
     });
 
-    res.status(200).json({ user: { _id: String(target._id), status: nextStatus, moderation: set.moderation } });
+    res
+      .status(200)
+      .json({ user: { _id: String(target._id), status: nextStatus, moderation: set.moderation } });
   } catch (err) {
     next(err);
   }
@@ -267,7 +285,7 @@ const forceLogout = async (req, res, next) => {
     const target = await User.findByIdAndUpdate(
       req.params.id,
       { $inc: { sessionVersion: 1 } },
-      { new: true, select: 'sessionVersion' }
+      { new: true, select: 'sessionVersion' },
     ).lean();
     if (!target) throw notFound('User not found');
 
@@ -277,7 +295,7 @@ const forceLogout = async (req, res, next) => {
       actionType: 'PLATFORM_FORCE_LOGOUT',
       targetId: req.params.id,
       targetModel: 'User',
-      metadata: {}
+      metadata: {},
     });
 
     res.status(200).json({ signedOut: true, sessionVersion: target.sessionVersion });
@@ -303,7 +321,7 @@ const resendVerification = async (req, res, next) => {
     await sendVerificationEmail({
       to: target.email,
       username: target.username,
-      url: verificationUrl(req, token)
+      url: verificationUrl(req, token),
     });
 
     await recordPlatformAudit({
@@ -311,7 +329,7 @@ const resendVerification = async (req, res, next) => {
       actionType: 'PLATFORM_EMAIL_RESEND',
       targetId: target._id,
       targetModel: 'User',
-      metadata: { kind: 'verify_email' }
+      metadata: { kind: 'verify_email' },
     });
 
     res.status(200).json({ sent: true });
@@ -339,7 +357,7 @@ const sendPasswordReset = async (req, res, next) => {
     await sendPasswordResetEmail({
       to: target.email,
       username: target.username,
-      url: resetUrl(req, token)
+      url: resetUrl(req, token),
     });
 
     await recordPlatformAudit({
@@ -347,7 +365,7 @@ const sendPasswordReset = async (req, res, next) => {
       actionType: 'PLATFORM_EMAIL_RESEND',
       targetId: target._id,
       targetModel: 'User',
-      metadata: { kind: 'reset_password' }
+      metadata: { kind: 'reset_password' },
     });
 
     res.status(200).json({ sent: true });
@@ -366,15 +384,31 @@ async function communityPreviews(reports) {
   const memberIds = byType('member').map((report) => report.targetId);
 
   const [messages, forums, members] = await Promise.all([
-    messageIds.length ? Message.find({ _id: { $in: messageIds } }).select('_id text senderId createdAt').lean() : [],
-    forumIds.length ? ForumPost.find({ _id: { $in: forumIds } }).select('_id title body authorId createdAt isDeleted').lean() : [],
-    memberIds.length ? User.find({ _id: { $in: memberIds } }).select('_id username level status').lean() : []
+    messageIds.length
+      ? Message.find({ _id: { $in: messageIds } })
+          .select('_id text senderId createdAt')
+          .lean()
+      : [],
+    forumIds.length
+      ? ForumPost.find({ _id: { $in: forumIds } })
+          .select('_id title body authorId createdAt isDeleted')
+          .lean()
+      : [],
+    memberIds.length
+      ? User.find({ _id: { $in: memberIds } })
+          .select('_id username level status')
+          .lean()
+      : [],
   ]);
 
   return {
-    message: new Map(messages.map((item) => /** @type {[string, any]} */ ([String(item._id), item]))),
-    forumPost: new Map(forums.map((item) => /** @type {[string, any]} */ ([String(item._id), item]))),
-    member: new Map(members.map((item) => /** @type {[string, any]} */ ([String(item._id), item])))
+    message: new Map(
+      messages.map((item) => /** @type {[string, any]} */ ([String(item._id), item])),
+    ),
+    forumPost: new Map(
+      forums.map((item) => /** @type {[string, any]} */ ([String(item._id), item])),
+    ),
+    member: new Map(members.map((item) => /** @type {[string, any]} */ ([String(item._id), item]))),
   };
 }
 
@@ -405,7 +439,7 @@ const listCases = async (req, res, next) => {
             .populate('communityId', 'name slug')
             .lean(),
       source === 'community' ? 0 : DmReport.countDocuments({ status }),
-      source === 'dm' ? 0 : Report.countDocuments({ status })
+      source === 'dm' ? 0 : Report.countDocuments({ status }),
     ]);
 
     const previews = await communityPreviews(communityReports);
@@ -420,11 +454,13 @@ const listCases = async (req, res, next) => {
         status: report.status,
         createdAt: report.createdAt,
         reporter: report.reporterId?.username ? { username: report.reporterId.username } : null,
-        reported: report.reportedUserId?.username ? { username: report.reportedUserId.username } : null,
+        reported: report.reportedUserId?.username
+          ? { username: report.reportedUserId.username }
+          : null,
         community: null,
         preview: (report.messageIds || []).length
           ? [{ kind: 'message', text: `${report.messageIds.length} reported message(s)` }]
-          : []
+          : [],
       })),
       ...communityReports.map((report) => {
         const target = previews[report.targetType]?.get(String(report.targetId));
@@ -437,25 +473,32 @@ const listCases = async (req, res, next) => {
           status: report.status,
           createdAt: report.createdAt,
           reporter: report.reporterId?.username ? { username: report.reporterId.username } : null,
-          reported: report.targetType === 'member' && target?.username ? { username: target.username } : null,
+          reported:
+            report.targetType === 'member' && target?.username
+              ? { username: target.username }
+              : null,
           community: report.communityId
             ? { name: report.communityId.name, slug: report.communityId.slug }
             : null,
           preview: target
-            ? [{
-                kind: report.targetType,
-                text: target.text || target.title || target.username || '',
-                deleted: Boolean(target.isDeleted)
-              }]
-            : []
+            ? [
+                {
+                  kind: report.targetType,
+                  text: target.text || target.title || target.username || '',
+                  deleted: Boolean(target.isDeleted),
+                },
+              ]
+            : [],
         };
-      })
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
+      }),
+    ]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
 
     res.status(200).json({
       items,
       counts: { dm: dmTotal, community: communityTotal },
-      ...pageMeta(items, limit)
+      ...pageMeta(items, limit),
     });
   } catch (err) {
     next(err);
@@ -467,14 +510,14 @@ async function removeReportedContent(report) {
   if (report.targetType === 'message') {
     const result = await Message.updateOne(
       { _id: report.targetId, isDeleted: false },
-      { $set: { isDeleted: true, deletedAt: new Date(), text: '[removed by moderation]' } }
+      { $set: { isDeleted: true, deletedAt: new Date(), text: '[removed by moderation]' } },
     );
     return result.modifiedCount > 0;
   }
   if (report.targetType === 'forumPost') {
     const result = await ForumPost.updateOne(
       { _id: report.targetId, isDeleted: false },
-      { $set: { isDeleted: true, deletedAt: new Date() } }
+      { $set: { isDeleted: true, deletedAt: new Date() } },
     );
     return result.modifiedCount > 0;
   }
@@ -504,7 +547,8 @@ const resolveCase = async (req, res, next) => {
       const report = await DmReport.findById(req.params.id);
       if (!report) throw notFound('Case not found');
 
-      const status = decision === 'dismiss' ? 'dismissed' : decision === 'review' ? 'reviewed' : 'actioned';
+      const status =
+        decision === 'dismiss' ? 'dismissed' : decision === 'review' ? 'reviewed' : 'actioned';
       report.status = status;
       report.reviewedBy = req.user._id;
       report.reviewedAt = new Date();
@@ -514,7 +558,7 @@ const resolveCase = async (req, res, next) => {
         reportId: report._id,
         actorId: req.user._id,
         status,
-        note
+        note,
       });
 
       await recordPlatformAudit({
@@ -522,7 +566,7 @@ const resolveCase = async (req, res, next) => {
         actionType: 'PLATFORM_REPORT_RESOLVE',
         targetId: report._id,
         targetModel: 'DmReport',
-        metadata: { decision, note }
+        metadata: { decision, note },
       });
 
       return res.status(200).json({ case: { id: String(report._id), source, status } });
@@ -563,11 +607,11 @@ const resolveCase = async (req, res, next) => {
                 byId: req.user._id,
                 at: new Date(),
                 until: null,
-                previousStatus: author.status
-              }
+                previousStatus: author.status,
+              },
             },
-            $inc: { sessionVersion: 1 }
-          }
+            $inc: { sessionVersion: 1 },
+          },
         );
         disconnectUser(author._id);
         suspended = String(author._id);
@@ -592,14 +636,14 @@ const resolveCase = async (req, res, next) => {
         communityId: String(report.communityId),
         targetType: report.targetType,
         contentRemoved,
-        suspended
-      }
+        suspended,
+      },
     });
 
     res.status(200).json({
       case: { id: String(report._id), source, status },
       contentRemoved,
-      suspended
+      suspended,
     });
   } catch (err) {
     next(err);
@@ -642,9 +686,9 @@ const listPosts = async (req, res, next) => {
         hiddenAt: post.hiddenAt,
         createdAt: post.createdAt,
         mediaType: post.mediaType,
-        author: post.userId?.username || null
+        author: post.userId?.username || null,
       })),
-      ...pageMeta(items, limit)
+      ...pageMeta(items, limit),
     });
   } catch (err) {
     next(err);
@@ -661,7 +705,7 @@ const setPostVisibility = async (req, res, next) => {
     const post = await Post.findByIdAndUpdate(
       req.params.id,
       { $set: { hiddenAt: hidden ? new Date() : null, hiddenById: hidden ? req.user._id : null } },
-      { new: true, select: 'hiddenAt title' }
+      { new: true, select: 'hiddenAt title' },
     ).lean();
     if (!post) throw notFound('Post not found');
 
@@ -670,7 +714,7 @@ const setPostVisibility = async (req, res, next) => {
       actionType: hidden ? 'PLATFORM_CONTENT_HIDE' : 'PLATFORM_CONTENT_RESTORE',
       targetId: req.params.id,
       targetModel: 'Post',
-      metadata: { reason, title: post.title }
+      metadata: { reason, title: post.title },
     });
 
     res.status(200).json({ post: { _id: String(post._id), hiddenAt: post.hiddenAt } });
@@ -701,9 +745,9 @@ const listComments = async (req, res, next) => {
         postId: String(comment.postId),
         hiddenAt: comment.hiddenAt,
         createdAt: comment.createdAt,
-        author: comment.userId?.username || null
+        author: comment.userId?.username || null,
       })),
-      ...pageMeta(items, limit)
+      ...pageMeta(items, limit),
     });
   } catch (err) {
     next(err);
@@ -720,7 +764,7 @@ const setCommentVisibility = async (req, res, next) => {
     const comment = await Comment.findByIdAndUpdate(
       req.params.id,
       { $set: { hiddenAt: hidden ? new Date() : null, hiddenById: hidden ? req.user._id : null } },
-      { new: true, select: 'hiddenAt' }
+      { new: true, select: 'hiddenAt' },
     ).lean();
     if (!comment) throw notFound('Comment not found');
 
@@ -729,7 +773,7 @@ const setCommentVisibility = async (req, res, next) => {
       actionType: hidden ? 'PLATFORM_CONTENT_HIDE' : 'PLATFORM_CONTENT_RESTORE',
       targetId: req.params.id,
       targetModel: 'Comment',
-      metadata: { reason }
+      metadata: { reason },
     });
 
     res.status(200).json({ comment: { _id: String(comment._id), hiddenAt: comment.hiddenAt } });
@@ -769,9 +813,9 @@ const listMessages = async (req, res, next) => {
         author: message.senderId?.username || null,
         community: message.communityId
           ? { name: message.communityId.name, slug: message.communityId.slug }
-          : null
+          : null,
       })),
-      ...pageMeta(items, limit)
+      ...pageMeta(items, limit),
     });
   } catch (err) {
     next(err);
@@ -792,12 +836,10 @@ const setMessageVisibility = async (req, res, next) => {
           isDeleted: hidden,
           deletedAt: hidden ? new Date() : null,
           deletedBy: hidden ? req.user._id : null,
-          ...(hidden
-            ? { text: '[removed by moderation]' }
-            : {})
-        }
+          ...(hidden ? { text: '[removed by moderation]' } : {}),
+        },
       },
-      { new: true, select: 'isDeleted deletedAt communityId' }
+      { new: true, select: 'isDeleted deletedAt communityId' },
     ).lean();
     if (!message) throw notFound('Message not found');
 
@@ -806,7 +848,7 @@ const setMessageVisibility = async (req, res, next) => {
       actionType: hidden ? 'PLATFORM_CONTENT_HIDE' : 'PLATFORM_CONTENT_RESTORE',
       targetId: req.params.id,
       targetModel: 'Message',
-      metadata: { reason, communityId: String(message.communityId) }
+      metadata: { reason, communityId: String(message.communityId) },
     });
 
     res.status(200).json({ message: { _id: String(message._id), isDeleted: message.isDeleted } });
@@ -834,7 +876,7 @@ const listAudit = async (req, res, next) => {
       filter.createdAt = {
         ...(filter.createdAt || {}),
         ...(from ? { $gte: from } : {}),
-        ...(to ? { $lte: to } : {})
+        ...(to ? { $lte: to } : {}),
       };
     }
 
@@ -864,9 +906,9 @@ const listAudit = async (req, res, next) => {
         targetModel: entry.targetModel,
         targetId: entry.targetId ? String(entry.targetId) : null,
         metadata: entry.metadata || {},
-        createdAt: entry.createdAt
+        createdAt: entry.createdAt,
       })),
-      ...pageMeta(items, limit)
+      ...pageMeta(items, limit),
     });
   } catch (err) {
     next(err);
@@ -893,12 +935,14 @@ const listGames = async (req, res, next) => {
 
     const [items, total, counts] = await Promise.all([
       Game.find(filter)
-        .select('slug title cover.url genres platforms releaseYear status stats externalIds createdAt')
+        .select(
+          'slug title cover.url genres platforms releaseYear status stats externalIds createdAt',
+        )
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean(),
       Game.countDocuments(filter),
-      Game.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }])
+      Game.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     ]);
 
     res.status(200).json({
@@ -913,11 +957,11 @@ const listGames = async (req, res, next) => {
         status: game.status,
         stats: game.stats,
         externalIds: game.externalIds,
-        createdAt: game.createdAt
+        createdAt: game.createdAt,
       })),
       total,
       counts: Object.fromEntries(counts.map((row) => [row._id, row.count])),
-      ...pageMeta(items, limit)
+      ...pageMeta(items, limit),
     });
   } catch (err) {
     next(err);
@@ -938,11 +982,13 @@ const updateGame = async (req, res, next) => {
     }
     if (req.body?.aliases !== undefined) {
       if (!Array.isArray(req.body.aliases)) throw badRequest('aliases must be an array.');
-      const aliases = [...new Set(req.body.aliases
-        .map((alias) => sanitizeLine(alias, 120))
-        .filter(Boolean))].slice(0, 10);
+      const aliases = [
+        ...new Set(req.body.aliases.map((alias) => sanitizeLine(alias, 120)).filter(Boolean)),
+      ].slice(0, 10);
       set.aliases = aliases;
-      set.aliasKeys = aliases.map((alias) => require('../utils/gameRegistry').canonicalKey(alias)).filter(Boolean);
+      set.aliasKeys = aliases
+        .map((alias) => require('../utils/gameRegistry').canonicalKey(alias))
+        .filter(Boolean);
     }
 
     if (!Object.keys(set).length) throw badRequest('Nothing to update.');
@@ -955,10 +1001,17 @@ const updateGame = async (req, res, next) => {
       actionType: 'PLATFORM_GAME_UPDATE',
       targetId: game._id,
       targetModel: 'Game',
-      metadata: { status: game.status, aliases: game.aliases }
+      metadata: { status: game.status, aliases: game.aliases },
     });
 
-    res.status(200).json({ game: { _id: String(game._id), slug: game.slug, status: game.status, aliases: game.aliases } });
+    res.status(200).json({
+      game: {
+        _id: String(game._id),
+        slug: game.slug,
+        status: game.status,
+        aliases: game.aliases,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -967,8 +1020,10 @@ const updateGame = async (req, res, next) => {
 /** POST /api/admin/games/:id/merge  { intoId } */
 const mergeGame = async (req, res, next) => {
   try {
-    if (!isId(req.params.id) || !isId(req.body?.intoId)) throw badRequest('Pick two games to merge.');
-    if (String(req.params.id) === String(req.body.intoId)) throw badRequest('Pick two different games.');
+    if (!isId(req.params.id) || !isId(req.body?.intoId))
+      throw badRequest('Pick two games to merge.');
+    if (String(req.params.id) === String(req.body.intoId))
+      throw badRequest('Pick two different games.');
 
     const result = await gameService.mergeGames(req.body.intoId, req.params.id);
     if (!result) throw notFound('Game not found');
@@ -978,7 +1033,7 @@ const mergeGame = async (req, res, next) => {
       actionType: 'PLATFORM_GAME_MERGE',
       targetId: result.primary.id,
       targetModel: 'Game',
-      metadata: { mergedId: result.mergedId }
+      metadata: { mergedId: result.mergedId },
     });
 
     res.status(200).json(result);
@@ -991,22 +1046,24 @@ const mergeGame = async (req, res, next) => {
 const syncGames = async (req, res, next) => {
   try {
     const provider = String(req.body?.provider || 'freetogame');
-    if (!['freetogame', 'igdb'].includes(provider)) throw badRequest('provider must be freetogame or igdb.');
+    if (!['freetogame', 'igdb'].includes(provider))
+      throw badRequest('provider must be freetogame or igdb.');
     if (provider === 'igdb' && !igdb.configured()) {
       throw badRequest('IGDB is not configured. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.');
     }
 
     const query = sanitizeLine(req.body?.query, 80);
-    const result = provider === 'igdb'
-      ? await gameService.syncIgdbSearch(query || 'popular', { limit: 12 })
-      : await gameService.syncFreeToPlay({ limit: Number(req.body?.limit) || 240 });
+    const result =
+      provider === 'igdb'
+        ? await gameService.syncIgdbSearch(query || 'popular', { limit: 12 })
+        : await gameService.syncFreeToPlay({ limit: Number(req.body?.limit) || 240 });
 
     await recordPlatformAudit({
       actorId: req.user._id,
       actionType: 'PLATFORM_GAME_SYNC',
       targetId: null,
       targetModel: 'Game',
-      metadata: { provider, query: query || null, synced: result.synced }
+      metadata: { provider, query: query || null, synced: result.synced },
     });
 
     res.status(200).json({ ...result, provider });
@@ -1021,23 +1078,25 @@ const getStorage = async (req, res, next) => {
     const [bySurface, totals, byStatus] = await Promise.all([
       MediaAsset.aggregate([
         { $group: { _id: '$surface', count: { $sum: 1 }, bytes: { $sum: '$bytes' } } },
-        { $sort: { count: -1 } }
+        { $sort: { count: -1 } },
       ]),
-      MediaAsset.aggregate([{ $group: { _id: null, count: { $sum: 1 }, bytes: { $sum: '$bytes' } } }]),
-      MediaAsset.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }])
+      MediaAsset.aggregate([
+        { $group: { _id: null, count: { $sum: 1 }, bytes: { $sum: '$bytes' } } },
+      ]),
+      MediaAsset.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     ]);
 
     res.status(200).json({
       totals: {
         assets: totals[0]?.count || 0,
-        bytes: totals[0]?.bytes || 0
+        bytes: totals[0]?.bytes || 0,
       },
       bySurface: bySurface.map((row) => ({
         surface: row._id || 'unknown',
         count: row.count,
-        bytes: row.bytes
+        bytes: row.bytes,
       })),
-      byStatus: Object.fromEntries(byStatus.map((row) => [row._id, row.count]))
+      byStatus: Object.fromEntries(byStatus.map((row) => [row._id, row.count])),
     });
   } catch (err) {
     next(err);
@@ -1065,5 +1124,5 @@ module.exports = {
   updateGame,
   mergeGame,
   syncGames,
-  getStorage
+  getStorage,
 };

@@ -7,12 +7,12 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
-  delete: vi.fn()
+  delete: vi.fn(),
 }));
 
 vi.mock('../api/axiosInstance', () => ({ default: mocks }));
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: { _id: 'u1', username: 'author' } })
+  useAuth: () => ({ user: { _id: 'u1', username: 'author' } }),
 }));
 vi.mock('../api/socket', () => ({ getSocket: () => null }));
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -20,7 +20,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useParams: () => ({ slug: 'audit-channel' }) };
 });
 
-const videoUrl = 'https://res.cloudinary.com/demo/video/upload/c_limit,q_auto,w_1280/v1/broadcast.mp4';
+const videoUrl =
+  'https://res.cloudinary.com/demo/video/upload/c_limit,q_auto,w_1280/v1/broadcast.mp4';
 const channel = {
   _id: 'c1',
   name: 'Audit channel',
@@ -33,7 +34,7 @@ const channel = {
   isOwner: true,
   canPublish: true,
   isSubscribed: false,
-  muted: false
+  muted: false,
 };
 const message = {
   _id: 'm1',
@@ -42,7 +43,7 @@ const message = {
   mediaType: 'video',
   mediaUrl: videoUrl,
   publishedAt: new Date().toISOString(),
-  author: { _id: 'u1', username: 'author' }
+  author: { _id: 'u1', username: 'author' },
 };
 
 beforeEach(() => {
@@ -61,7 +62,7 @@ describe('BroadcastChannelPage video delivery', () => {
     const { container } = render(
       <MemoryRouter>
         <BroadcastChannelPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => expect(container.querySelector('.broadcast-post video')).toBeTruthy());
@@ -69,7 +70,7 @@ describe('BroadcastChannelPage video delivery', () => {
     expect(video).toHaveAttribute('src', videoUrl);
     expect(video).toHaveAttribute(
       'poster',
-      'https://res.cloudinary.com/demo/video/upload/so_0,w_640,c_limit,q_auto/c_limit,q_auto,w_1280/v1/broadcast.jpg'
+      'https://res.cloudinary.com/demo/video/upload/so_0,w_640,c_limit,q_auto/c_limit,q_auto,w_1280/v1/broadcast.jpg',
     );
     // Opening a channel must not silently clear its unread marker.
     expect(mocks.post).not.toHaveBeenCalledWith('/channels/audit-channel/read');

@@ -31,9 +31,7 @@ const ClipCard = ({ post }) => {
       onMouseLeave={handleMouseLeave}
     >
       {/* Media Type Badge */}
-      <span className="clip-card-badge">
-        {post.mediaType === 'video' ? 'Clip' : 'Image'}
-      </span>
+      <span className="clip-card-badge">{post.mediaType === 'video' ? 'Clip' : 'Image'}</span>
 
       {/* Render element */}
       {post.mediaType === 'video' ? (
@@ -59,8 +57,12 @@ const ClipCard = ({ post }) => {
 
       {/* Hover Overlay with Stats */}
       <div className="clip-card-overlay">
-        <span className="clip-card-stat"><HeartIcon size={13} /> {likesCount}</span>
-        <span className="clip-card-stat"><CommentIcon size={13} /> {post.commentCount ?? 0}</span>
+        <span className="clip-card-stat">
+          <HeartIcon size={13} /> {likesCount}
+        </span>
+        <span className="clip-card-stat">
+          <CommentIcon size={13} /> {post.commentCount ?? 0}
+        </span>
       </div>
     </div>
   );

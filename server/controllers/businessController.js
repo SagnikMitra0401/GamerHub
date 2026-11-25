@@ -16,7 +16,7 @@ const {
   manualReviewReadiness,
   sanitizeReviewResponse,
   demotionReadiness,
-  verificationDomainFor
+  verificationDomainFor,
 } = require('../utils/business');
 const { checkDnsToken, normalizeDomain } = require('../utils/domainVerification');
 const { recordPlatformAudit } = require('../utils/audit');
@@ -28,10 +28,10 @@ const isId = (value) => /^[a-f0-9]{24}$/i.test(String(value || ''));
 // email body (Phase 17 retention: reason, channel, actor, timestamp).
 const AUDIT_EXCERPT_LENGTH = 160;
 const auditExcerpt = (value) => {
-  const text = String(value || '').replace(/\s+/g, ' ').trim();
-  return text.length > AUDIT_EXCERPT_LENGTH
-    ? `${text.slice(0, AUDIT_EXCERPT_LENGTH - 1)}…`
-    : text;
+  const text = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > AUDIT_EXCERPT_LENGTH ? `${text.slice(0, AUDIT_EXCERPT_LENGTH - 1)}…` : text;
 };
 
 /** GET /api/business/:username — public disclosed business card. */
@@ -54,7 +54,7 @@ const getPublicBusiness = async (req, res, next) => {
       role: user.role || 'user',
       profileType: 'creator_business',
       followerCount: (user.followers || []).length,
-      business: publicBusinessProfile(profile)
+      business: publicBusinessProfile(profile),
     });
   } catch (err) {
     next(err);
@@ -89,21 +89,21 @@ const saveBusinessProfile = async (req, res, next) => {
         verificationToken: '',
         verificationRequestedAt: null,
         verifiedAt: null,
-        verifiedBy: null
+        verifiedBy: null,
       });
     }
 
     const profile = await BusinessProfile.findOneAndUpdate(
       { userId: req.user._id },
       { $set: update, $setOnInsert: { userId: req.user._id } },
-      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
     ).lean();
 
     await User.updateOne({ _id: req.user._id }, { $set: { profileType: 'creator_business' } });
 
     res.status(200).json({
       profileType: 'creator_business',
-      businessProfile: ownerBusinessProfile(profile)
+      businessProfile: ownerBusinessProfile(profile),
     });
   } catch (err) {
     next(err);
@@ -133,7 +133,7 @@ const requestBusinessVerification = async (req, res, next) => {
     if (profile.verificationStatus === 'verified') {
       return res.status(200).json({
         businessProfile: ownerBusinessProfile(profile),
-        alreadyVerified: true
+        alreadyVerified: true,
       });
     }
 
@@ -175,18 +175,19 @@ const requestBusinessVerification = async (req, res, next) => {
 
     res.status(200).json({
       businessProfile: ownerBusinessProfile(profile),
-      instructions: method === 'dns'
-        ? {
-            method,
-            domain,
-            recordName: `_gamerhub-verify.${domain}`,
-            recordType: 'TXT',
-            recordValue: `gamerhub-verify=${token}`
-          }
-        : {
-            method,
-            message: 'An administrator will review your business details manually.'
-          }
+      instructions:
+        method === 'dns'
+          ? {
+              method,
+              domain,
+              recordName: `_gamerhub-verify.${domain}`,
+              recordType: 'TXT',
+              recordValue: `gamerhub-verify=${token}`,
+            }
+          : {
+              method,
+              message: 'An administrator will review your business details manually.',
+            },
     });
   } catch (err) {
     next(err);
@@ -204,7 +205,9 @@ const checkBusinessVerification = async (req, res, next) => {
     const profile = await BusinessProfile.findOne({ userId: req.user._id });
     if (!profile) throw notFound('Business profile not found.');
     if (profile.verificationStatus === 'verified') {
-      return res.status(200).json({ businessProfile: ownerBusinessProfile(profile), alreadyVerified: true });
+      return res
+        .status(200)
+        .json({ businessProfile: ownerBusinessProfile(profile), alreadyVerified: true });
     }
     if (profile.verificationStatus !== 'pending' || profile.verificationMethod !== 'dns') {
       throw badRequest('Request DNS verification before checking the record.');
@@ -226,13 +229,13 @@ const checkBusinessVerification = async (req, res, next) => {
       businessProfileId: profile._id,
       actorId: null,
       status: 'verified',
-      note: `Automatic DNS match for ${result.recordName}`
+      note: `Automatic DNS match for ${result.recordName}`,
     });
 
     res.status(200).json({
       businessProfile: ownerBusinessProfile(profile),
       verified: true,
-      domain: result.domain
+      domain: result.domain,
     });
   } catch (err) {
     next(err);
@@ -242,24 +245,26 @@ const checkBusinessVerification = async (req, res, next) => {
 /** GET /api/account/business/analytics — owner-only outreach counters. */
 const getBusinessAnalytics = async (req, res, next) => {
   try {
-    const profile = await BusinessProfile.findOne({ userId: req.user._id }).select('verificationStatus outreachPaused complaints').lean();
+    const profile = await BusinessProfile.findOne({ userId: req.user._id })
+      .select('verificationStatus outreachPaused complaints')
+      .lean();
     if (!profile) throw notFound('Business profile not found.');
 
     const [sent, accepted, active] = await Promise.all([
       Conversation.countDocuments({
         initiatorId: req.user._id,
-        requestIntent: { $ne: null }
+        requestIntent: { $ne: null },
       }),
       Conversation.countDocuments({
         initiatorId: req.user._id,
         requestIntent: { $ne: null },
-        state: 'active'
+        state: 'active',
       }),
       Conversation.countDocuments({
         participantIds: req.user._id,
         state: 'active',
-        businessThread: true
-      })
+        businessThread: true,
+      }),
     ]);
 
     res.status(200).json({
@@ -269,7 +274,7 @@ const getBusinessAnalytics = async (req, res, next) => {
       sent,
       accepted,
       active,
-      acceptanceRate: sent ? Math.round((accepted / sent) * 100) : null
+      acceptanceRate: sent ? Math.round((accepted / sent) * 100) : null,
     });
   } catch (err) {
     next(err);
@@ -282,11 +287,12 @@ const getPendingBusinessVerifications = async (req, res, next) => {
     const status = ['pending', 'verified', 'rejected', 'expired', 'all'].includes(req.query.status)
       ? req.query.status
       : 'pending';
-    const query = status === 'all'
-      ? {}
-      : status === 'pending'
-        ? { $or: [{ verificationStatus: 'pending' }, { outreachPaused: true }] }
-        : { verificationStatus: status };
+    const query =
+      status === 'all'
+        ? {}
+        : status === 'pending'
+          ? { $or: [{ verificationStatus: 'pending' }, { outreachPaused: true }] }
+          : { verificationStatus: status };
     const profiles = await BusinessProfile.find(query)
       .sort({ verificationRequestedAt: 1, createdAt: 1 })
       .limit(50)
@@ -302,7 +308,7 @@ const getPendingBusinessVerifications = async (req, res, next) => {
               _id: String(profile.userId._id),
               username: profile.userId.username,
               email: profile.userId.email,
-              status: profile.userId.status
+              status: profile.userId.status,
             }
           : null,
         business: {
@@ -318,7 +324,7 @@ const getPendingBusinessVerifications = async (req, res, next) => {
           reviewRespondedAt: profile.reviewRespondedAt || null,
           reviewResponseNote: profile.reviewResponseNote || '',
           reviewDecidedAt: profile.reviewDecidedAt || null,
-          evidencePurgedAt: profile.evidencePurgedAt || null
+          evidencePurgedAt: profile.evidencePurgedAt || null,
         },
         // The queue renders the same rule the endpoint enforces, so a disabled
         // Demote button always says why instead of failing on click.
@@ -329,13 +335,13 @@ const getPendingBusinessVerifications = async (req, res, next) => {
             code: readiness.ok ? null : readiness.code,
             reason: readiness.ok ? null : readiness.reason,
             earliestDemotionAt: readiness.earliestDemotionAt || null,
-            daysRemaining: readiness.daysRemaining || 0
+            daysRemaining: readiness.daysRemaining || 0,
           };
         })(),
         token: profile.verificationToken || '',
         requestedAt: profile.verificationRequestedAt || null,
-        reviewContactedAt: profile.reviewContactedAt || null
-      }))
+        reviewContactedAt: profile.reviewContactedAt || null,
+      })),
     });
   } catch (err) {
     next(err);
@@ -350,7 +356,9 @@ const resolveBusinessVerification = async (req, res, next) => {
     if (!['verified', 'rejected'].includes(status)) {
       throw badRequest('Choose verified or rejected.');
     }
-    const note = String(req.body?.note || '').trim().slice(0, 500);
+    const note = String(req.body?.note || '')
+      .trim()
+      .slice(0, 500);
 
     const profile = await BusinessProfile.findById(req.params.id);
     if (!profile) throw notFound('Business profile not found.');
@@ -362,7 +370,7 @@ const resolveBusinessVerification = async (req, res, next) => {
       return res.status(200).json({
         businessProfile: ownerBusinessProfile(profile),
         status: 'verified',
-        unpaused: true
+        unpaused: true,
       });
     }
 
@@ -379,12 +387,12 @@ const resolveBusinessVerification = async (req, res, next) => {
       businessProfileId: profile._id,
       actorId: req.user._id,
       status,
-      note
+      note,
     });
 
     res.status(200).json({
       businessProfile: ownerBusinessProfile(profile),
-      status
+      status,
     });
   } catch (err) {
     next(err);
@@ -402,7 +410,9 @@ const resolveBusinessVerification = async (req, res, next) => {
 const contactBusinessVerification = async (req, res, next) => {
   try {
     if (!isId(req.params.id)) throw badRequest('Invalid business profile.');
-    const message = String(req.body?.message || '').trim().slice(0, 1000);
+    const message = String(req.body?.message || '')
+      .trim()
+      .slice(0, 1000);
     if (message.length < 5) {
       throw badRequest('Write a message that explains what the business must address.');
     }
@@ -413,7 +423,7 @@ const contactBusinessVerification = async (req, res, next) => {
     const owner = await User.findById(profile.userId).select('username email').lean();
     const channel = ['email', 'phone', 'other'].includes(req.body?.channel)
       ? req.body.channel
-      : (profile.contactMethod || 'email');
+      : profile.contactMethod || 'email';
     const to = profile.contactEmail || profile.supportEmail || owner?.email || '';
 
     if (channel === 'email') {
@@ -422,7 +432,7 @@ const contactBusinessVerification = async (req, res, next) => {
         to,
         displayName: profile.displayName,
         message,
-        outcome: 'contact'
+        outcome: 'contact',
       });
     }
 
@@ -438,20 +448,20 @@ const contactBusinessVerification = async (req, res, next) => {
       actorId: req.user._id,
       status: 'contacted',
       channel,
-      note: `${channel} contact: ${auditExcerpt(message)}`.slice(0, AUDIT_EXCERPT_LENGTH)
+      note: `${channel} contact: ${auditExcerpt(message)}`.slice(0, AUDIT_EXCERPT_LENGTH),
     });
     await recordPlatformAudit({
       actorId: req.user._id,
       actionType: 'PLATFORM_BUSINESS_CONTACT',
       targetId: profile._id,
       targetModel: 'BusinessProfile',
-      metadata: { channel, username: owner?.username || null }
+      metadata: { channel, username: owner?.username || null },
     });
 
     res.status(200).json({
       contacted: true,
       channel,
-      reviewContactedAt: profile.reviewContactedAt
+      reviewContactedAt: profile.reviewContactedAt,
     });
   } catch (err) {
     next(err);
@@ -489,19 +499,19 @@ const respondToBusinessReview = async (req, res, next) => {
       actorId: req.user._id,
       status: 'responded',
       channel: profile.contactMethod || 'email',
-      note: auditExcerpt(parsed.value)
+      note: auditExcerpt(parsed.value),
     });
     await recordPlatformAudit({
       actorId: req.user._id,
       actionType: 'PLATFORM_BUSINESS_RESPOND',
       targetId: profile._id,
       targetModel: 'BusinessProfile',
-      metadata: { username: req.user.username || null }
+      metadata: { username: req.user.username || null },
     });
 
     res.status(200).json({
       responded: true,
-      businessProfile: ownerBusinessProfile(profile)
+      businessProfile: ownerBusinessProfile(profile),
     });
   } catch (err) {
     next(err);
@@ -519,7 +529,9 @@ const respondToBusinessReview = async (req, res, next) => {
 const demoteBusinessAccount = async (req, res, next) => {
   try {
     if (!isId(req.params.id)) throw badRequest('Invalid business profile.');
-    const reason = String(req.body?.reason || '').trim().slice(0, 500);
+    const reason = String(req.body?.reason || '')
+      .trim()
+      .slice(0, 500);
     if (reason.length < 5) {
       throw badRequest('Give a reason (at least 5 characters) for the demotion.');
     }
@@ -554,7 +566,7 @@ const demoteBusinessAccount = async (req, res, next) => {
     // immediately even before their open socket is closed.
     const revoked = await BusinessTeamMember.updateMany(
       { businessOwnerId: profile.userId, status: { $ne: 'removed' } },
-      { $set: { status: 'removed', respondedAt: new Date() } }
+      { $set: { status: 'removed', respondedAt: new Date() } },
     );
 
     await BusinessVerificationAudit.create({
@@ -562,7 +574,7 @@ const demoteBusinessAccount = async (req, res, next) => {
       actorId: req.user._id,
       status: 'demoted',
       channel: profile.contactMethod || 'email',
-      note: reason
+      note: reason,
     });
     await recordPlatformAudit({
       actorId: req.user._id,
@@ -572,8 +584,8 @@ const demoteBusinessAccount = async (req, res, next) => {
       metadata: {
         reason,
         username: owner?.username || null,
-        revokedTeamMembers: revoked.modifiedCount || 0
-      }
+        revokedTeamMembers: revoked.modifiedCount || 0,
+      },
     });
 
     if (to) {
@@ -581,14 +593,14 @@ const demoteBusinessAccount = async (req, res, next) => {
         to,
         displayName: profile.displayName,
         message: reason,
-        outcome: 'demoted'
+        outcome: 'demoted',
       }).catch((err) => console.error('[Business] demotion email failed:', err.message));
     }
 
     res.status(200).json({
       demoted: true,
       revokedTeamMembers: revoked.modifiedCount || 0,
-      businessProfile: ownerBusinessProfile(profile)
+      businessProfile: ownerBusinessProfile(profile),
     });
   } catch (err) {
     next(err);
@@ -606,5 +618,5 @@ module.exports = {
   resolveBusinessVerification,
   contactBusinessVerification,
   respondToBusinessReview,
-  demoteBusinessAccount
+  demoteBusinessAccount,
 };

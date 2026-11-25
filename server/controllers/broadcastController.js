@@ -11,7 +11,10 @@ const { mediaPublicId: buildMediaPublicId } = require('../utils/mediaPaths');
 const { sanitizeLine, sanitizeText, isHttpUrl } = require('../utils/sanitize');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const {
-  canPublish, canReadChannel, slugifyBroadcastName, uniqueSlug
+  canPublish,
+  canReadChannel,
+  slugifyBroadcastName,
+  uniqueSlug,
 } = require('../utils/broadcastAccess');
 const { notifyUser } = require('../utils/notify');
 const { getIO } = require('../config/socket');
@@ -40,7 +43,7 @@ const channelView = (channel, { subscription = null, user = null } = {}) => ({
   canPublish: canPublish(channel, user),
   isSubscribed: Boolean(subscription),
   muted: Boolean(subscription?.muted),
-  lastReadAt: subscription?.lastReadAt || null
+  lastReadAt: subscription?.lastReadAt || null,
 });
 
 const messageView = (message) => ({
@@ -53,7 +56,7 @@ const messageView = (message) => ({
   publishedAt: message.publishedAt,
   author: message.authorId?.username
     ? { _id: String(message.authorId._id), username: message.authorId.username }
-    : null
+    : null,
 });
 
 /** Pick a free slug in one read instead of probing candidate by candidate. */
@@ -62,14 +65,18 @@ async function freeSlug(name) {
   const taken = await BroadcastChannel.find({ slug: new RegExp(`^${base}`) })
     .select('slug')
     .lean();
-  return uniqueSlug(base, taken.map((row) => row.slug));
+  return uniqueSlug(
+    base,
+    taken.map((row) => row.slug),
+  );
 }
 
 /** POST /api/channels */
 const createChannel = async (req, res, next) => {
   try {
     const name = sanitizeLine(req.body.name, 50);
-    if (!name || name.length < 2) throw badRequest('Give your channel a name of at least 2 characters.');
+    if (!name || name.length < 2)
+      throw badRequest('Give your channel a name of at least 2 characters.');
 
     const owned = await BroadcastChannel.countDocuments({ ownerId: req.user._id });
     if (owned >= MAX_CHANNELS_PER_OWNER) {
@@ -89,7 +96,7 @@ const createChannel = async (req, res, next) => {
       description: sanitizeText(req.body.description, 300),
       avatarUrl,
       category,
-      isPublic: !(req.body.isPublic === false || req.body.isPublic === 'false')
+      isPublic: !(req.body.isPublic === false || req.body.isPublic === 'false'),
     });
 
     res.status(201).json(channelView(channel, { user: req.user }));
@@ -105,46 +112,57 @@ const listChannels = async (req, res, next) => {
 
     const subscriptions = user
       ? await BroadcastSubscription.find({ userId: user._id })
-        .populate('channelId')
-        .sort({ updatedAt: -1 })
-        .limit(50)
-        .lean()
+          .populate('channelId')
+          .sort({ updatedAt: -1 })
+          .limit(50)
+          .lean()
       : [];
 
     const subscribed = subscriptions.filter((row) => row.channelId);
 
     // One aggregation instead of one count query per subscription (up to 50).
-    const unreadRows = user && subscribed.length
-      ? await BroadcastSubscription.aggregate([
-          { $match: { userId: user._id, channelId: { $in: subscribed.map((row) => row.channelId._id) } } },
-          {
-            $lookup: {
-              from: 'broadcastmessages',
-              let: { channelId: '$channelId', lastReadAt: '$lastReadAt' },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ['$channelId', '$$channelId'] },
-                        { $gt: ['$publishedAt', { $ifNull: ['$$lastReadAt', new Date(0)] }] }
-                      ]
-                    }
-                  }
-                },
-                { $count: 'count' }
-              ],
-              as: 'unread'
-            }
-          },
-          { $project: { channelId: 1, unread: { $ifNull: [{ $arrayElemAt: ['$unread.count', 0] }, 0] } } }
-        ])
-      : [];
+    const unreadRows =
+      user && subscribed.length
+        ? await BroadcastSubscription.aggregate([
+            {
+              $match: {
+                userId: user._id,
+                channelId: { $in: subscribed.map((row) => row.channelId._id) },
+              },
+            },
+            {
+              $lookup: {
+                from: 'broadcastmessages',
+                let: { channelId: '$channelId', lastReadAt: '$lastReadAt' },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ['$channelId', '$$channelId'] },
+                          { $gt: ['$publishedAt', { $ifNull: ['$$lastReadAt', new Date(0)] }] },
+                        ],
+                      },
+                    },
+                  },
+                  { $count: 'count' },
+                ],
+                as: 'unread',
+              },
+            },
+            {
+              $project: {
+                channelId: 1,
+                unread: { $ifNull: [{ $arrayElemAt: ['$unread.count', 0] }, 0] },
+              },
+            },
+          ])
+        : [];
     const unreadByChannel = new Map(unreadRows.map((row) => [String(row.channelId), row.unread]));
 
     const withUnread = subscribed.map((row) => ({
       ...channelView(row.channelId, { subscription: row, user }),
-      unread: unreadByChannel.get(String(row.channelId._id)) || 0
+      unread: unreadByChannel.get(String(row.channelId._id)) || 0,
     }));
 
     const discoverFilter = { isPublic: true };
@@ -155,9 +173,9 @@ const listChannels = async (req, res, next) => {
 
     const owned = user
       ? await BroadcastChannel.find({ ownerId: user._id })
-        .sort({ createdAt: -1 })
-        .limit(MAX_CHANNELS_PER_OWNER)
-        .lean()
+          .sort({ createdAt: -1 })
+          .limit(MAX_CHANNELS_PER_OWNER)
+          .lean()
       : [];
 
     const discover = await BroadcastChannel.find(discoverFilter)
@@ -168,7 +186,7 @@ const listChannels = async (req, res, next) => {
     res.status(200).json({
       subscriptions: withUnread,
       owned: owned.map((channel) => channelView(channel, { user })),
-      discover: discover.map((channel) => channelView(channel, { user }))
+      discover: discover.map((channel) => channelView(channel, { user })),
     });
   } catch (err) {
     next(err);
@@ -178,7 +196,9 @@ const listChannels = async (req, res, next) => {
 /** GET /api/channels/:slug */
 const getChannel = async (req, res, next) => {
   try {
-    const channel = await BroadcastChannel.findOne({ slug: String(req.params.slug).toLowerCase() }).lean();
+    const channel = await BroadcastChannel.findOne({
+      slug: String(req.params.slug).toLowerCase(),
+    }).lean();
     if (!channel) throw notFound('Channel not found');
 
     const subscription = req.user
@@ -208,7 +228,7 @@ const subscribe = async (req, res, next) => {
     const result = await BroadcastSubscription.updateOne(
       { channelId: channel._id, userId: req.user._id },
       { $setOnInsert: { lastReadAt: new Date() } },
-      { upsert: true }
+      { upsert: true },
     );
 
     const created = Boolean(result.upsertedCount);
@@ -218,13 +238,13 @@ const subscribe = async (req, res, next) => {
 
     const subscription = await BroadcastSubscription.findOne({
       channelId: channel._id,
-      userId: req.user._id
+      userId: req.user._id,
     }).lean();
 
     res.status(200).json({
       subscribed: true,
       created,
-      channel: channelView(channel, { subscription, user: req.user })
+      channel: channelView(channel, { subscription, user: req.user }),
     });
   } catch (err) {
     next(err);
@@ -239,12 +259,12 @@ const unsubscribe = async (req, res, next) => {
 
     const result = await BroadcastSubscription.deleteOne({
       channelId: channel._id,
-      userId: req.user._id
+      userId: req.user._id,
     });
     if (result.deletedCount) {
       await BroadcastChannel.updateOne(
         { _id: channel._id, subscriberCount: { $gt: 0 } },
-        { $inc: { subscriberCount: -1 } }
+        { $inc: { subscriberCount: -1 } },
       );
     }
 
@@ -265,7 +285,7 @@ const setMuted = async (req, res, next) => {
     const subscription = await BroadcastSubscription.findOneAndUpdate(
       { channelId: channel._id, userId: req.user._id },
       { $set: { muted: req.body.muted } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!subscription) throw notFound('Subscribe to this channel first.');
@@ -285,7 +305,7 @@ const markRead = async (req, res, next) => {
     const subscription = await BroadcastSubscription.findOneAndUpdate(
       { channelId: channel._id, userId: req.user._id },
       { $set: { lastReadAt: new Date() } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!subscription) throw notFound('Subscribe to this channel first.');
@@ -299,7 +319,9 @@ const markRead = async (req, res, next) => {
 /** GET /api/channels/:slug/messages — cursor paged, newest first. */
 const getMessages = async (req, res, next) => {
   try {
-    const channel = await BroadcastChannel.findOne({ slug: String(req.params.slug).toLowerCase() }).lean();
+    const channel = await BroadcastChannel.findOne({
+      slug: String(req.params.slug).toLowerCase(),
+    }).lean();
     if (!channel) throw notFound('Channel not found');
 
     const subscription = req.user
@@ -355,14 +377,20 @@ const publishMessage = async (req, res, next) => {
       if (req.file.size > maxAllowed) {
         cleanupTempFile(tempFilePath);
         tempFilePath = null;
-        throw badRequest(isVideo ? 'Broadcast videos must be 50MB or less.' : 'Broadcast images must be 5MB or less.');
+        throw badRequest(
+          isVideo
+            ? 'Broadcast videos must be 50MB or less.'
+            : 'Broadcast images must be 5MB or less.',
+        );
       }
 
       if (isVideo) {
         const publicId = buildMediaPublicId({ surface: 'broadcast', ownerId: req.user._id });
         const result = await uploadToCloudinary(tempFilePath, { publicId, resourceType: 'video' });
         const asset = await registerVideoAsset({
-          result, ownerId: req.user._id, surface: 'broadcast'
+          result,
+          ownerId: req.user._id,
+          surface: 'broadcast',
         });
         mediaUrl = asset.derivatives.video || result.secure_url;
         mediaType = 'video';
@@ -375,7 +403,7 @@ const publishMessage = async (req, res, next) => {
           mimeType: req.file.mimetype,
           sizeBytes: req.file.size,
           surface: 'broadcast',
-          ownerId: req.user._id
+          ownerId: req.user._id,
         });
         mediaUrl = asset.derivatives.full || result.secure_url;
         mediaCardUrl = asset.derivatives.card;
@@ -399,7 +427,7 @@ const publishMessage = async (req, res, next) => {
       mediaType,
       mediaPublicId,
       mediaAssetId,
-      publishedAt: new Date()
+      publishedAt: new Date(),
     });
 
     if (mediaAssetId) {
@@ -408,14 +436,19 @@ const publishMessage = async (req, res, next) => {
 
     await BroadcastChannel.updateOne(
       { _id: channel._id },
-      { $inc: { messageCount: 1 }, $set: { lastPublishedAt: message.publishedAt } }
+      { $inc: { messageCount: 1 }, $set: { lastPublishedAt: message.publishedAt } },
     );
 
     const payload = {
-      ...messageView({ ...message.toObject(), authorId: { _id: req.user._id, username: req.user.username } })
+      ...messageView({
+        ...message.toObject(),
+        authorId: { _id: req.user._id, username: req.user.username },
+      }),
     };
 
-    getIO()?.to(`broadcast:${String(channel._id)}`).emit('broadcast_message', payload);
+    getIO()
+      ?.to(`broadcast:${String(channel._id)}`)
+      .emit('broadcast_message', payload);
 
     // Fan out notifications. Muted subscribers get the post in-app but no ping;
     // the threshold keeps a huge channel from writing thousands of rows per
@@ -423,20 +456,27 @@ const publishMessage = async (req, res, next) => {
     const subscribers = await BroadcastSubscription.find({
       channelId: channel._id,
       muted: false,
-      userId: { $ne: req.user._id }
-    }).select('userId').limit(MAX_NOTIFIED_SUBSCRIBERS).lean();
+      userId: { $ne: req.user._id },
+    })
+      .select('userId')
+      .limit(MAX_NOTIFIED_SUBSCRIBERS)
+      .lean();
 
-    await Promise.allSettled(subscribers.map((subscriber) => notifyUser({
-      userId: subscriber.userId,
-      type: 'broadcast',
-      actorId: req.user._id,
-      title: channel.name,
-      message: text ? text.slice(0, 120) : 'New media post',
-      actionUrl: `/channels/${channel.slug}`,
-      mediaThumbnail: mediaCardUrl,
-      metadata: { kind: 'broadcast', channelId: String(channel._id) },
-      dedupeKey: `broadcast:${message._id}`
-    })));
+    await Promise.allSettled(
+      subscribers.map((subscriber) =>
+        notifyUser({
+          userId: subscriber.userId,
+          type: 'broadcast',
+          actorId: req.user._id,
+          title: channel.name,
+          message: text ? text.slice(0, 120) : 'New media post',
+          actionUrl: `/channels/${channel.slug}`,
+          mediaThumbnail: mediaCardUrl,
+          metadata: { kind: 'broadcast', channelId: String(channel._id) },
+          dedupeKey: `broadcast:${message._id}`,
+        }),
+      ),
+    );
 
     res.status(201).json(payload);
   } catch (err) {
@@ -456,11 +496,16 @@ const deleteChannel = async (req, res, next) => {
       .select('_id mediaPublicId mediaType mediaAssetId')
       .lean();
 
-    await Promise.allSettled(messages.map((message) => (
-      message.mediaPublicId
-        ? deleteFromCloudinary(message.mediaPublicId, message.mediaType === 'video' ? 'video' : 'image')
-        : Promise.resolve()
-    )));
+    await Promise.allSettled(
+      messages.map((message) =>
+        message.mediaPublicId
+          ? deleteFromCloudinary(
+              message.mediaPublicId,
+              message.mediaType === 'video' ? 'video' : 'image',
+            )
+          : Promise.resolve(),
+      ),
+    );
     const assetIds = messages.map((message) => message.mediaAssetId).filter(Boolean);
     if (assetIds.length) await MediaAsset.deleteMany({ _id: { $in: assetIds } });
 
@@ -481,23 +526,27 @@ const deleteMessage = async (req, res, next) => {
     if (!channel) throw notFound('Channel not found');
     if (!canPublish(channel, req.user)) throw forbidden('Only the owner can delete posts here.');
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.messageId)) throw badRequest('Invalid message id');
+    if (!mongoose.Types.ObjectId.isValid(req.params.messageId))
+      throw badRequest('Invalid message id');
     const message = await BroadcastMessage.findOne({
       _id: req.params.messageId,
-      channelId: channel._id
+      channelId: channel._id,
     });
     if (!message) throw notFound('Post not found');
 
     if (message.mediaPublicId) {
-      await deleteFromCloudinary(message.mediaPublicId, message.mediaType === 'video' ? 'video' : 'image')
-        .catch((err) => console.error('[Broadcast] Cloudinary delete failed:', err.message));
+      await deleteFromCloudinary(
+        message.mediaPublicId,
+        message.mediaType === 'video' ? 'video' : 'image',
+      ).catch((err) => console.error('[Broadcast] Cloudinary delete failed:', err.message));
     }
-    if (message.mediaAssetId) await MediaAsset.deleteOne({ _id: message.mediaAssetId }).catch(() => {});
+    if (message.mediaAssetId)
+      await MediaAsset.deleteOne({ _id: message.mediaAssetId }).catch(() => {});
 
     await BroadcastMessage.deleteOne({ _id: message._id });
     await BroadcastChannel.updateOne(
       { _id: channel._id, messageCount: { $gt: 0 } },
-      { $inc: { messageCount: -1 } }
+      { $inc: { messageCount: -1 } },
     );
 
     res.status(200).json({ deleted: true });
@@ -517,5 +566,5 @@ module.exports = {
   getMessages,
   publishMessage,
   deleteChannel,
-  deleteMessage
+  deleteMessage,
 };

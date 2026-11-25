@@ -8,26 +8,34 @@ const mongoose = require('mongoose');
  * reference `ready` attachments that its own sender uploaded into its own
  * channel — never an id supplied by someone else.
  */
-const AttachmentSchema = new mongoose.Schema({
-  channelId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Channel', required: true, index: true },
-  communityId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: true },
-  uploaderId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+const AttachmentSchema = new mongoose.Schema(
+  {
+    channelId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Channel',
+      required: true,
+      index: true,
+    },
+    communityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Community', required: true },
+    uploaderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 
-  // Shared media ledger row (see models/MediaAsset). Legacy rows have none.
-  assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'MediaAsset', default: null },
+    // Shared media ledger row (see models/MediaAsset). Legacy rows have none.
+    assetId: { type: mongoose.Schema.Types.ObjectId, ref: 'MediaAsset', default: null },
 
-  cloudinaryId: { type: String, required: true },
-  url:          { type: String, required: true },
-  mimeType:     { type: String, required: true },
-  sizeBytes:    { type: Number, required: true },
-  width:        { type: Number, default: null },
-  height:       { type: Number, default: null },
+    cloudinaryId: { type: String, required: true },
+    url: { type: String, required: true },
+    mimeType: { type: String, required: true },
+    sizeBytes: { type: Number, required: true },
+    width: { type: Number, default: null },
+    height: { type: Number, default: null },
 
-  // Set once a message references it, so orphan cleanup can find unused rows.
-  messageId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
+    // Set once a message references it, so orphan cleanup can find unused rows.
+    messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
 
-  status: { type: String, enum: ['pending', 'ready', 'rejected'], default: 'pending' }
-}, { timestamps: true });
+    status: { type: String, enum: ['pending', 'ready', 'rejected'], default: 'pending' },
+  },
+  { timestamps: true },
+);
 
 AttachmentSchema.index({ channelId: 1, createdAt: -1 });
 AttachmentSchema.index({ uploaderId: 1, status: 1 });

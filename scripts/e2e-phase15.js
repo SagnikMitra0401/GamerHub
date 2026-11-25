@@ -51,7 +51,10 @@ const { api, check, report, setBase, registerUser } = require('./lib/e2e-harness
 const gameDoc = (title, slug, extra = {}) => ({
   slug,
   title,
-  key: title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(),
+  key: title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim(),
   summary: `${title} summary`,
   genres: ['Shooter'],
   platforms: ['PC'],
@@ -59,7 +62,7 @@ const gameDoc = (title, slug, extra = {}) => ({
   status: 'published',
   source: 'seed',
   stats: { favoriteCount: 0 },
-  ...extra
+  ...extra,
 });
 
 async function run() {
@@ -85,17 +88,28 @@ async function run() {
     const bobId = bobMe.data.user._id;
     const adminId = adminMe.data.user._id;
 
-    await User.updateOne({ _id: adminId }, { $set: { role: 'admin', emailVerifiedAt: new Date() } });
-    await User.updateOne({ _id: modMe.data.user._id }, { $set: { role: 'moderator', emailVerifiedAt: new Date() } });
+    await User.updateOne(
+      { _id: adminId },
+      { $set: { role: 'admin', emailVerifiedAt: new Date() } },
+    );
+    await User.updateOne(
+      { _id: modMe.data.user._id },
+      { $set: { role: 'moderator', emailVerifiedAt: new Date() } },
+    );
 
     const valorant = await Game.create(gameDoc('Valorant', 'valorant', { releaseYear: 2020 }));
-    const halo = await Game.create(gameDoc('Halo Infinite', 'halo-infinite', {
-      releaseYear: 2021,
-      genres: ['Shooter', 'Sci-Fi']
-    }));
-    await Game.create(gameDoc('Stardew Valley', 'stardew-valley', {
-      genres: ['Simulation'], releaseYear: 2016
-    }));
+    const halo = await Game.create(
+      gameDoc('Halo Infinite', 'halo-infinite', {
+        releaseYear: 2021,
+        genres: ['Shooter', 'Sci-Fi'],
+      }),
+    );
+    await Game.create(
+      gameDoc('Stardew Valley', 'stardew-valley', {
+        genres: ['Simulation'],
+        releaseYear: 2016,
+      }),
+    );
     await Game.create(gameDoc('Valorant Mobile', 'valorant-mobile', { releaseYear: 2025 }));
 
     // ── Catalog ─────────────────────────────────────────────────────────────
@@ -125,7 +139,10 @@ async function run() {
     check('rails return only populated sections', () => {
       assert.equal(rails.status, 200, JSON.stringify(rails.data));
       assert.equal(rails.data.rails.length > 0, true);
-      assert.equal(rails.data.rails.every((rail) => rail.games.length > 0), true);
+      assert.equal(
+        rails.data.rails.every((rail) => rail.games.length > 0),
+        true,
+      );
     });
 
     const detail = await api('/api/games/valorant');
@@ -136,7 +153,10 @@ async function run() {
       assert.equal(detail.data.stats.favoriteCount, 0);
     });
 
-    const followed = await api('/api/games/valorant/follow', { method: 'POST', cookie: alice.cookie });
+    const followed = await api('/api/games/valorant/follow', {
+      method: 'POST',
+      cookie: alice.cookie,
+    });
     check('following a game updates the user and the counter', () => {
       assert.equal(followed.status, 200, JSON.stringify(followed.data));
       assert.equal(followed.data.following, true);
@@ -148,7 +168,10 @@ async function run() {
       assert.equal(afterFollow.data.stats.favoriteCount, 1);
     });
 
-    const unfollowed = await api('/api/games/valorant/follow', { method: 'POST', cookie: alice.cookie });
+    const unfollowed = await api('/api/games/valorant/follow', {
+      method: 'POST',
+      cookie: alice.cookie,
+    });
     check('unfollowing removes the game again', () => {
       assert.equal(unfollowed.data.following, false);
     });
@@ -156,7 +179,7 @@ async function run() {
     const onboarded = await api('/api/discover/onboarding/complete', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { games: ['Halo Infinite'], platforms: ['PC'] }
+      body: { games: ['Halo Infinite'], platforms: ['PC'] },
     });
     check('onboarding creates canonical game links', () => {
       assert.equal(onboarded.status, 200, JSON.stringify(onboarded.data));
@@ -197,7 +220,7 @@ async function run() {
     const selfDemote = await api(`/api/admin/users/${adminId}/role`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { role: 'user' }
+      body: { role: 'user' },
     });
     check('an administrator cannot demote themselves', () => {
       assert.equal(selfDemote.status, 403);
@@ -206,7 +229,7 @@ async function run() {
     const promote = await api(`/api/admin/users/${bobId}/role`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { role: 'moderator' }
+      body: { role: 'moderator' },
     });
     check('promoting a moderator is recorded and applied', () => {
       assert.equal(promote.status, 200, JSON.stringify(promote.data));
@@ -226,7 +249,7 @@ async function run() {
     const suspend = await api(`/api/admin/users/${aliceId}/status`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { action: 'suspend', reason: 'Automated abuse ring' }
+      body: { action: 'suspend', reason: 'Automated abuse ring' },
     });
     check('suspending an account requires a reason and succeeds', () => {
       assert.equal(suspend.status, 200, JSON.stringify(suspend.data));
@@ -242,7 +265,7 @@ async function run() {
 
     const suspendedLogin = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice15@example.com', password: 'password123' }
+      body: { email: 'alice15@example.com', password: 'password123' },
     });
     check('a suspended account cannot sign back in', () => {
       assert.equal(suspendedLogin.status, 403);
@@ -251,7 +274,7 @@ async function run() {
     const reinstate = await api(`/api/admin/users/${aliceId}/status`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { action: 'reinstate', reason: 'Appeal accepted' }
+      body: { action: 'reinstate', reason: 'Appeal accepted' },
     });
     check('reinstating restores the account', () => {
       assert.equal(reinstate.status, 200, JSON.stringify(reinstate.data));
@@ -260,7 +283,7 @@ async function run() {
 
     const aliceLogin = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice15@example.com', password: 'password123' }
+      body: { email: 'alice15@example.com', password: 'password123' },
     });
     check('a reinstated account can sign in again', () => {
       assert.equal(aliceLogin.status, 200, JSON.stringify(aliceLogin.data));
@@ -271,22 +294,27 @@ async function run() {
     const post = await api('/api/posts', {
       method: 'POST',
       cookie: aliceCookie,
-      body: { title: 'Moderation QA post', content: 'A post used by the phase 15 suite.' }
+      body: { title: 'Moderation QA post', content: 'A post used by the phase 15 suite.' },
     });
     check('the test post exists', () => {
       assert.equal(post.status, 201, JSON.stringify(post.data));
     });
 
-    const postList = await api('/api/admin/content/posts?q=Moderation QA', { cookie: admin.cookie });
+    const postList = await api('/api/admin/content/posts?q=Moderation QA', {
+      cookie: admin.cookie,
+    });
     check('staff can find a post in the content browser', () => {
       assert.equal(postList.status, 200, JSON.stringify(postList.data));
-      assert.equal(postList.data.items.some((item) => item._id === idOf(post.data)), true);
+      assert.equal(
+        postList.data.items.some((item) => item._id === idOf(post.data)),
+        true,
+      );
     });
 
     const hide = await api(`/api/admin/content/posts/${idOf(post.data)}/visibility`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { hidden: true, reason: 'Off-topic spam' }
+      body: { hidden: true, reason: 'Off-topic spam' },
     });
     check('hiding a post records the decision', () => {
       assert.equal(hide.status, 200, JSON.stringify(hide.data));
@@ -301,7 +329,7 @@ async function run() {
     const restore = await api(`/api/admin/content/posts/${idOf(post.data)}/visibility`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { hidden: false, reason: 'Appeal accepted' }
+      body: { hidden: false, reason: 'Appeal accepted' },
     });
     check('restoring a post makes it readable again', () => {
       assert.equal(restore.status, 200);
@@ -318,32 +346,32 @@ async function run() {
       name: 'Phase 15 Mod QA',
       slug: 'phase15-mod-qa',
       ownerId: bobId,
-      members: [{ userId: bobId, role: 'owner' }]
+      members: [{ userId: bobId, role: 'owner' }],
     });
     const channel = await Channel.create({
       communityId: community._id,
       name: 'general',
-      type: 'text'
+      type: 'text',
     });
     const reportedMessage = await Message.create({
       channelId: channel._id,
       communityId: community._id,
       senderId: bobId,
-      text: 'reported content that should be tombstoned'
+      text: 'reported content that should be tombstoned',
     });
     await Report.create({
       communityId: community._id,
       reporterId: aliceId,
       targetType: 'message',
       targetId: reportedMessage._id,
-      reason: 'spam'
+      reason: 'spam',
     });
     await DmReport.create({
       reporterId: aliceId,
       conversationId: new mongoose.Types.ObjectId(),
       reportedUserId: bobId,
       reason: 'harassment',
-      note: 'DM case fixture'
+      note: 'DM case fixture',
     });
 
     const cases = await api('/api/admin/cases?status=open', { cookie: admin.cookie });
@@ -358,7 +386,7 @@ async function run() {
     const resolved = await api(`/api/admin/cases/community/${communityCase.id}/resolve`, {
       method: 'POST',
       cookie: admin.cookie,
-      body: { decision: 'remove_content', note: 'Confirmed spam' }
+      body: { decision: 'remove_content', note: 'Confirmed spam' },
     });
     check('resolving a server case tombstones the reported message', () => {
       assert.equal(resolved.status, 200, JSON.stringify(resolved.data));
@@ -375,13 +403,15 @@ async function run() {
     const dmResolved = await api(`/api/admin/cases/dm/${dmCase.id}/resolve`, {
       method: 'POST',
       cookie: admin.cookie,
-      body: { decision: 'dismiss', note: 'No violation found' }
+      body: { decision: 'dismiss', note: 'No violation found' },
     });
     check('a DM case can be dismissed', () => {
       assert.equal(dmResolved.status, 200, JSON.stringify(dmResolved.data));
     });
 
-    const audit = await api('/api/admin/audit?action=PLATFORM_STATUS_UPDATE', { cookie: admin.cookie });
+    const audit = await api('/api/admin/audit?action=PLATFORM_STATUS_UPDATE', {
+      cookie: admin.cookie,
+    });
     check('platform actions appear in the audit log', () => {
       assert.equal(audit.status, 200, JSON.stringify(audit.data));
       assert.equal(audit.data.items.length >= 1, true);
@@ -399,7 +429,7 @@ async function run() {
     const hideGame = await api(`/api/admin/games/${halo._id}`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { status: 'hidden' }
+      body: { status: 'hidden' },
     });
     check('hiding a game removes it from the public catalog', () => {
       assert.equal(hideGame.status, 200, JSON.stringify(hideGame.data));
@@ -413,14 +443,14 @@ async function run() {
     await api(`/api/admin/games/${halo._id}`, {
       method: 'PATCH',
       cookie: admin.cookie,
-      body: { status: 'published' }
+      body: { status: 'published' },
     });
 
     const mobile = await Game.findOne({ slug: 'valorant-mobile' }).lean();
     const merged = await api(`/api/admin/games/${mobile._id}/merge`, {
       method: 'POST',
       cookie: admin.cookie,
-      body: { intoId: String(valorant._id) }
+      body: { intoId: String(valorant._id) },
     });
     check('merging a duplicate records it as merged', () => {
       assert.equal(merged.status, 200, JSON.stringify(merged.data));
@@ -436,13 +466,28 @@ async function run() {
     const aliasSearch = await api('/api/games?q=mobile');
     check('the survivor answers to the merged alias', () => {
       assert.equal(aliasSearch.status, 200, JSON.stringify(aliasSearch.data));
-      assert.equal(aliasSearch.data.games.some((game) => game.slug === 'valorant'), true);
+      assert.equal(
+        aliasSearch.data.games.some((game) => game.slug === 'valorant'),
+        true,
+      );
     });
 
     // ── Media ledger ────────────────────────────────────────────────────────
     await MediaAsset.create([
-      { surface: 'post', publicId: 'test/post-one', status: 'ready', bytes: 1000, resourceType: 'image' },
-      { surface: 'chat', publicId: 'test/chat-one', status: 'ready', bytes: 500, resourceType: 'image' }
+      {
+        surface: 'post',
+        publicId: 'test/post-one',
+        status: 'ready',
+        bytes: 1000,
+        resourceType: 'image',
+      },
+      {
+        surface: 'chat',
+        publicId: 'test/chat-one',
+        status: 'ready',
+        bytes: 500,
+        resourceType: 'image',
+      },
     ]);
 
     const storage = await api('/api/admin/storage', { cookie: admin.cookie });
@@ -450,7 +495,10 @@ async function run() {
       assert.equal(storage.status, 200, JSON.stringify(storage.data));
       assert.equal(storage.data.totals.assets >= 2, true);
       assert.equal(storage.data.totals.bytes >= 1500, true);
-      assert.equal(storage.data.bySurface.some((row) => row.surface === 'post'), true);
+      assert.equal(
+        storage.data.bySurface.some((row) => row.surface === 'post'),
+        true,
+      );
     });
   } finally {
     await mongoose.connection.dropDatabase();

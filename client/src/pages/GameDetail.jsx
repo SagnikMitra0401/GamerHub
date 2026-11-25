@@ -31,15 +31,19 @@ const GameDetail = () => {
       setGame(data);
     } catch (err) {
       setGame(null);
-      setError(err.response?.status === 404
-        ? 'We could not find that game in the catalog.'
-        : err.response?.data?.message || 'Could not load this game.');
+      setError(
+        err.response?.status === 404
+          ? 'We could not find that game in the catalog.'
+          : err.response?.data?.message || 'Could not load this game.',
+      );
     } finally {
       setLoading(false);
     }
   }, [slug]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -58,12 +62,15 @@ const GameDetail = () => {
         following: data.following,
         stats: {
           ...prev.stats,
-          favoriteCount: Math.max(0, (prev.stats?.favoriteCount || 0) + (data.following ? 1 : -1))
-        }
+          favoriteCount: Math.max(0, (prev.stats?.favoriteCount || 0) + (data.following ? 1 : -1)),
+        },
       }));
       const current = user?.preferences?.favoriteGames || [];
       const next = data.following
-        ? [...current.filter((title) => String(title).toLowerCase() !== game.title.toLowerCase()), game.title]
+        ? [
+            ...current.filter((title) => String(title).toLowerCase() !== game.title.toLowerCase()),
+            game.title,
+          ]
         : current.filter((title) => String(title).toLowerCase() !== game.title.toLowerCase());
       updateUser({ preferences: { ...(user?.preferences || {}), favoriteGames: next } });
       setToast(data.following ? `Following ${game.title}.` : `Stopped following ${game.title}.`);
@@ -80,7 +87,7 @@ const GameDetail = () => {
     try {
       const { data } = await axiosInstance.patch('/users/presence', {
         status: 'in_game',
-        activeGame: game.title
+        activeGame: game.title,
       });
       updateUser({ presence: data.presence });
       setToast(`You are now playing ${game.title}.`);
@@ -94,7 +101,9 @@ const GameDetail = () => {
   if (loading) {
     return (
       <main className="page">
-        <div className="container"><PostListSkeleton count={2} /></div>
+        <div className="container">
+          <PostListSkeleton count={2} />
+        </div>
       </main>
     );
   }
@@ -106,7 +115,9 @@ const GameDetail = () => {
           <div className="post-list-empty">
             <h3>Game unavailable</h3>
             <p>{error || 'Game not found.'}</p>
-            <Link to="/games" className="btn btn-primary btn-sm">Back to the catalog</Link>
+            <Link to="/games" className="btn btn-primary btn-sm">
+              Back to the catalog
+            </Link>
           </div>
         </div>
       </main>
@@ -119,7 +130,7 @@ const GameDetail = () => {
     ['Processor', requirements.processor],
     ['Memory', requirements.memory],
     ['Graphics', requirements.graphics],
-    ['Storage', requirements.storage]
+    ['Storage', requirements.storage],
   ].filter(([, value]) => value);
 
   return (
@@ -138,13 +149,23 @@ const GameDetail = () => {
             className="game-hero-cover"
             src={game.cover}
             alt=""
-            fallback={<span className="game-hero-cover game-hero-cover-fallback" aria-hidden="true">{game.title.slice(0, 2).toUpperCase()}</span>}
+            fallback={
+              <span className="game-hero-cover game-hero-cover-fallback" aria-hidden="true">
+                {game.title.slice(0, 2).toUpperCase()}
+              </span>
+            }
           />
           <div className="game-hero-body">
             <div className="lfg-tags">
-              {(game.genres || []).map((genre) => <span key={genre} className="lfg-tag">{genre}</span>)}
+              {(game.genres || []).map((genre) => (
+                <span key={genre} className="lfg-tag">
+                  {genre}
+                </span>
+              ))}
               {(game.platforms || []).slice(0, 3).map((platform) => (
-                <span key={platform} className="lfg-tag">{platform}</span>
+                <span key={platform} className="lfg-tag">
+                  {platform}
+                </span>
               ))}
               {game.releaseYear && <span className="lfg-tag">{game.releaseYear}</span>}
             </div>
@@ -163,14 +184,23 @@ const GameDetail = () => {
                   >
                     {game.following ? 'Following' : 'Follow game'}
                   </button>
-                  <button type="button" className="btn btn-ghost" onClick={setActive} disabled={busy}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={setActive}
+                    disabled={busy}
+                  >
                     Set as active game
                   </button>
                 </>
               ) : (
-                <Link to="/login" className="btn btn-primary">Sign in to follow</Link>
+                <Link to="/login" className="btn btn-primary">
+                  Sign in to follow
+                </Link>
               )}
-              <Link to={`/lfg`} className="btn btn-ghost">Find a squad</Link>
+              <Link to={`/lfg`} className="btn btn-ghost">
+                Find a squad
+              </Link>
             </div>
           </div>
         </header>
@@ -185,7 +215,9 @@ const GameDetail = () => {
 
         {game.screenshots?.length > 0 && (
           <section className="admin-card">
-            <div className="admin-card-head"><h2>Screenshots</h2></div>
+            <div className="admin-card-head">
+              <h2>Screenshots</h2>
+            </div>
             <div className="game-shots">
               {game.screenshots.map((src) => (
                 <SafeImage key={src} src={src} alt="" loading="lazy" fallback={null} />
@@ -196,14 +228,19 @@ const GameDetail = () => {
 
         <div className="game-detail-columns">
           <section className="admin-card">
-            <div className="admin-card-head"><h2>Open squads</h2></div>
+            <div className="admin-card-head">
+              <h2>Open squads</h2>
+            </div>
             {game.openSquads?.length ? (
               <ul className="game-link-list">
                 {game.openSquads.map((squad) => (
                   <li key={squad.id}>
-                    <Link to={`/lfg`}>{squad.activity || 'Squad'} · {squad.memberCount}/{squad.maxSlots}</Link>
+                    <Link to={`/lfg`}>
+                      {squad.activity || 'Squad'} · {squad.memberCount}/{squad.maxSlots}
+                    </Link>
                     <span className="admin-stat-hint">
-                      {squad.micRequired ? 'mic required' : 'no mic'} · {squad.leader?.username || 'leader'}
+                      {squad.micRequired ? 'mic required' : 'no mic'} ·{' '}
+                      {squad.leader?.username || 'leader'}
                     </span>
                   </li>
                 ))}
@@ -214,7 +251,9 @@ const GameDetail = () => {
           </section>
 
           <section className="admin-card">
-            <div className="admin-card-head"><h2>Servers playing it</h2></div>
+            <div className="admin-card-head">
+              <h2>Servers playing it</h2>
+            </div>
             {game.communities?.length ? (
               <ul className="game-link-list">
                 {game.communities.map((community) => (
@@ -231,7 +270,9 @@ const GameDetail = () => {
 
           {requirementRows.length > 0 && (
             <section className="admin-card">
-              <div className="admin-card-head"><h2>Minimum requirements</h2></div>
+              <div className="admin-card-head">
+                <h2>Minimum requirements</h2>
+              </div>
               <dl className="game-requirements">
                 {requirementRows.map(([label, value]) => (
                   <React.Fragment key={label}>
@@ -245,7 +286,9 @@ const GameDetail = () => {
         </div>
 
         <section className="admin-card">
-          <div className="admin-card-head"><h2>Recent posts</h2></div>
+          <div className="admin-card-head">
+            <h2>Recent posts</h2>
+          </div>
           {game.recentPosts?.length ? (
             <ul className="game-link-list">
               {game.recentPosts.map((post) => (
@@ -277,14 +320,20 @@ const GameDetail = () => {
                         src={related.cover}
                         alt=""
                         loading="lazy"
-                        fallback={<span className="game-cover-fallback">{related.title.slice(0, 2).toUpperCase()}</span>}
+                        fallback={
+                          <span className="game-cover-fallback">
+                            {related.title.slice(0, 2).toUpperCase()}
+                          </span>
+                        }
                       />
                     </div>
                     <div className="catalog-body">
                       <h3 className="catalog-title">{related.title}</h3>
                       <div className="lfg-tags">
                         {(related.genres || []).slice(0, 2).map((genre) => (
-                          <span key={genre} className="lfg-tag">{genre}</span>
+                          <span key={genre} className="lfg-tag">
+                            {genre}
+                          </span>
                         ))}
                       </div>
                     </div>

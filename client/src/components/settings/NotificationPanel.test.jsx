@@ -7,27 +7,43 @@ import NotificationPanel from './NotificationPanel';
 const mocks = vi.hoisted(() => ({
   patch: vi.fn(),
   refresh: vi.fn(),
-  notify: vi.fn()
+  notify: vi.fn(),
 }));
 
 vi.mock('../../api/axiosInstance', () => ({
-  default: { patch: mocks.patch }
+  default: { patch: mocks.patch },
 }));
 
 const account = {
-  notificationSettings: { comments: true, follows: true, likes: true, lfg: true, bot: true, broadcast: true }
+  notificationSettings: {
+    comments: true,
+    follows: true,
+    likes: true,
+    lfg: true,
+    bot: true,
+    broadcast: true,
+  },
 };
 
 const renderPanel = () =>
   render(
     <MemoryRouter>
       <NotificationPanel account={account} refresh={mocks.refresh} notify={mocks.notify} />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
 beforeEach(() => {
   mocks.patch.mockReset().mockResolvedValue({
-    data: { notificationSettings: { comments: true, follows: false, likes: true, lfg: true, bot: true, broadcast: true } }
+    data: {
+      notificationSettings: {
+        comments: true,
+        follows: false,
+        likes: true,
+        lfg: true,
+        bot: true,
+        broadcast: true,
+      },
+    },
   });
   mocks.refresh.mockReset().mockResolvedValue({});
   mocks.notify.mockReset();
@@ -46,14 +62,16 @@ describe('NotificationPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save notification preferences' }));
 
-    await waitFor(() => expect(mocks.patch).toHaveBeenCalledWith('/account/notification-settings', {
-      comments: true,
-      follows: false,
-      likes: true,
-      lfg: true,
-      bot: true,
-      broadcast: true
-    }));
+    await waitFor(() =>
+      expect(mocks.patch).toHaveBeenCalledWith('/account/notification-settings', {
+        comments: true,
+        follows: false,
+        likes: true,
+        lfg: true,
+        bot: true,
+        broadcast: true,
+      }),
+    );
     expect(mocks.refresh).toHaveBeenCalled();
     expect(mocks.notify).toHaveBeenCalledWith('success', 'Notification preferences saved.');
   });

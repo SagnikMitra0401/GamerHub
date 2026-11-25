@@ -21,7 +21,7 @@ const {
   reputationTier,
   REQUEST_LIMITS,
   MAX_LABELS,
-  MAX_QUICK_REPLIES
+  MAX_QUICK_REPLIES,
 } = require('../utils/dmPolicy');
 
 const user = (id, extra = {}) => ({
@@ -30,12 +30,12 @@ const user = (id, extra = {}) => ({
   following: [],
   blockedUsers: [],
   authIdentities: [],
-  ...extra
+  ...extra,
 });
 
 const settingsWith = (policy) => ({
   ...defaultDmSettings(),
-  policy: { ...defaultDmSettings().policy, ...policy }
+  policy: { ...defaultDmSettings().policy, ...policy },
 });
 
 test('defaults are mutual inbox and request for everyone else', () => {
@@ -51,7 +51,7 @@ test('normalizeDmSettings repairs missing and unknown values', () => {
   const settings = normalizeDmSettings({
     policy: { mutual: 'everyone', stranger: 'none' },
     digest: 'hourly',
-    hiddenWords: ['  spam  ', 'SPAM', '']
+    hiddenWords: ['  spam  ', 'SPAM', ''],
   });
   assert.equal(settings.policy.mutual, 'inbox');
   assert.equal(settings.policy.stranger, 'none');
@@ -65,12 +65,12 @@ test('saved filters are bounded, deduplicated and validated', () => {
       { name: 'Business', folder: 'requests', scope: 'business' },
       { name: 'business', folder: 'inbox' },
       { name: 'Bad folder', folder: 'trash' },
-      { name: 'Unread', folder: 'inbox', unreadOnly: true }
-    ]
+      { name: 'Unread', folder: 'inbox', unreadOnly: true },
+    ],
   });
   assert.deepEqual(normalized.savedFilters, [
     { name: 'Business', folder: 'requests', scope: 'business', unreadOnly: false },
-    { name: 'Unread', folder: 'inbox', scope: 'all', unreadOnly: true }
+    { name: 'Unread', folder: 'inbox', scope: 'all', unreadOnly: true },
   ]);
 });
 
@@ -83,13 +83,23 @@ test('quiet hours handle an overnight window in UTC', () => {
 
 test('quiet hours respect the configured timezone', () => {
   const settings = settingsWith({});
-  settings.quietHours = { enabled: true, start: '22:00', end: '07:00', timezone: 'America/New_York' };
+  settings.quietHours = {
+    enabled: true,
+    start: '22:00',
+    end: '07:00',
+    timezone: 'America/New_York',
+  };
   assert.equal(isQuietHours(settings, new Date('2026-11-07T02:30:00Z')), false);
   assert.equal(isQuietHours(settings, new Date('2026-11-07T03:30:00Z')), true);
 });
 
- test('quiet hours normalize invalid clocks and timezones', () => {
-  const normalized = normalizeQuietHours({ enabled: true, start: '25:90', end: '7:00', timezone: 'Not/AZone' });
+test('quiet hours normalize invalid clocks and timezones', () => {
+  const normalized = normalizeQuietHours({
+    enabled: true,
+    start: '25:90',
+    end: '7:00',
+    timezone: 'Not/AZone',
+  });
   assert.deepEqual(normalized, { enabled: true, start: '22:00', end: '07:00', timezone: 'UTC' });
 });
 
@@ -109,7 +119,7 @@ test('a mutual with inbox policy may open a thread directly', () => {
   const decision = evaluateDmPermission({
     sender: user('alice', { following: ['bob'] }),
     recipient: user('bob', { following: ['alice'] }),
-    settings: settingsWith({ mutual: 'inbox' })
+    settings: settingsWith({ mutual: 'inbox' }),
   });
   assert.equal(decision.allowed, true);
   assert.equal(decision.mode, 'inbox');
@@ -120,7 +130,7 @@ test('a stranger is held to a request, never a direct thread', () => {
   const decision = evaluateDmPermission({
     sender: user('alice'),
     recipient: user('bob'),
-    settings: settingsWith({ stranger: 'request' })
+    settings: settingsWith({ stranger: 'request' }),
   });
   assert.equal(decision.allowed, true);
   assert.equal(decision.mode, 'request');
@@ -130,7 +140,7 @@ test('stranger policy none is a firewall', () => {
   const decision = evaluateDmPermission({
     sender: user('alice'),
     recipient: user('bob'),
-    settings: settingsWith({ stranger: 'none' })
+    settings: settingsWith({ stranger: 'none' }),
   });
   assert.equal(decision.allowed, false);
   assert.equal(decision.code, 'DM_POLICY_NONE');
@@ -141,7 +151,7 @@ test('verified-only blocks an unverified sender and requests from a verified one
   const unverified = evaluateDmPermission({
     sender: user('alice'),
     recipient,
-    settings: recipient.dmSettings
+    settings: recipient.dmSettings,
   });
   assert.equal(unverified.allowed, false);
   assert.equal(unverified.code, 'DM_VERIFIED_ONLY');
@@ -149,7 +159,7 @@ test('verified-only blocks an unverified sender and requests from a verified one
   const verified = evaluateDmPermission({
     sender: user('alice', { authIdentities: [{ provider: 'google', emailVerified: true }] }),
     recipient,
-    settings: recipient.dmSettings
+    settings: recipient.dmSettings,
   });
   assert.equal(verified.allowed, true);
   assert.equal(verified.mode, 'request');
@@ -158,12 +168,16 @@ test('verified-only blocks an unverified sender and requests from a verified one
 test('verified identity requires a verified Google email', () => {
   assert.equal(isVerifiedIdentity(user('a')), false);
   assert.equal(
-    isVerifiedIdentity(user('a', { authIdentities: [{ provider: 'google', emailVerified: false }] })),
-    false
+    isVerifiedIdentity(
+      user('a', { authIdentities: [{ provider: 'google', emailVerified: false }] }),
+    ),
+    false,
   );
   assert.equal(
-    isVerifiedIdentity(user('a', { authIdentities: [{ provider: 'google', emailVerified: true }] })),
-    true
+    isVerifiedIdentity(
+      user('a', { authIdentities: [{ provider: 'google', emailVerified: true }] }),
+    ),
+    true,
   );
 });
 
@@ -172,7 +186,7 @@ test('a shared community uses the community row for strangers', () => {
     sender: user('alice'),
     recipient: user('bob'),
     settings: settingsWith({ community: 'inbox', stranger: 'none' }),
-    contextType: 'community'
+    contextType: 'community',
   });
   assert.equal(decision.allowed, true);
   assert.equal(decision.contextKey, 'community');
@@ -183,7 +197,7 @@ test('a trusted relationship is not demoted by a shared-room row', () => {
     sender: user('alice', { following: ['bob'] }),
     recipient: user('bob', { following: ['alice'] }),
     settings: settingsWith({ mutual: 'inbox', community: 'none' }),
-    contextType: 'community'
+    contextType: 'community',
   });
   assert.equal(decision.allowed, true);
   assert.equal(decision.contextKey, 'mutual');
@@ -194,7 +208,7 @@ test('self-messaging is rejected before any policy lookup', () => {
   const decision = evaluateDmPermission({
     sender: me,
     recipient: me,
-    settings: defaultDmSettings()
+    settings: defaultDmSettings(),
   });
   assert.equal(decision.allowed, false);
   assert.equal(decision.code, 'DM_SELF');
@@ -202,7 +216,7 @@ test('self-messaging is rejected before any policy lookup', () => {
 
 test('describeDmPolicy only exposes the viewer row', () => {
   const recipient = user('bob', {
-    dmSettings: settingsWith({ mutual: 'inbox', stranger: 'none', community: 'inbox' })
+    dmSettings: settingsWith({ mutual: 'inbox', stranger: 'none', community: 'inbox' }),
   });
   const summary = describeDmPolicy({ recipient, viewer: user('alice') });
   assert.equal(summary.relationship, 'stranger');
@@ -235,7 +249,10 @@ test('sanitizeDmSettingsPatch caps and de-duplicates hidden words', () => {
 });
 
 test('availability and quick replies are validated and capped', () => {
-  const paused = sanitizeDmSettingsPatch({ availability: 'paused', awayMessage: '  Back Monday  ' });
+  const paused = sanitizeDmSettingsPatch({
+    availability: 'paused',
+    awayMessage: '  Back Monday  ',
+  });
   assert.equal(paused.ok, true);
   assert.equal(paused.value.availability, 'paused');
   assert.equal(paused.value.awayMessage, 'Back Monday');
@@ -245,13 +262,13 @@ test('availability and quick replies are validated and capped', () => {
   assert.match(bad.errors[0], /availability/i);
 
   const replies = sanitizeDmSettingsPatch({
-    quickReplies: [' Thanks! ', 'THANKS!', 'Second reply']
+    quickReplies: [' Thanks! ', 'THANKS!', 'Second reply'],
   });
   assert.equal(replies.ok, true);
   assert.deepEqual(replies.value.quickReplies, ['Thanks!', 'Second reply']);
 
   const tooMany = sanitizeDmSettingsPatch({
-    quickReplies: Array.from({ length: MAX_QUICK_REPLIES + 1 }, (_, index) => `Reply ${index}`)
+    quickReplies: Array.from({ length: MAX_QUICK_REPLIES + 1 }, (_, index) => `Reply ${index}`),
   });
   assert.equal(tooMany.ok, false);
   assert.match(tooMany.errors[0], /at most/);
@@ -272,17 +289,22 @@ test('request fingerprints are stable across case and whitespace', () => {
 
 test('the request filter applies hidden words before inferred signals', () => {
   assert.deepEqual(
-    chooseRequestFilter({ text: 'buy crypto', hiddenWords: ['crypto'], campaignCount: 99, reputationTier: 'restricted' }),
-    { reason: 'hidden_word', matched: 'crypto' }
+    chooseRequestFilter({
+      text: 'buy crypto',
+      hiddenWords: ['crypto'],
+      campaignCount: 99,
+      reputationTier: 'restricted',
+    }),
+    { reason: 'hidden_word', matched: 'crypto' },
   );
-  assert.deepEqual(
-    chooseRequestFilter({ text: 'hello', reputationTier: 'restricted' }),
-    { reason: 'reputation', matched: '' }
-  );
-  assert.deepEqual(
-    chooseRequestFilter({ text: 'hello', campaignCount: 2 }),
-    { reason: 'campaign', matched: '' }
-  );
+  assert.deepEqual(chooseRequestFilter({ text: 'hello', reputationTier: 'restricted' }), {
+    reason: 'reputation',
+    matched: '',
+  });
+  assert.deepEqual(chooseRequestFilter({ text: 'hello', campaignCount: 2 }), {
+    reason: 'campaign',
+    matched: '',
+  });
   assert.equal(chooseRequestFilter({ text: 'hello', campaignCount: 1 }), null);
 });
 
@@ -304,7 +326,7 @@ test('labels are deduplicated, trimmed and capped', () => {
 
 test('a paused inbox is public but unavailable, and away carries a note', () => {
   const recipient = user('bob', {
-    dmSettings: { ...settingsWith({ stranger: 'request' }), availability: 'paused' }
+    dmSettings: { ...settingsWith({ stranger: 'request' }), availability: 'paused' },
   });
   const paused = describeDmPolicy({ recipient, viewer: user('alice') });
   assert.equal(paused.mode, 'paused');
@@ -315,8 +337,8 @@ test('a paused inbox is public but unavailable, and away carries a note', () => 
     dmSettings: {
       ...settingsWith({ stranger: 'request' }),
       availability: 'away',
-      awayMessage: 'Back after the weekend'
-    }
+      awayMessage: 'Back after the weekend',
+    },
   });
   const away = describeDmPolicy({ recipient: awayRecipient, viewer: user('alice') });
   assert.equal(away.allowed, true);
@@ -345,7 +367,7 @@ test('business accounts use their own policy row for cold contact', () => {
     recipient: user('creator'),
     settings: settingsWith({ business: 'none' }),
     relationship: 'stranger',
-    senderIsBusiness: true
+    senderIsBusiness: true,
   });
   assert.equal(gate.allowed, false);
   assert.equal(gate.code, 'DM_POLICY_NONE');
@@ -359,7 +381,7 @@ test('a structured business brief carries company, intent and budget', () => {
     website: 'https://sofia.example',
     budgetBand: '500_2000',
     timeline: 'Next month',
-    business: { displayName: 'Sofia Studio', website: 'https://sofia.example' }
+    business: { displayName: 'Sofia Studio', website: 'https://sofia.example' },
   });
   assert.equal(parsed.ok, true);
   assert.equal(parsed.value.company, 'Sofia Studio');
@@ -371,9 +393,13 @@ test('a business brief rejects a foreign domain and unknown intent', () => {
   const base = {
     text: 'A short brief.',
     company: 'Sofia Studio',
-    business: { displayName: 'Sofia Studio', website: 'https://sofia.example' }
+    business: { displayName: 'Sofia Studio', website: 'https://sofia.example' },
   };
-  const domain = validateBusinessRequest({ ...base, intent: 'collab', website: 'https://other.example' });
+  const domain = validateBusinessRequest({
+    ...base,
+    intent: 'collab',
+    website: 'https://other.example',
+  });
   assert.equal(domain.ok, false);
   assert.match(domain.reason, /match/);
 
@@ -386,15 +412,21 @@ test('quota allows a normal sender under every limit', () => {
   const quota = quotaState({
     sentToday: 1,
     sentThisWeek: 3,
-    accountCreatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    accountCreatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
   });
   assert.equal(quota.allowed, true);
 });
 
 test('quota stops at the daily and weekly limits', () => {
   const established = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  assert.equal(quotaState({ sentToday: 5, sentThisWeek: 5, accountCreatedAt: established }).code, 'DM_QUOTA_DAY');
-  assert.equal(quotaState({ sentToday: 0, sentThisWeek: 20, accountCreatedAt: established }).code, 'DM_QUOTA_WEEK');
+  assert.equal(
+    quotaState({ sentToday: 5, sentThisWeek: 5, accountCreatedAt: established }).code,
+    'DM_QUOTA_DAY',
+  );
+  assert.equal(
+    quotaState({ sentToday: 0, sentThisWeek: 20, accountCreatedAt: established }).code,
+    'DM_QUOTA_WEEK',
+  );
 });
 
 test('new accounts get one request per day', () => {
@@ -403,7 +435,7 @@ test('new accounts get one request per day', () => {
     sentToday: 1,
     sentThisWeek: 1,
     accountCreatedAt: new Date(now - 2 * 24 * 60 * 60 * 1000),
-    now
+    now,
   });
   assert.equal(quota.allowed, false);
   assert.equal(quota.code, 'DM_QUOTA_DAY');
@@ -416,7 +448,7 @@ test('per-recipient contact is rate limited for 30 days', () => {
     sentToday: 0,
     sentThisWeek: 0,
     lastRequestAt: new Date(now - 10 * 24 * 60 * 60 * 1000),
-    now
+    now,
   });
   assert.equal(quota.allowed, false);
   assert.equal(quota.code, 'DM_RECIPIENT_COOLDOWN');

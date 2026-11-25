@@ -1,7 +1,8 @@
 import { io } from 'socket.io-client';
 
 const RENDER_BACKEND_URL = 'https://gamerhub-backend-3108.onrender.com';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
   (import.meta.env.PROD ? RENDER_BACKEND_URL : 'http://localhost:5000');
 
 let socket = null;
@@ -34,7 +35,7 @@ export function connectSocket(token) {
     withCredentials: true,
     transports: ['websocket', 'polling'],
     reconnectionAttempts: 8,
-    reconnectionDelay: 1500
+    reconnectionDelay: 1500,
   });
 
   socket.on('connect', () => {

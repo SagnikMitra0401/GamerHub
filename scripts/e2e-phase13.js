@@ -47,7 +47,7 @@ const BUSINESS_BODY = {
   website: 'https://sofia.example',
   supportEmail: 'hello@sofia.example',
   timezone: 'Europe/London',
-  responseExpectation: 'Replies within 3 working days'
+  responseExpectation: 'Replies within 3 working days',
 };
 
 async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, tom }) {
@@ -57,13 +57,13 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   // fixture writes the raw collection.
   await User.collection.updateOne(
     { _id: new mongoose.Types.ObjectId(sofia.id) },
-    { $set: { createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }
+    { $set: { createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
   );
 
   const saved = await api('/api/account/business-profile', {
     method: 'POST',
     cookie: sofia.cookie,
-    body: BUSINESS_BODY
+    body: BUSINESS_BODY,
   });
   check('an account can become a disclosed business', () => {
     assert.equal(saved.status, 200, JSON.stringify(saved.data));
@@ -97,8 +97,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       company: 'Sofia Studio',
       website: 'https://sofia.example',
       budgetBand: '500_2000',
-      timeline: 'Next month'
-    }
+      timeline: 'Next month',
+    },
   });
   check('an unverified business cannot cold-contact anyone', () => {
     assert.equal(unverified.status, 403, JSON.stringify(unverified.data));
@@ -108,7 +108,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const verification = await api('/api/account/business-verification', {
     method: 'POST',
     cookie: sofia.cookie,
-    body: { method: 'dns' }
+    body: { method: 'dns' },
   });
   check('a business can request DNS verification', () => {
     assert.equal(verification.status, 200, JSON.stringify(verification.data));
@@ -118,7 +118,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const pending = await api('/api/admin/business-verifications?status=pending', {
-    cookie: admin.cookie
+    cookie: admin.cookie,
   });
   const pendingItem = pending.data?.items?.find((item) => item.user?.username === 'biz13sofia');
   check('an admin can see the pending business request', () => {
@@ -131,7 +131,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const approved = await api(`/api/admin/business-verifications/${pendingItem._id}/resolve`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { status: 'verified', note: 'DNS record checked in the review console.' }
+    body: { status: 'verified', note: 'DNS record checked in the review console.' },
   });
   check('an admin can verify a business with an audit decision', () => {
     assert.equal(approved.status, 200, JSON.stringify(approved.data));
@@ -139,7 +139,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const auditRows = await BusinessVerificationAudit.countDocuments({
-    businessProfileId: pendingItem._id
+    businessProfileId: pendingItem._id,
   });
   check('verification writes an audit row', () => assert.equal(auditRows, 1));
 
@@ -158,8 +158,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       text: 'A brief with the wrong domain.',
       intent: 'collab',
       company: 'Sofia Studio',
-      website: 'https://not-sofia.example'
-    }
+      website: 'https://not-sofia.example',
+    },
   });
   check('a brief website must match the verified domain', () => {
     assert.equal(mismatch.status, 400, JSON.stringify(mismatch.data));
@@ -176,8 +176,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       company: 'Sofia Studio',
       website: 'https://sofia.example',
       budgetBand: '500_2000',
-      timeline: 'Next month'
-    }
+      timeline: 'Next month',
+    },
   });
   check('a verified business can send a structured brief', () => {
     assert.equal(brief.status, 201, JSON.stringify(brief.data));
@@ -188,7 +188,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const alexThread = await api(`/api/messages/conversations/${brief.data.conversation._id}`, {
-    cookie: alex.cookie
+    cookie: alex.cookie,
   });
   check('the recipient sees the business brief and disclosed counterpart', () => {
     assert.equal(alexThread.status, 200, JSON.stringify(alexThread.data));
@@ -198,7 +198,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const businessLane = await api('/api/messages/conversations?folder=requests&scope=business', {
-    cookie: alex.cookie
+    cookie: alex.cookie,
   });
   check('the recipient can scope requests to business', () => {
     assert.equal(businessLane.status, 200, JSON.stringify(businessLane.data));
@@ -207,7 +207,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const personalLane = await api('/api/messages/conversations?folder=requests&scope=personal', {
-    cookie: alex.cookie
+    cookie: alex.cookie,
   });
   check('the personal lane excludes business requests', () => {
     assert.equal(personalLane.status, 200, JSON.stringify(personalLane.data));
@@ -218,8 +218,10 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
     method: 'PATCH',
     cookie: alex.cookie,
     body: {
-      savedFilters: [{ name: 'Business requests', folder: 'requests', scope: 'business', unreadOnly: false }]
-    }
+      savedFilters: [
+        { name: 'Business requests', folder: 'requests', scope: 'business', unreadOnly: false },
+      ],
+    },
   });
   check('a recipient can save a business-request view', () => {
     assert.equal(savedView.status, 200, JSON.stringify(savedView.data));
@@ -227,7 +229,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const savedLane = await api('/api/messages/conversations?folder=requests&scope=business', {
-    cookie: alex.cookie
+    cookie: alex.cookie,
   });
   check('the saved view is returned with the inbox', () => {
     assert.equal(savedLane.status, 200, JSON.stringify(savedLane.data));
@@ -237,7 +239,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const policy = await api('/api/account/dm-settings', {
     method: 'PATCH',
     cookie: dana.cookie,
-    body: { policy: { business: 'none' } }
+    body: { policy: { business: 'none' } },
   });
   check('a recipient can close the business row separately', () => {
     assert.equal(policy.status, 200, JSON.stringify(policy.data));
@@ -251,8 +253,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       recipientId: dana.id,
       text: 'A legitimate brief that should still respect policy.',
       intent: 'collab',
-      company: 'Sofia Studio'
-    }
+      company: 'Sofia Studio',
+    },
   });
   check('the business row blocks verified outreach when set to nobody', () => {
     assert.equal(blockedByPolicy.status, 403, JSON.stringify(blockedByPolicy.data));
@@ -262,7 +264,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   await api('/api/account/dm-settings', {
     method: 'PATCH',
     cookie: dana.cookie,
-    body: { policy: { business: 'request' } }
+    body: { policy: { business: 'request' } },
   });
 
   const analytics = await api('/api/account/business/analytics', { cookie: sofia.cookie });
@@ -280,7 +282,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
     state: 'active',
     acceptedAt: new Date(),
     businessThread: false,
-    unreadCounts: { [String(sofia.id)]: 0, [String(admin.id)]: 0 }
+    unreadCounts: { [String(sofia.id)]: 0, [String(admin.id)]: 0 },
   });
 
   // An inbound request is the owner's to accept. The outbound brief above is
@@ -297,13 +299,13 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
     requestCompany: 'Manual Review Studio',
     requestExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     lastRequestAt: new Date(),
-    unreadCounts: { [String(sofia.id)]: 0, [String(manual.id)]: 0 }
+    unreadCounts: { [String(sofia.id)]: 0, [String(manual.id)]: 0 },
   });
 
   const invitation = await api('/api/account/business/team', {
     method: 'POST',
     cookie: sofia.cookie,
-    body: { username: 'biz13tom', role: 'viewer' }
+    body: { username: 'biz13tom', role: 'viewer' },
   });
   check('a business can invite a teammate by handle', () => {
     assert.equal(invitation.status, 201, JSON.stringify(invitation.data));
@@ -322,7 +324,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const accepted = await api(`/api/messages/team/${sofia.id}/respond`, {
     method: 'POST',
     cookie: tom.cookie,
-    body: { accept: true }
+    body: { accept: true },
   });
   check('the invitee must accept before joining', () => {
     assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
@@ -337,7 +339,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const teamRequests = await api(`/api/messages/team/${sofia.id}/conversations?folder=requests`, {
-    cookie: tom.cookie
+    cookie: tom.cookie,
   });
   check('the shared inbox exposes only business threads', () => {
     assert.equal(teamRequests.status, 200, JSON.stringify(teamRequests.data));
@@ -346,11 +348,14 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
     assert.ok(teamRequests.data.items.every((item) => item._id !== String(personalFixture._id)));
   });
 
-  const viewerReply = await api(`/api/messages/team/${sofia.id}/conversations/${inboundRequest._id}/messages`, {
-    method: 'POST',
-    cookie: tom.cookie,
-    body: { text: 'A viewer should never be able to send this.' }
-  });
+  const viewerReply = await api(
+    `/api/messages/team/${sofia.id}/conversations/${inboundRequest._id}/messages`,
+    {
+      method: 'POST',
+      cookie: tom.cookie,
+      body: { text: 'A viewer should never be able to send this.' },
+    },
+  );
   check('viewer access is read-only at the API', () => {
     assert.equal(viewerReply.status, 403, JSON.stringify(viewerReply.data));
     assert.equal(viewerReply.data?.code, 'TEAM_READ_ONLY');
@@ -359,38 +364,44 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const promoted = await api(`/api/account/business/team/${tom.id}`, {
     method: 'PATCH',
     cookie: sofia.cookie,
-    body: { role: 'agent' }
+    body: { role: 'agent' },
   });
   check('the owner can promote a viewer to agent', () => {
     assert.equal(promoted.status, 200, JSON.stringify(promoted.data));
     assert.equal(promoted.data.role, 'agent');
   });
 
-  const teamAccepted = await api(`/api/messages/team/${sofia.id}/conversations/${inboundRequest._id}/accept`, {
-    method: 'POST',
-    cookie: tom.cookie
-  });
+  const teamAccepted = await api(
+    `/api/messages/team/${sofia.id}/conversations/${inboundRequest._id}/accept`,
+    {
+      method: 'POST',
+      cookie: tom.cookie,
+    },
+  );
   check('an agent can accept a business request', () => {
     assert.equal(teamAccepted.status, 200, JSON.stringify(teamAccepted.data));
     assert.equal(teamAccepted.data.conversation.state, 'active');
     assert.equal(teamAccepted.data.conversation.team.role, 'agent');
   });
 
-  const teamReply = await api(`/api/messages/team/${sofia.id}/conversations/${inboundRequest._id}/messages`, {
-    method: 'POST',
-    cookie: tom.cookie,
-    body: { text: 'Sofia\'s team is following up on the enquiry.' }
-  });
+  const teamReply = await api(
+    `/api/messages/team/${sofia.id}/conversations/${inboundRequest._id}/messages`,
+    {
+      method: 'POST',
+      cookie: tom.cookie,
+      body: { text: "Sofia's team is following up on the enquiry." },
+    },
+  );
   check('an agent can reply on behalf of the business', () => {
     assert.equal(teamReply.status, 201, JSON.stringify(teamReply.data));
-    assert.equal(teamReply.data.message.text, 'Sofia\'s team is following up on the enquiry.');
+    assert.equal(teamReply.data.message.text, "Sofia's team is following up on the enquiry.");
     assert.equal(teamReply.data.conversation.canReply, true);
   });
 
   const teamInbox = await api(`/api/messages/team/${sofia.id}/conversations?folder=inbox`, {
-    cookie: tom.cookie
+    cookie: tom.cookie,
   });
-  check('the shared inbox excludes the owner\'s personal thread', () => {
+  check("the shared inbox excludes the owner's personal thread", () => {
     assert.equal(teamInbox.status, 200, JSON.stringify(teamInbox.data));
     assert.ok(teamInbox.data.items.every((item) => item.businessThread));
     assert.ok(teamInbox.data.items.every((item) => item._id !== String(personalFixture._id)));
@@ -398,7 +409,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const nonMember = await api(`/api/messages/team/${sofia.id}/conversations`, {
-    cookie: alex.cookie
+    cookie: alex.cookie,
   });
   check('a non-member cannot open the shared inbox', () => {
     assert.equal(nonMember.status, 404, JSON.stringify(nonMember.data));
@@ -406,9 +417,11 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
 
   const removed = await api(`/api/account/business/team/${tom.id}`, {
     method: 'DELETE',
-    cookie: sofia.cookie
+    cookie: sofia.cookie,
   });
-  const afterRemoval = await api(`/api/messages/team/${sofia.id}/conversations`, { cookie: tom.cookie });
+  const afterRemoval = await api(`/api/messages/team/${sofia.id}/conversations`, {
+    cookie: tom.cookie,
+  });
   check('removing a teammate revokes access immediately', () => {
     assert.equal(removed.status, 200, JSON.stringify(removed.data));
     assert.equal(afterRemoval.status, 404, JSON.stringify(afterRemoval.data));
@@ -422,26 +435,30 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
         recipientId: target.id,
         text: `A short brief for ${target.username}.`,
         intent: 'collab',
-        company: 'Sofia Studio'
-      }
+        company: 'Sofia Studio',
+      },
     });
     check(`a verified business can reach ${target.username}`, () => {
       assert.equal(sent.status, 201, JSON.stringify(sent.data));
     });
   }
 
-  const markThread = await api('/api/messages/conversations?folder=requests', { cookie: mark.cookie });
-  const ninaThread = await api('/api/messages/conversations?folder=requests', { cookie: nina.cookie });
+  const markThread = await api('/api/messages/conversations?folder=requests', {
+    cookie: mark.cookie,
+  });
+  const ninaThread = await api('/api/messages/conversations?folder=requests', {
+    cookie: nina.cookie,
+  });
   const reportTargets = [
     [alex, brief.data.conversation._id],
     [mark, markThread.data.items[0]._id],
-    [nina, ninaThread.data.items[0]._id]
+    [nina, ninaThread.data.items[0]._id],
   ];
   for (const [target, conversationId] of reportTargets) {
     const reported = await api(`/api/messages/conversations/${conversationId}/report`, {
       method: 'POST',
       cookie: target.cookie,
-      body: { reason: 'spam', note: 'Cold business outreach probe.', block: false }
+      body: { reason: 'spam', note: 'Cold business outreach probe.', block: false },
     });
     check(`recipient ${target.username} can report a business brief`, () => {
       assert.equal(reported.status, 201, JSON.stringify(reported.data));
@@ -462,8 +479,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       recipientId: rita.id,
       text: 'A final brief while outreach is paused.',
       intent: 'collab',
-      company: 'Sofia Studio'
-    }
+      company: 'Sofia Studio',
+    },
   });
   check('paused outreach refuses a new cold request', () => {
     assert.equal(paused.status, 403, JSON.stringify(paused.data));
@@ -471,7 +488,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const recoveryQueue = await api('/api/admin/business-verifications?status=pending', {
-    cookie: admin.cookie
+    cookie: admin.cookie,
   });
   const pausedItem = recoveryQueue.data.items.find((item) => item.user?.username === 'biz13sofia');
   check('a paused verified business appears in the review queue', () => {
@@ -482,7 +499,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const recovered = await api(`/api/admin/business-verifications/${pausedItem._id}/resolve`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { status: 'verified', note: 'Reports reviewed; outreach resumed.' }
+    body: { status: 'verified', note: 'Reports reviewed; outreach resumed.' },
   });
   check('an admin can clear the outreach pause', () => {
     assert.equal(recovered.status, 200, JSON.stringify(recovered.data));
@@ -496,8 +513,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       recipientId: rita.id,
       text: 'A fresh brief after the review was cleared.',
       intent: 'collab',
-      company: 'Sofia Studio'
-    }
+      company: 'Sofia Studio',
+    },
   });
   check('clearing the pause restores verified cold outreach', () => {
     assert.equal(afterRecovery.status, 201, JSON.stringify(afterRecovery.data));
@@ -514,8 +531,8 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
       // official contact and evidence a reviewer can check.
       contactEmail: 'review@manual-review.example',
       proofType: 'official_profile',
-      proofNote: 'Official listing at listings.example/manual-review-studio.'
-    }
+      proofNote: 'Official listing at listings.example/manual-review-studio.',
+    },
   });
   check('a business can be created without a website', () => {
     assert.equal(manualProfile.status, 200, JSON.stringify(manualProfile.data));
@@ -525,7 +542,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const manualRequest = await api('/api/account/business-verification', {
     method: 'POST',
     cookie: manual.cookie,
-    body: { method: 'manual' }
+    body: { method: 'manual' },
   });
   check('manual review is available without DNS', () => {
     assert.equal(manualRequest.status, 200, JSON.stringify(manualRequest.data));
@@ -534,7 +551,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   });
 
   const manualQueue = await api('/api/admin/business-verifications?status=pending', {
-    cookie: admin.cookie
+    cookie: admin.cookie,
   });
   const manualItem = manualQueue.data.items.find((item) => item.user?.username === 'biz13manual');
   check('the manual request enters the admin queue', () => {
@@ -544,7 +561,7 @@ async function scenarios({ sofia, alex, dana, mark, nina, rita, manual, admin, t
   const rejected = await api(`/api/admin/business-verifications/${manualItem._id}/resolve`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { status: 'rejected', note: 'No verifiable domain supplied.' }
+    body: { status: 'rejected', note: 'No verifiable domain supplied.' },
   });
   check('an admin can reject a business request', () => {
     assert.equal(rejected.status, 200, JSON.stringify(rejected.data));

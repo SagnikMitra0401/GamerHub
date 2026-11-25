@@ -50,32 +50,36 @@ async function searchLatestVideos(gameTitle, { maxResults = MAX_RESULTS } = {}) 
 
   const cacheKey = `yt:search:v${cacheEpoch}:${query.toLowerCase()}:${maxResults}`;
 
-  return cacheWrap(cacheKey, async () => {
-    const publishedAfter = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
-    const params = new URLSearchParams({
-      part: 'snippet',
-      type: 'video',
-      order: 'date',
-      maxResults: String(maxResults),
-      publishedAfter,
-      q: query,
-      key: apiKey
-    });
+  return cacheWrap(
+    cacheKey,
+    async () => {
+      const publishedAfter = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString();
+      const params = new URLSearchParams({
+        part: 'snippet',
+        type: 'video',
+        order: 'date',
+        maxResults: String(maxResults),
+        publishedAfter,
+        q: query,
+        key: apiKey,
+      });
 
-    const data = await fetchJson(`${API_BASE}?${params.toString()}`, { timeoutMs: TIMEOUT_MS });
-    const items = Array.isArray(data?.items) ? data.items : [];
+      const data = await fetchJson(`${API_BASE}?${params.toString()}`, { timeoutMs: TIMEOUT_MS });
+      const items = Array.isArray(data?.items) ? data.items : [];
 
-    return items
-      .map((item) => ({
-        videoId: sanitizeLine(item.id?.videoId, 32),
-        // YouTube returns HTML-escaped text ("&#39;") — decode before storing.
-        title: sanitizeLine(decodeHtmlEntities(item.snippet?.title), 120),
-        channelTitle: sanitizeLine(decodeHtmlEntities(item.snippet?.channelTitle), 80),
-        publishedAt: item.snippet?.publishedAt || null,
-        thumbnail: pickThumbnail(item.snippet)
-      }))
-      .filter((video) => video.videoId && video.title);
-  }, CACHE_TTL_SECONDS);
+      return items
+        .map((item) => ({
+          videoId: sanitizeLine(item.id?.videoId, 32),
+          // YouTube returns HTML-escaped text ("&#39;") — decode before storing.
+          title: sanitizeLine(decodeHtmlEntities(item.snippet?.title), 120),
+          channelTitle: sanitizeLine(decodeHtmlEntities(item.snippet?.channelTitle), 80),
+          publishedAt: item.snippet?.publishedAt || null,
+          thumbnail: pickThumbnail(item.snippet),
+        }))
+        .filter((video) => video.videoId && video.title);
+    },
+    CACHE_TTL_SECONDS,
+  );
 }
 
 /**
@@ -87,7 +91,12 @@ async function syncUserNotifications(user) {
   const result = { configured: isConfigured(), created: 0, games: [], errors: [] };
 
   if (!result.configured) {
-    lastSync = { at: new Date().toISOString(), ok: false, created: 0, message: 'YOUTUBE_API_KEY is not set' };
+    lastSync = {
+      at: new Date().toISOString(),
+      ok: false,
+      created: 0,
+      message: 'YOUTUBE_API_KEY is not set',
+    };
     return result;
   }
 
@@ -100,7 +109,12 @@ async function syncUserNotifications(user) {
     .slice(0, MAX_GAMES_PER_SYNC);
 
   if (!games.length) {
-    lastSync = { at: new Date().toISOString(), ok: true, created: 0, message: 'No favourite games yet' };
+    lastSync = {
+      at: new Date().toISOString(),
+      ok: true,
+      created: 0,
+      message: 'No favourite games yet',
+    };
     return result;
   }
 
@@ -121,9 +135,9 @@ async function syncUserNotifications(user) {
           videoId: latest.videoId,
           gameTitle: game,
           channelTitle: latest.channelTitle,
-          publishedAt: latest.publishedAt
+          publishedAt: latest.publishedAt,
         },
-        dedupeKey: `yt:${latest.videoId}`
+        dedupeKey: `yt:${latest.videoId}`,
       });
 
       if (notification) result.created += 1;
@@ -137,7 +151,7 @@ async function syncUserNotifications(user) {
     ok: result.errors.length === 0,
     created: result.created,
     latencyMs: Date.now() - startedAt,
-    message: result.errors.length ? result.errors[0].message : 'OK'
+    message: result.errors.length ? result.errors[0].message : 'OK',
   };
 
   return result;
@@ -152,7 +166,7 @@ function getStatus() {
     cacheBackend: 'memory',
     maxGamesPerSync: MAX_GAMES_PER_SYNC,
     estimatedQuotaUnitsPerSync: MAX_GAMES_PER_SYNC * 100,
-    lastSync
+    lastSync,
   };
 }
 
@@ -169,5 +183,5 @@ module.exports = {
   getStatus,
   resetYoutubeCache,
   CACHE_TTL_MS,
-  MAX_GAMES_PER_SYNC
+  MAX_GAMES_PER_SYNC,
 };

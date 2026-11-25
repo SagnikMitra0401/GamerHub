@@ -28,7 +28,7 @@ async function fetchJson(url, { timeoutMs = DEFAULT_TIMEOUT_MS, headers = {} } =
       method: 'GET',
       headers: { accept: 'application/json', 'user-agent': 'GamerHub/1.0', ...headers },
       signal: controller.signal,
-      redirect: 'error'
+      redirect: 'error',
     });
 
     if (!res.ok) {

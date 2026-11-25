@@ -4,13 +4,13 @@ import axiosInstance from '../../api/axiosInstance';
 
 const CommentForm = ({ postId, onCommentAdded }) => {
   const { user } = useAuth();
-  const [text, setText]       = useState('');
-  const [error, setError]     = useState('');
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   if (!user) return null;
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!text.trim()) return;
     setError('');
@@ -38,7 +38,7 @@ const CommentForm = ({ postId, onCommentAdded }) => {
           className="form-input"
           placeholder="Add a comment..."
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={(e) => setText(e.target.value)}
           required
         />
         <button id="comment-submit" className="btn btn-primary" disabled={loading || !text.trim()}>

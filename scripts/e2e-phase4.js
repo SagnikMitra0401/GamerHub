@@ -36,7 +36,13 @@ const Post = require('../server/models/Post');
 const User = require('../server/models/User');
 
 const {
-  api, check, connectSocket, registerUser, report, setBase, waitFor
+  api,
+  check,
+  connectSocket,
+  registerUser,
+  report,
+  setBase,
+  waitFor,
 } = require('./lib/e2e-harness');
 
 // This suite also confirms that the cookie alone resolves the session.
@@ -75,8 +81,8 @@ async function scenarios() {
     body: {
       favoriteGames: ['Valorant', 'valorant', '  Apex Legends  '],
       favoriteGenres: ['Shooter'],
-      platforms: ['PC', 'Xbox']
-    }
+      platforms: ['PC', 'Xbox'],
+    },
   });
   check('preferences saved and de-duplicated', () => {
     assert.equal(prefs.status, 200);
@@ -86,14 +92,14 @@ async function scenarios() {
 
   const prefsAnon = await api('/api/users/me/preferences', {
     method: 'PATCH',
-    body: { favoriteGames: ['x'] }
+    body: { favoriteGames: ['x'] },
   });
   check('anonymous preference write is rejected', () => assert.equal(prefsAnon.status, 401));
 
   const badPlatform = await api('/api/users/me/preferences', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { platforms: ['Steam'] }
+    body: { platforms: ['Steam'] },
   });
   check('unknown platform is rejected', () => assert.equal(badPlatform.status, 400));
 
@@ -102,22 +108,24 @@ async function scenarios() {
     userId: alice.id,
     title: 'Valorant patch notes',
     content: 'buff',
-    tags: ['valorant', 'patch']
+    tags: ['valorant', 'patch'],
   });
   await new Promise((r) => setTimeout(r, 20));
   const newer = await Post.create({
     userId: bob.id,
     title: 'Unrelated news',
     content: 'hello',
-    tags: ['news']
+    tags: ['news'],
   });
 
   const forYou = await api('/api/posts?sort=foryou&limit=10', { cookie: alice.cookie });
   check('for-you feed returns 200', () => assert.equal(forYou.status, 200));
   check('favourite-game post is ranked first', () =>
-    assert.equal(String(forYou.data[0]._id), String(older._id)));
+    assert.equal(String(forYou.data[0]._id), String(older._id)),
+  );
   check('ranking explains the match', () =>
-    assert.deepEqual(forYou.data[0].matchedTags, ['valorant']));
+    assert.deepEqual(forYou.data[0].matchedTags, ['valorant']),
+  );
 
   const forYouBob = await api('/api/posts?sort=foryou&limit=10', { cookie: bob.cookie });
   check('a user with no preferences still gets a feed', () => assert.equal(forYouBob.status, 200));
@@ -135,7 +143,7 @@ async function scenarios() {
   const playing = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { status: 'in_game', activeGame: 'Valorant' }
+    body: { status: 'in_game', activeGame: 'Valorant' },
   });
   check('presence set to in_game', () => {
     assert.equal(playing.status, 200);
@@ -151,15 +159,17 @@ async function scenarios() {
 
   const publicProfile = await api('/api/users/alice');
   check('public profile shows the active game', () =>
-    assert.deepEqual(publicProfile.data.presence, { status: 'in_game', activeGame: 'Valorant' }));
+    assert.deepEqual(publicProfile.data.presence, { status: 'in_game', activeGame: 'Valorant' }),
+  );
   check('public profile hides discovery preferences', () =>
-    assert.equal(publicProfile.data.preferences, undefined));
+    assert.equal(publicProfile.data.preferences, undefined),
+  );
 
   const offlineBroadcast = waitFor(bobSocket, 'presence_change', (p) => p.status === 'offline');
   const invisible = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { status: 'invisible' }
+    body: { status: 'invisible' },
   });
   check('presence set to invisible', () => assert.equal(invisible.status, 200));
   const hiddenEvent = await offlineBroadcast;
@@ -170,16 +180,18 @@ async function scenarios() {
 
   const hidden = await api('/api/users/alice');
   check('invisible users appear offline to others', () =>
-    assert.deepEqual(hidden.data.presence, { status: 'offline', activeGame: '' }));
+    assert.deepEqual(hidden.data.presence, { status: 'offline', activeGame: '' }),
+  );
 
   const selfView = await api('/api/auth/me', { cookie: alice.cookie });
   check('the user still sees their own invisible status', () =>
-    assert.equal(selfView.data.user.presence.status, 'invisible'));
+    assert.equal(selfView.data.user.presence.status, 'invisible'),
+  );
 
   const badPresence = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { status: 'in_game' }
+    body: { status: 'in_game' },
   });
   check('in_game requires a game name', () => assert.equal(badPresence.status, 400));
 
@@ -187,20 +199,21 @@ async function scenarios() {
   const madeServer = await api('/api/communities', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { name: 'Presence Test', description: 'presence check', icon: '🎮' }
+    body: { name: 'Presence Test', description: 'presence check', icon: '🎮' },
   });
   check('server created for the presence check', () => assert.equal(madeServer.status, 201));
 
   const joinedServer = await api(`/api/communities/${madeServer.data._id}/join`, {
     method: 'POST',
-    cookie: bob.cookie
+    cookie: bob.cookie,
   });
   check('bob joins the presence check server', () => assert.equal(joinedServer.status, 200));
 
   const memberView = await api(`/api/communities/${madeServer.data.slug}`, { cookie: bob.cookie });
   check('member list hides the invisible state', () => {
-    const entry = (memberView.data.community.members || [])
-      .find((m) => String(m.userId?._id) === String(alice.id));
+    const entry = (memberView.data.community.members || []).find(
+      (m) => String(m.userId?._id) === String(alice.id),
+    );
     assert.ok(entry, 'alice is missing from the member list');
     assert.deepEqual(entry.userId.presence, { status: 'offline', activeGame: '' });
   });
@@ -223,8 +236,8 @@ async function scenarios() {
       gameTitle: 'Valorant',
       activity: 'Ranked Competitive',
       maxSlots: 3,
-      requirements: { minRank: 'Diamond+', micRequired: true }
-    }
+      requirements: { minRank: 'Diamond+', micRequired: true },
+    },
   });
   check('squad created', () => assert.equal(created.status, 201, JSON.stringify(created.data)));
   check('leader is the only member', () => {
@@ -239,14 +252,14 @@ async function scenarios() {
   const badSquad = await api('/api/lfg', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { gameTitle: '', maxSlots: 99 }
+    body: { gameTitle: '', maxSlots: 99 },
   });
   check('invalid squad is rejected', () => assert.equal(badSquad.status, 400));
 
   const outsiderRequest = await api(`/api/lfg/${created.data._id}/request`, {
     method: 'POST',
     cookie: alice.cookie,
-    body: {}
+    body: {},
   });
   check('leader cannot request their own squad', () => assert.equal(outsiderRequest.status, 409));
 
@@ -257,7 +270,7 @@ async function scenarios() {
   const joinRequest = await api(`/api/lfg/${created.data._id}/request`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { message: 'I main Jett' }
+    body: { message: 'I main Jett' },
   });
   check('join request accepted by the API', () => assert.equal(joinRequest.status, 200));
 
@@ -270,20 +283,23 @@ async function scenarios() {
 
   const live = await requestEvent;
   check('leader receives the lfg_join_request socket event', () =>
-    assert.equal(live?.requester?.username, 'bob'));
+    assert.equal(live?.requester?.username, 'bob'),
+  );
 
   const duplicate = await api(`/api/lfg/${created.data._id}/request`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: {}
+    body: {},
   });
   check('duplicate request is rejected', () => assert.equal(duplicate.status, 409));
 
   const mine = await api('/api/lfg/mine', { cookie: alice.cookie });
   check('leader sees the pending request', () =>
-    assert.equal(mine.data.items[0].requests.length, 1));
+    assert.equal(mine.data.items[0].requests.length, 1),
+  );
   check('request message is stored', () =>
-    assert.equal(mine.data.items[0].requests[0].message, 'I main Jett'));
+    assert.equal(mine.data.items[0].requests[0].message, 'I main Jett'),
+  );
 
   const bobView = await api(`/api/lfg/${created.data._id}`, { cookie: bob.cookie });
   check('non-leaders cannot see pending requests', () => {
@@ -292,25 +308,23 @@ async function scenarios() {
   });
 
   console.log('\n[accepting a request]');
-  const acceptedNotification = waitFor(
-    bobSocket,
-    'notification',
-    (n) => n.type === 'lfg_accepted'
-  );
+  const acceptedNotification = waitFor(bobSocket, 'notification', (n) => n.type === 'lfg_accepted');
 
   const wrongLeader = await api(`/api/lfg/${created.data._id}/respond`, {
     method: 'PATCH',
     cookie: bob.cookie,
-    body: { userId: bob.id, action: 'accept' }
+    body: { userId: bob.id, action: 'accept' },
   });
   check('only the leader can accept', () => assert.equal(wrongLeader.status, 403));
 
   const accepted = await api(`/api/lfg/${created.data._id}/respond`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { userId: bob.id, action: 'accept' }
+    body: { userId: bob.id, action: 'accept' },
   });
-  check('leader accepts the request', () => assert.equal(accepted.status, 200, JSON.stringify(accepted.data)));
+  check('leader accepts the request', () =>
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.data)),
+  );
   check('applicant is now a member', () => {
     assert.equal(accepted.data.party.members.length, 2);
     assert.equal(accepted.data.party.openSlots, 1);
@@ -322,24 +336,25 @@ async function scenarios() {
   const staleAccept = await api(`/api/lfg/${created.data._id}/respond`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { userId: bob.id, action: 'accept' }
+    body: { userId: bob.id, action: 'accept' },
   });
   check('the same request cannot be accepted twice', () => assert.equal(staleAccept.status, 404));
 
   const bobMine = await api('/api/lfg/mine', { cookie: bob.cookie });
   check('accepted member sees the squad in "mine"', () =>
-    assert.equal(bobMine.data.items.length, 1));
+    assert.equal(bobMine.data.items.length, 1),
+  );
 
   console.log('\n[filling and closing a squad]');
   await api(`/api/lfg/${created.data._id}/request`, {
     method: 'POST',
     cookie: carol.cookie,
-    body: {}
+    body: {},
   });
   const filled = await api(`/api/lfg/${created.data._id}/respond`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { userId: carol.id, action: 'accept' }
+    body: { userId: carol.id, action: 'accept' },
   });
   check('a full squad flips to status "full"', () => {
     assert.equal(filled.status, 200);
@@ -349,17 +364,21 @@ async function scenarios() {
 
   const boardAfterFill = await api('/api/lfg');
   check('full squads leave the board', () =>
-    assert.equal(boardAfterFill.data.items.some((p) => p._id === created.data._id), false));
+    assert.equal(
+      boardAfterFill.data.items.some((p) => p._id === created.data._id),
+      false,
+    ),
+  );
 
   const closeByOther = await api(`/api/lfg/${created.data._id}`, {
     method: 'DELETE',
-    cookie: bob.cookie
+    cookie: bob.cookie,
   });
   check('a member cannot close the squad', () => assert.equal(closeByOther.status, 403));
 
   const closed = await api(`/api/lfg/${created.data._id}`, {
     method: 'DELETE',
-    cookie: alice.cookie
+    cookie: alice.cookie,
   });
   check('leader closes the squad', () => assert.equal(closed.status, 200));
 
@@ -371,22 +390,30 @@ async function scenarios() {
     assert.ok(inbox.data.unreadCount >= 1);
   });
   check('notifications never leak the recipient id of other users', () =>
-    assert.equal(inbox.data.items.every((n) => String(n.userId) === String(alice.id)), true));
+    assert.equal(
+      inbox.data.items.every((n) => String(n.userId) === String(alice.id)),
+      true,
+    ),
+  );
 
   const bobInbox = await api('/api/notifications', { cookie: bob.cookie });
   check('notifications are per-user', () =>
-    assert.equal(bobInbox.data.items.every((n) => String(n.userId) === String(bob.id)), true));
+    assert.equal(
+      bobInbox.data.items.every((n) => String(n.userId) === String(bob.id)),
+      true,
+    ),
+  );
 
   const first = inbox.data.items[0];
   const readOne = await api(`/api/notifications/${first._id}/read`, {
     method: 'PATCH',
-    cookie: bob.cookie
+    cookie: bob.cookie,
   });
   check('another user cannot mark my notification read', () => assert.equal(readOne.status, 404));
 
   const markedRead = await api(`/api/notifications/${first._id}/read`, {
     method: 'PATCH',
-    cookie: alice.cookie
+    cookie: alice.cookie,
   });
   check('owner marks a notification read', () => {
     assert.equal(markedRead.status, 200);
@@ -395,7 +422,7 @@ async function scenarios() {
 
   const allRead = await api('/api/notifications/read-all', {
     method: 'POST',
-    cookie: alice.cookie
+    cookie: alice.cookie,
   });
   check('mark-all-read clears the badge', () => assert.equal(allRead.data.unreadCount, 0));
 
@@ -409,7 +436,8 @@ async function scenarios() {
     assert.equal(botStatus.data.configured, false);
   });
   check('bot status never returns a key', () =>
-    assert.equal(/apikey|api_key|youtube_api/i.test(JSON.stringify(botStatus.data)), false));
+    assert.equal(/apikey|api_key|youtube_api/i.test(JSON.stringify(botStatus.data)), false),
+  );
 
   const sync = await api('/api/bot/sync-youtube', { method: 'POST', cookie: alice.cookie });
   check('sync without a key is a clean 503', () => {
@@ -432,14 +460,17 @@ async function scenarios() {
 
   await User.updateOne({ _id: alice.id }, { $set: { role: 'admin' } });
   const health = await api('/api/admin/system-health', { cookie: alice.cookie });
-  check('admin reads system health', () => assert.equal(health.status, 200, JSON.stringify(health.data)));
+  check('admin reads system health', () =>
+    assert.equal(health.status, 200, JSON.stringify(health.data)),
+  );
 
   check('health reports required secrets as configured', () => {
     const keys = health.data.security.secretIsolation.keys;
     const jwt = keys.find((k) => k.name === 'JWT_SECRET');
     assert.equal(jwt.configured, true);
     assert.ok(['strong', 'short'].includes(jwt.strength));
-    if (jwt.strength === 'short') console.log('    (JWT_SECRET is shorter than 32 chars — reported as weak)');
+    if (jwt.strength === 'short')
+      console.log('    (JWT_SECRET is shorter than 32 chars — reported as weak)');
   });
 
   check('health never returns secret values', () => {
@@ -477,7 +508,8 @@ async function scenarios() {
   console.log('\n[game catalog]');
   const catalog = await api('/api/games?limit=3');
   check('catalog responds without auth', () =>
-    assert.ok([200, 503].includes(catalog.status), `got ${catalog.status}`));
+    assert.ok([200, 503].includes(catalog.status), `got ${catalog.status}`),
+  );
   if (catalog.status === 200) {
     check('catalog returns normalised games', () => {
       assert.ok(Array.isArray(catalog.data.games));
@@ -493,7 +525,9 @@ async function scenarios() {
   const badGame = await api('/api/games/not-a-number');
   // Phase 15 introduced slug routes, so an unknown non-numeric path is a 404
   // rather than the old "not an id" 400. Both reject the request.
-  check('invalid game ids are rejected', () => assert.ok([400, 404].includes(badGame.status), String(badGame.status)));
+  check('invalid game ids are rejected', () =>
+    assert.ok([400, 404].includes(badGame.status), String(badGame.status)),
+  );
 
   aliceSocket.disconnect();
   bobSocket.disconnect();

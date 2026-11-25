@@ -10,7 +10,7 @@ function publicPresence(presence) {
   if (presence.status === 'invisible') return { status: 'offline', activeGame: '' };
   return {
     status: presence.status || 'offline',
-    activeGame: presence.activeGame || ''
+    activeGame: presence.activeGame || '',
   };
 }
 

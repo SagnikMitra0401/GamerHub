@@ -6,80 +6,87 @@ const PARTY_TTL_MS = 6 * 60 * 60 * 1000;
 const MIN_SLOTS = 2;
 const MAX_SLOTS = 6;
 
-const PartySchema = new Schema({
-  gameTitle: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 60,
-    index: true
+const PartySchema = new Schema(
+  {
+    gameTitle: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 60,
+      index: true,
+    },
+    gameThumbnail: {
+      type: String,
+      default: null, // only ever an http(s) URL supplied by the catalog
+    },
+    activity: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 60,
+    },
+    leaderId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    maxSlots: {
+      type: Number,
+      min: MIN_SLOTS,
+      max: MAX_SLOTS,
+      default: 5,
+    },
+    members: [
+      {
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        role: { type: String, enum: ['leader', 'member'], default: 'member' },
+        joinedAt: { type: Date, default: Date.now },
+      },
+    ],
+    requests: [
+      {
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        message: { type: String, default: '', trim: true, maxlength: 200 },
+        requestedAt: { type: Date, default: Date.now },
+      },
+    ],
+    requirements: {
+      minRank: { type: String, default: '', trim: true, maxlength: 20 },
+      micRequired: { type: Boolean, default: false },
+    },
+    status: {
+      type: String,
+      enum: ['open', 'full', 'closed'],
+      default: 'open',
+      index: true,
+    },
+    // Squad lifecycle (phase 8). `status` stays the board-visibility field so the
+    // existing board queries keep working; `state` is the formal lifecycle.
+    state: {
+      type: String,
+      enum: ['recruiting', 'locked', 'active', 'completed', 'cancelled'],
+      default: 'recruiting',
+      index: true,
+    },
+    // The temporary 15-day chat created when the squad locks.
+    chatId: {
+      type: Schema.Types.ObjectId,
+      ref: 'SquadChat',
+      default: null,
+    },
+    lockedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    // TTL index: Mongo removes the document at this point, so a stale squad can
+    // never linger on the board.
+    expiresAt: {
+      type: Date,
+      default: () => new Date(Date.now() + PARTY_TTL_MS),
+      index: { expires: 0 },
+    },
   },
-  gameThumbnail: {
-    type: String,
-    default: null // only ever an http(s) URL supplied by the catalog
-  },
-  activity: {
-    type: String,
-    default: '',
-    trim: true,
-    maxlength: 60
-  },
-  leaderId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true
-  },
-  maxSlots: {
-    type: Number,
-    min: MIN_SLOTS,
-    max: MAX_SLOTS,
-    default: 5
-  },
-  members: [{
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    role: { type: String, enum: ['leader', 'member'], default: 'member' },
-    joinedAt: { type: Date, default: Date.now }
-  }],
-  requests: [{
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    message: { type: String, default: '', trim: true, maxlength: 200 },
-    requestedAt: { type: Date, default: Date.now }
-  }],
-  requirements: {
-    minRank: { type: String, default: '', trim: true, maxlength: 20 },
-    micRequired: { type: Boolean, default: false }
-  },
-  status: {
-    type: String,
-    enum: ['open', 'full', 'closed'],
-    default: 'open',
-    index: true
-  },
-  // Squad lifecycle (phase 8). `status` stays the board-visibility field so the
-  // existing board queries keep working; `state` is the formal lifecycle.
-  state: {
-    type: String,
-    enum: ['recruiting', 'locked', 'active', 'completed', 'cancelled'],
-    default: 'recruiting',
-    index: true
-  },
-  // The temporary 15-day chat created when the squad locks.
-  chatId: {
-    type: Schema.Types.ObjectId,
-    ref: 'SquadChat',
-    default: null
-  },
-  lockedAt: { type: Date, default: null },
-  completedAt: { type: Date, default: null },
-  // TTL index: Mongo removes the document at this point, so a stale squad can
-  // never linger on the board.
-  expiresAt: {
-    type: Date,
-    default: () => new Date(Date.now() + PARTY_TTL_MS),
-    index: { expires: 0 }
-  }
-}, { timestamps: true });
+  { timestamps: true },
+);
 
 PartySchema.index({ status: 1, createdAt: -1 });
 

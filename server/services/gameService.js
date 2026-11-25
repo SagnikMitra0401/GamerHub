@@ -38,7 +38,7 @@ const toCard = (game) => ({
   releaseYear: game.releaseYear || null,
   summary: (game.summary || '').slice(0, 220),
   stats: game.stats || {},
-  status: game.status
+  status: game.status,
 });
 
 function encodeCursor(payload) {
@@ -62,13 +62,18 @@ function cursorConstraint(sort, cursor) {
     return { $or: [{ title: { $gt: cursor.value } }, { title: cursor.value, _id: { $gt: id } }] };
   }
   if (sort === 'new') {
-    return { $or: [{ releaseYear: { $lt: cursor.value } }, { releaseYear: cursor.value, _id: { $lt: id } }] };
+    return {
+      $or: [
+        { releaseYear: { $lt: cursor.value } },
+        { releaseYear: cursor.value, _id: { $lt: id } },
+      ],
+    };
   }
   return {
     $or: [
       { 'stats.favoriteCount': { $lt: cursor.value } },
-      { 'stats.favoriteCount': cursor.value, _id: { $lt: id } }
-    ]
+      { 'stats.favoriteCount': cursor.value, _id: { $lt: id } },
+    ],
   };
 }
 
@@ -86,49 +91,51 @@ async function syncFreeToPlay({ limit = 240 } = {}) {
   const catalog = await freetogame.getCatalog();
   const games = (catalog.games || []).slice(0, Math.max(1, Math.min(Number(limit) || 240, 500)));
 
-  const operations = games.map((raw) => {
-    const record = buildGameRecord({
-      title: raw.title,
-      source: 'freetogame',
-      status: 'published',
-      summary: raw.shortDescription,
-      cover: { url: raw.thumbnail, imageId: null },
-      genres: [raw.genre],
-      platforms: [raw.platform],
-      releaseDate: raw.releaseDate,
-      externalIds: { freetogame: raw.id }
-    });
-    if (!record) return null;
+  const operations = games
+    .map((raw) => {
+      const record = buildGameRecord({
+        title: raw.title,
+        source: 'freetogame',
+        status: 'published',
+        summary: raw.shortDescription,
+        cover: { url: raw.thumbnail, imageId: null },
+        genres: [raw.genre],
+        platforms: [raw.platform],
+        releaseDate: raw.releaseDate,
+        externalIds: { freetogame: raw.id },
+      });
+      if (!record) return null;
 
-    return {
-      updateOne: {
-        filter: { key: record.key },
-        update: {
-          $set: {
-            title: record.title,
-            summary: record.summary,
-            cover: record.cover,
-            genres: record.genres,
-            platforms: record.platforms,
-            releaseYear: record.releaseYear,
-            'externalIds.freetogame': raw.id,
-            lastSyncedAt: new Date()
+      return {
+        updateOne: {
+          filter: { key: record.key },
+          update: {
+            $set: {
+              title: record.title,
+              summary: record.summary,
+              cover: record.cover,
+              genres: record.genres,
+              platforms: record.platforms,
+              releaseYear: record.releaseYear,
+              'externalIds.freetogame': raw.id,
+              lastSyncedAt: new Date(),
+            },
+            $setOnInsert: {
+              slug: record.slug,
+              key: record.key,
+              source: 'freetogame',
+              status: 'published',
+              aliases: [],
+              aliasKeys: [],
+              screenshots: [],
+              stats: {},
+            },
           },
-          $setOnInsert: {
-            slug: record.slug,
-            key: record.key,
-            source: 'freetogame',
-            status: 'published',
-            aliases: [],
-            aliasKeys: [],
-            screenshots: [],
-            stats: {}
-          }
+          upsert: true,
         },
-        upsert: true
-      }
-    };
-  }).filter(Boolean);
+      };
+    })
+    .filter(Boolean);
 
   if (!operations.length) return { synced: 0, provider: 'freetogame' };
 
@@ -147,7 +154,7 @@ async function syncFreeToPlay({ limit = 240 } = {}) {
     updated: result.modifiedCount || 0,
     provider: 'freetogame',
     fetchedAt: catalog.fetchedAt,
-    stale: Boolean(catalog.stale)
+    stale: Boolean(catalog.stale),
   };
 }
 
@@ -162,7 +169,9 @@ async function ensureCatalogSeeded() {
         console.error('[games] initial seed failed:', err.message);
         return { synced: 0 };
       })
-      .finally(() => { seedPromise = null; });
+      .finally(() => {
+        seedPromise = null;
+      });
   }
   await seedPromise;
   return Game.estimatedDocumentCount();
@@ -188,9 +197,9 @@ async function enrichGameFromIgdb(game) {
           platforms: match.platforms?.length ? match.platforms : game.platforms,
           releaseYear: match.releaseYear || game.releaseYear,
           'externalIds.igdb': match.id,
-          lastSyncedAt: new Date()
-        }
-      }
+          lastSyncedAt: new Date(),
+        },
+      },
     );
     return { ...game, ...match, externalIds: { ...game.externalIds, igdb: match.id } };
   } catch (err) {
@@ -199,7 +208,14 @@ async function enrichGameFromIgdb(game) {
   }
 }
 
-async function listGames({ q = '', genre = '', platform = '', sort = 'trending', cursor = null, limit = DEFAULT_LIMIT } = {}) {
+async function listGames({
+  q = '',
+  genre = '',
+  platform = '',
+  sort = 'trending',
+  cursor = null,
+  limit = DEFAULT_LIMIT,
+} = {}) {
   await ensureCatalogSeeded();
 
   const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), MAX_LIMIT);
@@ -220,16 +236,20 @@ async function listGames({ q = '', genre = '', platform = '', sort = 'trending',
   }
 
   /** @type {Record<string, 1|-1>} */
-  const sortSpec = safeSort === 'az'
-    ? { title: 1, _id: 1 }
-    : safeSort === 'new'
-      ? { releaseYear: -1, _id: -1 }
-      : { 'stats.favoriteCount': -1, _id: -1 };
+  const sortSpec =
+    safeSort === 'az'
+      ? { title: 1, _id: 1 }
+      : safeSort === 'new'
+        ? { releaseYear: -1, _id: -1 }
+        : { 'stats.favoriteCount': -1, _id: -1 };
 
   const [rows, total, facets] = await Promise.all([
-    Game.find(filter).sort(sortSpec).limit(safeLimit + 1).lean(),
+    Game.find(filter)
+      .sort(sortSpec)
+      .limit(safeLimit + 1)
+      .lean(),
     Game.countDocuments(filter),
-    catalogFacets()
+    catalogFacets(),
   ]);
 
   const hasMore = rows.length > safeLimit;
@@ -241,32 +261,38 @@ async function listGames({ q = '', genre = '', platform = '', sort = 'trending',
     total,
     // Legacy field some older clients read; same value as `total`.
     catalogSize: total,
-    nextCursor: hasMore && last
-      ? encodeCursor({ sort: safeSort, value: cursorValue(safeSort, last), id: String(last._id) })
-      : null,
+    nextCursor:
+      hasMore && last
+        ? encodeCursor({ sort: safeSort, value: cursorValue(safeSort, last), id: String(last._id) })
+        : null,
     filters: { q: needle, genre, platform, sort: safeSort },
     facets,
-    provider: providerInfo()
+    provider: providerInfo(),
   };
 }
 
 /** Facets are cheap but change only on sync, so cache them briefly. */
-const catalogFacets = () => cacheWrap('games:facets', async () => {
-  const [genres, platforms] = await Promise.all([
-    Game.distinct('genres', { status: { $in: PUBLIC_STATUSES } }),
-    Game.distinct('platforms', { status: { $in: PUBLIC_STATUSES } })
-  ]);
-  return {
-    genres: genres.filter(Boolean).sort(),
-    platforms: platforms.filter(Boolean).sort()
-  };
-}, 300);
+const catalogFacets = () =>
+  cacheWrap(
+    'games:facets',
+    async () => {
+      const [genres, platforms] = await Promise.all([
+        Game.distinct('genres', { status: { $in: PUBLIC_STATUSES } }),
+        Game.distinct('platforms', { status: { $in: PUBLIC_STATUSES } }),
+      ]);
+      return {
+        genres: genres.filter(Boolean).sort(),
+        platforms: platforms.filter(Boolean).sort(),
+      };
+    },
+    300,
+  );
 
 function providerInfo() {
   return {
     primary: 'FreeToGame',
     enriched: igdb.configured(),
-    attribution: igdb.configured() ? 'Game data by IGDB and FreeToGame' : 'Game data by FreeToGame'
+    attribution: igdb.configured() ? 'Game data by IGDB and FreeToGame' : 'Game data by FreeToGame',
   };
 }
 
@@ -281,19 +307,22 @@ async function getRails(user = null) {
   const [trending, fresh, freeToPlay] = await Promise.all([
     Game.find(base)
       .sort({ 'stats.favoriteCount': -1, 'stats.playerCount': -1, updatedAt: -1 })
-      .limit(RAIL_LIMIT).lean(),
+      .limit(RAIL_LIMIT)
+      .lean(),
     Game.find({ ...base, releaseYear: { $ne: null } })
       .sort({ releaseYear: -1, 'stats.favoriteCount': -1 })
-      .limit(RAIL_LIMIT).lean(),
+      .limit(RAIL_LIMIT)
+      .lean(),
     Game.find({ ...base, 'externalIds.freetogame': { $ne: null } })
       .sort({ 'stats.favoriteCount': -1, _id: -1 })
-      .limit(RAIL_LIMIT).lean()
+      .limit(RAIL_LIMIT)
+      .lean(),
   ]);
 
   const rails = [
     { key: 'trending', label: 'Trending now', games: trending.map(toCard) },
     { key: 'new', label: 'New & notable', games: fresh.map(toCard) },
-    { key: 'free', label: 'Free to play', games: freeToPlay.map(toCard) }
+    { key: 'free', label: 'Free to play', games: freeToPlay.map(toCard) },
   ];
 
   if (user) {
@@ -301,8 +330,11 @@ async function getRails(user = null) {
     if (titles.length) {
       const yours = await Game.find({
         $or: [{ key: { $in: titles } }, { aliasKeys: { $in: titles } }],
-        status: { $in: PUBLIC_STATUSES }
-      }).sort({ 'stats.favoriteCount': -1 }).limit(RAIL_LIMIT).lean();
+        status: { $in: PUBLIC_STATUSES },
+      })
+        .sort({ 'stats.favoriteCount': -1 })
+        .limit(RAIL_LIMIT)
+        .lean();
       rails.unshift({ key: 'yours', label: 'Popular in your games', games: yours.map(toCard) });
     }
   }
@@ -310,7 +342,7 @@ async function getRails(user = null) {
   return {
     rails: rails.filter((rail) => rail.games.length > 0),
     provider: providerInfo(),
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
   };
 }
 
@@ -329,7 +361,10 @@ async function getGameDetail(slugOrId) {
 
   // Numeric ids keep old /games/:id links working.
   if (!game && /^\d+$/.test(raw)) {
-    game = await Game.findOne({ 'externalIds.freetogame': Number(raw), status: { $ne: 'merged' } }).lean();
+    game = await Game.findOne({
+      'externalIds.freetogame': Number(raw),
+      status: { $ne: 'merged' },
+    }).lean();
   }
   // ObjectId links come from the catalog cards and older bookmarks.
   if (!game && /^[a-f0-9]{24}$/i.test(raw)) {
@@ -350,7 +385,7 @@ async function getGameDetail(slugOrId) {
           screenshots: detail.screenshots?.length ? detail.screenshots : game.screenshots,
           requirements: detail.minimumSystemRequirements || game.requirements,
           lastSyncedAt: new Date(),
-          detailFetchedAt: new Date()
+          detailFetchedAt: new Date(),
         };
         await Game.updateOne({ _id: game._id }, { $set: patch });
         game = { ...game, ...patch };
@@ -364,9 +399,22 @@ async function getGameDetail(slugOrId) {
   const names = namesFor(game);
   const tagCandidates = [...new Set([game.slug, ...names.map(canonicalKey).filter(Boolean)])];
 
-  const [favorites, squads, servers, posts, playing, openSquads, communities, recentPosts, related] = await Promise.all([
+  const [
+    favorites,
+    squads,
+    servers,
+    posts,
+    playing,
+    openSquads,
+    communities,
+    recentPosts,
+    related,
+  ] = await Promise.all([
     User.countDocuments({ 'preferences.favoriteGames': { $in: names } }),
-    Party.countDocuments({ gameTitle: { $in: names }, state: { $in: ['recruiting', 'locked', 'active', 'completed'] } }),
+    Party.countDocuments({
+      gameTitle: { $in: names },
+      state: { $in: ['recruiting', 'locked', 'active', 'completed'] },
+    }),
     Community.countDocuments({ games: { $in: names } }),
     Post.countDocuments({ tags: { $in: tagCandidates }, hiddenAt: null }),
     User.countDocuments({ 'presence.activeGame': { $in: names }, 'presence.status': 'in_game' }),
@@ -387,10 +435,14 @@ async function getGameDetail(slugOrId) {
       .sort({ createdAt: -1 })
       .limit(4)
       .lean(),
-    Game.find({ genres: { $in: game.genres || [] }, _id: { $ne: game._id }, status: { $in: PUBLIC_STATUSES } })
+    Game.find({
+      genres: { $in: game.genres || [] },
+      _id: { $ne: game._id },
+      status: { $in: PUBLIC_STATUSES },
+    })
       .sort({ 'stats.favoriteCount': -1, releaseYear: -1 })
       .limit(6)
-      .lean()
+      .lean(),
   ]);
 
   return {
@@ -404,7 +456,7 @@ async function getGameDetail(slugOrId) {
       squadCount: squads,
       serverCount: servers,
       postCount: posts,
-      playerCount: playing
+      playerCount: playing,
     },
     openSquads: openSquads.map((squad) => ({
       id: String(squad._id),
@@ -414,7 +466,7 @@ async function getGameDetail(slugOrId) {
       memberCount: (squad.members || []).length,
       micRequired: Boolean(squad.requirements?.micRequired),
       expiresAt: squad.expiresAt,
-      leader: squad.leaderId
+      leader: squad.leaderId,
     })),
     communities: communities.map((community) => ({
       id: String(community._id),
@@ -422,7 +474,7 @@ async function getGameDetail(slugOrId) {
       slug: community.slug,
       icon: community.icon,
       memberCount: /** @type {any} */ (community).memberCount || 0,
-      isPrivate: Boolean(community.isPrivate)
+      isPrivate: Boolean(community.isPrivate),
     })),
     recentPosts: recentPosts.map((post) => ({
       _id: String(post._id),
@@ -434,22 +486,27 @@ async function getGameDetail(slugOrId) {
       author: post.userId,
       mediaUrl: post.mediaUrl,
       mediaCardUrl: post.mediaCardUrl,
-      mediaType: post.mediaType
+      mediaType: post.mediaType,
     })),
     related: related.map(toCard),
-    provider: providerInfo()
+    provider: providerInfo(),
   };
 }
 
 /** Toggle a game in the caller's favourites; both the user array and counter move. */
 async function toggleFollowGame(userId, slug) {
-  const game = await Game.findOne({ slug: String(slug || '').toLowerCase(), status: { $ne: 'merged' } }).lean();
+  const game = await Game.findOne({
+    slug: String(slug || '').toLowerCase(),
+    status: { $ne: 'merged' },
+  }).lean();
   if (!game) return null;
 
   const user = await User.findById(userId).select('preferences.favoriteGames').lean();
   if (!user) return null;
 
-  const current = Array.isArray(user.preferences?.favoriteGames) ? user.preferences.favoriteGames : [];
+  const current = Array.isArray(user.preferences?.favoriteGames)
+    ? user.preferences.favoriteGames
+    : [];
   const wantedKey = canonicalKey(game.title);
   const following = current.some((title) => canonicalKey(title) === wantedKey);
 
@@ -458,7 +515,7 @@ async function toggleFollowGame(userId, slug) {
     await User.updateOne({ _id: userId }, { $set: { 'preferences.favoriteGames': next } });
     await Game.updateOne(
       { _id: game._id, 'stats.favoriteCount': { $gt: 0 } },
-      { $inc: { 'stats.favoriteCount': -1 } }
+      { $inc: { 'stats.favoriteCount': -1 } },
     );
     return { following: false, game: toCard(game) };
   }
@@ -467,10 +524,7 @@ async function toggleFollowGame(userId, slug) {
     return { following: false, limitReached: true, game: toCard(game) };
   }
 
-  await User.updateOne(
-    { _id: userId },
-    { $addToSet: { 'preferences.favoriteGames': game.title } }
-  );
+  await User.updateOne({ _id: userId }, { $addToSet: { 'preferences.favoriteGames': game.title } });
   await Game.updateOne({ _id: game._id }, { $inc: { 'stats.favoriteCount': 1 } });
   return { following: true, game: toCard(game) };
 }
@@ -481,7 +535,7 @@ async function mergeGames(primaryId, duplicateId) {
 
   const [primary, duplicate] = await Promise.all([
     Game.findById(primaryId),
-    Game.findById(duplicateId)
+    Game.findById(duplicateId),
   ]);
   if (!primary || !duplicate) return null;
 
@@ -496,21 +550,25 @@ async function mergeGames(primaryId, duplicateId) {
         genres: merged.genres,
         platforms: merged.platforms,
         stats: merged.stats,
-        summary: merged.summary
-      }
-    }
+        summary: merged.summary,
+      },
+    },
   );
   await Game.updateOne(
     { _id: duplicate._id },
-    { $set: { status: 'merged', mergedInto: primary._id } }
+    { $set: { status: 'merged', mergedInto: primary._id } },
   );
 
-  return { primary: toCard(await Game.findById(primary._id).lean()), mergedId: String(duplicate._id) };
+  return {
+    primary: toCard(await Game.findById(primary._id).lean()),
+    mergedId: String(duplicate._id),
+  };
 }
 
 /** Optional IGDB sync by search term; returns an empty result when unconfigured. */
 async function syncIgdbSearch(term, { limit = 12 } = {}) {
-  if (!igdb.configured()) return { synced: 0, inserted: 0, updated: 0, provider: 'igdb', configured: false };
+  if (!igdb.configured())
+    return { synced: 0, inserted: 0, updated: 0, provider: 'igdb', configured: false };
 
   const rows = await igdb.searchGames(term, { limit });
   const seen = new Set();
@@ -527,7 +585,7 @@ async function syncIgdbSearch(term, { limit = 12 } = {}) {
       genres: row.genres,
       platforms: row.platforms,
       releaseDate: row.releaseYear ? `${row.releaseYear}-01-01` : null,
-      externalIds: { igdb: row.id }
+      externalIds: { igdb: row.id },
     });
     if (!record || seen.has(record.key)) continue;
     seen.add(record.key);
@@ -544,7 +602,7 @@ async function syncIgdbSearch(term, { limit = 12 } = {}) {
             platforms: record.platforms,
             releaseYear: record.releaseYear,
             'externalIds.igdb': row.id,
-            lastSyncedAt: new Date()
+            lastSyncedAt: new Date(),
           },
           $setOnInsert: {
             slug: record.slug,
@@ -554,11 +612,11 @@ async function syncIgdbSearch(term, { limit = 12 } = {}) {
             status: 'published',
             aliases: [],
             aliasKeys: [],
-            stats: {}
-          }
+            stats: {},
+          },
         },
-        upsert: true
-      }
+        upsert: true,
+      },
     });
   }
 
@@ -576,7 +634,7 @@ async function syncIgdbSearch(term, { limit = 12 } = {}) {
     synced: operations.length,
     inserted: result.upsertedCount || 0,
     updated: result.modifiedCount || 0,
-    provider: 'igdb'
+    provider: 'igdb',
   };
 }
 
@@ -594,5 +652,5 @@ module.exports = {
   mergeGames,
   providerInfo,
   toCard,
-  catalogFacets
+  catalogFacets,
 };

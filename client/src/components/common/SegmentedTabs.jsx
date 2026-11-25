@@ -27,11 +27,11 @@ const SegmentedTabs = ({
   onChange,
   ariaLabel,
   className = '',
-  size = 'md'
+  size = 'md',
 }) => {
   const trayRef = useRef(null);
   const [ready, setReady] = useState(false);
-  const activeIndex = options.findIndex(option => option.key === value);
+  const activeIndex = options.findIndex((option) => option.key === value);
 
   const measure = useCallback(() => {
     const tray = trayRef.current;
@@ -45,7 +45,9 @@ const SegmentedTabs = ({
 
   // Layout effect so the pill is already in place on the first paint instead of
   // sliding in from the left edge.
-  useLayoutEffect(() => { measure(); }, [measure]);
+  useLayoutEffect(() => {
+    measure();
+  }, [measure]);
 
   // Transitions stay off for the very first frame: the pill should appear at
   // its tab, not grow into place from the tray's left edge.
@@ -60,7 +62,7 @@ const SegmentedTabs = ({
 
     const observer = new ResizeObserver(() => measure());
     observer.observe(tray);
-    tray.querySelectorAll('[data-seg-item]').forEach(button => observer.observe(button));
+    tray.querySelectorAll('[data-seg-item]').forEach((button) => observer.observe(button));
 
     // Web fonts land after first paint and shift label widths.
     if (document.fonts?.ready) {
@@ -78,7 +80,7 @@ const SegmentedTabs = ({
       aria-label={ariaLabel}
     >
       <span className="seg-indicator" aria-hidden="true" />
-      {options.map(option => {
+      {options.map((option) => {
         const isActive = option.key === value;
         return (
           <button

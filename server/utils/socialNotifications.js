@@ -24,7 +24,10 @@ async function notifyPostComment({ post, comment, actor }) {
   const actorId = idOf(actor);
   if (!authorId || !actorId || authorId === actorId) return null;
 
-  const snippet = String(comment.text || '').replace(/\s+/g, ' ').trim().slice(0, COMMENT_SNIPPET);
+  const snippet = String(comment.text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, COMMENT_SNIPPET);
 
   return notifyUser({
     userId: authorId,
@@ -36,9 +39,9 @@ async function notifyPostComment({ post, comment, actor }) {
     metadata: {
       kind: 'comment',
       postId: String(post._id),
-      commentId: String(comment._id)
+      commentId: String(comment._id),
     },
-    dedupeKey: `comment:${comment._id}`
+    dedupeKey: `comment:${comment._id}`,
   });
 }
 
@@ -57,9 +60,9 @@ async function notifyFollow({ target, actor }) {
     actionUrl: actor?.username ? `/u/${actor.username}` : '/discover',
     metadata: {
       kind: 'follow',
-      followerId: actorId
+      followerId: actorId,
     },
-    dedupeKey: `follow:${targetId}:${actorId}`
+    dedupeKey: `follow:${targetId}:${actorId}`,
   });
 }
 
@@ -80,16 +83,17 @@ async function notifyLikeMilestone({ post, actor = null, likeCount }) {
     actorId: actorId || null,
     type: 'social',
     title: `Your post reached ${plural(milestone, 'like')}`,
-    message: milestone === 1
-      ? 'Your first like is in. Keep the conversation going.'
-      : 'People are engaging with what you shared.',
+    message:
+      milestone === 1
+        ? 'Your first like is in. Keep the conversation going.'
+        : 'People are engaging with what you shared.',
     actionUrl: `/posts/${post._id}`,
     metadata: {
       kind: 'like_milestone',
       postId: String(post._id),
-      milestone
+      milestone,
     },
-    dedupeKey: `like:${post._id}:${milestone}`
+    dedupeKey: `like:${post._id}:${milestone}`,
   });
 }
 
@@ -98,5 +102,5 @@ module.exports = {
   likeMilestoneFor,
   notifyPostComment,
   notifyFollow,
-  notifyLikeMilestone
+  notifyLikeMilestone,
 };

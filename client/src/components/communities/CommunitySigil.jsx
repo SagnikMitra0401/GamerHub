@@ -13,7 +13,8 @@ import SafeImage from '../common/SafeImage';
  * A legacy `icon` value that is an image URL is still honoured.
  */
 const isImage = (value) =>
-  typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/'));
+  typeof value === 'string' &&
+  (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/'));
 
 const hashHue = (value) => {
   let hash = 0;
@@ -38,12 +39,24 @@ const CommunitySigil = ({ name = '', icon = '', size = 40, className = '' }) => 
   const classes = `community-sigil${className ? ` ${className}` : ''}`;
   const [imageFailed, setImageFailed] = useState(false);
 
-  useEffect(() => { setImageFailed(false); }, [icon]);
+  useEffect(() => {
+    setImageFailed(false);
+  }, [icon]);
 
   if (isImage(icon) && !imageFailed) {
     return (
-      <span className={`${classes} community-sigil-image`} style={{ width: size, height: size }} aria-hidden="true">
-        <SafeImage src={icon} alt="" loading="lazy" fallback={null} onError={() => setImageFailed(true)} />
+      <span
+        className={`${classes} community-sigil-image`}
+        style={{ width: size, height: size }}
+        aria-hidden="true"
+      >
+        <SafeImage
+          src={icon}
+          alt=""
+          loading="lazy"
+          fallback={null}
+          onError={() => setImageFailed(true)}
+        />
       </span>
     );
   }
@@ -55,7 +68,7 @@ const CommunitySigil = ({ name = '', icon = '', size = 40, className = '' }) => 
         width: size,
         height: size,
         fontSize: Math.max(10, Math.round(size * 0.4)),
-        '--sigil-hue': hashHue(label.toLowerCase())
+        '--sigil-hue': hashHue(label.toLowerCase()),
       }}
       aria-hidden="true"
     >

@@ -21,7 +21,7 @@ before(async () => {
       received.push({
         method: req.method,
         headers: req.headers,
-        body: JSON.parse(raw)
+        body: JSON.parse(raw),
       });
       res.writeHead(reply.status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(reply.body));
@@ -51,7 +51,7 @@ test('apps-script transport posts the message and secret over HTTP', async () =>
     to: 'player@example.com',
     subject: 'Confirm your GamerHub email',
     text: 'Open the link',
-    html: '<p>Open the link</p>'
+    html: '<p>Open the link</p>',
   });
 
   assert.deepEqual(result, { id: 'apps-script' });
@@ -80,7 +80,7 @@ test('the bridge response must explicitly report ok', async () => {
 
   await assert.rejects(
     sendEmail({ to: 'player@example.com', subject: 'Test', text: 'Body' }),
-    /Email bridge rejected the message \(200: forbidden\)/
+    /Email bridge rejected the message \(200: forbidden\)/,
   );
 });
 
@@ -91,7 +91,7 @@ test('the bridge requires a secret before making a request', async () => {
 
   await assert.rejects(
     sendEmail({ to: 'player@example.com', subject: 'Test', text: 'Body' }),
-    /GMAIL_BRIDGE_SECRET is not configured/
+    /GMAIL_BRIDGE_SECRET is not configured/,
   );
   assert.equal(received.length, 0);
 });

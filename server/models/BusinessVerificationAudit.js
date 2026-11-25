@@ -7,24 +7,24 @@ const BusinessVerificationAuditSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'BusinessProfile',
       required: true,
-      index: true
+      index: true,
     },
     actorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null
+      default: null,
     },
     status: {
       type: String,
       enum: ['verified', 'rejected', 'contacted', 'responded', 'demoted', 'expired'],
-      required: true
+      required: true,
     },
     // How a review contact reached the business: the owner's preferred method
     // or an email chosen by the reviewer.
     channel: { type: String, default: '', maxlength: 20 },
-    note: { type: String, default: '', maxlength: 500 }
+    note: { type: String, default: '', maxlength: 500 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 BusinessVerificationAuditSchema.index({ businessProfileId: 1, createdAt: -1 });

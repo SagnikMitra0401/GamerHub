@@ -52,7 +52,7 @@ function createLimiter({ windowMs, max, message, name = 'rate-limit' }) {
     handler: (req, res, next, options) => {
       recordRateLimit(name);
       res.status(options.statusCode).json(options.message);
-    }
+    },
   });
 }
 
@@ -62,7 +62,7 @@ const searchLimiter = createLimiter({
   name: 'search',
   windowMs: 60 * 1000,
   max: Number(process.env.SEARCH_RATE_LIMIT_MAX) || 45,
-  message: 'You are searching very quickly. Give it a minute and try again.'
+  message: 'You are searching very quickly. Give it a minute and try again.',
 });
 
 // The game catalog proxies a third-party API and is cached; the limiter is
@@ -71,7 +71,7 @@ const catalogLimiter = createLimiter({
   name: 'catalog',
   windowMs: 60 * 1000,
   max: Number(process.env.CATALOG_RATE_LIMIT_MAX) || 90,
-  message: 'Too many catalog requests. Try again in a minute.'
+  message: 'Too many catalog requests. Try again in a minute.',
 });
 
 // Admin dashboards aggregate every collection; a refresh loop is expensive.
@@ -79,7 +79,7 @@ const adminLimiter = createLimiter({
   name: 'admin',
   windowMs: 60 * 1000,
   max: Number(process.env.ADMIN_RATE_LIMIT_MAX) || 120,
-  message: 'Too many admin requests. Slow down.'
+  message: 'Too many admin requests. Slow down.',
 });
 
 // Community browse + room reads: high enough for normal navigation and socket
@@ -88,7 +88,7 @@ const browseLimiter = createLimiter({
   name: 'browse',
   windowMs: 60 * 1000,
   max: Number(process.env.BROWSE_RATE_LIMIT_MAX) || 180,
-  message: 'Too many requests. Please slow down.'
+  message: 'Too many requests. Please slow down.',
 });
 
 // Engagement breadcrumbs are cheap to send but unbounded to store. A real user
@@ -98,7 +98,7 @@ const notificationEngagementLimiter = createLimiter({
   name: 'notification-engagement',
   windowMs: 60 * 1000,
   max: Number(process.env.NOTIFICATION_ENGAGEMENT_RATE_LIMIT_MAX) || 60,
-  message: 'Too many notification engagement events. Please slow down.'
+  message: 'Too many notification engagement events. Please slow down.',
 });
 
 module.exports = {
@@ -109,5 +109,5 @@ module.exports = {
   catalogLimiter,
   adminLimiter,
   browseLimiter,
-  notificationEngagementLimiter
+  notificationEngagementLimiter,
 };

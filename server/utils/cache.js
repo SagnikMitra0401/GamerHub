@@ -6,8 +6,8 @@
  * requests cannot multiply the quota cost.
  */
 function createTtlCache({ ttlMs = 60_000, maxEntries = 100 } = {}) {
-  const store = new Map();     // key -> { value, expiresAt }
-  const inflight = new Map();  // key -> Promise
+  const store = new Map(); // key -> { value, expiresAt }
+  const inflight = new Map(); // key -> Promise
 
   function get(key) {
     const entry = store.get(key);
@@ -55,8 +55,13 @@ function createTtlCache({ ttlMs = 60_000, maxEntries = 100 } = {}) {
     set,
     wrap,
     delete: (key) => store.delete(key),
-    clear: () => { store.clear(); inflight.clear(); },
-    get size() { return store.size; }
+    clear: () => {
+      store.clear();
+      inflight.clear();
+    },
+    get size() {
+      return store.size;
+    },
   };
 }
 

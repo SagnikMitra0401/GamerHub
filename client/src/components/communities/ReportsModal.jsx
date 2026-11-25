@@ -24,7 +24,9 @@ const ReportsModal = ({ isOpen, onClose, communityId }) => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await axiosInstance.get(`/communities/${communityId}/reports?status=${status}`);
+      const { data } = await axiosInstance.get(
+        `/communities/${communityId}/reports?status=${status}`,
+      );
       setReports(data.reports || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not load reports.');
@@ -45,8 +47,10 @@ const ReportsModal = ({ isOpen, onClose, communityId }) => {
   const resolve = async (report, nextStatus) => {
     setBusyId(report._id);
     try {
-      await axiosInstance.patch(`/communities/${communityId}/reports/${report._id}`, { status: nextStatus });
-      setReports(prev => prev.filter(row => row._id !== report._id));
+      await axiosInstance.patch(`/communities/${communityId}/reports/${report._id}`, {
+        status: nextStatus,
+      });
+      setReports((prev) => prev.filter((row) => row._id !== report._id));
     } catch (err) {
       setError(err.response?.data?.message || 'Could not update that report.');
     } finally {
@@ -55,17 +59,25 @@ const ReportsModal = ({ isOpen, onClose, communityId }) => {
   };
 
   return ReactDOM.createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="reports-title">
-      <div className="modal-box reports-modal-box" onClick={event => event.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reports-title"
+    >
+      <div className="modal-box reports-modal-box" onClick={(event) => event.stopPropagation()}>
         <div className="modal-header-row">
-          <h2 id="reports-title" className="modal-title" style={{ margin: 0 }}>Report queue</h2>
+          <h2 id="reports-title" className="modal-title" style={{ margin: 0 }}>
+            Report queue
+          </h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             <CloseIcon size={16} />
           </button>
         </div>
 
         <div className="forum-filters" style={{ marginBottom: '0.75rem' }}>
-          {STATUS_TABS.map(key => (
+          {STATUS_TABS.map((key) => (
             <button
               key={key}
               type="button"
@@ -77,7 +89,11 @@ const ReportsModal = ({ isOpen, onClose, communityId }) => {
           ))}
         </div>
 
-        {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
+        {error && (
+          <div className="form-error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+          </div>
+        )}
 
         {loading ? (
           <div className="spinner" />
@@ -87,19 +103,21 @@ const ReportsModal = ({ isOpen, onClose, communityId }) => {
           </p>
         ) : (
           <div className="report-list">
-            {reports.map(report => (
+            {reports.map((report) => (
               <div key={report._id} className="report-row">
                 <div className="report-head">
                   <span className="report-reason">{reasonLabel(report.reason)}</span>
                   <span className="report-target">{report.targetType}</span>
-                  <span className="chat-timestamp">{new Date(report.createdAt).toLocaleString()}</span>
+                  <span className="chat-timestamp">
+                    {new Date(report.createdAt).toLocaleString()}
+                  </span>
                 </div>
 
                 <div className="report-preview">
-                  {report.targetPreview?.text
-                    || report.targetPreview?.title
-                    || report.targetPreview?.username
-                    || 'Content unavailable'}
+                  {report.targetPreview?.text ||
+                    report.targetPreview?.title ||
+                    report.targetPreview?.username ||
+                    'Content unavailable'}
                 </div>
 
                 {report.note && <p className="report-note">“{report.note}”</p>}
@@ -131,7 +149,7 @@ const ReportsModal = ({ isOpen, onClose, communityId }) => {
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

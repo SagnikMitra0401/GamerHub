@@ -68,10 +68,14 @@
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition);
+  transition:
+    background var(--transition),
+    color var(--transition);
 }
 
-.invite-tab:hover { color: var(--text-primary); }
+.invite-tab:hover {
+  color: var(--text-primary);
+}
 
 .invite-tab.active {
   background: rgba(226, 232, 240, 0.14);
@@ -124,7 +128,10 @@
   color: var(--silver-brushed);
 }
 
-.invite-body { flex: 1; min-width: 0; }
+.invite-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .invite-title {
   font-size: 0.9rem;
@@ -194,8 +201,14 @@
 }
 
 @keyframes squadSlideIn {
-  from { transform: translate3d(24px, 0, 0); opacity: 0.6; }
-  to   { transform: translate3d(0, 0, 0); opacity: 1; }
+  from {
+    transform: translate3d(24px, 0, 0);
+    opacity: 0.6;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
 }
 
 .squad-drawer-head {
@@ -208,7 +221,10 @@
   flex-shrink: 0;
 }
 
-.squad-drawer-title { flex: 1; min-width: 0; }
+.squad-drawer-title {
+  flex: 1;
+  min-width: 0;
+}
 
 .squad-drawer-name {
   display: block;
@@ -228,7 +244,9 @@
   color: var(--text-muted);
 }
 
-.squad-expiry.expired { color: var(--danger); }
+.squad-expiry.expired {
+  color: var(--danger);
+}
 
 .squad-drawer-actions {
   display: flex;
@@ -274,7 +292,10 @@
   color: var(--silver-platinum);
 }
 
-.squad-message-body { flex: 1; min-width: 0; }
+.squad-message-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .squad-message-head {
   display: flex;
@@ -364,17 +385,35 @@
   }
 
   @keyframes squadSheetIn {
-    from { transform: translate3d(0, 24px, 0); opacity: 0.7; }
-    to   { transform: translate3d(0, 0, 0); opacity: 1; }
+    from {
+      transform: translate3d(0, 24px, 0);
+      opacity: 0.7;
+    }
+    to {
+      transform: translate3d(0, 0, 0);
+      opacity: 1;
+    }
   }
 
-  .invite-actions { flex-direction: row; }
-  .invite-row { flex-wrap: wrap; }
-  .invite-actions { width: 100%; justify-content: flex-end; }
-  .profile-own-actions { margin-left: 0; width: 100%; }
+  .invite-actions {
+    flex-direction: row;
+  }
+  .invite-row {
+    flex-wrap: wrap;
+  }
+  .invite-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .profile-own-actions {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .squad-drawer,
-  .squad-scrim { animation: none; }
+  .squad-scrim {
+    animation: none;
+  }
 }

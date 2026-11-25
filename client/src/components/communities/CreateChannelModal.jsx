@@ -4,18 +4,23 @@ import axiosInstance from '../../api/axiosInstance';
 import { CloseIcon } from '../common/icons';
 
 const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
-  const [name, setName]                   = useState('');
-  const [topic, setTopic]                 = useState('');
-  const [type, setType]                   = useState('text');
-  const [minRoleToRead, setMinRoleToRead]   = useState('member');
+  const [name, setName] = useState('');
+  const [topic, setTopic] = useState('');
+  const [type, setType] = useState('text');
+  const [minRoleToRead, setMinRoleToRead] = useState('member');
   const [minRoleToWrite, setMinRoleToWrite] = useState('member');
   const [slowModeSeconds, setSlowModeSeconds] = useState(0);
-  const [isProtected, setIsProtected]       = useState(false);
-  const [saving, setSaving]                 = useState(false);
-  const [error, setError]                   = useState('');
+  const [isProtected, setIsProtected] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const ROLES = ['member', 'moderator', 'admin', 'owner'];
-  const ROLE_LABELS = { member: 'Member+', moderator: 'Moderator+', admin: 'Admin+', owner: 'Owner Only' };
+  const ROLE_LABELS = {
+    member: 'Member+',
+    moderator: 'Moderator+',
+    admin: 'Admin+',
+    owner: 'Owner Only',
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,13 +39,17 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
         minRoleToRead,
         minRoleToWrite,
         slowModeSeconds: Number(slowModeSeconds) || 0,
-        isProtected
+        isProtected,
       });
       onCreated(data);
       onClose();
-      setName(''); setTopic(''); setType('text');
-      setMinRoleToRead('member'); setMinRoleToWrite('member');
-      setSlowModeSeconds(0); setIsProtected(false);
+      setName('');
+      setTopic('');
+      setType('text');
+      setMinRoleToRead('member');
+      setMinRoleToWrite('member');
+      setSlowModeSeconds(0);
+      setIsProtected(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create channel.');
     } finally {
@@ -52,13 +61,28 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
 
   return ReactDOM.createPortal(
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h2 className="modal-title" style={{ margin: 0 }}>Create Channel</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1.25rem',
+          }}
+        >
+          <h2 className="modal-title" style={{ margin: 0 }}>
+            Create Channel
+          </h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close">
+            <CloseIcon size={16} />
+          </button>
         </div>
 
-        {error && <div className="auth-error" style={{ marginBottom: '1rem' }}>{error}</div>}
+        {error && (
+          <div className="auth-error" style={{ marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -67,8 +91,8 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
               {[
                 { key: 'text', label: 'Text' },
                 { key: 'announcement', label: 'Announcement' },
-                { key: 'forum', label: 'Forum' }
-              ].map(option => (
+                { key: 'forum', label: 'Forum' },
+              ].map((option) => (
                 <button
                   key={option.key}
                   type="button"
@@ -88,7 +112,7 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
               placeholder="e.g. ranked-lfg"
               value={name}
               maxLength={40}
-              onChange={e => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-\s]/g, ''))}
+              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-\s]/g, ''))}
               required
             />
             <span className="text-muted" style={{ fontSize: '0.75rem' }}>
@@ -103,27 +127,47 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
               placeholder="e.g. Find players for ranked queues"
               value={topic}
               maxLength={100}
-              onChange={e => setTopic(e.target.value)}
+              onChange={(e) => setTopic(e.target.value)}
             />
           </div>
 
           <div className="form-group">
             <label className="form-label">Who can READ this channel?</label>
-            <select className="form-input" value={minRoleToRead} onChange={e => setMinRoleToRead(e.target.value)}>
-              {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            <select
+              className="form-input"
+              value={minRoleToRead}
+              onChange={(e) => setMinRoleToRead(e.target.value)}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
             <label className="form-label">Who can WRITE in this channel?</label>
-            <select className="form-input" value={minRoleToWrite} onChange={e => setMinRoleToWrite(e.target.value)}>
-              {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            <select
+              className="form-input"
+              value={minRoleToWrite}
+              onChange={(e) => setMinRoleToWrite(e.target.value)}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="form-group">
             <label className="form-label">Slowmode Cooldown</label>
-            <select className="form-input" value={slowModeSeconds} onChange={e => setSlowModeSeconds(Number(e.target.value))}>
+            <select
+              className="form-input"
+              value={slowModeSeconds}
+              onChange={(e) => setSlowModeSeconds(Number(e.target.value))}
+            >
               <option value={0}>Disabled (Off)</option>
               <option value={5}>5 seconds</option>
               <option value={15}>15 seconds</option>
@@ -132,21 +176,46 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
             </select>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
+              marginTop: '0.75rem',
+              marginBottom: '0.5rem',
+            }}
+          >
             <input
               type="checkbox"
               id="protectContent"
               checked={isProtected}
-              onChange={e => setIsProtected(e.target.checked)}
-              style={{ width: '16px', height: '16px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              onChange={(e) => setIsProtected(e.target.checked)}
+              style={{
+                width: '16px',
+                height: '16px',
+                accentColor: 'var(--accent)',
+                cursor: 'pointer',
+              }}
             />
             <label htmlFor="protectContent" style={{ cursor: 'pointer', fontSize: '0.85rem' }}>
-              Restrict Saving/Copying <span className="text-muted" style={{ fontSize: '0.75rem' }}>(Telegram pattern)</span>
+              Restrict Saving/Copying{' '}
+              <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                (Telegram pattern)
+              </span>
             </label>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem' }}>
-            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              marginTop: '1.25rem',
+            }}
+          >
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? 'Creating...' : 'Create Channel'}
             </button>
@@ -154,7 +223,7 @@ const CreateChannelModal = ({ isOpen, onClose, communityId, onCreated }) => {
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

@@ -42,7 +42,7 @@ const CAP = Object.freeze({
   TIMEOUT_MEMBERS: 'TIMEOUT_MEMBERS',
   PIN_MESSAGES: 'PIN_MESSAGES',
   MANAGE_FORUM_POSTS: 'MANAGE_FORUM_POSTS',
-  VIEW_REPORTS: 'VIEW_REPORTS'
+  VIEW_REPORTS: 'VIEW_REPORTS',
 });
 
 const MEMBER_CAPS = Object.freeze([
@@ -53,7 +53,7 @@ const MEMBER_CAPS = Object.freeze([
   CAP.ADD_REACTIONS,
   CAP.ATTACH_FILES,
   CAP.CREATE_FORUM_POSTS,
-  CAP.REPLY_FORUM_POSTS
+  CAP.REPLY_FORUM_POSTS,
 ]);
 
 const MODERATOR_CAPS = Object.freeze([
@@ -64,7 +64,7 @@ const MODERATOR_CAPS = Object.freeze([
   CAP.TIMEOUT_MEMBERS,
   CAP.PIN_MESSAGES,
   CAP.MANAGE_FORUM_POSTS,
-  CAP.VIEW_REPORTS
+  CAP.VIEW_REPORTS,
 ]);
 
 const ADMIN_CAPS = Object.freeze([
@@ -73,7 +73,7 @@ const ADMIN_CAPS = Object.freeze([
   CAP.KICK_MEMBERS,
   CAP.MANAGE_ROLES,
   CAP.MANAGE_CHANNELS,
-  CAP.VIEW_AUDIT_LOG
+  CAP.VIEW_AUDIT_LOG,
 ]);
 
 const OWNER_CAPS = Object.freeze([...ADMIN_CAPS, CAP.MANAGE_SERVER]);
@@ -83,13 +83,13 @@ const ROLE_CAPABILITIES = Object.freeze({
   member: MEMBER_CAPS,
   moderator: MODERATOR_CAPS,
   admin: ADMIN_CAPS,
-  owner: OWNER_CAPS
+  owner: OWNER_CAPS,
 });
 
 /** Application-wide capabilities. */
 const APP_CAP = Object.freeze({
   MODERATE_CONTENT: 'MODERATE_CONTENT',
-  ADMIN_PLATFORM: 'ADMIN_PLATFORM'
+  ADMIN_PLATFORM: 'ADMIN_PLATFORM',
 });
 
 const roleLevel = (role) => ROLE_LEVELS[role] ?? -1;
@@ -141,7 +141,7 @@ function communityPermissions(community, userId) {
     role,
     isMember: !!role,
     isOwner: role === 'owner',
-    permissions: role ? [...capabilitiesForRole(role)] : []
+    permissions: role ? [...capabilitiesForRole(role)] : [],
   };
 }
 
@@ -152,8 +152,7 @@ function appCapabilitiesForRole(role) {
   return [];
 }
 
-const isAppStaff = (user) =>
-  appCapabilitiesForRole(user?.role).includes(APP_CAP.MODERATE_CONTENT);
+const isAppStaff = (user) => appCapabilitiesForRole(user?.role).includes(APP_CAP.MODERATE_CONTENT);
 
 const isPlatformAdmin = (user) =>
   appCapabilitiesForRole(user?.role).includes(APP_CAP.ADMIN_PLATFORM);
@@ -252,5 +251,5 @@ module.exports = {
   canAssignCommunityRole,
   canKickCommunityMember,
   canModerateMember,
-  assignableRoles
+  assignableRoles,
 };

@@ -14,37 +14,40 @@ const { squadModel } = require('../config/connections');
  * is populated across connections, so author names are snapshotted onto the
  * message documents instead.
  */
-const SquadChatSchema = new mongoose.Schema({
-  squadId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Party',
-    required: true,
-    unique: true,
-    index: true
+const SquadChatSchema = new mongoose.Schema(
+  {
+    squadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Party',
+      required: true,
+      unique: true,
+      index: true,
+    },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    // Snapshot so the chat renders without a join on the identity connection.
+    ownerUsername: { type: String, default: '', trim: true, maxlength: 20 },
+    memberIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
+    state: {
+      type: String,
+      enum: ['active', 'expired', 'closed'],
+      default: 'active',
+      index: true,
+    },
+    expiresAt: { type: Date, required: true, index: true },
+    lastRefreshedAt: { type: Date, default: Date.now },
+    // Set once the retention sweep has removed the messages, so an old expired
+    // chat is not re-scanned on every run.
+    purgedAt: { type: Date, default: null },
+    refreshCount: { type: Number, default: 0 },
+    lifecycleVersion: { type: Number, default: 1 },
   },
-  ownerUserId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true
-  },
-  // Snapshot so the chat renders without a join on the identity connection.
-  ownerUsername: { type: String, default: '', trim: true, maxlength: 20 },
-  memberIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
-  state: {
-    type: String,
-    enum: ['active', 'expired', 'closed'],
-    default: 'active',
-    index: true
-  },
-  expiresAt: { type: Date, required: true, index: true },
-  lastRefreshedAt: { type: Date, default: Date.now },
-  // Set once the retention sweep has removed the messages, so an old expired
-  // chat is not re-scanned on every run.
-  purgedAt: { type: Date, default: null },
-  refreshCount: { type: Number, default: 0 },
-  lifecycleVersion: { type: Number, default: 1 }
-}, { timestamps: true });
+  { timestamps: true },
+);
 
 SquadChatSchema.index({ state: 1, expiresAt: 1 });
 

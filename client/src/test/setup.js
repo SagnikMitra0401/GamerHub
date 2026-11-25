@@ -8,7 +8,7 @@ import '@testing-library/jest-dom/vitest';
  * overrides the answers a test actually cares about.
  */
 if (typeof window !== 'undefined' && !window.matchMedia) {
-  window.matchMedia = query => ({
+  window.matchMedia = (query) => ({
     media: String(query),
     matches: false,
     onchange: null,
@@ -16,6 +16,6 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     removeListener: () => {},
     addEventListener: () => {},
     removeEventListener: () => {},
-    dispatchEvent: () => false
+    dispatchEvent: () => false,
   });
 }

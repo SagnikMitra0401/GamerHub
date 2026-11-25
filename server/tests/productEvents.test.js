@@ -3,19 +3,12 @@ process.env.NODE_ENV = 'test';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  isAllowedEventName,
-  sanitizeEventProps
-} = require('../utils/productEvents');
-const {
-  buildFunnel,
-  summarizeFunnelRows,
-  DAY7_IGNORED_EVENTS
-} = require('../utils/funnel');
+const { isAllowedEventName, sanitizeEventProps } = require('../utils/productEvents');
+const { buildFunnel, summarizeFunnelRows, DAY7_IGNORED_EVENTS } = require('../utils/funnel');
 const {
   redactSensitive,
   resolveRequestId,
-  observabilityStatus
+  observabilityStatus,
 } = require('../utils/observability');
 
 test('the product event allowlist is explicit', () => {
@@ -33,7 +26,7 @@ test('the product event allowlist is explicit', () => {
     'password_reset_completed',
     'email_verified',
     'notification_opened',
-    'notification_clicked'
+    'notification_clicked',
   ]) {
     assert.equal(isAllowedEventName(name), true, name);
   }
@@ -54,14 +47,14 @@ test('event props reject sensitive keys, nested values and email addresses', () 
     list: ['a'],
     count: 3,
     enabled: true,
-    'bad key': 'nope'
+    'bad key': 'nope',
   });
 
   assert.deepEqual(clean, {
     surface: 'bell',
     kind: 'comment',
     count: 3,
-    enabled: true
+    enabled: true,
   });
 });
 
@@ -90,12 +83,12 @@ test('the funnel reports distinct-user step conversions', () => {
     firstConnection: 30,
     firstContribution: 15,
     day7Returned: 6,
-    day7Cohort: 20
+    day7Cohort: 20,
   });
 
   assert.deepEqual(
     funnel.steps.map((step) => step.key),
-    ['signup', 'onboarding_completed', 'first_connection', 'first_contribution', 'day_7_return']
+    ['signup', 'onboarding_completed', 'first_connection', 'first_contribution', 'day_7_return'],
   );
   assert.equal(funnel.steps[1].rateFromSignup, 60);
   assert.equal(funnel.steps[2].rateFromPrevious, 50);
@@ -112,7 +105,7 @@ test('funnel rows dedupe accounts and nest connection under onboarding', () => {
     { names: ['signup', 'onboarding_skipped', 'first_join'] },
     { names: ['signup', 'onboarding_completed'] },
     { names: ['signup', 'onboarding_completed', 'first_join'] },
-    { names: ['signup', 'onboarding_completed', 'first_join', 'first_post'] }
+    { names: ['signup', 'onboarding_completed', 'first_join', 'first_post'] },
   ]);
 
   assert.deepEqual(counts, {
@@ -120,7 +113,7 @@ test('funnel rows dedupe accounts and nest connection under onboarding', () => {
     onboardingCompleted: 3,
     onboardingSkipped: 1,
     firstConnection: 2,
-    firstContribution: 1
+    firstContribution: 1,
   });
 });
 
@@ -144,9 +137,9 @@ test('request ids accept safe caller values and replace unsafe ones', () => {
 
 test('observability redacts email, query tokens and bearer credentials', () => {
   const safe = redactSensitive(
-    'player@example.com token=abc123 password=hunter2 Authorization: Bearer abc.def '
-    + '{"token":"json-leak","cookie":"session-leak"} '
-    + 'access_token=access-leak client_secret=client-leak Bearer a+b/c='
+    'player@example.com token=abc123 password=hunter2 Authorization: Bearer abc.def ' +
+      '{"token":"json-leak","cookie":"session-leak"} ' +
+      'access_token=access-leak client_secret=client-leak Bearer a+b/c=',
   );
   assert.equal(safe.includes('player@example.com'), false);
   assert.equal(safe.includes('abc123'), false);

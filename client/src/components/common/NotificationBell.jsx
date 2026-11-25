@@ -4,16 +4,19 @@ import { Link } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { connectSocket } from '../../api/socket';
 import { useAuth } from '../../context/AuthContext';
-import { announceNotificationState, subscribeNotificationState } from '../../utils/notificationEvents';
+import {
+  announceNotificationState,
+  subscribeNotificationState,
+} from '../../utils/notificationEvents';
 import { CloseIcon } from './icons';
 import SafeImage from './SafeImage';
 
 const TYPE_META = {
-  lfg_request:  { label: 'Squad request' },
+  lfg_request: { label: 'Squad request' },
   lfg_accepted: { label: 'Squad' },
-  gaming_bot:   { label: 'Gaming bot' },
-  social:       { label: 'Update' },
-  broadcast:    { label: 'Channel post' }
+  gaming_bot: { label: 'Gaming bot' },
+  social: { label: 'Update' },
+  broadcast: { label: 'Channel post' },
 };
 
 /** Below this width the dropdown becomes a centred sheet (no edge clipping). */
@@ -54,16 +57,20 @@ const NotificationBell = () => {
     }
   }, []);
 
-  useEffect(() => subscribeNotificationState((detail) => {
-    if (detail.type === 'read-all') {
-      setItems(prev => prev.map(n => ({ ...n, read: true })));
-    } else if (detail.type === 'read' && detail.id) {
-      setItems(prev => prev.map(n => (n._id === detail.id ? { ...n, read: true } : n)));
-    }
-    if (detail.unreadCount !== undefined) {
-      setUnread(Math.max(0, Number(detail.unreadCount) || 0));
-    }
-  }), []);
+  useEffect(
+    () =>
+      subscribeNotificationState((detail) => {
+        if (detail.type === 'read-all') {
+          setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+        } else if (detail.type === 'read' && detail.id) {
+          setItems((prev) => prev.map((n) => (n._id === detail.id ? { ...n, read: true } : n)));
+        }
+        if (detail.unreadCount !== undefined) {
+          setUnread(Math.max(0, Number(detail.unreadCount) || 0));
+        }
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!user) return undefined;
@@ -74,15 +81,17 @@ const NotificationBell = () => {
     const socket = connectSocket(token);
     const onNotification = (notification) => {
       if (!notification?._id) return;
-      setItems(prev => {
-        if (prev.some(n => n._id === notification._id)) return prev;
+      setItems((prev) => {
+        if (prev.some((n) => n._id === notification._id)) return prev;
         return [notification, ...prev].slice(0, 20);
       });
-      setUnread(count => count + 1);
+      setUnread((count) => count + 1);
     };
 
     socket.on('notification', onNotification);
-    return () => { socket.off('notification', onNotification); };
+    return () => {
+      socket.off('notification', onNotification);
+    };
   }, [user?._id, token, load]);
 
   useEffect(() => {
@@ -116,24 +125,25 @@ const NotificationBell = () => {
       setSheet(window.matchMedia(SHEET_QUERY).matches);
       axiosInstance.post('/notifications/opened', { surface: 'bell' }).catch(() => {});
     }
-    setOpen(value => !value);
+    setOpen((value) => !value);
   };
 
   const trackClick = (notification) => {
-    axiosInstance.post(`/notifications/${notification._id}/clicked`, { surface: 'bell' })
+    axiosInstance
+      .post(`/notifications/${notification._id}/clicked`, { surface: 'bell' })
       .catch(() => {});
   };
 
   const markRead = async (notification) => {
     if (notification.read) return;
-    setItems(prev => prev.map(n => (n._id === notification._id ? { ...n, read: true } : n)));
-    setUnread(count => Math.max(0, count - 1));
+    setItems((prev) => prev.map((n) => (n._id === notification._id ? { ...n, read: true } : n)));
+    setUnread((count) => Math.max(0, count - 1));
     try {
       const { data } = await axiosInstance.patch(`/notifications/${notification._id}/read`);
       announceNotificationState({
         type: 'read',
         id: notification._id,
-        unreadCount: data?.unreadCount
+        unreadCount: data?.unreadCount,
       });
     } catch {
       // Optimistic UI is fine; the next load reconciles.
@@ -141,7 +151,7 @@ const NotificationBell = () => {
   };
 
   const markAll = async () => {
-    setItems(prev => prev.map(n => ({ ...n, read: true })));
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnread(0);
     try {
       await axiosInstance.post('/notifications/read-all');
@@ -163,7 +173,12 @@ const NotificationBell = () => {
             Mark all read
           </button>
           {sheet && (
-            <button type="button" className="icon-btn notif-sheet-close" aria-label="Close notifications" onClick={() => setOpen(false)}>
+            <button
+              type="button"
+              className="icon-btn notif-sheet-close"
+              aria-label="Close notifications"
+              onClick={() => setOpen(false)}
+            >
               <CloseIcon size={17} />
             </button>
           )}
@@ -204,10 +219,18 @@ const NotificationBell = () => {
             <div
               key={notification._id}
               className={`notif-item${notification.read ? '' : ' unread'}`}
-              onClick={() => { trackClick(notification); markRead(notification); }}
+              onClick={() => {
+                trackClick(notification);
+                markRead(notification);
+              }}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') { trackClick(notification); markRead(notification); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  trackClick(notification);
+                  markRead(notification);
+                }
+              }}
             >
               {notification.actionUrl ? (
                 isExternal ? (
@@ -266,8 +289,9 @@ const NotificationBell = () => {
         {unread > 0 && <span className="notif-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
 
-      {open && (sheet
-        ? ReactDOM.createPortal(
+      {open &&
+        (sheet ? (
+          ReactDOM.createPortal(
             <div className="notif-sheet-layer" role="presentation">
               <button
                 type="button"
@@ -276,13 +300,18 @@ const NotificationBell = () => {
                 tabIndex={-1}
                 onClick={() => setOpen(false)}
               />
-              <div className="notif-sheet" role="dialog" aria-modal="true" aria-label="Notifications">
+              <div
+                className="notif-sheet"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Notifications"
+              >
                 {panel}
               </div>
             </div>,
-            document.body
+            document.body,
           )
-        : (
+        ) : (
           <div className="notif-panel" role="dialog" aria-label="Notifications">
             {panel}
           </div>

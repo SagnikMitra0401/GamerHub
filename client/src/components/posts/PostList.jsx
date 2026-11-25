@@ -15,13 +15,8 @@ const PostList = ({ posts, onDelete, onLikeToggle }) => {
 
   return (
     <div className="post-list">
-      {safePosts.map(post => (
-        <PostCard
-          key={post._id}
-          post={post}
-          onDelete={onDelete}
-          onLikeToggle={onLikeToggle}
-        />
+      {safePosts.map((post) => (
+        <PostCard key={post._id} post={post} onDelete={onDelete} onLikeToggle={onLikeToggle} />
       ))}
     </div>
   );

@@ -14,21 +14,21 @@ function validatePassword(password) {
   if (password.length < MIN_PASSWORD || password.length > MAX_PASSWORD) {
     return {
       ok: false,
-      message: `Password must be between ${MIN_PASSWORD} and ${MAX_PASSWORD} characters`
+      message: `Password must be between ${MIN_PASSWORD} and ${MAX_PASSWORD} characters`,
     };
   }
   if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
     return {
       ok: false,
-      message: 'Password is too long; use 72 bytes or fewer (accented and emoji characters can use several bytes each).'
+      message:
+        'Password is too long; use 72 bytes or fewer (accented and emoji characters can use several bytes each).',
     };
   }
   return { ok: true, value: password };
 }
 
 const hashPassword = (password) => bcrypt.hash(password, SALT_ROUNDS);
-const verifyPassword = (password, hash) =>
-  bcrypt.compare(password, hash).catch(() => false);
+const verifyPassword = (password, hash) => bcrypt.compare(password, hash).catch(() => false);
 
 module.exports = {
   SALT_ROUNDS,
@@ -36,5 +36,5 @@ module.exports = {
   MAX_PASSWORD,
   validatePassword,
   hashPassword,
-  verifyPassword
+  verifyPassword,
 };

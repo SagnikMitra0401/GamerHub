@@ -90,7 +90,10 @@ class SharedRateLimitStore {
     this.degradedUntil = Date.now() + DEGRADE_MS;
     if (!this.warned) {
       this.warned = true;
-      console.error(`[RateLimit:${this.name}] Redis unavailable, using memory for 30s:`, err.message);
+      console.error(
+        `[RateLimit:${this.name}] Redis unavailable, using memory for 30s:`,
+        err.message,
+      );
     }
   }
 
@@ -127,7 +130,7 @@ class SharedRateLimitStore {
       const ttl = Number(await redis.pttl(this.key(key)));
       return {
         totalHits: Number(value),
-        resetTime: ttl > 0 ? new Date(Date.now() + ttl) : undefined
+        resetTime: ttl > 0 ? new Date(Date.now() + ttl) : undefined,
       };
     } catch (err) {
       this.degrade(err);
@@ -176,7 +179,7 @@ function rateLimitStoreStatus() {
   const shared = isConfigured();
   return {
     mode: shared ? 'redis' : 'memory',
-    shared
+    shared,
   };
 }
 
@@ -184,5 +187,5 @@ module.exports = {
   LocalWindowStore,
   SharedRateLimitStore,
   createRateLimitStore,
-  rateLimitStoreStatus
+  rateLimitStoreStatus,
 };

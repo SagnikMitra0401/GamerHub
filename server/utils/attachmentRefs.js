@@ -29,8 +29,10 @@ async function resolveAttachments({ attachmentIds, channelId, communityId, uploa
     channelId,
     communityId,
     uploaderId,
-    status: 'ready'
-  }).select('_id').lean();
+    status: 'ready',
+  })
+    .select('_id')
+    .lean();
 
   return found.map((row) => row._id);
 }

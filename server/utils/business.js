@@ -8,7 +8,7 @@ const BUSINESS_PROOF_TYPES = Object.freeze([
   'tax',
   'domain_email',
   'official_profile',
-  'other'
+  'other',
 ]);
 
 /**
@@ -33,7 +33,9 @@ function httpsUrl(value) {
 }
 
 function email(value) {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) ? raw.slice(0, 120) : '';
 }
 
@@ -71,9 +73,7 @@ function sanitizeBusinessProfile(input = {}) {
     return { ok: false, reason: 'Describe how the reviewer should reach the business.' };
   }
 
-  const proofType = BUSINESS_PROOF_TYPES.includes(input.proofType)
-    ? input.proofType
-    : 'other';
+  const proofType = BUSINESS_PROOF_TYPES.includes(input.proofType) ? input.proofType : 'other';
   const proofUrl = httpsUrl(input.proofUrl);
   if (input.proofUrl && !proofUrl) {
     return { ok: false, reason: 'The proof link must be a secure https URL.' };
@@ -104,8 +104,8 @@ function sanitizeBusinessProfile(input = {}) {
       proofNote: sanitizeLine(String(input.proofNote || ''), 600),
       timezone: sanitizeLine(String(input.timezone || ''), 60),
       responseExpectation: sanitizeLine(String(input.responseExpectation || ''), 80),
-      links
-    }
+      links,
+    },
   };
 }
 
@@ -124,7 +124,7 @@ function publicBusinessProfile(profile) {
     verificationStatus: profile.verificationStatus || 'none',
     verifiedAt: profile.verifiedAt || null,
     outreachPaused: Boolean(profile.outreachPaused),
-    createdAt: profile.createdAt || null
+    createdAt: profile.createdAt || null,
   };
 }
 
@@ -160,7 +160,7 @@ function ownerBusinessProfile(profile) {
     reviewDecidedAt: profile.reviewDecidedAt || null,
     evidencePurgedAt: profile.evidencePurgedAt || null,
     demotedAt: profile.demotedAt || null,
-    demotionReason: profile.demotionReason || ''
+    demotionReason: profile.demotionReason || '',
   };
 }
 
@@ -176,19 +176,19 @@ function manualReviewReadiness(profile = {}) {
   if (contactMethod === 'email' && !contactEmail) {
     return {
       ok: false,
-      reason: 'Add an official contact email before requesting manual review.'
+      reason: 'Add an official contact email before requesting manual review.',
     };
   }
   if (contactMethod !== 'email' && !String(profile.contactDetail || '').trim()) {
     return {
       ok: false,
-      reason: 'Describe the phone number or other contact method before requesting manual review.'
+      reason: 'Describe the phone number or other contact method before requesting manual review.',
     };
   }
   if (!profile.proofUrl && !String(profile.proofNote || '').trim()) {
     return {
       ok: false,
-      reason: 'Add a proof link or a short note describing your business evidence.'
+      reason: 'Add a proof link or a short note describing your business evidence.',
     };
   }
   return { ok: true, contactEmail, contactMethod };
@@ -220,7 +220,7 @@ function demotionReadiness(profile = {}, now = new Date()) {
     return {
       ok: false,
       code: 'BUSINESS_CONTACT_REQUIRED',
-      reason: 'Contact the business official before demoting this account.'
+      reason: 'Contact the business official before demoting this account.',
     };
   }
 
@@ -228,22 +228,21 @@ function demotionReadiness(profile = {}, now = new Date()) {
     return {
       ok: false,
       code: 'BUSINESS_CONTACT_STALE',
-      reason: 'The last contact predates this review request. Contact the business again before demoting.'
+      reason:
+        'The last contact predates this review request. Contact the business again before demoting.',
     };
   }
 
   const earliestDemotionAt = reviewWindowEndsAt({ reviewContactedAt: contactedAt });
   if (current.getTime() < earliestDemotionAt.getTime()) {
-    const daysRemaining = Math.ceil(
-      (earliestDemotionAt.getTime() - current.getTime()) / DAY_MS
-    );
+    const daysRemaining = Math.ceil((earliestDemotionAt.getTime() - current.getTime()) / DAY_MS);
     return {
       ok: false,
       code: 'BUSINESS_RESPONSE_WINDOW',
       reason: `The business has until ${earliestDemotionAt.toUTCString()} to respond (${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left).`,
       contactedAt,
       earliestDemotionAt,
-      daysRemaining
+      daysRemaining,
     };
   }
 
@@ -274,5 +273,5 @@ module.exports = {
   sanitizeReviewResponse,
   demotionReadiness,
   reviewWindowEndsAt,
-  verificationDomainFor
+  verificationDomainFor,
 };

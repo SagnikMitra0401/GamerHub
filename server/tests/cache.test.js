@@ -8,7 +8,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 test('values are cached until their TTL elapses', async () => {
   const cache = createTtlCache({ ttlMs: 20 });
   let calls = 0;
-  const loader = async () => { calls += 1; return calls; };
+  const loader = async () => {
+    calls += 1;
+    return calls;
+  };
 
   assert.equal(await cache.wrap('k', loader), 1);
   assert.equal(await cache.wrap('k', loader), 1);
@@ -31,7 +34,7 @@ test('concurrent misses collapse into a single upstream call', async () => {
   const [a, b, c] = await Promise.all([
     cache.wrap('same', loader),
     cache.wrap('same', loader),
-    cache.wrap('same', loader)
+    cache.wrap('same', loader),
   ]);
 
   assert.equal(calls, 1);
@@ -43,11 +46,17 @@ test('a failing loader is not cached', async () => {
   let calls = 0;
 
   await assert.rejects(
-    cache.wrap('boom', async () => { calls += 1; throw new Error('upstream down'); })
+    cache.wrap('boom', async () => {
+      calls += 1;
+      throw new Error('upstream down');
+    }),
   );
   assert.equal(cache.get('boom'), undefined);
 
-  const value = await cache.wrap('boom', async () => { calls += 1; return 'recovered'; });
+  const value = await cache.wrap('boom', async () => {
+    calls += 1;
+    return 'recovered';
+  });
   assert.equal(value, 'recovered');
   assert.equal(calls, 2);
 });

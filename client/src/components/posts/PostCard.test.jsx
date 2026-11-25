@@ -14,20 +14,20 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   remove: vi.fn(),
   updateSavedPosts: vi.fn(),
-  auth: { user: null, updateSavedPosts: null }
+  auth: { user: null, updateSavedPosts: null },
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal()),
-  useNavigate: () => mocks.navigate
+  useNavigate: () => mocks.navigate,
 }));
 
 vi.mock('../../api/axiosInstance', () => ({
-  default: { post: mocks.post, delete: mocks.remove }
+  default: { post: mocks.post, delete: mocks.remove },
 }));
 
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => mocks.auth
+  useAuth: () => mocks.auth,
 }));
 
 const post = {
@@ -39,7 +39,7 @@ const post = {
   likeCount: 4,
   likes: [],
   commentCount: 2,
-  tags: ['valorant']
+  tags: ['valorant'],
 };
 
 const signedIn = { _id: 'u1', username: 'me', savedPosts: [] };
@@ -48,7 +48,7 @@ const renderCard = (props = {}) =>
   render(
     <MemoryRouter>
       <PostCard post={post} {...props} />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
 beforeEach(() => {
@@ -106,6 +106,9 @@ describe('PostCard reactions', () => {
 
     expect(mocks.post).toHaveBeenCalledWith('/users/saved/p1');
     expect(mocks.updateSavedPosts).toHaveBeenCalledWith('p1', true);
-    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

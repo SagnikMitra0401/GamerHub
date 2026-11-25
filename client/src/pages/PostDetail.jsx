@@ -22,16 +22,16 @@ const PostDetail = () => {
   const location = useLocation();
   const { user } = useAuth();
 
-  const [post, setPost]         = useState(null);
+  const [post, setPost] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [comments, setComments] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
-  const [liked, setLiked]       = useState(false);
+  const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   // Auto-open edit mode when navigated with ?edit=1 (from PostCard edit button)
-  const [editing, setEditing]   = useState(new URLSearchParams(location.search).get('edit') === '1');
-  const [error, setError]       = useState('');
+  const [editing, setEditing] = useState(new URLSearchParams(location.search).get('edit') === '1');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -39,18 +39,19 @@ const PostDetail = () => {
       try {
         const [{ data: p }, { data: c }] = await Promise.all([
           axiosInstance.get(`/posts/${id}`),
-          axiosInstance.get(`/posts/${id}/comments`)
+          axiosInstance.get(`/posts/${id}/comments`),
         ]);
         setPost(p);
         setComments(c);
         setLikeCount(p.likeCount ?? p.likes?.length ?? 0);
         setLiked(
           user
-            ? p.likes?.some(uid =>
-                uid === (user._id || user.id) ||
-                uid?.toString() === (user._id || user.id)?.toString()
+            ? p.likes?.some(
+                (uid) =>
+                  uid === (user._id || user.id) ||
+                  uid?.toString() === (user._id || user.id)?.toString(),
               )
-            : false
+            : false,
         );
       } catch {
         setError('Post not found.');
@@ -76,8 +77,10 @@ const PostDetail = () => {
       const { data } = await axiosInstance.post(`/posts/${id}/like`);
       setLikeCount(data.likeCount);
       setLiked(data.liked);
-    } catch {}
-    finally { setLikeLoading(false); }
+    } catch {
+    } finally {
+      setLikeLoading(false);
+    }
   };
 
   const handleDelete = () => {
@@ -88,23 +91,23 @@ const PostDetail = () => {
     try {
       await axiosInstance.delete(`/posts/${id}`);
       navigate('/');
-    } catch {}
-    finally {
+    } catch {
+    } finally {
       setShowDeleteConfirm(false);
     }
   };
 
-  const handleUpdated = updatedPost => {
+  const handleUpdated = (updatedPost) => {
     setPost(updatedPost);
     setEditing(false);
   };
 
-  const handleCommentAdded = comment => {
-    setComments(prev => [...prev, comment]);
-    setPost(prev => ({ ...prev, commentCount: (prev.commentCount || 0) + 1 }));
+  const handleCommentAdded = (comment) => {
+    setComments((prev) => [...prev, comment]);
+    setPost((prev) => ({ ...prev, commentCount: (prev.commentCount || 0) + 1 }));
   };
 
-  const timeAgo = ts => {
+  const timeAgo = (ts) => {
     const s = Math.floor((Date.now() - new Date(ts)) / 1000);
     if (s < 60) return `${s}s ago`;
     if (s < 3600) return `${Math.floor(s / 60)}m ago`;
@@ -115,33 +118,39 @@ const PostDetail = () => {
   if (loading) {
     return (
       <div className="page">
-        <div className="container"><PostDetailSkeleton /></div>
+        <div className="container">
+          <PostDetailSkeleton />
+        </div>
       </div>
     );
   }
 
-  if (error) return (
-    <div className="page">
-      <div className="container" style={{ textAlign: 'center', paddingTop: '4rem' }}>
-        <p className="text-muted">{error}</p>
-        <button className="btn btn-ghost" style={{ marginTop: '1rem' }} onClick={() => navigate('/')}>
-          <ArrowLeftIcon size={15} /> Back to Feed
-        </button>
+  if (error)
+    return (
+      <div className="page">
+        <div className="container" style={{ textAlign: 'center', paddingTop: '4rem' }}>
+          <p className="text-muted">{error}</p>
+          <button
+            className="btn btn-ghost"
+            style={{ marginTop: '1rem' }}
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeftIcon size={15} /> Back to Feed
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   // Normalise both sides to plain hex strings before comparing
-  const normalId = v => (v?._id ?? v)?.toString?.() ?? '';
+  const normalId = (v) => (v?._id ?? v)?.toString?.() ?? '';
   const isOwner = !!user && normalId(post.userId) === normalId(user);
-  const canEdit = isOwner && (Date.now() - new Date(post.createdAt).getTime()) < 5 * 60 * 1000;
+  const canEdit = isOwner && Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000;
 
   const initial = (post.userId?.username || 'U')[0].toUpperCase();
 
   return (
     <main className="page">
       <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem' }}>
-
         <button className="post-detail-back" onClick={() => navigate('/')}>
           <ArrowLeftIcon size={15} /> Back to Feed
         </button>
@@ -163,32 +172,43 @@ const PostDetail = () => {
             </div>
 
             {/* Title & Content */}
-            <h1 className="post-detail-title"><HashtagText text={post.title} /></h1>
+            <h1 className="post-detail-title">
+              <HashtagText text={post.title} />
+            </h1>
 
             {post.tags?.length > 0 && (
               <div className="post-tags">
-                {post.tags.map(tag => (
-                  <Link key={tag} to={`/c/${encodeURIComponent(tag)}`} className="tag" title={`Browse #${tag}`}>
+                {post.tags.map((tag) => (
+                  <Link
+                    key={tag}
+                    to={`/c/${encodeURIComponent(tag)}`}
+                    className="tag"
+                    title={`Browse #${tag}`}
+                  >
                     #{tag}
                   </Link>
                 ))}
               </div>
             )}
 
-            {post.content && <p className="post-detail-content"><HashtagText text={post.content} /></p>}
+            {post.content && (
+              <p className="post-detail-content">
+                <HashtagText text={post.content} />
+              </p>
+            )}
 
             {/* Media Rendering */}
             {post.mediaUrl && post.mediaType && post.mediaType !== 'none' && (
-              <div 
-                style={{ 
-                  margin: '1.5rem 0', 
-                  borderRadius: 'var(--radius-lg)', 
-                  overflow: 'hidden', 
-                  background: 'black', 
-                  display: 'flex', 
+              <div
+                style={{
+                  margin: '1.5rem 0',
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  background: 'black',
+                  display: 'flex',
                   justifyContent: 'center',
                   maxHeight: '500px',
-                  border: '1px solid var(--glass-border)'
+                  border: '1px solid var(--glass-border)',
                 }}
               >
                 {post.mediaType === 'video' ? (
@@ -229,7 +249,11 @@ const PostDetail = () => {
                 onLike={handleLike}
                 likeBusy={likeLoading}
                 commentCount={post.commentCount ?? comments.length}
-                onComment={() => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                onComment={() =>
+                  document
+                    .getElementById('comments')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
               />
 
               {isOwner && (
@@ -250,13 +274,10 @@ const PostDetail = () => {
 
         {/* Comments */}
         <section className="comments-section" id="comments">
-          <h2 className="comments-title">
-            Discussion ({comments.length})
-          </h2>
+          <h2 className="comments-title">Discussion ({comments.length})</h2>
           <CommentForm postId={id} onCommentAdded={handleCommentAdded} />
           <CommentThread comments={comments} setComments={setComments} />
         </section>
-
       </div>
 
       <ConfirmModal

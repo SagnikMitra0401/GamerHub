@@ -6,7 +6,7 @@ const {
   getSquadMessages,
   sendSquadMessage,
   refreshSquadChat,
-  deleteSquadMessage
+  deleteSquadMessage,
 } = require('../controllers/squadChatController');
 
 const router = express.Router();
@@ -16,7 +16,7 @@ const chatLimiter = /** @type {any} */ (rateLimit)({
   max: Number(process.env.SQUAD_CHAT_RATE_LIMIT_MAX) || 120,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message: 'Too many messages. Please slow down.' }
+  message: { message: 'Too many messages. Please slow down.' },
 });
 
 router.get('/:chatId', protect, getSquadChat);

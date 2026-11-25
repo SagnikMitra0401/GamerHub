@@ -4,10 +4,11 @@ const assert = require('node:assert/strict');
 const { normalizeTags, extractHashtags, tagKey } = require('../utils/sanitize');
 
 test('inline hashtags are extracted, lowercased and stripped of the #', () => {
-  assert.deepEqual(
-    extractHashtags('Playing #EldenRing tonight with #co_op and #1v1'),
-    ['eldenring', 'co op', '1v1']
-  );
+  assert.deepEqual(extractHashtags('Playing #EldenRing tonight with #co_op and #1v1'), [
+    'eldenring',
+    'co op',
+    '1v1',
+  ]);
 });
 
 test('hashtags inside URLs are not treated as tags', () => {
@@ -25,7 +26,7 @@ test('normalizeTags merges explicit tags with inline hashtags and dedupes loosel
     '#battleroyale',
     'elden ring',
     '#Elden-Ring',
-    'FPS'
+    'FPS',
   ]);
 
   assert.deepEqual(tags, ['battle royale', 'elden ring', 'fps']);

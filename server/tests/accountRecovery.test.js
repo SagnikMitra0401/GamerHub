@@ -13,12 +13,12 @@ const {
   getOutbox,
   resetOutbox,
   verificationUrl,
-  resetUrl
+  resetUrl,
 } = require('../utils/email');
 
 const req = {
   get: (name) => (name === 'origin' ? 'https://gamerhub.test' : null),
-  protocol: 'https'
+  protocol: 'https',
 };
 
 test('account tokens are stored as a fixed-length digest, never the raw token', () => {
@@ -44,7 +44,7 @@ test('password policy rejects short and oversized values', () => {
 
 test('password policy rejects values bcrypt would truncate past 72 bytes', () => {
   assert.equal(validatePassword('é'.repeat(37)).ok, false); // 74 UTF-8 bytes
-  assert.equal(validatePassword('é'.repeat(36)).ok, true);  // 72 UTF-8 bytes
+  assert.equal(validatePassword('é'.repeat(36)).ok, true); // 72 UTF-8 bytes
   assert.equal(validatePassword('😀'.repeat(19)).ok, false); // 76 UTF-8 bytes
 });
 

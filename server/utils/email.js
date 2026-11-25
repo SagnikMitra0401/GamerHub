@@ -33,7 +33,9 @@ function redactSecrets(value) {
 }
 
 function transportMode() {
-  const explicit = String(process.env.EMAIL_TRANSPORT || '').trim().toLowerCase();
+  const explicit = String(process.env.EMAIL_TRANSPORT || '')
+    .trim()
+    .toLowerCase();
   if (explicit) return explicit;
 
   if (process.env.NODE_ENV === 'test') return 'memory';
@@ -62,10 +64,10 @@ async function sendWithAppsScript({ to, subject, text, html }) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json'
+        Accept: 'application/json',
       },
       body: JSON.stringify({ secret, to, subject, text, html }),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     const raw = await res.text();
@@ -135,7 +137,7 @@ async function sendVerificationEmail({ to, username, url }) {
     'Confirm this email address to finish securing your GamerHub account:',
     url,
     '',
-    'This link expires in 24 hours. If you did not create an account, ignore this email.'
+    'This link expires in 24 hours. If you did not create an account, ignore this email.',
   ].join('\n');
 
   const html = `
@@ -164,7 +166,7 @@ async function sendPasswordResetEmail({ to, username, url }) {
     url,
     '',
     'This link expires in 30 minutes and can only be used once.',
-    'If you did not ask for a reset, ignore this email; your password has not changed.'
+    'If you did not ask for a reset, ignore this email; your password has not changed.',
   ].join('\n');
 
   const html = `
@@ -196,7 +198,7 @@ async function sendVerificationCodeEmail({ to, username, code, expiresInMinutes 
     `Your GamerHub confirmation code is ${code}.`,
     `It expires in ${expiresInMinutes} minutes.`,
     '',
-    'If you did not create this account, ignore this email.'
+    'If you did not create this account, ignore this email.',
   ].join('\n');
 
   const html = `
@@ -223,7 +225,7 @@ async function sendRecoverySetupCodeEmail({ to, username, code, expiresInMinutes
     code,
     '',
     `It expires in ${expiresInMinutes} minutes. It cannot sign in on its own and it is not shown on your profile.`,
-    'If you did not ask for this, ignore this email.'
+    'If you did not ask for this, ignore this email.',
   ].join('\n');
 
   const html = `
@@ -249,7 +251,7 @@ async function sendAccountRecoveryCodeEmail({ to, username, code, expiresInMinut
     `The code is ${code}.`,
     '',
     `It expires in ${expiresInMinutes} minutes.`,
-    'If this was not you, ignore this email. Nothing has changed on the account.'
+    'If this was not you, ignore this email. Nothing has changed on the account.',
   ].join('\n');
 
   const html = `
@@ -269,9 +271,10 @@ async function sendAccountRecoveryCodeEmail({ to, username, code, expiresInMinut
 async function sendAccountRecoveryCompletedEmail({ to, username }) {
   const name = username ? `@${username}` : 'your account';
   const subject = 'Password reset through GamerHub account recovery';
-  const body =
-    `The password for ${name} was reset through account recovery, and every session was signed out.`;
-  const text = [body, '', 'If this was not you, change the password again and contact us.'].join('\n');
+  const body = `The password for ${name} was reset through account recovery, and every session was signed out.`;
+  const text = [body, '', 'If this was not you, change the password again and contact us.'].join(
+    '\n',
+  );
 
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
@@ -288,11 +291,19 @@ async function sendAccountRecoveryCompletedEmail({ to, username }) {
  * Tell an address that the recovery path changed. Sent to the primary address
  * and, on add, to the new backup, so a silent takeover needs both inboxes.
  */
-async function sendRecoveryEmailChangedEmail({ to, username, action, address = '', eligibleAt = null }) {
+async function sendRecoveryEmailChangedEmail({
+  to,
+  username,
+  action,
+  address = '',
+  eligibleAt = null,
+}) {
   const name = username ? `@${username}` : 'your account';
   const added = action === 'added';
   const eligible = eligibleAt ? new Date(eligibleAt).toISOString().slice(0, 10) : null;
-  const subject = added ? 'Recovery email added to your GamerHub account' : 'Recovery email removed';
+  const subject = added
+    ? 'Recovery email added to your GamerHub account'
+    : 'Recovery email removed';
   const consequence = added
     ? `It can be used to recover the account from ${eligible}.`
     : 'It can no longer be used to recover the account.';
@@ -302,15 +313,17 @@ async function sendRecoveryEmailChangedEmail({ to, username, action, address = '
       : `The recovery email for ${name} was removed.`,
     consequence,
     '',
-    'If you did not make this change, change your password now and contact us.'
+    'If you did not make this change, change your password now and contact us.',
   ].join('\n');
 
   const html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px;margin:0 auto">
       <h2 style="margin:0 0 16px">${escapeHtml(subject)}</h2>
-      <p>${escapeHtml(added
-        ? `A recovery email was added to ${name}: ${address}.`
-        : `The recovery email for ${name} was removed.`)}</p>
+      <p>${escapeHtml(
+        added
+          ? `A recovery email was added to ${name}: ${address}.`
+          : `The recovery email for ${name} was removed.`,
+      )}</p>
       <p>${escapeHtml(consequence)}</p>
       <p>If you did not make this change, change your password now and contact us.</p>
     </div>
@@ -343,7 +356,7 @@ async function sendBusinessReviewEmail({ to, displayName, message, outcome = 'co
       ? 'You can reply to this email if you believe this decision is wrong.'
       : 'Reply to this email with the requested information.',
     '',
-    'GamerHub'
+    'GamerHub',
   ].join('\n');
 
   const html = `
@@ -351,9 +364,11 @@ async function sendBusinessReviewEmail({ to, displayName, message, outcome = 'co
       <h2 style="margin:0 0 16px">${heading}</h2>
       <p>${escapeHtml(intro)}</p>
       <p style="white-space:pre-wrap">${escapeHtml(message)}</p>
-      <p>${demoted
-        ? 'You can reply to this email if you believe this decision is wrong.'
-        : 'Reply to this email with the requested information.'}</p>
+      <p>${
+        demoted
+          ? 'You can reply to this email if you believe this decision is wrong.'
+          : 'Reply to this email with the requested information.'
+      }</p>
       <p style="color:#6b7280;font-size:12px">GamerHub</p>
     </div>
   `;
@@ -368,7 +383,9 @@ async function sendBusinessReviewEmail({ to, displayName, message, outcome = 'co
  */
 async function sendBusinessRetentionEmail({ to, displayName, kind, decidedAt }) {
   const name = displayName || 'your business';
-  const decided = decidedAt ? new Date(decidedAt).toISOString().slice(0, 10) : 'the recorded decision date';
+  const decided = decidedAt
+    ? new Date(decidedAt).toISOString().slice(0, 10)
+    : 'the recorded decision date';
   const purged = kind === 'purged';
   const subject = purged
     ? 'GamerHub business review evidence deleted'
@@ -422,5 +439,5 @@ module.exports = {
   resetUrl,
   getOutbox,
   resetOutbox,
-  transportMode
+  transportMode,
 };

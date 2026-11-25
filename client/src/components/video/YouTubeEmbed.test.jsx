@@ -15,7 +15,7 @@ describe('YouTubeEmbed', () => {
     expect(container.querySelector('iframe')).toBeNull();
     expect(container.querySelector('img')).toHaveAttribute(
       'src',
-      'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
+      'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
     );
     expect(screen.getByText('YouTube')).toBeInTheDocument();
   });
@@ -29,7 +29,7 @@ describe('YouTubeEmbed', () => {
     expect(frame).not.toBeNull();
     expect(frame).toHaveAttribute('title', 'Clutch clip');
     expect(frame.getAttribute('src')).toMatch(
-      /^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?/
+      /^https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ\?/,
     );
     expect(frame.getAttribute('src')).toContain('rel=0');
   });

@@ -759,11 +759,21 @@
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 .notif-dot.lfg_request,
-.notif-dot.lfg_accepted { background: var(--warning); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12); }
-.notif-dot.gaming_bot { background: var(--success); box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.12); }
-.notif-dot.social { background: var(--accent); }
+.notif-dot.lfg_accepted {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+}
+.notif-dot.gaming_bot {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.12);
+}
+.notif-dot.social {
+  background: var(--accent);
+}
 
-.notif-page-container { max-width: 860px; }
+.notif-page-container {
+  max-width: 860px;
+}
 
 .notif-page-head {
   display: flex;
@@ -796,7 +806,11 @@
   margin-top: 0.35rem;
   max-width: 58ch;
 }
-.notif-page-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.notif-page-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
 .notif-page-card {
   background: var(--bg-card);
@@ -805,13 +819,28 @@
   overflow: hidden;
   box-shadow: var(--shadow-card);
 }
-.notif-page-list .notif-item { border-bottom: 1px solid var(--border); }
-.notif-page-list .notif-item:last-child { border-bottom: 0; }
-.notif-page-list .notif-item.unread { background: rgba(56, 189, 248, 0.045); }
-.notif-page-list .notif-row { padding: 1rem 1.15rem; align-items: flex-start; }
-.notif-page-list .notif-title { font-size: 0.92rem; }
-.notif-page-list .notif-msg { font-size: 0.82rem; }
-.notif-page-list .notif-type { color: var(--accent-light); }
+.notif-page-list .notif-item {
+  border-bottom: 1px solid var(--border);
+}
+.notif-page-list .notif-item:last-child {
+  border-bottom: 0;
+}
+.notif-page-list .notif-item.unread {
+  background: rgba(56, 189, 248, 0.045);
+}
+.notif-page-list .notif-row {
+  padding: 1rem 1.15rem;
+  align-items: flex-start;
+}
+.notif-page-list .notif-title {
+  font-size: 0.92rem;
+}
+.notif-page-list .notif-msg {
+  font-size: 0.82rem;
+}
+.notif-page-list .notif-type {
+  color: var(--accent-light);
+}
 .notif-page-unread {
   display: inline-block;
   margin-left: 0.45rem;
@@ -858,15 +887,24 @@
   border-radius: var(--radius-lg);
   color: var(--text-muted);
 }
-.notif-page-empty h2 { color: var(--text-secondary); font-size: 1.1rem; }
-.notif-page-empty p { max-width: 44ch; font-size: 0.84rem; }
+.notif-page-empty h2 {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+.notif-page-empty p {
+  max-width: 44ch;
+  font-size: 0.84rem;
+}
 
 .notif-page-footer {
   display: flex;
   justify-content: center;
   padding: 1.25rem 0 2.5rem;
 }
-.notif-page-end { color: var(--text-muted); font-size: 0.75rem; }
+.notif-page-end {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
 
 .notif-pref-list {
   display: flex;
@@ -885,11 +923,27 @@
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
-.notif-pref-row:last-child { border-bottom: 0; }
-.notif-pref-row:hover { background: var(--bg-elevated); }
-.notif-pref-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.notif-pref-text strong { font-size: 0.86rem; color: var(--text-primary); }
-.notif-pref-text small { font-size: 0.74rem; color: var(--text-muted); line-height: 1.4; }
+.notif-pref-row:last-child {
+  border-bottom: 0;
+}
+.notif-pref-row:hover {
+  background: var(--bg-elevated);
+}
+.notif-pref-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.notif-pref-text strong {
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+.notif-pref-text small {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
 
 .notif-pref-switch {
   appearance: none;
@@ -902,7 +956,9 @@
   position: relative;
   flex: 0 0 auto;
   cursor: pointer;
-  transition: background var(--transition), border-color var(--transition);
+  transition:
+    background var(--transition),
+    border-color var(--transition);
 }
 .notif-pref-switch::after {
   content: '';
@@ -913,7 +969,9 @@
   height: 18px;
   border-radius: 50%;
   background: var(--silver-chrome);
-  transition: transform var(--transition), background var(--transition);
+  transition:
+    transform var(--transition),
+    background var(--transition);
 }
 .notif-pref-switch:checked {
   background: var(--accent);
@@ -929,9 +987,19 @@
 }
 
 @media (max-width: 640px) {
-  .notif-page-head { padding-top: 1.5rem; }
-  .notif-page-actions { width: 100%; }
-  .notif-page-actions .btn { flex: 1 1 auto; }
-  .notif-page-list .notif-row { padding: 0.85rem 0.9rem; }
-  .notif-pref-row { padding: 0.8rem 0.85rem; }
+  .notif-page-head {
+    padding-top: 1.5rem;
+  }
+  .notif-page-actions {
+    width: 100%;
+  }
+  .notif-page-actions .btn {
+    flex: 1 1 auto;
+  }
+  .notif-page-list .notif-row {
+    padding: 0.85rem 0.9rem;
+  }
+  .notif-pref-row {
+    padding: 0.8rem 0.85rem;
+  }
 }

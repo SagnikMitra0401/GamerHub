@@ -42,7 +42,7 @@ const {
   requestFingerprint,
   chooseRequestFilter,
   reputationTier,
-  isQuietHours
+  isQuietHours,
 } = require('./dmPolicy');
 
 const isId = (value) => mongoose.Types.ObjectId.isValid(String(value || ''));
@@ -83,7 +83,7 @@ function publicCounterpart(user) {
     username: user.username,
     level: user.level || 1,
     role: user.role || 'user',
-    profileType: user.profileType || 'personal'
+    profileType: user.profileType || 'personal',
   };
 }
 
@@ -92,7 +92,8 @@ function toConversationView(conversation, viewerId, counterpart) {
   const isInitiator = String(conversation.initiatorId) === me;
   const isRecipient = String(conversation.recipientId) === me;
   const isActive = conversation.state === 'active';
-  const isFiltered = isRecipient && conversation.state === 'request' && Boolean(conversation.filteredAt);
+  const isFiltered =
+    isRecipient && conversation.state === 'request' && Boolean(conversation.filteredAt);
   return {
     _id: String(conversation._id),
     state: conversation.state,
@@ -115,9 +116,10 @@ function toConversationView(conversation, viewerId, counterpart) {
     // recipient's own view carries the flag and its reason.
     filtered: isFiltered,
     filterReason: isFiltered ? conversation.filterReason || null : null,
-    filterMatched: isFiltered && conversation.filterReason === 'hidden_word'
-      ? conversation.filterMatched || ''
-      : '',
+    filterMatched:
+      isFiltered && conversation.filterReason === 'hidden_word'
+        ? conversation.filterMatched || ''
+        : '',
     request:
       conversation.state === 'request'
         ? {
@@ -131,12 +133,12 @@ function toConversationView(conversation, viewerId, counterpart) {
                   company: conversation.requestCompany || '',
                   website: conversation.requestWebsite || '',
                   budgetBand: conversation.requestBudgetBand || null,
-                  timeline: conversation.requestTimeline || ''
+                  timeline: conversation.requestTimeline || '',
                 }
-              : null
+              : null,
           }
         : null,
-    retryAfter: conversation.retryAfter || null
+    retryAfter: conversation.retryAfter || null,
   };
 }
 
@@ -148,7 +150,7 @@ function toMessageView(message, viewerId) {
     createdAt: message.createdAt,
     deleted: Boolean(message.deletedAt),
     mine: String(message.authorId) === String(viewerId),
-    author: String(message.authorId)
+    author: String(message.authorId),
   };
 }
 
@@ -168,7 +170,7 @@ function toTeamConversationView(conversation, ownerId, role, counterpart) {
     request: base.request
       ? { ...base.request, canRespond: role === 'agent' && base.request.canRespond }
       : null,
-    team: { ownerId: String(ownerId), role }
+    team: { ownerId: String(ownerId), role },
   };
 }
 
@@ -216,8 +218,12 @@ async function resolveContext({ sender, recipient, context }) {
       .select('_id name members bannedUsers')
       .lean();
     if (!community) throw badRequest('That server no longer exists.');
-    const senderMember = (community.members || []).some((member) => String(member.userId) === String(sender._id));
-    const recipientMember = (community.members || []).some((member) => String(member.userId) === String(recipient._id));
+    const senderMember = (community.members || []).some(
+      (member) => String(member.userId) === String(sender._id),
+    );
+    const recipientMember = (community.members || []).some(
+      (member) => String(member.userId) === String(recipient._id),
+    );
     if (!senderMember || !recipientMember) {
       throw badRequest('You do not share that server.');
     }
@@ -249,19 +255,19 @@ async function requestCounts(senderId) {
   const [sentToday, sentThisWeek] = await Promise.all([
     Conversation.countDocuments({
       initiatorId: senderId,
-      lastRequestAt: { $gte: new Date(now - DAY_MS) }
+      lastRequestAt: { $gte: new Date(now - DAY_MS) },
     }),
     Conversation.countDocuments({
       initiatorId: senderId,
-      lastRequestAt: { $gte: new Date(now - 7 * DAY_MS) }
-    })
+      lastRequestAt: { $gte: new Date(now - 7 * DAY_MS) },
+    }),
   ]);
   return { sentToday, sentThisWeek };
 }
 
 async function markExpired(conversation) {
   const retryAfter = new Date(
-    new Date(conversation.requestExpiresAt || Date.now()).getTime() + COOLDOWN_MS
+    new Date(conversation.requestExpiresAt || Date.now()).getTime() + COOLDOWN_MS,
   );
   conversation.state = 'expired';
   conversation.retryAfter = retryAfter;
@@ -275,7 +281,7 @@ async function bumpReputation(userId, increments) {
     const reputation = await DmSenderReputation.findOneAndUpdate(
       { userId },
       { $inc: increments, $setOnInsert: { userId } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     if (!reputation) return null;
     const tier = reputationTier({ reports: reputation.reports, blocks: reputation.blocks });
@@ -297,7 +303,7 @@ async function createMessage({ conversation, authorId, text, createdAt }) {
     conversationId: conversation._id,
     authorId,
     text,
-    ...(createdAt ? { createdAt } : {})
+    ...(createdAt ? { createdAt } : {}),
   });
   return message;
 }
@@ -316,7 +322,7 @@ async function notifyMessage({ conversation, author, message }) {
     actionUrl: `/messages?thread=${conversation._id}`,
     metadata: { conversationId: String(conversation._id), kind: 'dm_message' },
     dedupeKey: `dm:${conversation._id}:${message._id}`,
-    silent: isQuietHours(recipient?.dmSettings)
+    silent: isQuietHours(recipient?.dmSettings),
   });
 }
 
@@ -333,7 +339,7 @@ async function createRequest({
   company,
   website,
   budgetBand,
-  timeline
+  timeline,
 }) {
   if (!isId(recipientId)) throw badRequest('Invalid player.');
   if (String(sender._id) === String(recipientId)) throw badRequest('You cannot message yourself.');
@@ -364,7 +370,7 @@ async function createRequest({
     settings,
     contextType: resolved.type,
     relationship,
-    senderIsBusiness
+    senderIsBusiness,
   });
   if (!gate.allowed) throw forbidden(gate.reason, { code: gate.code });
 
@@ -374,12 +380,12 @@ async function createRequest({
   if (senderIsBusiness && gate.mode !== 'inbox') {
     if (!businessProfile || businessProfile.verificationStatus !== 'verified') {
       throw forbidden('Verify your business domain before sending cold requests.', {
-        code: 'DM_BUSINESS_UNVERIFIED'
+        code: 'DM_BUSINESS_UNVERIFIED',
       });
     }
     if (businessProfile.outreachPaused) {
       throw forbidden('Business outreach is paused while recent reports are reviewed.', {
-        code: 'DM_BUSINESS_PAUSED'
+        code: 'DM_BUSINESS_PAUSED',
       });
     }
   }
@@ -400,7 +406,7 @@ async function createRequest({
         throw conflict('A request is already waiting for a reply.', { code: 'DM_PENDING' });
       }
       const retryAfter = new Date(
-        new Date(conversation.requestExpiresAt || now).getTime() + COOLDOWN_MS
+        new Date(conversation.requestExpiresAt || now).getTime() + COOLDOWN_MS,
       );
       if (retryAfter > now) {
         conversation.state = 'expired';
@@ -408,7 +414,7 @@ async function createRequest({
         await conversation.save();
         throw forbidden('That request expired without a reply.', {
           code: 'DM_COOLDOWN',
-          details: { retryAfter }
+          details: { retryAfter },
         });
       }
       // The request cooled down while nobody looked; the reuse branch below
@@ -420,14 +426,17 @@ async function createRequest({
       if (cooldownActive(conversation.retryAfter, now)) {
         throw forbidden('You cannot message this player yet.', {
           code: 'DM_COOLDOWN',
-          details: { retryAfter: conversation.retryAfter }
+          details: { retryAfter: conversation.retryAfter },
         });
       }
     }
-    if (['declined', 'expired'].includes(conversation.state) && cooldownActive(conversation.retryAfter, now)) {
+    if (
+      ['declined', 'expired'].includes(conversation.state) &&
+      cooldownActive(conversation.retryAfter, now)
+    ) {
       throw forbidden('You cannot message this player yet.', {
         code: 'DM_COOLDOWN',
-        details: { retryAfter: conversation.retryAfter }
+        details: { retryAfter: conversation.retryAfter },
       });
     }
   }
@@ -472,22 +481,23 @@ async function createRequest({
         contextId: resolved.id,
         contextLabel: resolved.label || '',
         businessThread: senderIsBusiness,
-        unreadCounts: { [String(recipient._id)]: 1, [String(sender._id)]: 0 }
+        unreadCounts: { [String(recipient._id)]: 1, [String(sender._id)]: 0 },
       });
     }
     conversation.lastMessageAt = now;
     conversation.lastMessagePreview = sanitizeLine(normalized.text, 120);
     conversation.lastRequestAt = conversation.lastRequestAt || null;
-        conversation.unreadCounts = /** @type {any} */ (
-      { [String(recipient._id)]: 1, [String(sender._id)]: 0 }
-    );
+    conversation.unreadCounts = /** @type {any} */ ({
+      [String(recipient._id)]: 1,
+      [String(sender._id)]: 0,
+    });
     await conversation.save();
 
     const message = await createMessage({
       conversation,
       authorId: sender._id,
       text: normalized.text,
-      createdAt: now
+      createdAt: now,
     });
     recordFirstEvent('first_message', sender._id, { surface: 'dm' });
     await notifyMessage({ conversation, author: sender, message });
@@ -495,7 +505,7 @@ async function createRequest({
     return {
       conversation: toConversationView(conversation, sender._id, recipient),
       message: toMessageView(message, sender._id),
-      direct: true
+      direct: true,
     };
   }
 
@@ -509,7 +519,7 @@ async function createRequest({
       website,
       budgetBand,
       timeline,
-      business: businessProfile
+      business: businessProfile,
     });
     if (parsed.ok === false) throw badRequest(parsed.reason);
     normalized = { ok: true, text: parsed.value.text };
@@ -524,7 +534,7 @@ async function createRequest({
     ...counts,
     lastRequestAt: conversation?.lastRequestAt || null,
     accountCreatedAt: sender.createdAt,
-    now
+    now,
   });
   if (!quota.allowed) throw forbidden(quota.reason, { code: quota.code });
 
@@ -533,15 +543,15 @@ async function createRequest({
     Conversation.countDocuments({
       initiatorId: sender._id,
       requestFingerprint: fingerprint,
-      lastRequestAt: { $gte: new Date(now.getTime() - DAY_MS) }
+      lastRequestAt: { $gte: new Date(now.getTime() - DAY_MS) },
     }),
-    DmSenderReputation.findOne({ userId: sender._id }).select('tier').lean()
+    DmSenderReputation.findOne({ userId: sender._id }).select('tier').lean(),
   ]);
   const filter = chooseRequestFilter({
     text: normalized.text,
     hiddenWords: settings.hiddenWords,
     reputationTier: reputation?.tier || 'standard',
-    campaignCount
+    campaignCount,
   });
 
   if (conversation) {
@@ -573,9 +583,10 @@ async function createRequest({
     conversation.filterReason = filter?.reason || null;
     conversation.filterMatched = filter?.matched || '';
     conversation.requestFingerprint = fingerprint;
-    conversation.unreadCounts = /** @type {any} */ (
-    { [String(recipient._id)]: 0, [String(sender._id)]: 0 }
-  );
+    conversation.unreadCounts = /** @type {any} */ ({
+      [String(recipient._id)]: 0,
+      [String(sender._id)]: 0,
+    });
   } else {
     conversation = new Conversation({
       pairKey,
@@ -599,7 +610,7 @@ async function createRequest({
       filterReason: filter?.reason || null,
       filterMatched: filter?.matched || '',
       requestFingerprint: fingerprint,
-      unreadCounts: { [String(recipient._id)]: 0, [String(sender._id)]: 0 }
+      unreadCounts: { [String(recipient._id)]: 0, [String(sender._id)]: 0 },
     });
   }
 
@@ -618,7 +629,7 @@ async function createRequest({
   // the recipient finds it in the separate Filtered lane.
   return {
     conversation: toConversationView(conversation, sender._id, recipient),
-    direct: false
+    direct: false,
   };
 }
 
@@ -652,14 +663,22 @@ async function getConversation({ conversationId, userId }) {
 
   return {
     conversation: toConversationView(conversation, userId, counterpart),
-    messages: messages.map((message) => toMessageView(message, userId))
+    messages: messages.map((message) => toMessageView(message, userId)),
   };
 }
 
-async function listConversations({ userId, folder = 'inbox', scope = 'all', unreadOnly = false, before = null, limit = 30 }) {
+async function listConversations({
+  userId,
+  folder = 'inbox',
+  scope = 'all',
+  unreadOnly = false,
+  before = null,
+  limit = 30,
+}) {
   const me = String(userId);
   const take = Math.min(Math.max(Number(limit) || 30, 1), 50);
-  if (!['all', 'personal', 'business'].includes(scope)) throw badRequest('Unknown conversation scope.');
+  if (!['all', 'personal', 'business'].includes(scope))
+    throw badRequest('Unknown conversation scope.');
   const query = {};
   /** @type {Record<string, 1|-1>} */
   let sort = { lastMessageAt: -1, createdAt: -1 };
@@ -709,7 +728,10 @@ async function listConversations({ userId, folder = 'inbox', scope = 'all', unre
     query[cursorField] = { $lt: when };
   }
 
-  const conversations = await Conversation.find(query).sort(sort).limit(take + 1).lean();
+  const conversations = await Conversation.find(query)
+    .sort(sort)
+    .limit(take + 1)
+    .lean();
   const hasMore = conversations.length > take;
   const page = hasMore ? conversations.slice(0, take) : conversations;
   const counterparts = await findCounterparts(page, userId);
@@ -718,18 +740,20 @@ async function listConversations({ userId, folder = 'inbox', scope = 'all', unre
 
   return {
     items: page.map((conversation) =>
-      toConversationView(conversation, me, counterparts.get(String(otherParticipant(conversation, me))))
+      toConversationView(
+        conversation,
+        me,
+        counterparts.get(String(otherParticipant(conversation, me))),
+      ),
     ),
     nextCursor:
-      hasMore && page.length
-        ? new Date(page[page.length - 1][cursorField]).toISOString()
-        : null,
+      hasMore && page.length ? new Date(page[page.length - 1][cursorField]).toISOString() : null,
     counts,
     quickReplies: counts.quickReplies,
     savedFilters: counts.savedFilters,
     folder,
     scope,
-    unreadOnly: Boolean(unreadOnly)
+    unreadOnly: Boolean(unreadOnly),
   };
 }
 
@@ -741,23 +765,23 @@ async function teamSummary({ ownerId, role }) {
       businessThread: true,
       state: 'request',
       requestExpiresAt: { $gt: now },
-      filteredAt: null
+      filteredAt: null,
     }),
     Conversation.countDocuments({
       recipientId: ownerId,
       businessThread: true,
       state: 'request',
       requestExpiresAt: { $gt: now },
-      filteredAt: { $type: 'date' }
+      filteredAt: { $type: 'date' },
     }),
     Conversation.find({
       participantIds: ownerId,
       businessThread: true,
       state: 'active',
-      archivedBy: { $ne: ownerId }
+      archivedBy: { $ne: ownerId },
     })
       .select('unreadCounts')
-      .lean()
+      .lean(),
   ]);
 
   return {
@@ -765,7 +789,7 @@ async function teamSummary({ ownerId, role }) {
     filtered,
     inbox: active.length,
     unread: active.reduce((total, conversation) => total + unreadFor(conversation, ownerId), 0),
-    role
+    role,
   };
 }
 
@@ -781,7 +805,7 @@ async function listTeamConversations({
   folder = 'inbox',
   unreadOnly = false,
   before = null,
-  limit = 30
+  limit = 30,
 }) {
   const take = Math.min(Math.max(Number(limit) || 30, 1), 50);
   if (!['inbox', 'requests', 'filtered', 'archived'].includes(folder)) {
@@ -790,7 +814,7 @@ async function listTeamConversations({
 
   const query = {
     participantIds: ownerId,
-    businessThread: true
+    businessThread: true,
   };
   /** @type {Record<string, 1|-1>} */
   let sort = { lastMessageAt: -1, createdAt: -1 };
@@ -828,7 +852,10 @@ async function listTeamConversations({
     query[cursorField] = { $lt: when };
   }
 
-  const conversations = await Conversation.find(query).sort(sort).limit(take + 1).lean();
+  const conversations = await Conversation.find(query)
+    .sort(sort)
+    .limit(take + 1)
+    .lean();
   const hasMore = conversations.length > take;
   const page = hasMore ? conversations.slice(0, take) : conversations;
   const counterparts = await findCounterparts(page, ownerId);
@@ -840,20 +867,18 @@ async function listTeamConversations({
         conversation,
         ownerId,
         role,
-        counterparts.get(String(otherParticipant(conversation, ownerId)))
-      )
+        counterparts.get(String(otherParticipant(conversation, ownerId))),
+      ),
     ),
     nextCursor:
-      hasMore && page.length
-        ? new Date(page[page.length - 1][cursorField]).toISOString()
-        : null,
+      hasMore && page.length ? new Date(page[page.length - 1][cursorField]).toISOString() : null,
     counts,
     quickReplies: [],
     savedFilters: [],
     folder,
     scope: 'business',
     unreadOnly: Boolean(unreadOnly),
-    team: { ownerId: String(ownerId), role }
+    team: { ownerId: String(ownerId), role },
   };
 }
 
@@ -872,7 +897,7 @@ async function getTeamConversation({ conversationId, ownerId, memberId, role }) 
 
   return {
     conversation: toTeamConversationView(conversation, ownerId, role, counterpart),
-    messages: messages.map((message) => toMessageView(message, memberId))
+    messages: messages.map((message) => toMessageView(message, memberId)),
   };
 }
 
@@ -889,7 +914,7 @@ async function notifyTeamMessage({ conversation, owner, author, message }) {
     actionUrl: `/messages?thread=${conversation._id}`,
     metadata: { conversationId: String(conversation._id), kind: 'dm_message' },
     dedupeKey: `dm:${conversation._id}:${message._id}`,
-    silent: isQuietHours(recipient?.dmSettings)
+    silent: isQuietHours(recipient?.dmSettings),
   });
 }
 
@@ -917,7 +942,7 @@ async function postTeamMessage({ conversationId, ownerId, memberId, role, sender
     conversation,
     authorId: memberId,
     text: normalized.text,
-    createdAt: now
+    createdAt: now,
   });
 
   const otherId = otherParticipant(conversation, ownerId);
@@ -925,8 +950,8 @@ async function postTeamMessage({ conversationId, ownerId, memberId, role, sender
     $set: {
       lastMessageAt: now,
       lastMessagePreview: sanitizeLine(normalized.text, 120),
-      [`unreadCounts.${String(ownerId)}`]: 0
-    }
+      [`unreadCounts.${String(ownerId)}`]: 0,
+    },
   };
   if (otherId) update.$inc = { [`unreadCounts.${String(otherId)}`]: 1 };
   await Conversation.updateOne({ _id: conversation._id, state: 'active' }, update);
@@ -949,7 +974,7 @@ async function postTeamMessage({ conversationId, ownerId, memberId, role, sender
         conversation,
         authorId: otherId,
         text: settings.awayMessage,
-        createdAt: now
+        createdAt: now,
       });
       await Conversation.updateOne(
         { _id: conversation._id, state: 'active' },
@@ -957,10 +982,10 @@ async function postTeamMessage({ conversationId, ownerId, memberId, role, sender
           $set: {
             lastMessageAt: now,
             lastMessagePreview: sanitizeLine(settings.awayMessage, 120),
-            autoReplyAt: now
+            autoReplyAt: now,
           },
-          $inc: { [`unreadCounts.${String(ownerId)}`]: 1 }
-        }
+          $inc: { [`unreadCounts.${String(ownerId)}`]: 1 },
+        },
       );
       conversation.autoReplyAt = now;
       conversation.lastMessagePreview = sanitizeLine(settings.awayMessage, 120);
@@ -977,8 +1002,8 @@ async function postTeamMessage({ conversationId, ownerId, memberId, role, sender
       conversation,
       ownerId,
       role,
-      await counterpartFor(conversation, ownerId)
-    )
+      await counterpartFor(conversation, ownerId),
+    ),
   };
 }
 
@@ -991,8 +1016,8 @@ async function acceptTeamRequest({ conversationId, ownerId, role }) {
       ...result.conversation,
       labels: [],
       canReply: role === 'agent',
-      team: { ownerId: String(ownerId), role }
-    }
+      team: { ownerId: String(ownerId), role },
+    },
   };
 }
 
@@ -1005,8 +1030,8 @@ async function declineTeamRequest({ conversationId, ownerId, role }) {
       ...result.conversation,
       labels: [],
       canReply: false,
-      team: { ownerId: String(ownerId), role }
-    }
+      team: { ownerId: String(ownerId), role },
+    },
   };
 }
 
@@ -1024,22 +1049,22 @@ async function summary({ userId }) {
       recipientId: userId,
       state: 'request',
       requestExpiresAt: { $gt: now },
-      filteredAt: null
+      filteredAt: null,
     }),
     Conversation.countDocuments({
       recipientId: userId,
       state: 'request',
       requestExpiresAt: { $gt: now },
-      filteredAt: { $type: 'date' }
+      filteredAt: { $type: 'date' },
     }),
     Conversation.find({
       participantIds: userId,
       state: 'active',
-      archivedBy: { $ne: userId }
+      archivedBy: { $ne: userId },
     })
       .select('unreadCounts')
       .lean(),
-    User.findById(userId).select('dmSettings').lean()
+    User.findById(userId).select('dmSettings').lean(),
   ]);
 
   return {
@@ -1048,7 +1073,7 @@ async function summary({ userId }) {
     inbox: active.length,
     unread: active.reduce((total, conversation) => total + unreadFor(conversation, me), 0),
     quickReplies: normalizeDmSettings(viewer?.dmSettings).quickReplies,
-    savedFilters: normalizeDmSettings(viewer?.dmSettings).savedFilters
+    savedFilters: normalizeDmSettings(viewer?.dmSettings).savedFilters,
   };
 }
 
@@ -1073,9 +1098,10 @@ async function acceptRequest({ conversationId, userId }) {
   conversation.requestExpiresAt = null;
   conversation.retryAfter = null;
   conversation.declinedAt = null;
-  conversation.unreadCounts = /** @type {any} */ (
-    { [String(conversation.recipientId)]: 0, [String(conversation.initiatorId)]: 0 }
-  );
+  conversation.unreadCounts = /** @type {any} */ ({
+    [String(conversation.recipientId)]: 0,
+    [String(conversation.initiatorId)]: 0,
+  });
 
   if (requestText) {
     conversation.lastMessageAt = conversation.createdAt;
@@ -1089,7 +1115,7 @@ async function acceptRequest({ conversationId, userId }) {
       conversation,
       authorId: conversation.initiatorId,
       text: requestText,
-      createdAt: conversation.createdAt
+      createdAt: conversation.createdAt,
     });
   }
 
@@ -1102,7 +1128,7 @@ async function acceptRequest({ conversationId, userId }) {
       message: 'You can reply now.',
       actionUrl: `/messages?thread=${conversation._id}`,
       metadata: { conversationId: String(conversation._id), kind: 'dm_accepted' },
-      dedupeKey: `dm-accepted:${conversation._id}`
+      dedupeKey: `dm-accepted:${conversation._id}`,
     });
   }
 
@@ -1111,7 +1137,7 @@ async function acceptRequest({ conversationId, userId }) {
   const counterpart = await counterpartFor(conversation, userId);
   return {
     conversation: toConversationView(conversation, userId, counterpart),
-    message: message ? toMessageView(message, userId) : null
+    message: message ? toMessageView(message, userId) : null,
   };
 }
 
@@ -1127,14 +1153,21 @@ async function declineRequest({ conversationId, userId }) {
   conversation.state = 'declined';
   conversation.declinedAt = new Date();
   conversation.retryAfter = new Date(conversation.declinedAt.getTime() + COOLDOWN_MS);
-  conversation.unreadCounts = /** @type {any} */ (
-    { [String(conversation.recipientId)]: 0, [String(conversation.initiatorId)]: 0 }
-  );
+  conversation.unreadCounts = /** @type {any} */ ({
+    [String(conversation.recipientId)]: 0,
+    [String(conversation.initiatorId)]: 0,
+  });
   await conversation.save();
 
   await bumpReputation(conversation.initiatorId, { declined: 1 });
 
-  return { conversation: toConversationView(conversation, userId, await counterpartFor(conversation, userId)) };
+  return {
+    conversation: toConversationView(
+      conversation,
+      userId,
+      await counterpartFor(conversation, userId),
+    ),
+  };
 }
 
 async function archiveConversation({ conversationId, userId }) {
@@ -1144,7 +1177,13 @@ async function archiveConversation({ conversationId, userId }) {
   }
   await Conversation.updateOne({ _id: conversation._id }, { $addToSet: { archivedBy: userId } });
   conversation.archivedBy = [...(conversation.archivedBy || []), userId];
-  return { conversation: toConversationView(conversation, userId, await counterpartFor(conversation, userId)) };
+  return {
+    conversation: toConversationView(
+      conversation,
+      userId,
+      await counterpartFor(conversation, userId),
+    ),
+  };
 }
 
 async function setMuted({ conversationId, userId, muted }) {
@@ -1152,14 +1191,18 @@ async function setMuted({ conversationId, userId, muted }) {
   if (conversation.state !== 'active') {
     throw conflict('Only an active conversation can be muted.', { code: 'DM_NOT_ACTIVE' });
   }
-  const update = muted
-    ? { $addToSet: { mutedBy: userId } }
-    : { $pull: { mutedBy: userId } };
+  const update = muted ? { $addToSet: { mutedBy: userId } } : { $pull: { mutedBy: userId } };
   await Conversation.updateOne({ _id: conversation._id }, update);
   conversation.mutedBy = muted
     ? [...(conversation.mutedBy || []), userId]
     : (conversation.mutedBy || []).filter((id) => String(id) !== String(userId));
-  return { conversation: toConversationView(conversation, userId, await counterpartFor(conversation, userId)) };
+  return {
+    conversation: toConversationView(
+      conversation,
+      userId,
+      await counterpartFor(conversation, userId),
+    ),
+  };
 }
 
 async function setLabels({ conversationId, userId, labels }) {
@@ -1180,7 +1223,11 @@ async function setLabels({ conversationId, userId, labels }) {
 
   return {
     labels: parsed.value,
-    conversation: toConversationView(conversation, userId, await counterpartFor(conversation, userId))
+    conversation: toConversationView(
+      conversation,
+      userId,
+      await counterpartFor(conversation, userId),
+    ),
   };
 }
 
@@ -1198,7 +1245,7 @@ async function postMessage({ conversationId, sender, text }) {
     conversation,
     authorId: sender._id,
     text: normalized.text,
-    createdAt: now
+    createdAt: now,
   });
   recordFirstEvent('first_message', sender._id, { surface: 'dm' });
 
@@ -1207,8 +1254,8 @@ async function postMessage({ conversationId, sender, text }) {
     $set: {
       lastMessageAt: now,
       lastMessagePreview: sanitizeLine(normalized.text, 120),
-      [`unreadCounts.${String(sender._id)}`]: 0
-    }
+      [`unreadCounts.${String(sender._id)}`]: 0,
+    },
   };
   if (otherId) update.$inc = { [`unreadCounts.${String(otherId)}`]: 1 };
   await Conversation.updateOne({ _id: conversation._id, state: 'active' }, update);
@@ -1233,7 +1280,7 @@ async function postMessage({ conversationId, sender, text }) {
         conversation,
         authorId: otherId,
         text: settings.awayMessage,
-        createdAt: now
+        createdAt: now,
       });
       await Conversation.updateOne(
         { _id: conversation._id, state: 'active' },
@@ -1241,10 +1288,10 @@ async function postMessage({ conversationId, sender, text }) {
           $set: {
             lastMessageAt: now,
             lastMessagePreview: sanitizeLine(settings.awayMessage, 120),
-            autoReplyAt: now
+            autoReplyAt: now,
           },
-          $inc: { [`unreadCounts.${String(sender._id)}`]: 1 }
-        }
+          $inc: { [`unreadCounts.${String(sender._id)}`]: 1 },
+        },
       );
       conversation.autoReplyAt = now;
       conversation.lastMessagePreview = sanitizeLine(settings.awayMessage, 120);
@@ -1257,7 +1304,11 @@ async function postMessage({ conversationId, sender, text }) {
   return {
     message: toMessageView(message, sender._id),
     ...(autoReply ? { autoReply: toMessageView(autoReply, sender._id) } : {}),
-    conversation: toConversationView(conversation, sender._id, await counterpartFor(conversation, sender._id))
+    conversation: toConversationView(
+      conversation,
+      sender._id,
+      await counterpartFor(conversation, sender._id),
+    ),
   };
 }
 
@@ -1268,21 +1319,26 @@ async function markRead({ conversationId, userId }) {
   }
   await Conversation.updateOne(
     { _id: conversation._id },
-    { $set: { [`unreadCounts.${String(userId)}`]: 0 } }
+    { $set: { [`unreadCounts.${String(userId)}`]: 0 } },
   );
   return { read: true };
 }
 
-async function reportConversation({ conversationId, reporterId, reason, note = '', messageIds = [], block = false }) {
+async function reportConversation({
+  conversationId,
+  reporterId,
+  reason,
+  note = '',
+  messageIds = [],
+  block = false,
+}) {
   if (!DM_REPORT_REASONS.includes(reason)) throw badRequest('Choose a report reason.');
   const conversation = await loadConversationForUser(conversationId, reporterId);
   const reportedUserId = otherParticipant(conversation, reporterId);
   if (!reportedUserId) throw badRequest('There is no one to report in this conversation.');
 
   const cleanNote = sanitizeLine(String(note || ''), 500);
-  const ids = Array.isArray(messageIds)
-    ? messageIds.filter((id) => isId(id)).slice(0, 50)
-    : [];
+  const ids = Array.isArray(messageIds) ? messageIds.filter((id) => isId(id)).slice(0, 50) : [];
 
   const report = await DmReport.findOneAndUpdate(
     { reporterId, conversationId: conversation._id },
@@ -1292,10 +1348,10 @@ async function reportConversation({ conversationId, reporterId, reason, note = '
         reason,
         note: cleanNote,
         messageIds: ids,
-        status: 'open'
-      }
+        status: 'open',
+      },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 
   if (block) {
@@ -1312,11 +1368,11 @@ async function reportConversation({ conversationId, reporterId, reason, note = '
     await User.updateOne({ _id: reporterId }, { $addToSet: { blockedUsers: reportedUserId } });
     await User.updateOne(
       { _id: reportedUserId },
-      { $pull: { followers: reporterId, following: reporterId } }
+      { $pull: { followers: reporterId, following: reporterId } },
     );
     await User.updateOne(
       { _id: reporterId },
-      { $pull: { followers: reportedUserId, following: reportedUserId } }
+      { $pull: { followers: reportedUserId, following: reportedUserId } },
     );
     // Report-and-block must invalidate the same caches as the standalone block
     // endpoint, otherwise the blocked account can linger in feeds/search.
@@ -1325,7 +1381,7 @@ async function reportConversation({ conversationId, reporterId, reason, note = '
 
   await bumpReputation(reportedUserId, {
     reports: 1,
-    ...(block ? { blocks: 1 } : {})
+    ...(block ? { blocks: 1 } : {}),
   });
 
   // A business's public profile does not expose its complaint signal, but three
@@ -1336,16 +1392,16 @@ async function reportConversation({ conversationId, reporterId, reason, note = '
   if (business) {
     const complaints = await DmReport.countDocuments({
       reportedUserId,
-      status: 'open'
+      status: 'open',
     });
     await BusinessProfile.updateOne(
       { _id: business._id },
       {
         $set: {
           complaints,
-          ...(complaints >= 3 ? { outreachPaused: true } : {})
-        }
-      }
+          ...(complaints >= 3 ? { outreachPaused: true } : {}),
+        },
+      },
     );
   }
 
@@ -1361,10 +1417,10 @@ async function purgeExpiredDmRequests({ now = new Date() } = {}) {
           state: 'expired',
           requestText: '',
           retryAfter: { $add: ['$requestExpiresAt', COOLDOWN_MS] },
-          unreadCounts: {}
-        }
-      }
-    ]
+          unreadCounts: {},
+        },
+      },
+    ],
   );
 
   // A declined request keeps its opener for 30 days for abuse review, then the
@@ -1372,12 +1428,12 @@ async function purgeExpiredDmRequests({ now = new Date() } = {}) {
   const declinedCutoff = new Date(now.getTime() - 30 * DAY_MS);
   const declined = await Conversation.updateMany(
     { state: 'declined', declinedAt: { $lte: declinedCutoff }, requestText: { $ne: '' } },
-    { $set: { requestText: '' } }
+    { $set: { requestText: '' } },
   );
 
   return {
     expired: result.modifiedCount || 0,
-    clearedDeclined: declined.modifiedCount || 0
+    clearedDeclined: declined.modifiedCount || 0,
   };
 }
 
@@ -1386,16 +1442,16 @@ async function tombstoneUserDm(userId) {
   await Promise.all([
     DirectMessage.updateMany(
       { authorId: userId, deletedAt: null },
-      { $set: { text: '[deleted]', deletedAt: now, deletedBy: userId } }
+      { $set: { text: '[deleted]', deletedAt: now, deletedBy: userId } },
     ),
     Conversation.updateMany(
       { participantIds: userId },
       {
         $set: { state: 'erased', requestText: '', lastMessagePreview: '' },
-        $pull: { mutedBy: userId, archivedBy: userId, labels: { ownerId: userId } }
-      }
+        $pull: { mutedBy: userId, archivedBy: userId, labels: { ownerId: userId } },
+      },
     ),
-    DmReport.deleteMany({ $or: [{ reporterId: userId }, { reportedUserId: userId }] })
+    DmReport.deleteMany({ $or: [{ reporterId: userId }, { reportedUserId: userId }] }),
   ]);
 }
 
@@ -1422,5 +1478,5 @@ module.exports = {
   tombstoneUserDm,
   loadConversationForUser,
   toConversationView,
-  toMessageView
+  toMessageView,
 };

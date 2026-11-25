@@ -13,33 +13,33 @@ const BusinessTeamMemberSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     memberId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     role: {
       type: String,
       enum: ['viewer', 'agent'],
-      default: 'viewer'
+      default: 'viewer',
     },
     status: {
       type: String,
       enum: ['invited', 'active', 'declined', 'removed'],
       default: 'invited',
-      index: true
+      index: true,
     },
     invitedById: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null
+      default: null,
     },
-    respondedAt: { type: Date, default: null }
+    respondedAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 BusinessTeamMemberSchema.index({ businessOwnerId: 1, memberId: 1 }, { unique: true });

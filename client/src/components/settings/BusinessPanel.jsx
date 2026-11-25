@@ -16,7 +16,7 @@ const EMPTY = {
   proofNote: '',
   timezone: '',
   responseExpectation: '',
-  links: []
+  links: [],
 };
 
 const CATEGORY_OPTIONS = [
@@ -24,7 +24,7 @@ const CATEGORY_OPTIONS = [
   { value: 'esports', label: 'Esports' },
   { value: 'studio', label: 'Studio' },
   { value: 'brand', label: 'Brand' },
-  { value: 'other', label: 'Other' }
+  { value: 'other', label: 'Other' },
 ];
 
 const STATUS_LABELS = {
@@ -32,13 +32,13 @@ const STATUS_LABELS = {
   pending: 'Review pending',
   verified: 'Verified',
   rejected: 'Not approved',
-  expired: 'Application expired'
+  expired: 'Application expired',
 };
 
 const CONTACT_METHOD_OPTIONS = [
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Phone' },
-  { value: 'other', label: 'Other method' }
+  { value: 'other', label: 'Other method' },
 ];
 
 const PROOF_TYPE_OPTIONS = [
@@ -46,7 +46,7 @@ const PROOF_TYPE_OPTIONS = [
   { value: 'tax', label: 'Tax or VAT registration' },
   { value: 'domain_email', label: 'Domain email on the official website' },
   { value: 'official_profile', label: 'Official business profile or listing' },
-  { value: 'other', label: 'Other evidence' }
+  { value: 'other', label: 'Other evidence' },
 ];
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '');
@@ -65,7 +65,7 @@ const formSnapshot = (source = EMPTY) => ({
   proofNote: source.proofNote || '',
   timezone: source.timezone || '',
   responseExpectation: source.responseExpectation || '',
-  links: source.links || []
+  links: source.links || [],
 });
 
 const BusinessPanel = ({ account, refresh, notify }) => {
@@ -101,7 +101,7 @@ const BusinessPanel = ({ account, refresh, notify }) => {
       proofNote: source.proofNote || '',
       timezone: source.timezone || '',
       responseExpectation: source.responseExpectation || '',
-      links: source.links || []
+      links: source.links || [],
     });
     setLinksText((source.links || []).join('\n'));
   }, [profile]);
@@ -112,10 +112,17 @@ const BusinessPanel = ({ account, refresh, notify }) => {
       return undefined;
     }
     let cancelled = false;
-    axiosInstance.get('/account/business/analytics')
-      .then(({ data }) => { if (!cancelled) setAnalytics(data); })
-      .catch(() => { if (!cancelled) setAnalytics(null); });
-    return () => { cancelled = true; };
+    axiosInstance
+      .get('/account/business/analytics')
+      .then(({ data }) => {
+        if (!cancelled) setAnalytics(data);
+      })
+      .catch(() => {
+        if (!cancelled) setAnalytics(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [enabled, profile?.verificationStatus]);
 
   useEffect(() => {
@@ -124,15 +131,23 @@ const BusinessPanel = ({ account, refresh, notify }) => {
       return undefined;
     }
     let cancelled = false;
-    const loadTeam = () => axiosInstance.get('/account/business/team')
-      .then(({ data }) => { if (!cancelled) setTeam(data); })
-      .catch(() => { if (!cancelled) setTeam({ items: [], maxSize: 10 }); });
+    const loadTeam = () =>
+      axiosInstance
+        .get('/account/business/team')
+        .then(({ data }) => {
+          if (!cancelled) setTeam(data);
+        })
+        .catch(() => {
+          if (!cancelled) setTeam({ items: [], maxSize: 10 });
+        });
 
     loadTeam();
 
     // A teammate accepts in their own session, so this list must not keep
     // saying "Invite pending" until a full page reload. Refetch on return.
-    const refreshOnFocus = () => { if (!document.hidden) loadTeam(); };
+    const refreshOnFocus = () => {
+      if (!document.hidden) loadTeam();
+    };
     window.addEventListener('focus', refreshOnFocus);
     document.addEventListener('visibilitychange', refreshOnFocus);
 
@@ -145,10 +160,14 @@ const BusinessPanel = ({ account, refresh, notify }) => {
 
   const patch = (key, value) => setForm((previous) => ({ ...previous, [key]: value }));
 
-  const dirty = JSON.stringify({
-    ...form,
-    links: linksText.split('\n').map((link) => link.trim()).filter(Boolean)
-  }) !== JSON.stringify(formSnapshot(profile || EMPTY));
+  const dirty =
+    JSON.stringify({
+      ...form,
+      links: linksText
+        .split('\n')
+        .map((link) => link.trim())
+        .filter(Boolean),
+    }) !== JSON.stringify(formSnapshot(profile || EMPTY));
 
   const save = async (event) => {
     event.preventDefault();
@@ -158,7 +177,10 @@ const BusinessPanel = ({ account, refresh, notify }) => {
     try {
       const payload = {
         ...form,
-        links: linksText.split('\n').map((link) => link.trim()).filter(Boolean)
+        links: linksText
+          .split('\n')
+          .map((link) => link.trim())
+          .filter(Boolean),
       };
       await axiosInstance.post('/account/business-profile', payload);
       await refresh();
@@ -226,7 +248,7 @@ const BusinessPanel = ({ account, refresh, notify }) => {
     try {
       await axiosInstance.post('/account/business/team', {
         username: teamUsername.trim(),
-        role: teamRole
+        role: teamRole,
       });
       const { data } = await axiosInstance.get('/account/business/team');
       setTeam(data);
@@ -286,15 +308,17 @@ const BusinessPanel = ({ account, refresh, notify }) => {
   // A purge marker only applies to the review round it happened in. A later
   // contact (or a re-application) starts a new round that may be answered.
   const reviewEvidencePurged = Boolean(
-    profile?.evidencePurgedAt
-    && (!profile.reviewContactedAt
-      || new Date(profile.reviewContactedAt) <= new Date(profile.evidencePurgedAt))
+    profile?.evidencePurgedAt &&
+    (!profile.reviewContactedAt ||
+      new Date(profile.reviewContactedAt) <= new Date(profile.evidencePurgedAt)),
   );
-  const hasContactRoute = form.contactMethod === 'email'
-    ? Boolean(form.contactEmail.trim() || form.supportEmail.trim())
-    : Boolean(form.contactDetail.trim());
-  const dnsToken = instructions?.recordValue
-    || (profile?.verificationToken ? `gamerhub-verify=${profile.verificationToken}` : '');
+  const hasContactRoute =
+    form.contactMethod === 'email'
+      ? Boolean(form.contactEmail.trim() || form.supportEmail.trim())
+      : Boolean(form.contactDetail.trim());
+  const dnsToken =
+    instructions?.recordValue ||
+    (profile?.verificationToken ? `gamerhub-verify=${profile.verificationToken}` : '');
   const dnsDomain = instructions?.domain || profile?.verificationDomain || '';
 
   return (
@@ -331,12 +355,15 @@ const BusinessPanel = ({ account, refresh, notify }) => {
           </p>
         )}
 
-        {profile?.reviewContactedAt && !profile?.demotedAt && !reviewEvidencePurged && status !== 'rejected' && (
-          <p className="settings-business-alert">
-            <AlertIcon size={14} /> A reviewer contacted your official contact on{' '}
-            {formatDate(profile.reviewContactedAt)}. Check that inbox, including spam.
-          </p>
-        )}
+        {profile?.reviewContactedAt &&
+          !profile?.demotedAt &&
+          !reviewEvidencePurged &&
+          status !== 'rejected' && (
+            <p className="settings-business-alert">
+              <AlertIcon size={14} /> A reviewer contacted your official contact on{' '}
+              {formatDate(profile.reviewContactedAt)}. Check that inbox, including spam.
+            </p>
+          )}
 
         {profile?.demotedAt && (
           <p className="settings-business-alert">
@@ -347,9 +374,8 @@ const BusinessPanel = ({ account, refresh, notify }) => {
 
         {status === 'expired' && (
           <p className="settings-business-alert">
-            <AlertIcon size={14} /> The last review request expired after 90 days without
-            activity, or because it stayed open for a year. Request review again when your
-            details are ready.
+            <AlertIcon size={14} /> The last review request expired after 90 days without activity,
+            or because it stayed open for a year. Request review again when your details are ready.
           </p>
         )}
 
@@ -383,7 +409,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                 onChange={(event) => patch('category', event.target.value)}
               >
                 {CATEGORY_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </label>
@@ -413,7 +441,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                 placeholder="https://studio.example"
                 maxLength={200}
               />
-              <span className="settings-help">HTTPS only. This domain is used for verification.</span>
+              <span className="settings-help">
+                HTTPS only. This domain is used for verification.
+              </span>
             </label>
             <label className="form-group" htmlFor="business-support-email">
               <span className="form-label">Public support email</span>
@@ -494,7 +524,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                   onChange={(event) => patch('contactMethod', event.target.value)}
                 >
                   {CONTACT_METHOD_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -524,7 +556,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                   onChange={(event) => patch('proofType', event.target.value)}
                 >
                   {PROOF_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -538,7 +572,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                   placeholder="https://registry.example/company/123"
                   maxLength={300}
                 />
-                <span className="settings-help">HTTPS only. A registry, tax or official listing page.</span>
+                <span className="settings-help">
+                  HTTPS only. A registry, tax or official listing page.
+                </span>
               </label>
             </div>
 
@@ -563,11 +599,24 @@ const BusinessPanel = ({ account, refresh, notify }) => {
           )}
 
           <div className="settings-actions">
-            <button type="submit" className="btn btn-primary btn-sm" disabled={saving || !dirty || !form.displayName.trim()}>
-              {saving ? 'Saving...' : enabled ? 'Save business profile' : 'Switch to business profile'}
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={saving || !dirty || !form.displayName.trim()}
+            >
+              {saving
+                ? 'Saving...'
+                : enabled
+                  ? 'Save business profile'
+                  : 'Switch to business profile'}
             </button>
             {enabled && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={downgrade} disabled={busy === 'downgrade'}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={downgrade}
+                disabled={busy === 'downgrade'}
+              >
                 {busy === 'downgrade' ? 'Switching...' : 'Return to personal profile'}
               </button>
             )}
@@ -588,7 +637,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
           </div>
 
           <div className="settings-business-status">
-            <span className="settings-business-icon" aria-hidden="true"><BriefcaseIcon size={17} /></span>
+            <span className="settings-business-icon" aria-hidden="true">
+              <BriefcaseIcon size={17} />
+            </span>
             <div>
               <strong>{STATUS_LABELS[status] || STATUS_LABELS.none}</strong>
               <span>
@@ -601,57 +652,62 @@ const BusinessPanel = ({ account, refresh, notify }) => {
             </div>
           </div>
 
-          {profile?.reviewContactedAt && !profile?.demotedAt && !reviewEvidencePurged && status !== 'rejected' && (
-            <div className="settings-business-review">
-              <p className="settings-help">
-                <strong>Review contact.</strong> A reviewer wrote to your official contact on{' '}
-                {formatDate(profile.reviewContactedAt)}.
-                {profile.reviewResponseDueAt
-                  ? ` You have until ${formatDate(profile.reviewResponseDueAt)} to answer.`
-                  : ''}
-                {' '}The account cannot be returned to a personal profile before that date.
-              </p>
+          {profile?.reviewContactedAt &&
+            !profile?.demotedAt &&
+            !reviewEvidencePurged &&
+            status !== 'rejected' && (
+              <div className="settings-business-review">
+                <p className="settings-help">
+                  <strong>Review contact.</strong> A reviewer wrote to your official contact on{' '}
+                  {formatDate(profile.reviewContactedAt)}.
+                  {profile.reviewResponseDueAt
+                    ? ` You have until ${formatDate(profile.reviewResponseDueAt)} to answer.`
+                    : ''}{' '}
+                  The account cannot be returned to a personal profile before that date.
+                </p>
 
-              {profile.reviewRespondedAt ? (
-                <>
-                  <p className="settings-business-alert">
-                    <CheckIcon size={14} /> Response sent on {formatDate(profile.reviewRespondedAt)}.
-                    The review team reads it before deciding.
-                  </p>
-                  {profile.reviewResponseNote && (
-                    <p className="settings-business-quote">{profile.reviewResponseNote}</p>
-                  )}
-                </>
-              ) : (
-                <form onSubmit={respondToReview}>
-                  <label className="form-group" htmlFor="business-review-response">
-                    <span className="form-label">Your response</span>
-                    <textarea
-                      id="business-review-response"
-                      className="form-input"
-                      rows={3}
-                      maxLength={1000}
-                      value={reviewResponse}
-                      onChange={(event) => setReviewResponse(event.target.value.slice(0, 1000))}
-                      placeholder="Explain the evidence, add context, or link a public page."
-                    />
-                    <span className="settings-help">
-                      At least 10 characters. This is stored with the review so the decision-maker sees it.
-                    </span>
-                  </label>
-                  <div className="settings-actions">
-                    <button
-                      type="submit"
-                      className="btn btn-primary btn-sm"
-                      disabled={busy === 'respond' || reviewResponse.trim().length < 10}
-                    >
-                      {busy === 'respond' ? 'Sending...' : 'Send response'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          )}
+                {profile.reviewRespondedAt ? (
+                  <>
+                    <p className="settings-business-alert">
+                      <CheckIcon size={14} /> Response sent on{' '}
+                      {formatDate(profile.reviewRespondedAt)}. The review team reads it before
+                      deciding.
+                    </p>
+                    {profile.reviewResponseNote && (
+                      <p className="settings-business-quote">{profile.reviewResponseNote}</p>
+                    )}
+                  </>
+                ) : (
+                  <form onSubmit={respondToReview}>
+                    <label className="form-group" htmlFor="business-review-response">
+                      <span className="form-label">Your response</span>
+                      <textarea
+                        id="business-review-response"
+                        className="form-input"
+                        rows={3}
+                        maxLength={1000}
+                        value={reviewResponse}
+                        onChange={(event) => setReviewResponse(event.target.value.slice(0, 1000))}
+                        placeholder="Explain the evidence, add context, or link a public page."
+                      />
+                      <span className="settings-help">
+                        At least 10 characters. This is stored with the review so the decision-maker
+                        sees it.
+                      </span>
+                    </label>
+                    <div className="settings-actions">
+                      <button
+                        type="submit"
+                        className="btn btn-primary btn-sm"
+                        disabled={busy === 'respond' || reviewResponse.trim().length < 10}
+                      >
+                        {busy === 'respond' ? 'Sending...' : 'Send response'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
 
           {status === 'pending' && dnsToken && (
             <div className="settings-business-record">
@@ -663,7 +719,10 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                 <span>TXT value</span>
                 <code>{dnsToken}</code>
               </div>
-              <p>Add the record, then check it here. The server reads the TXT record directly; no administrator is needed for a matching domain.</p>
+              <p>
+                Add the record, then check it here. The server reads the TXT record directly; no
+                administrator is needed for a matching domain.
+              </p>
               {profile?.verificationMethod === 'dns' && (
                 <button
                   type="button"
@@ -692,10 +751,10 @@ const BusinessPanel = ({ account, refresh, notify }) => {
                 className="btn btn-ghost btn-sm"
                 onClick={() => requestVerification('manual')}
                 disabled={
-                  busy === 'manual'
-                  || dirty
-                  || !hasContactRoute
-                  || !(form.proofUrl.trim() || form.proofNote.trim())
+                  busy === 'manual' ||
+                  dirty ||
+                  !hasContactRoute ||
+                  !(form.proofUrl.trim() || form.proofNote.trim())
                 }
                 title={dirty ? 'Save the profile before requesting review.' : undefined}
               >
@@ -706,10 +765,24 @@ const BusinessPanel = ({ account, refresh, notify }) => {
 
           {analytics && (
             <div className="settings-business-analytics">
-              <div><strong>{analytics.sent}</strong><span>business requests sent</span></div>
-              <div><strong>{analytics.accepted}</strong><span>accepted</span></div>
-              <div><strong>{analytics.acceptanceRate == null ? '—' : `${analytics.acceptanceRate}%`}</strong><span>acceptance</span></div>
-              <div><strong>{analytics.active}</strong><span>active threads</span></div>
+              <div>
+                <strong>{analytics.sent}</strong>
+                <span>business requests sent</span>
+              </div>
+              <div>
+                <strong>{analytics.accepted}</strong>
+                <span>accepted</span>
+              </div>
+              <div>
+                <strong>
+                  {analytics.acceptanceRate == null ? '—' : `${analytics.acceptanceRate}%`}
+                </strong>
+                <span>acceptance</span>
+              </div>
+              <div>
+                <strong>{analytics.active}</strong>
+                <span>active threads</span>
+              </div>
             </div>
           )}
         </section>
@@ -761,14 +834,22 @@ const BusinessPanel = ({ account, refresh, notify }) => {
           )}
 
           {(team.items || []).length === 0 ? (
-            <p className="settings-help">No teammates yet. An invitation grants nothing until it is accepted.</p>
+            <p className="settings-help">
+              No teammates yet. An invitation grants nothing until it is accepted.
+            </p>
           ) : (
             <ul className="settings-team-list">
               {team.items.map((entry) => (
                 <li key={entry._id}>
                   <div className="settings-team-person">
                     <strong>@{entry.username}</strong>
-                    <span>{entry.status === 'active' ? 'Active' : entry.status === 'invited' ? 'Invite pending' : entry.status}</span>
+                    <span>
+                      {entry.status === 'active'
+                        ? 'Active'
+                        : entry.status === 'invited'
+                          ? 'Invite pending'
+                          : entry.status}
+                    </span>
                   </div>
                   <select
                     className="form-input settings-team-role"
@@ -792,7 +873,9 @@ const BusinessPanel = ({ account, refresh, notify }) => {
               ))}
             </ul>
           )}
-          <p className="settings-help">Up to {team.maxSize || 10} people. Only business threads are shared.</p>
+          <p className="settings-help">
+            Up to {team.maxSize || 10} people. Only business threads are shared.
+          </p>
         </section>
       )}
 

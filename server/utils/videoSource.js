@@ -12,7 +12,7 @@ const YOUTUBE_HOSTS = new Set([
   'm.youtube.com',
   'music.youtube.com',
   'youtube-nocookie.com',
-  'youtu.be'
+  'youtu.be',
 ]);
 
 /** @returns {string|null} the 11-character video id, or null. */
@@ -82,5 +82,5 @@ module.exports = {
   findYouTubeIdInText,
   youtubeThumbnail,
   youtubeEmbedUrl,
-  normalizeDuration
+  normalizeDuration,
 };

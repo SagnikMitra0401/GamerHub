@@ -6,7 +6,7 @@ const {
   findYouTubeIdInText,
   youtubeThumbnail,
   youtubeEmbedUrl,
-  normalizeDuration
+  normalizeDuration,
 } = require('../utils/videoSource');
 
 test('parseYouTubeId accepts every common YouTube URL shape', () => {

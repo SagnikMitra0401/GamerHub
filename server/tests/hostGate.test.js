@@ -15,7 +15,7 @@ const reasons = (source) => scanSource(source).map((finding) => finding.reason);
 
 test('a literal origin array is refused', () => {
   assert.deepEqual(reasons("const ALLOWED_ORIGINS = ['https://gamerhub.app'];"), [
-    'literal origin allow-list'
+    'literal origin allow-list',
   ]);
 });
 
@@ -26,13 +26,13 @@ test('a multi-line origin array is refused', () => {
 
 test('an allow-list constant is refused', () => {
   assert.deepEqual(reasons("const ALLOWLIST = ['https://gamerhub.app'];"), [
-    'literal origin allow-list'
+    'literal origin allow-list',
   ]);
   assert.deepEqual(reasons("const ALLOW_LIST = ['https://gamerhub.app'];"), [
-    'literal origin allow-list'
+    'literal origin allow-list',
   ]);
   assert.deepEqual(reasons("const ALLOWED_HOSTS = ['gamerhub.app'];"), [
-    'literal origin allow-list'
+    'literal origin allow-list',
   ]);
 });
 
@@ -49,7 +49,7 @@ test('a non-array origin constant is left alone', () => {
 
 test('a shared hosting domain is refused wherever it appears', () => {
   assert.deepEqual(reasons("const preview = 'https://gamerhub-git-main.vercel.app';"), [
-    'shared hosting domain'
+    'shared hosting domain',
   ]);
 });
 

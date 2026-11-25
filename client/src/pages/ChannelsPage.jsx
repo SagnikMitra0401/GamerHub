@@ -10,7 +10,7 @@ const CATEGORIES = [
   { key: 'news', label: 'News' },
   { key: 'community', label: 'Community' },
   { key: 'creator', label: 'Creator' },
-  { key: 'other', label: 'Other' }
+  { key: 'other', label: 'Other' },
 ];
 
 const ChannelCard = ({ channel }) => (
@@ -25,12 +25,20 @@ const ChannelCard = ({ channel }) => (
     <span className="channel-card-body">
       <span className="channel-card-name">
         {channel.name}
-        {channel.unread > 0 && <span className="channel-unread">{channel.unread > 99 ? '99+' : channel.unread}</span>}
+        {channel.unread > 0 && (
+          <span className="channel-unread">{channel.unread > 99 ? '99+' : channel.unread}</span>
+        )}
       </span>
-      <span className="channel-card-desc">{channel.description || 'A one-way channel for updates.'}</span>
+      <span className="channel-card-desc">
+        {channel.description || 'A one-way channel for updates.'}
+      </span>
       <span className="channel-card-meta">
-        <span>{channel.subscriberCount} subscriber{channel.subscriberCount === 1 ? '' : 's'}</span>
-        <span>{channel.messageCount} post{channel.messageCount === 1 ? '' : 's'}</span>
+        <span>
+          {channel.subscriberCount} subscriber{channel.subscriberCount === 1 ? '' : 's'}
+        </span>
+        <span>
+          {channel.messageCount} post{channel.messageCount === 1 ? '' : 's'}
+        </span>
         {channel.muted && <span>Muted</span>}
       </span>
     </span>
@@ -49,7 +57,13 @@ const ChannelsPage = () => {
   const [discover, setDiscover] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', category: 'gaming', isPublic: true, avatarUrl: '' });
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    category: 'gaming',
+    isPublic: true,
+    avatarUrl: '',
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -69,11 +83,16 @@ const ChannelsPage = () => {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const createChannel = async (event) => {
     event.preventDefault();
-    if (!form.name.trim()) { setError('Give your channel a name.'); return; }
+    if (!form.name.trim()) {
+      setError('Give your channel a name.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -96,7 +115,11 @@ const ChannelsPage = () => {
           <p>Follow creators and servers for one-way updates, without noise or replies.</p>
         </div>
         {user && (
-          <button type="button" className="btn btn-primary" onClick={() => setShowCreate((value) => !value)}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setShowCreate((value) => !value)}
+          >
             {showCreate ? 'Close' : 'Create a channel'}
           </button>
         )}
@@ -119,9 +142,14 @@ const ChannelsPage = () => {
             </label>
             <label>
               Category
-              <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+              <select
+                value={form.category}
+                onChange={(event) => setForm({ ...form, category: event.target.value })}
+              >
                 {CATEGORIES.map((category) => (
-                  <option key={category.key} value={category.key}>{category.label}</option>
+                  <option key={category.key} value={category.key}>
+                    {category.label}
+                  </option>
                 ))}
               </select>
             </label>
@@ -164,7 +192,9 @@ const ChannelsPage = () => {
         <section>
           <h2 className="channels-section-title">Channels you own</h2>
           <div className="channel-grid">
-            {owned.map((channel) => <ChannelCard key={channel._id} channel={channel} />)}
+            {owned.map((channel) => (
+              <ChannelCard key={channel._id} channel={channel} />
+            ))}
           </div>
         </section>
       )}
@@ -175,11 +205,14 @@ const ChannelsPage = () => {
           <div className="channels-empty">Loading channels…</div>
         ) : subscriptions.length === 0 ? (
           <div className="channels-empty">
-            You are not following any channels yet. {user ? 'Pick one below.' : 'Sign in to follow channels.'}
+            You are not following any channels yet.{' '}
+            {user ? 'Pick one below.' : 'Sign in to follow channels.'}
           </div>
         ) : (
           <div className="channel-grid">
-            {subscriptions.map((channel) => <ChannelCard key={channel._id} channel={channel} />)}
+            {subscriptions.map((channel) => (
+              <ChannelCard key={channel._id} channel={channel} />
+            ))}
           </div>
         )}
       </section>
@@ -190,7 +223,9 @@ const ChannelsPage = () => {
           <div className="channels-empty">No public channels to discover yet.</div>
         ) : (
           <div className="channel-grid">
-            {discover.map((channel) => <ChannelCard key={channel._id} channel={channel} />)}
+            {discover.map((channel) => (
+              <ChannelCard key={channel._id} channel={channel} />
+            ))}
           </div>
         )}
       </section>

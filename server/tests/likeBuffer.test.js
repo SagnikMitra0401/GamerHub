@@ -32,20 +32,26 @@ const postStub = {
   },
   find() {
     return {
-      select() { return this; },
-      async lean() { return postStub.viralWinners; }
+      select() {
+        return this;
+      },
+      async lean() {
+        return postStub.viralWinners;
+      },
     };
   },
   reset() {
     this.writes.length = 0;
     this.failWrites = 0;
     this.viralWinners = [];
-  }
+  },
 };
 
 const awarded = [];
 const gamificationStub = {
-  awardXp: async (userId, xp, medal) => { awarded.push({ userId, xp, medal }); }
+  awardXp: async (userId, xp, medal) => {
+    awarded.push({ userId, xp, medal });
+  },
 };
 
 function stubModule(request, exports) {
@@ -71,8 +77,12 @@ const USER_C = '65f0000000000000000000a3';
 // The module logs expected failures (it is designed to survive them); keeping
 // those out of the reporter output is the only reason this hook exists.
 const realConsoleError = console.error;
-before(() => { console.error = () => {}; });
-after(() => { console.error = realConsoleError; });
+before(() => {
+  console.error = () => {};
+});
+after(() => {
+  console.error = realConsoleError;
+});
 
 beforeEach(() => {
   redisStore.reset();
@@ -123,11 +133,15 @@ test('readPendingLike ignores a field it cannot interpret', async () => {
 
 test('likePipeline recomputes likeCount instead of incrementing it', () => {
   const adds = likeBuffer.likePipeline({ adds: [USER_A, USER_B] });
-  assert.deepEqual(adds[0], { $set: { likes: { $setUnion: [{ $ifNull: ['$likes', []] }, [USER_A, USER_B]] } } });
+  assert.deepEqual(adds[0], {
+    $set: { likes: { $setUnion: [{ $ifNull: ['$likes', []] }, [USER_A, USER_B]] } },
+  });
   assert.deepEqual(adds.at(-1), { $set: { likeCount: { $size: '$likes' } } });
 
   const removes = likeBuffer.likePipeline({ removes: [USER_A] });
-  assert.deepEqual(removes[0], { $set: { likes: { $setDifference: [{ $ifNull: ['$likes', []] }, [USER_A]] } } });
+  assert.deepEqual(removes[0], {
+    $set: { likes: { $setDifference: [{ $ifNull: ['$likes', []] }, [USER_A]] } },
+  });
   assert.deepEqual(removes.at(-1), { $set: { likeCount: { $size: '$likes' } } });
 
   const mixed = likeBuffer.likePipeline({ adds: [USER_A], removes: [USER_B] });
@@ -157,8 +171,10 @@ test('flush folds many events into one bulkWrite per post', async () => {
   const ops = postStub.writes[0].ops;
   assert.equal(ops.length, 2);
 
-  const byId = Object.fromEntries(ops.map(op => [String(op.updateOne.filter._id), op.updateOne.update]));
-  const postA = byId[POST_A].map(stage => Object.keys(stage.$set)[0]);
+  const byId = Object.fromEntries(
+    ops.map((op) => [String(op.updateOne.filter._id), op.updateOne.update]),
+  );
+  const postA = byId[POST_A].map((stage) => Object.keys(stage.$set)[0]);
   assert.deepEqual(postA, ['likes', 'likeCount']);
   assert.equal(byId[POST_A][0].$set.likes.$setUnion[1].length, 2, 'two likes for post A');
 
@@ -292,6 +308,8 @@ test('the worker can be disabled explicitly, and stops cleanly', () => {
 });
 
 test('idle polling backs off well beyond the busy interval', () => {
-  assert.ok(likeBuffer.IDLE_INTERVAL_MS > likeBuffer.FLUSH_INTERVAL_MS * 5,
-    'an idle worker must not poll every five seconds');
+  assert.ok(
+    likeBuffer.IDLE_INTERVAL_MS > likeBuffer.FLUSH_INTERVAL_MS * 5,
+    'an idle worker must not poll every five seconds',
+  );
 });

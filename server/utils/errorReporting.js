@@ -65,7 +65,7 @@ function initErrorReporting() {
       release: releaseTag(),
       sendDefaultPii: false,
       tracesSampleRate: 0,
-      beforeSend: scrubEvent
+      beforeSend: scrubEvent,
     });
     configured = true;
   } catch (err) {
@@ -105,7 +105,7 @@ function errorReportingStatus() {
     configured,
     release: releaseTag(),
     // Never expose SDK/driver text from a public admin response.
-    error: configured || !lastError ? null : 'initialisation failed'
+    error: configured || !lastError ? null : 'initialisation failed',
   };
 }
 
@@ -122,5 +122,5 @@ module.exports = {
   captureServerError,
   errorReportingStatus,
   resetErrorReporting,
-  scrubEvent
+  scrubEvent,
 };

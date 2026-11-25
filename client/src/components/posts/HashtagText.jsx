@@ -11,17 +11,18 @@ const IS_URL = /^https?:\/\//i;
 const URL_PARTS = /^(https?:\/\/[^\s<]*?)([.,!?;:)\]]*)$/i;
 
 /** Canonical stored tag for a written #token, matching the server's cleanTag. */
-const toTag = (token) => token
-  .slice(1)
-  .toLowerCase()
-  .replace(/[^\p{L}\p{N}_ -]/gu, '')
-  .replace(/[\s_]+/g, ' ')
-  .trim();
+const toTag = (token) =>
+  token
+    .slice(1)
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_ -]/gu, '')
+    .replace(/[\s_]+/g, ' ')
+    .trim();
 
 const linkStyle = {
   color: 'var(--primary-light, #a78bfa)',
   fontWeight: 600,
-  textDecoration: 'none'
+  textDecoration: 'none',
 };
 
 /**
@@ -45,7 +46,7 @@ const HashtagText = ({ text, hashtags = true }) => {
               to={`/c/${encodeURIComponent(toTag(part))}`}
               className="hashtag"
               style={linkStyle}
-              onClick={event => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
               {part}
             </Link>
@@ -65,7 +66,7 @@ const HashtagText = ({ text, hashtags = true }) => {
                 rel="noopener noreferrer"
                 className="post-link"
                 style={linkStyle}
-                onClick={event => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
               >
                 {href}
               </a>

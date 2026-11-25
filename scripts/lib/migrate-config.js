@@ -19,7 +19,10 @@ function databaseNameFrom(uri) {
   const withoutScheme = String(uri || '').replace(/^mongodb(\+srv)?:\/\//, '');
   const slash = withoutScheme.indexOf('/');
   if (slash === -1) return null;
-  const name = withoutScheme.slice(slash + 1).split('?')[0].trim();
+  const name = withoutScheme
+    .slice(slash + 1)
+    .split('?')[0]
+    .trim();
   return name || null;
 }
 
@@ -36,7 +39,7 @@ function domainMigrateConfig(domain) {
     mongodb: {
       url: uri,
       databaseName: databaseNameFrom(uri) || 'gaming-hub',
-      options: { serverSelectionTimeoutMS: 10000 }
+      options: { serverSelectionTimeoutMS: 10000 },
     },
     migrationsDir: `migrations/${domain}`,
     changelogCollectionName: `changelog_${domain}`,
@@ -45,7 +48,7 @@ function domainMigrateConfig(domain) {
     migrationFileExtension: '.js',
     useFileHash: false,
     // This project is CommonJS; the runner itself ships as ESM.
-    moduleSystem: 'commonjs'
+    moduleSystem: 'commonjs',
   };
 }
 

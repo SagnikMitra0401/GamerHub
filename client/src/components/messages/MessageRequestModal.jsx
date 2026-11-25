@@ -10,14 +10,14 @@ const INTENTS = [
   { value: 'support', label: 'Support' },
   { value: 'press', label: 'Press' },
   { value: 'partnership', label: 'Partnership' },
-  { value: 'other', label: 'Other' }
+  { value: 'other', label: 'Other' },
 ];
 
 const BUDGETS = [
   { value: '', label: 'Not specified' },
   { value: 'under_500', label: 'Under $500' },
   { value: '500_2000', label: '$500 - $2,000' },
-  { value: '2000_plus', label: '$2,000+' }
+  { value: '2000_plus', label: '$2,000+' },
 ];
 
 /**
@@ -91,9 +91,9 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
               company: company.trim(),
               website: website.trim(),
               budgetBand: budgetBand || null,
-              timeline: timeline.trim()
+              timeline: timeline.trim(),
             }
-          : {})
+          : {}),
       });
       if (data?.direct) {
         navigate(`/messages?thread=${data.conversation._id}`);
@@ -109,9 +109,13 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
   };
 
   return (
-    <div className="dm-modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
+    <div
+      className="dm-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="dm-modal" role="dialog" aria-modal="true" aria-labelledby="dm-request-title">
         <header className="dm-modal-head">
           <div>
@@ -125,7 +129,9 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
 
         {sent ? (
           <div className="dm-modal-sent">
-            <span className="dm-modal-sent-icon" aria-hidden="true"><MailIcon size={22} /></span>
+            <span className="dm-modal-sent-icon" aria-hidden="true">
+              <MailIcon size={22} />
+            </span>
             <h3>Request sent</h3>
             <p>
               @{profile.username} will see it in Requests. They can accept, ignore it, or decline
@@ -143,13 +149,17 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
         ) : (
           <form onSubmit={send} className="dm-modal-body">
             <p className={`dm-modal-policy ${allowed ? '' : 'is-blocked'}`}>
-              {mode === 'inbox' && 'This player is open to messages from you. This opens a thread immediately.'}
-              {mode === 'request' && 'This player accepts message requests. Your first message is all they see until they accept.'}
-              {mode === 'verified' && (allowed
-                ? 'This player accepts requests from verified accounts.'
-                : 'This player only accepts messages from verified accounts.')}
+              {mode === 'inbox' &&
+                'This player is open to messages from you. This opens a thread immediately.'}
+              {mode === 'request' &&
+                'This player accepts message requests. Your first message is all they see until they accept.'}
+              {mode === 'verified' &&
+                (allowed
+                  ? 'This player accepts requests from verified accounts.'
+                  : 'This player only accepts messages from verified accounts.')}
               {mode === 'none' && 'This player is not accepting messages.'}
-              {paused && 'This player has paused new messages. Existing conversations are unaffected.'}
+              {paused &&
+                'This player has paused new messages. Existing conversations are unaffected.'}
             </p>
 
             {away && profile.dm?.awayMessage && (
@@ -174,7 +184,9 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                           onChange={(event) => setIntent(event.target.value)}
                         >
                           {INTENTS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
                           ))}
                         </select>
                       </label>
@@ -199,7 +211,9 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                           onChange={(event) => setBudgetBand(event.target.value)}
                         >
                           {BUDGETS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
                           ))}
                         </select>
                       </label>
@@ -225,7 +239,9 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                         placeholder="https://studio.example"
                         maxLength={200}
                       />
-                      <span className="settings-help">If supplied, it must match your verified domain.</span>
+                      <span className="settings-help">
+                        If supplied, it must match your verified domain.
+                      </span>
                     </label>
                   </div>
                 )}
@@ -238,9 +254,11 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                     className="form-input dm-modal-textarea"
                     value={text}
                     onChange={(event) => setText(event.target.value.slice(0, maxLength))}
-                    placeholder={isBusinessSender
-                      ? 'Give the creator the short version of the brief.'
-                      : 'Say what you play, or why you are reaching out. Keep it short.'}
+                    placeholder={
+                      isBusinessSender
+                        ? 'Give the creator the short version of the brief.'
+                        : 'Say what you play, or why you are reaching out. Keep it short.'
+                    }
                     rows={4}
                     maxLength={maxLength}
                     required
@@ -260,7 +278,11 @@ const MessageRequestModal = ({ open, profile, onClose }) => {
                   </p>
                 )}
                 <div className="dm-modal-actions">
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={sending || !text.trim() || !businessReady}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={sending || !text.trim() || !businessReady}
+                  >
                     {sending ? 'Sending…' : 'Send request'}
                   </button>
                   <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>

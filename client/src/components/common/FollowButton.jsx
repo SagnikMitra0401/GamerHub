@@ -7,7 +7,7 @@ const FollowButton = ({ username, initialFollowing, onToggle }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [following, setFollowing] = useState(initialFollowing);
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (user?.username === username) return null; // don't show on own profile
 
@@ -19,8 +19,10 @@ const FollowButton = ({ username, initialFollowing, onToggle }) => {
       const { data } = await axiosInstance.post(`/users/${username}/follow`);
       setFollowing(data.following);
       onToggle?.(data);
-    } catch {}
-    finally { setLoading(false); }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -44,7 +44,13 @@ const BroadcastChannel = require('../server/models/BroadcastChannel');
 const Notification = require('../server/models/Notification');
 
 const {
-  api, check, report, setBase, registerUser, connectSocket, waitFor
+  api,
+  check,
+  report,
+  setBase,
+  registerUser,
+  connectSocket,
+  waitFor,
 } = require('./lib/e2e-harness');
 
 async function uploadTooLargePost(base, cookie) {
@@ -54,10 +60,14 @@ async function uploadTooLargePost(base, cookie) {
   const res = await fetch(`${base}/api/posts`, {
     method: 'POST',
     headers: { cookie },
-    body: form
+    body: form,
   });
   let data = null;
-  try { data = await res.json(); } catch { data = null; }
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
   return { status: res.status, data };
 }
 
@@ -79,7 +89,7 @@ async function run() {
     const storyResponse = await api('/api/stories', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { text: 'Ranked grind starts now', visibility: 'followers', background: 'ocean' }
+      body: { text: 'Ranked grind starts now', visibility: 'followers', background: 'ocean' },
     });
     check('a text status is created for followers', () => {
       assert.equal(storyResponse.status, 201, JSON.stringify(storyResponse.data));
@@ -91,10 +101,16 @@ async function run() {
     const bobBeforeFollow = await api('/api/stories', { cookie: bob.cookie });
     check('a non-follower does not see a followers-only story', () => {
       assert.equal(bobBeforeFollow.status, 200);
-      assert.equal(bobBeforeFollow.data.some((group) => group.author._id === alice.id), false);
+      assert.equal(
+        bobBeforeFollow.data.some((group) => group.author._id === alice.id),
+        false,
+      );
     });
 
-    const deniedView = await api(`/api/stories/${storyId}/view`, { method: 'POST', cookie: bob.cookie });
+    const deniedView = await api(`/api/stories/${storyId}/view`, {
+      method: 'POST',
+      cookie: bob.cookie,
+    });
     check('a non-follower cannot mark a followers-only story as viewed', () => {
       assert.equal(deniedView.status, 403);
     });
@@ -110,8 +126,14 @@ async function run() {
       assert.equal(group.stories[0].seen, false);
     });
 
-    const firstView = await api(`/api/stories/${storyId}/view`, { method: 'POST', cookie: bob.cookie });
-    const secondView = await api(`/api/stories/${storyId}/view`, { method: 'POST', cookie: bob.cookie });
+    const firstView = await api(`/api/stories/${storyId}/view`, {
+      method: 'POST',
+      cookie: bob.cookie,
+    });
+    const secondView = await api(`/api/stories/${storyId}/view`, {
+      method: 'POST',
+      cookie: bob.cookie,
+    });
     check('viewing is idempotent and counts once', () => {
       assert.equal(firstView.status, 200, JSON.stringify(firstView.data));
       assert.equal(firstView.data.counted, true);
@@ -123,7 +145,9 @@ async function run() {
       assert.equal(storyDoc.viewCount, 1);
     });
 
-    const viewerRows = await StoryView.countDocuments({ storyId: new mongoose.Types.ObjectId(storyId) });
+    const viewerRows = await StoryView.countDocuments({
+      storyId: new mongoose.Types.ObjectId(storyId),
+    });
     check('a single receipt row exists for the viewer', () => {
       assert.equal(viewerRows, 1);
     });
@@ -144,10 +168,16 @@ async function run() {
     const afterExpiry = await api('/api/stories', { cookie: alice.cookie });
     check('an expired story disappears from the rail', () => {
       assert.equal(afterExpiry.status, 200);
-      assert.equal(afterExpiry.data.some((group) => group.author._id === alice.id), false);
+      assert.equal(
+        afterExpiry.data.some((group) => group.author._id === alice.id),
+        false,
+      );
     });
 
-    const expiredView = await api(`/api/stories/${storyId}/view`, { method: 'POST', cookie: bob.cookie });
+    const expiredView = await api(`/api/stories/${storyId}/view`, {
+      method: 'POST',
+      cookie: bob.cookie,
+    });
     check('an expired story cannot be viewed by id', () => {
       assert.equal(expiredView.status, 404);
     });
@@ -155,16 +185,22 @@ async function run() {
     const secondStory = await api('/api/stories', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { text: 'Second status', visibility: 'public' }
+      body: { text: 'Second status', visibility: 'public' },
     });
     const secondStoryId = String(secondStory.data._id);
 
-    const foreignDelete = await api(`/api/stories/${secondStoryId}`, { method: 'DELETE', cookie: bob.cookie });
+    const foreignDelete = await api(`/api/stories/${secondStoryId}`, {
+      method: 'DELETE',
+      cookie: bob.cookie,
+    });
     check('another account cannot delete your story', () => {
       assert.equal(foreignDelete.status, 403);
     });
 
-    const ownedDelete = await api(`/api/stories/${secondStoryId}`, { method: 'DELETE', cookie: alice.cookie });
+    const ownedDelete = await api(`/api/stories/${secondStoryId}`, {
+      method: 'DELETE',
+      cookie: alice.cookie,
+    });
     check('the author can delete their own story', () => {
       assert.equal(ownedDelete.status, 200, JSON.stringify(ownedDelete.data));
     });
@@ -185,9 +221,9 @@ async function run() {
           url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           title: 'Clutch',
           description: 'A round',
-          image: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg'
-        })
-      }
+          image: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        }),
+      },
     });
     check('a YouTube link post derives its id server-side', () => {
       assert.equal(youtubePost.status, 201, JSON.stringify(youtubePost.data));
@@ -199,8 +235,14 @@ async function run() {
     check('the clips filter only returns uploaded video rows', () => {
       assert.equal(videoFeed.status, 200);
       assert.equal(Array.isArray(videoFeed.data), true);
-      assert.equal(videoFeed.data.some((post) => post._id === youtubePost.data._id), false);
-      assert.equal(videoFeed.data.every((post) => post.mediaType === 'video'), true);
+      assert.equal(
+        videoFeed.data.some((post) => post._id === youtubePost.data._id),
+        false,
+      );
+      assert.equal(
+        videoFeed.data.every((post) => post.mediaType === 'video'),
+        true,
+      );
     });
 
     const oversized = await uploadTooLargePost(base, alice.cookie);
@@ -213,7 +255,7 @@ async function run() {
     const created = await api('/api/channels', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { name: 'Patch Notes', description: 'Every update, one place.', category: 'news' }
+      body: { name: 'Patch Notes', description: 'Every update, one place.', category: 'news' },
     });
     check('an account can create a broadcast channel', () => {
       assert.equal(created.status, 201, JSON.stringify(created.data));
@@ -226,14 +268,20 @@ async function run() {
     const foreignPublish = await api('/api/channels/patch-notes/messages', {
       method: 'POST',
       cookie: bob.cookie,
-      body: { text: 'Not my channel' }
+      body: { text: 'Not my channel' },
     });
     check('a non-owner cannot publish', () => {
       assert.equal(foreignPublish.status, 403);
     });
 
-    const subscribed = await api('/api/channels/patch-notes/subscribe', { method: 'POST', cookie: bob.cookie });
-    const subscribedAgain = await api('/api/channels/patch-notes/subscribe', { method: 'POST', cookie: bob.cookie });
+    const subscribed = await api('/api/channels/patch-notes/subscribe', {
+      method: 'POST',
+      cookie: bob.cookie,
+    });
+    const subscribedAgain = await api('/api/channels/patch-notes/subscribe', {
+      method: 'POST',
+      cookie: bob.cookie,
+    });
     check('subscribing is idempotent and counts once', () => {
       assert.equal(subscribed.status, 200, JSON.stringify(subscribed.data));
       assert.equal(subscribed.data.created, true);
@@ -248,7 +296,7 @@ async function run() {
     const firstPublish = await api('/api/channels/patch-notes/messages', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { text: 'Servers restart at 02:00 UTC.' }
+      body: { text: 'Servers restart at 02:00 UTC.' },
     });
     check('the owner can publish', () => {
       assert.equal(firstPublish.status, 201, JSON.stringify(firstPublish.data));
@@ -261,7 +309,10 @@ async function run() {
       assert.equal(inbox.data.subscriptions[0].unread, 1);
     });
 
-    const notificationCount = await Notification.countDocuments({ userId: bob.id, type: 'broadcast' });
+    const notificationCount = await Notification.countDocuments({
+      userId: bob.id,
+      type: 'broadcast',
+    });
     check('publishing creates one broadcast notification per post', () => {
       assert.equal(notificationCount, 1);
     });
@@ -275,7 +326,7 @@ async function run() {
     const muted = await api('/api/channels/patch-notes/subscription', {
       method: 'PATCH',
       cookie: bob.cookie,
-      body: { muted: true }
+      body: { muted: true },
     });
     check('a subscriber can mute a channel', () => {
       assert.equal(muted.status, 200, JSON.stringify(muted.data));
@@ -285,7 +336,7 @@ async function run() {
     const mutedPublish = await api('/api/channels/patch-notes/messages', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { text: 'Muted update' }
+      body: { text: 'Muted update' },
     });
     const afterMuted = await Notification.countDocuments({ userId: bob.id, type: 'broadcast' });
     check('a muted channel publishes without a notification', () => {
@@ -296,13 +347,17 @@ async function run() {
     await api('/api/channels/patch-notes/subscription', {
       method: 'PATCH',
       cookie: bob.cookie,
-      body: { muted: false }
+      body: { muted: false },
     });
 
     // ── Realtime subscription ───────────────────────────────────────────────
     const bobSocket = await connectSocket(bob.token);
     bobSocket.emit('join_broadcast', { channelId });
-    const joined = await waitFor(bobSocket, 'joined_broadcast', (payload) => payload.channelId === channelId);
+    const joined = await waitFor(
+      bobSocket,
+      'joined_broadcast',
+      (payload) => payload.channelId === channelId,
+    );
     check('a subscriber joins the broadcast room', () => {
       assert.ok(joined, 'join acknowledgement');
     });
@@ -311,7 +366,7 @@ async function run() {
     await api('/api/channels/patch-notes/messages', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { text: 'Live patch notes are here.' }
+      body: { text: 'Live patch notes are here.' },
     });
     const livePayload = await liveEvent;
     check('a published post reaches subscribers live', () => {
@@ -319,7 +374,10 @@ async function run() {
       assert.equal(livePayload.text, 'Live patch notes are here.');
     });
 
-    const unmutedNotifications = await Notification.countDocuments({ userId: bob.id, type: 'broadcast' });
+    const unmutedNotifications = await Notification.countDocuments({
+      userId: bob.id,
+      type: 'broadcast',
+    });
     check('unmuting restores notifications for the next post', () => {
       assert.equal(unmutedNotifications, 2);
     });
@@ -333,16 +391,16 @@ async function run() {
 
     const foreignDeleteMessage = await api(
       `/api/channels/patch-notes/messages/${livePayload._id}`,
-      { method: 'DELETE', cookie: bob.cookie }
+      { method: 'DELETE', cookie: bob.cookie },
     );
     check('a subscriber cannot delete a post', () => {
       assert.equal(foreignDeleteMessage.status, 403);
     });
 
-    const ownerDeleteMessage = await api(
-      `/api/channels/patch-notes/messages/${livePayload._id}`,
-      { method: 'DELETE', cookie: alice.cookie }
-    );
+    const ownerDeleteMessage = await api(`/api/channels/patch-notes/messages/${livePayload._id}`, {
+      method: 'DELETE',
+      cookie: alice.cookie,
+    });
     check('the owner can delete a post', () => {
       assert.equal(ownerDeleteMessage.status, 200, JSON.stringify(ownerDeleteMessage.data));
     });
@@ -356,7 +414,11 @@ async function run() {
 
     const daveSocket = await connectSocket(dave.token);
     daveSocket.emit('join_broadcast', { channelId });
-    const deniedJoin = await waitFor(daveSocket, 'error_msg', (payload) => payload.code === 'FORBIDDEN');
+    const deniedJoin = await waitFor(
+      daveSocket,
+      'error_msg',
+      (payload) => payload.code === 'FORBIDDEN',
+    );
     check('the socket room refuses a non-subscriber of a private channel', () => {
       assert.ok(deniedJoin, 'FORBIDDEN error');
     });
@@ -368,17 +430,17 @@ async function run() {
     const second = await api('/api/channels', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { name: 'Second channel' }
+      body: { name: 'Second channel' },
     });
     const third = await api('/api/channels', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { name: 'Third channel' }
+      body: { name: 'Third channel' },
     });
     const fourth = await api('/api/channels', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { name: 'Fourth channel' }
+      body: { name: 'Fourth channel' },
     });
     check('an account can own up to three channels', () => {
       assert.equal(second.status, 201, JSON.stringify(second.data));

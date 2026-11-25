@@ -32,50 +32,53 @@ const RULES = [
     id: 'negative-parallelism',
     severity: 'P1',
     pattern: /\bnot (just|merely|only)\b[^.!?]{0,80}\bbut\b/i,
-    hint: 'negative parallelism'
+    hint: 'negative parallelism',
   },
   {
     id: 'hedge-stack',
     severity: 'P1',
-    pattern: /\b(it'?s important to note|it should be noted|needless to say|arguably|it'?s worth noting)\b/i,
-    hint: 'hedge stack'
+    pattern:
+      /\b(it'?s important to note|it should be noted|needless to say|arguably|it'?s worth noting)\b/i,
+    hint: 'hedge stack',
   },
   {
     id: 'stock-opener',
     severity: 'P1',
-    pattern: /\b(in today'?s|let'?s dive|when it comes to|at the end of the day|in the world of|in the realm of)\b/i,
-    hint: 'stock opener or transition'
+    pattern:
+      /\b(in today'?s|let'?s dive|when it comes to|at the end of the day|in the world of|in the realm of)\b/i,
+    hint: 'stock opener or transition',
   },
   {
     id: 'colon-reveal',
     severity: 'P1',
     pattern: /\b(the best part|here'?s the thing|the catch|the kicker)\s*:/i,
-    hint: 'colon reveal'
+    hint: 'colon reveal',
   },
   {
     id: 'false-agency',
     severity: 'P1',
     pattern: /\b(the (data|numbers|code|algorithm|market) (tells|says|wants|decides|knows))\b/i,
-    hint: 'false agency'
+    hint: 'false agency',
   },
   {
     id: 'vague-authority',
     severity: 'P1',
     pattern: /\b(experts|studies|research|scientists|many) (say|says|show|shows|agree|suggest)\b/i,
-    hint: 'vague authority'
+    hint: 'vague authority',
   },
   {
     id: 'stock-metaphor',
     severity: 'P1',
-    pattern: /\b(north star|game changer|double-edged sword|beacon of|rich tapestry|delve into|treasure trove)\b/i,
-    hint: 'stock metaphor'
+    pattern:
+      /\b(north star|game changer|double-edged sword|beacon of|rich tapestry|delve into|treasure trove)\b/i,
+    hint: 'stock metaphor',
   },
   {
     id: 'triad',
     severity: 'P2',
     pattern: /\b[\w'’-]+, [\w'’-]+, and [\w'’-]+\b/,
-    hint: 'possible decorative triad'
-  }
+    hint: 'possible decorative triad',
+  },
 ];
 
 function walk(dir, out = []) {
@@ -98,24 +101,35 @@ function walk(dir, out = []) {
   return out;
 }
 
-const COPY_PROP = /(placeholder|title|label|message|confirmText|aria-label|alt|text|content)=\s*(["'`])([^"'`\n]{12,})\2/g;
+const COPY_PROP =
+  /(placeholder|title|label|message|confirmText|aria-label|alt|text|content)=\s*(["'`])([^"'`\n]{12,})\2/g;
 const LITERAL = /(["'`])([^"'`\n]{12,})\1/g;
 const CODEISH = /[=;(){}[\]]|=>|::|\.jsx?|https?:/;
 
 /** Reader-visible text from one line, with expressions and markup stripped. */
 function proseFromLine(line, rel) {
   if (rel.endsWith('.md')) {
-    return line.replace(/^\s*(#{1,6}|[-*]|\d+\.)\s*/, '').replace(/[*_`]/g, '').trim();
+    return line
+      .replace(/^\s*(#{1,6}|[-*]|\d+\.)\s*/, '')
+      .replace(/[*_`]/g, '')
+      .trim();
   }
 
   if (COPY_FILES.has(rel)) {
     // Email bodies are template literals and HTML strings; the whole line is copy.
-    return line.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return line
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   // Comments are notes to developers, not copy.
   if (/^\s*(\/\/|\/\*|\*)/.test(line)) return '';
-  if (/^\s*(import|export|const|let|var|function|return|if|for|while|switch|case|try|catch)/.test(line)) {
+  if (
+    /^\s*(import|export|const|let|var|function|return|if|for|while|switch|case|try|catch)/.test(
+      line,
+    )
+  ) {
     return '';
   }
 
@@ -166,14 +180,16 @@ function scan() {
   const roots = [
     path.join(ROOT, 'client', 'src'),
     path.join(ROOT, 'docs', 'legal'),
-    path.join(ROOT, 'server', 'utils')
+    path.join(ROOT, 'server', 'utils'),
   ];
-  const files = roots.flatMap((root) => walk(root)).filter((file) => {
-    const rel = path.relative(ROOT, file).split(path.sep).join('/');
-    if (rel.startsWith('client/src/')) return true;
-    if (rel.startsWith('docs/legal/')) return true;
-    return COPY_FILES.has(rel);
-  });
+  const files = roots
+    .flatMap((root) => walk(root))
+    .filter((file) => {
+      const rel = path.relative(ROOT, file).split(path.sep).join('/');
+      if (rel.startsWith('client/src/')) return true;
+      if (rel.startsWith('docs/legal/')) return true;
+      return COPY_FILES.has(rel);
+    });
 
   const findings = [];
 
@@ -197,7 +213,7 @@ function scan() {
           rule: 'em-dash-budget',
           severity: 'P1',
           excerpt: `${emDashes} em dashes in ${totalWords} words of copy`,
-          hint: 'punctuation budget'
+          hint: 'punctuation budget',
         });
       }
       const bangBudget = Math.max(1, Math.floor(totalWords / 1000));
@@ -208,7 +224,7 @@ function scan() {
           rule: 'exclamation-budget',
           severity: 'P1',
           excerpt: `${bangs} exclamation marks in ${totalWords} words of copy`,
-          hint: 'punctuation budget'
+          hint: 'punctuation budget',
         });
       }
     }
@@ -224,7 +240,7 @@ function scan() {
           rule: rule.id,
           severity: rule.severity,
           excerpt: entry.prose.slice(0, 150),
-          hint: rule.hint
+          hint: rule.hint,
         });
       }
     }
@@ -252,7 +268,7 @@ if (!findings.length) {
   }
   console.log(
     `\nprose scan: ${findings.length} finding${findings.length === 1 ? '' : 's'}` +
-      ` (${failing.length} P0/P1)`
+      ` (${failing.length} P0/P1)`,
   );
 }
 

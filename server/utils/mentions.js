@@ -38,5 +38,5 @@ module.exports = {
   MAX_MENTIONS_PER_MESSAGE,
   extractMentionNames,
   replyPreview,
-  mentionsEveryone
+  mentionsEveryone,
 };

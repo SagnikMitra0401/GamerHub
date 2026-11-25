@@ -23,7 +23,7 @@ async function releaseExpiredSuspension(user, now = new Date()) {
   const previous = user.moderation?.previousStatus || 'active';
   await User.updateOne(
     { _id: user._id, status: SUSPENDED },
-    { $set: { status: previous, 'moderation.until': null, 'moderation.reason': '' } }
+    { $set: { status: previous, 'moderation.until': null, 'moderation.reason': '' } },
   );
   // The document is a hydrated model in the auth middleware and a plain object
   // in login; assigning works for both.
@@ -35,11 +35,13 @@ async function releaseExpiredSuspension(user, now = new Date()) {
 const STATUS_ACTIONS = Object.freeze({
   restrict: 'restricted',
   suspend: SUSPENDED,
-  reinstate: 'active'
+  reinstate: 'active',
 });
 
 function moderationReason(value) {
-  return String(value || '').trim().slice(0, 300);
+  return String(value || '')
+    .trim()
+    .slice(0, 300);
 }
 
 module.exports = {
@@ -47,5 +49,5 @@ module.exports = {
   STATUS_ACTIONS,
   suspensionExpired,
   releaseExpiredSuspension,
-  moderationReason
+  moderationReason,
 };

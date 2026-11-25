@@ -1,5 +1,5 @@
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const { protect, optionalProtect, activeOnly } = require('../middleware/auth');
 const {
   getProfile,
@@ -11,7 +11,7 @@ const {
   searchAll,
   updateGamerPassport,
   updatePreferences,
-  updatePresence
+  updatePresence,
 } = require('../controllers/userController');
 const { toggleMute, getMutedUsers } = require('../controllers/moderationController');
 const { updatePrivacySettings } = require('../controllers/accountController');
@@ -20,24 +20,24 @@ const { searchLimiter } = require('../middleware/limiters');
 // Search & Passport (must be before /:username to avoid route collision).
 // The limiter sits after optionalProtect so a signed-in caller is keyed by
 // account rather than by the office NAT.
-router.get('/search',         optionalProtect, searchLimiter, searchAll);
-router.put('/me/passport',    protect,         updateGamerPassport);
-router.patch('/me/preferences', protect,       updatePreferences);
-router.patch('/presence',     protect,         updatePresence);
-router.patch('/privacy-settings', protect,      updatePrivacySettings);
-router.get('/me/saved',       protect,         getSavedPosts);
-router.get('/me/muted',       protect,         getMutedUsers);
+router.get('/search', optionalProtect, searchLimiter, searchAll);
+router.put('/me/passport', protect, updateGamerPassport);
+router.patch('/me/preferences', protect, updatePreferences);
+router.patch('/presence', protect, updatePresence);
+router.patch('/privacy-settings', protect, updatePrivacySettings);
+router.get('/me/saved', protect, getSavedPosts);
+router.get('/me/muted', protect, getMutedUsers);
 
 // Personal mute (hides their content from YOUR view; not a moderation action)
-router.post('/:id/mute',      protect,         toggleMute);
+router.post('/:id/mute', protect, toggleMute);
 
 // Public routes (with optional auth for isFollowing flag)
-router.get('/:username',       optionalProtect, getProfile);
+router.get('/:username', optionalProtect, getProfile);
 router.get('/:username/posts', optionalProtect, getUserPosts);
 
 // Protected routes
-router.post('/:username/follow',   protect, activeOnly, toggleFollow);
-router.post('/saved/:postId',      protect, activeOnly, toggleSavePost);
+router.post('/:username/follow', protect, activeOnly, toggleFollow);
+router.post('/saved/:postId', protect, activeOnly, toggleSavePost);
 router.post('/channels/favourite', protect, toggleFavouriteChannel);
 
 module.exports = router;

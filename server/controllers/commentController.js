@@ -19,10 +19,14 @@ const createComment = async (req, res, next) => {
     const text = sanitizeText(req.body.text, MAX_COMMENT);
     if (!text) throw badRequest('Comment text required');
 
-    const post = await Post.findById(postId).select('userId hiddenAt').populate('userId', 'status').lean();
+    const post = await Post.findById(postId)
+      .select('userId hiddenAt')
+      .populate('userId', 'status')
+      .lean();
     if (!post) throw notFound('Post not found');
     if (post.hiddenAt) throw notFound('Post not found');
-    if (['frozen', 'suspended', 'deleted'].includes(post.userId?.status)) throw notFound('Post not found');
+    if (['frozen', 'suspended', 'deleted'].includes(post.userId?.status))
+      throw notFound('Post not found');
 
     const comment = await Comment.create({ postId, userId: req.user._id, text });
     recordFirstEvent('first_comment', req.user._id, { surface: 'post' });
@@ -47,11 +51,16 @@ const getCommentsForPost = async (req, res, next) => {
     if (!mongoose.Types.ObjectId.isValid(postId)) throw badRequest('Invalid post id');
 
     // A frozen author's post is not readable, so neither is its comment thread.
-    const post = await Post.findById(postId).select('userId hiddenAt').populate('userId', 'status').lean();
+    const post = await Post.findById(postId)
+      .select('userId hiddenAt')
+      .populate('userId', 'status')
+      .lean();
     if (!post) throw notFound('Post not found');
     if (post.hiddenAt) throw notFound('Post not found');
-    if (['frozen', 'suspended', 'deleted'].includes(post.userId?.status)
-      && String(req.user?._id) !== String(post.userId._id)) {
+    if (
+      ['frozen', 'suspended', 'deleted'].includes(post.userId?.status) &&
+      String(req.user?._id) !== String(post.userId._id)
+    ) {
       throw notFound('Post not found');
     }
 
@@ -88,7 +97,7 @@ const deleteComment = async (req, res, next) => {
     // Only decrement when the counter is positive, so it can never go negative.
     await Post.updateOne(
       { _id: req.resource.postId, commentCount: { $gt: 0 } },
-      { $inc: { commentCount: -1 } }
+      { $inc: { commentCount: -1 } },
     );
     await req.resource.deleteOne();
     res.status(200).json({ message: 'Comment deleted' });

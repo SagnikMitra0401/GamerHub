@@ -28,7 +28,7 @@ const PostActions = ({
   onComment,
   saved = false,
   onSave,
-  saveBusy = false
+  saveBusy = false,
 }) => {
   const [canSpark] = useState(detectSparks);
   const [popping, setPopping] = useState(false);
@@ -36,24 +36,24 @@ const PostActions = ({
   const [burstKey, setBurstKey] = useState(0);
   const [snapping, setSnapping] = useState(false);
 
-  const handleLike = event => {
+  const handleLike = (event) => {
     if (!liked) {
       setPopping(true);
       if (canSpark) {
-        setBurstKey(key => key + 1);
+        setBurstKey((key) => key + 1);
         setBursting(true);
       }
     }
     onLike?.(event);
   };
 
-  const handleSave = event => {
+  const handleSave = (event) => {
     if (!saved) setSnapping(true);
     onSave?.(event);
   };
 
   return (
-    <div className="post-actions" onClick={event => event.stopPropagation()}>
+    <div className="post-actions" onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
         className={`action-btn action-like ${liked ? 'is-on' : ''} ${popping ? 'is-popping' : ''}`}
@@ -76,7 +76,7 @@ const PostActions = ({
               aria-hidden="true"
               onAnimationEnd={() => setBursting(false)}
             >
-              {SPARKS.map(angle => (
+              {SPARKS.map((angle) => (
                 <i key={angle} style={{ '--a': `${angle}deg` }} />
               ))}
             </span>
@@ -88,7 +88,7 @@ const PostActions = ({
       <button
         type="button"
         className="action-btn action-comment"
-        onClick={event => onComment?.(event)}
+        onClick={(event) => onComment?.(event)}
         aria-label={`View ${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}
         title="Comments"
       >

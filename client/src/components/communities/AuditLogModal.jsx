@@ -4,20 +4,20 @@ import axiosInstance from '../../api/axiosInstance';
 import { CloseIcon, ArrowRightIcon } from '../common/icons';
 
 const ACTION_META = {
-  ROLE_UPDATE:     { label: 'Role changed' },
-  MEMBER_ADD:      { label: 'Member added' },
-  MEMBER_KICK:     { label: 'Member removed' },
-  CHANNEL_CREATE:  { label: 'Channel created' },
-  CHANNEL_UPDATE:  { label: 'Channel updated' },
-  CHANNEL_DELETE:  { label: 'Channel deleted' },
-  MESSAGE_PURGE:   { label: 'Message purged' },
+  ROLE_UPDATE: { label: 'Role changed' },
+  MEMBER_ADD: { label: 'Member added' },
+  MEMBER_KICK: { label: 'Member removed' },
+  CHANNEL_CREATE: { label: 'Channel created' },
+  CHANNEL_UPDATE: { label: 'Channel updated' },
+  CHANNEL_DELETE: { label: 'Channel deleted' },
+  MESSAGE_PURGE: { label: 'Message purged' },
   SETTINGS_UPDATE: { label: 'Server settings changed' },
-  INVITE_CREATE:   { label: 'Invite link created' },
-  INVITE_REVOKE:   { label: 'Invite link revoked' },
-  INVITE_JOIN:     { label: 'Joined via invite link' },
-  INVITE_REQUEST:  { label: 'Requested to join via invite' },
-  INVITE_APPROVE:  { label: 'Join request approved' },
-  INVITE_DENY:     { label: 'Join request declined' }
+  INVITE_CREATE: { label: 'Invite link created' },
+  INVITE_REVOKE: { label: 'Invite link revoked' },
+  INVITE_JOIN: { label: 'Joined via invite link' },
+  INVITE_REQUEST: { label: 'Requested to join via invite' },
+  INVITE_APPROVE: { label: 'Join request approved' },
+  INVITE_DENY: { label: 'Join request declined' },
 };
 
 const describe = (entry) => {
@@ -75,23 +75,26 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
   // "Invites" narrows the log to who created links and who joined through them.
   const [scope, setScope] = useState('');
 
-  const load = useCallback(async (before = null) => {
-    if (!communityId) return;
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams({ limit: '30' });
-      if (before) params.set('before', before);
-      if (scope) params.set('scope', scope);
-      const { data } = await axiosInstance.get(`/communities/${communityId}/audit?${params}`);
-      setEntries(prev => (before ? [...prev, ...(data.entries || [])] : (data.entries || [])));
-      setHasMore(!!data.hasMore);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Could not load the audit log.');
-    } finally {
-      setLoading(false);
-    }
-  }, [communityId, scope]);
+  const load = useCallback(
+    async (before = null) => {
+      if (!communityId) return;
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams({ limit: '30' });
+        if (before) params.set('before', before);
+        if (scope) params.set('scope', scope);
+        const { data } = await axiosInstance.get(`/communities/${communityId}/audit?${params}`);
+        setEntries((prev) => (before ? [...prev, ...(data.entries || [])] : data.entries || []));
+        setHasMore(!!data.hasMore);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not load the audit log.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [communityId, scope],
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -109,16 +112,26 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
   };
 
   return ReactDOM.createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="audit-title">
-      <div className="modal-box audit-box" onClick={e => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="audit-title"
+    >
+      <div className="modal-box audit-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           <div>
-            <h2 id="audit-title" className="modal-title" style={{ margin: 0 }}>Audit Log</h2>
+            <h2 id="audit-title" className="modal-title" style={{ margin: 0 }}>
+              Audit Log
+            </h2>
             <p className="text-muted" style={{ fontSize: '0.78rem', margin: '0.2rem 0 0' }}>
               Every administrative action in this server, newest first.
             </p>
           </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+          <button onClick={onClose} className="modal-close" aria-label="Close">
+            <CloseIcon size={16} />
+          </button>
         </div>
 
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
@@ -138,7 +151,11 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
           </button>
         </div>
 
-        {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
+        {error && (
+          <div className="form-error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+          </div>
+        )}
 
         <div className="audit-list">
           {loading && entries.length === 0 && <div className="spinner" />}
@@ -149,7 +166,7 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
             </p>
           )}
 
-          {entries.map(entry => {
+          {entries.map((entry) => {
             const meta = ACTION_META[entry.actionType] || { label: entry.actionType };
             const detail = describe(entry);
             return (
@@ -176,7 +193,7 @@ const AuditLogModal = ({ isOpen, onClose, communityId }) => {
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

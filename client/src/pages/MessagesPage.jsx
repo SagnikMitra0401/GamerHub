@@ -11,30 +11,30 @@ const FOLDERS = [
   { key: 'requests', label: 'Requests' },
   { key: 'filtered', label: 'Filtered' },
   { key: 'sent', label: 'Sent' },
-  { key: 'archived', label: 'Archived' }
+  { key: 'archived', label: 'Archived' },
 ];
 
 const EMPTY_COPY = {
   inbox: {
     title: 'No conversations yet',
-    body: 'When you and another player both agree to talk, the thread lives here. Open a profile to start with a request.'
+    body: 'When you and another player both agree to talk, the thread lives here. Open a profile to start with a request.',
   },
   requests: {
     title: 'No pending requests',
-    body: 'First messages from people outside your trusted circle wait here. Nothing is delivered until you accept.'
+    body: 'First messages from people outside your trusted circle wait here. Nothing is delivered until you accept.',
   },
   filtered: {
     title: 'Nothing filtered',
-    body: 'Requests that match your hidden words, or look like repeated bulk outreach, wait here instead of the main request lane.'
+    body: 'Requests that match your hidden words, or look like repeated bulk outreach, wait here instead of the main request lane.',
   },
   sent: {
     title: 'No sent requests',
-    body: 'Requests you start appear here while you wait. They expire after 14 days, and you can only send one to a player every 30 days.'
+    body: 'Requests you start appear here while you wait. They expire after 14 days, and you can only send one to a player every 30 days.',
   },
   archived: {
     title: 'Nothing archived',
-    body: 'Archive a conversation to clear it out of your inbox without deleting its history.'
-  }
+    body: 'Archive a conversation to clear it out of your inbox without deleting its history.',
+  },
 };
 
 function timeAgo(value) {
@@ -83,12 +83,15 @@ const MessagesPage = () => {
   const [busy, setBusy] = useState(null);
   const [actionError, setActionError] = useState('');
 
-  const selectThread = useCallback((id) => {
-    const next = new URLSearchParams(searchParams);
-    if (id) next.set('thread', id);
-    else next.delete('thread');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+  const selectThread = useCallback(
+    (id) => {
+      const next = new URLSearchParams(searchParams);
+      if (id) next.set('thread', id);
+      else next.delete('thread');
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   /** Leave the thread and stay on the conversation list. */
   const closeThread = useCallback(() => {
@@ -191,8 +194,8 @@ const MessagesPage = () => {
       const { data } = await axiosInstance.patch('/account/dm-settings', {
         savedFilters: [
           ...savedFilters.filter((entry) => entry.name.toLowerCase() !== name.toLowerCase()),
-          { name, folder, scope, unreadOnly }
-        ]
+          { name, folder, scope, unreadOnly },
+        ],
       });
       setSavedFilters(data.dmSettings?.savedFilters || []);
       setFilterName('');
@@ -204,7 +207,7 @@ const MessagesPage = () => {
   const removeSavedFilter = async (name) => {
     try {
       const { data } = await axiosInstance.patch('/account/dm-settings', {
-        savedFilters: savedFilters.filter((entry) => entry.name !== name)
+        savedFilters: savedFilters.filter((entry) => entry.name !== name),
       });
       setSavedFilters(data.dmSettings?.savedFilters || []);
     } catch (err) {
@@ -212,32 +215,35 @@ const MessagesPage = () => {
     }
   };
 
-  const refreshList = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setListLoading(true);
-    try {
-      const query = new URLSearchParams({ folder });
-      if (!sharedMode && scope !== 'all') query.set('scope', scope);
-      if (unreadOnly) query.set('unread', '1');
-      const endpoint = sharedMode
-        ? `/messages/team/${teamOwner}/conversations?${query.toString()}`
-        : `/messages/conversations?${query.toString()}`;
-      const { data } = await axiosInstance.get(endpoint);
-      setItems(Array.isArray(data.items) ? data.items : []);
-      setCounts({
-        requests: Number(data?.counts?.requests) || 0,
-        filtered: Number(data?.counts?.filtered) || 0,
-        unread: Number(data?.counts?.unread) || 0,
-        inbox: Number(data?.counts?.inbox) || 0
-      });
-      setQuickReplies(sharedMode || !Array.isArray(data?.quickReplies) ? [] : data.quickReplies);
-      setSavedFilters(sharedMode || !Array.isArray(data?.savedFilters) ? [] : data.savedFilters);
-      setListError('');
-    } catch (err) {
-      setListError(err.response?.data?.message || 'Could not load your inbox.');
-    } finally {
-      if (showSpinner) setListLoading(false);
-    }
-  }, [folder, scope, unreadOnly, sharedMode, teamOwner]);
+  const refreshList = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setListLoading(true);
+      try {
+        const query = new URLSearchParams({ folder });
+        if (!sharedMode && scope !== 'all') query.set('scope', scope);
+        if (unreadOnly) query.set('unread', '1');
+        const endpoint = sharedMode
+          ? `/messages/team/${teamOwner}/conversations?${query.toString()}`
+          : `/messages/conversations?${query.toString()}`;
+        const { data } = await axiosInstance.get(endpoint);
+        setItems(Array.isArray(data.items) ? data.items : []);
+        setCounts({
+          requests: Number(data?.counts?.requests) || 0,
+          filtered: Number(data?.counts?.filtered) || 0,
+          unread: Number(data?.counts?.unread) || 0,
+          inbox: Number(data?.counts?.inbox) || 0,
+        });
+        setQuickReplies(sharedMode || !Array.isArray(data?.quickReplies) ? [] : data.quickReplies);
+        setSavedFilters(sharedMode || !Array.isArray(data?.savedFilters) ? [] : data.savedFilters);
+        setListError('');
+      } catch (err) {
+        setListError(err.response?.data?.message || 'Could not load your inbox.');
+      } finally {
+        if (showSpinner) setListLoading(false);
+      }
+    },
+    [folder, scope, unreadOnly, sharedMode, teamOwner],
+  );
 
   useEffect(() => {
     refreshList(true);
@@ -268,7 +274,8 @@ const MessagesPage = () => {
     const threadUrl = sharedMode
       ? `/messages/team/${teamOwner}/conversations/${activeId}`
       : `/messages/conversations/${activeId}`;
-    axiosInstance.get(threadUrl)
+    axiosInstance
+      .get(threadUrl)
       .then(({ data }) => {
         if (cancelled) return;
         setThread(data);
@@ -277,19 +284,22 @@ const MessagesPage = () => {
             ? `/messages/team/${teamOwner}/conversations/${activeId}/read`
             : `/messages/conversations/${activeId}/read`;
           axiosInstance.post(readUrl).catch(() => {});
-          setItems((previous) => previous.map((item) => (
-            item._id === activeId ? { ...item, unread: 0 } : item
-          )));
+          setItems((previous) =>
+            previous.map((item) => (item._id === activeId ? { ...item, unread: 0 } : item)),
+          );
         }
       })
       .catch((err) => {
-        if (!cancelled) setThreadError(err.response?.data?.message || 'Could not open that conversation.');
+        if (!cancelled)
+          setThreadError(err.response?.data?.message || 'Could not open that conversation.');
       })
       .finally(() => {
         if (!cancelled) setThreadLoading(false);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeId, threadNonce, sharedMode, teamOwner]);
 
   useEffect(() => {
@@ -311,7 +321,8 @@ const MessagesPage = () => {
       if (conversationId === activeId) {
         setThread((previous) => {
           if (!previous) return previous;
-          if (previous.messages.some((message) => message._id === payload.message?._id)) return previous;
+          if (previous.messages.some((message) => message._id === payload.message?._id))
+            return previous;
           // The broadcast carries the *sender's* view of the conversation
           // (counterpart, isRecipient, canReply all point the other way). Only
           // the preview/timestamp are viewer-neutral; keep the local identity
@@ -319,11 +330,16 @@ const MessagesPage = () => {
           return {
             conversation: {
               ...previous.conversation,
-              lastMessageAt: payload.conversation?.lastMessageAt || payload.message?.createdAt || previous.conversation.lastMessageAt,
-              lastMessagePreview: payload.conversation?.lastMessagePreview ?? previous.conversation.lastMessagePreview,
-              unread: 0
+              lastMessageAt:
+                payload.conversation?.lastMessageAt ||
+                payload.message?.createdAt ||
+                previous.conversation.lastMessageAt,
+              lastMessagePreview:
+                payload.conversation?.lastMessagePreview ??
+                previous.conversation.lastMessagePreview,
+              unread: 0,
             },
-            messages: payload.message ? [...previous.messages, payload.message] : previous.messages
+            messages: payload.message ? [...previous.messages, payload.message] : previous.messages,
           };
         });
         axiosInstance.post(`/messages/conversations/${activeId}/read`).catch(() => {});
@@ -338,9 +354,14 @@ const MessagesPage = () => {
 
     const onDeclined = (payload) => {
       if (String(payload?.conversationId) === activeId) {
-        setThread((previous) => (previous
-          ? { ...previous, conversation: { ...previous.conversation, state: 'declined', request: null } }
-          : previous));
+        setThread((previous) =>
+          previous
+            ? {
+                ...previous,
+                conversation: { ...previous.conversation, state: 'declined', request: null },
+              }
+            : previous,
+        );
       }
       refreshList();
     };
@@ -375,82 +396,104 @@ const MessagesPage = () => {
     }
   };
 
-  const accept = () => runAction('accept', async () => {
-    const url = sharedMode
-      ? `/messages/team/${teamOwner}/conversations/${activeId}/accept`
-      : `/messages/conversations/${activeId}/accept`;
-    await axiosInstance.post(url);
-    setThreadNonce((value) => value + 1);
-    await refreshList();
-  });
-
-  const decline = () => runAction('decline', async () => {
-    const url = sharedMode
-      ? `/messages/team/${teamOwner}/conversations/${activeId}/request`
-      : `/messages/conversations/${activeId}/request`;
-    await axiosInstance.delete(url);
-    setThread(null);
-    closeThread();
-    await refreshList();
-  });
-
-  const send = (text) => runAction('send', async () => {
-    const url = sharedMode
-      ? `/messages/team/${teamOwner}/conversations/${activeId}/messages`
-      : `/messages/conversations/${activeId}/messages`;
-    const { data } = await axiosInstance.post(url, { text });
-    setThread((previous) => {
-      if (!previous) return previous;
-      if (previous.messages.some((message) => message._id === data.message?._id)) return previous;
-      const additions = [data.message, data.autoReply]
-        .filter(Boolean)
-        .filter((message, index, list) => list.findIndex((entry) => entry._id === message._id) === index);
-      return {
-        conversation: { ...previous.conversation, ...data.conversation },
-        messages: additions.length ? [...previous.messages, ...additions] : previous.messages
-      };
+  const accept = () =>
+    runAction('accept', async () => {
+      const url = sharedMode
+        ? `/messages/team/${teamOwner}/conversations/${activeId}/accept`
+        : `/messages/conversations/${activeId}/accept`;
+      await axiosInstance.post(url);
+      setThreadNonce((value) => value + 1);
+      await refreshList();
     });
-    await refreshList();
-    return true;
-  });
 
-  const archive = () => runAction('archive', async () => {
-    if (sharedMode) return null;
-    await axiosInstance.post(`/messages/conversations/${activeId}/archive`);
-    setThread(null);
-    closeThread();
-    await refreshList();
-  });
-
-  const mute = (muted) => runAction('mute', async () => {
-    if (sharedMode) return null;
-    const { data } = await axiosInstance.patch(`/messages/conversations/${activeId}/mute`, { muted });
-    setThread((previous) => (previous
-      ? { ...previous, conversation: { ...previous.conversation, ...data.conversation } }
-      : previous));
-    await refreshList();
-  });
-
-  const setLabels = (labels) => runAction('labels', async () => {
-    if (sharedMode) return false;
-    const { data } = await axiosInstance.patch(`/messages/conversations/${activeId}/labels`, { labels });
-    setThread((previous) => (previous
-      ? { ...previous, conversation: { ...previous.conversation, ...data.conversation } }
-      : previous));
-    await refreshList();
-    return true;
-  });
-
-  const report = ({ reason, note, block }) => runAction('report', async () => {
-    if (sharedMode) return null;
-    await axiosInstance.post(`/messages/conversations/${activeId}/report`, { reason, note, block });
-    if (block) {
+  const decline = () =>
+    runAction('decline', async () => {
+      const url = sharedMode
+        ? `/messages/team/${teamOwner}/conversations/${activeId}/request`
+        : `/messages/conversations/${activeId}/request`;
+      await axiosInstance.delete(url);
       setThread(null);
       closeThread();
-    }
-    await refreshList();
-    return true;
-  });
+      await refreshList();
+    });
+
+  const send = (text) =>
+    runAction('send', async () => {
+      const url = sharedMode
+        ? `/messages/team/${teamOwner}/conversations/${activeId}/messages`
+        : `/messages/conversations/${activeId}/messages`;
+      const { data } = await axiosInstance.post(url, { text });
+      setThread((previous) => {
+        if (!previous) return previous;
+        if (previous.messages.some((message) => message._id === data.message?._id)) return previous;
+        const additions = [data.message, data.autoReply]
+          .filter(Boolean)
+          .filter(
+            (message, index, list) =>
+              list.findIndex((entry) => entry._id === message._id) === index,
+          );
+        return {
+          conversation: { ...previous.conversation, ...data.conversation },
+          messages: additions.length ? [...previous.messages, ...additions] : previous.messages,
+        };
+      });
+      await refreshList();
+      return true;
+    });
+
+  const archive = () =>
+    runAction('archive', async () => {
+      if (sharedMode) return null;
+      await axiosInstance.post(`/messages/conversations/${activeId}/archive`);
+      setThread(null);
+      closeThread();
+      await refreshList();
+    });
+
+  const mute = (muted) =>
+    runAction('mute', async () => {
+      if (sharedMode) return null;
+      const { data } = await axiosInstance.patch(`/messages/conversations/${activeId}/mute`, {
+        muted,
+      });
+      setThread((previous) =>
+        previous
+          ? { ...previous, conversation: { ...previous.conversation, ...data.conversation } }
+          : previous,
+      );
+      await refreshList();
+    });
+
+  const setLabels = (labels) =>
+    runAction('labels', async () => {
+      if (sharedMode) return false;
+      const { data } = await axiosInstance.patch(`/messages/conversations/${activeId}/labels`, {
+        labels,
+      });
+      setThread((previous) =>
+        previous
+          ? { ...previous, conversation: { ...previous.conversation, ...data.conversation } }
+          : previous,
+      );
+      await refreshList();
+      return true;
+    });
+
+  const report = ({ reason, note, block }) =>
+    runAction('report', async () => {
+      if (sharedMode) return null;
+      await axiosInstance.post(`/messages/conversations/${activeId}/report`, {
+        reason,
+        note,
+        block,
+      });
+      if (block) {
+        setThread(null);
+        closeThread();
+      }
+      await refreshList();
+      return true;
+    });
 
   const empty = EMPTY_COPY[folder] || EMPTY_COPY.inbox;
 
@@ -473,13 +516,17 @@ const MessagesPage = () => {
                 <strong>Inbox</strong>
                 <span>{counts.unread > 0 ? `${counts.unread} unread` : 'You are caught up'}</span>
               </div>
-              <span className="dm-rail-mark" aria-hidden="true"><MailIcon size={16} /></span>
+              <span className="dm-rail-mark" aria-hidden="true">
+                <MailIcon size={16} />
+              </span>
             </div>
 
             {(teamWorkspaces.length > 0 || teamInvites.length > 0 || sharedMode) && (
               <div className="dm-team-panel">
                 <div className="dm-team-panel-head">
-                  <span><UsersIcon size={14} /> Shared inboxes</span>
+                  <span>
+                    <UsersIcon size={14} /> Shared inboxes
+                  </span>
                 </div>
                 <div className="dm-team-switcher" role="group" aria-label="Shared inbox">
                   <button
@@ -502,7 +549,9 @@ const MessagesPage = () => {
                 </div>
                 {teamInvites.map((invite) => (
                   <div key={invite.ownerId} className="dm-team-invite">
-                    <span>@{invite.username} invited you as {invite.role}</span>
+                    <span>
+                      @{invite.username} invited you as {invite.role}
+                    </span>
                     <div>
                       <button
                         type="button"
@@ -523,13 +572,21 @@ const MessagesPage = () => {
                     </div>
                   </div>
                 ))}
-                {teamError && <p className="dm-inline-error" role="alert">{teamError}</p>}
+                {teamError && (
+                  <p className="dm-inline-error" role="alert">
+                    {teamError}
+                  </p>
+                )}
               </div>
             )}
 
             {isBusiness && !sharedMode && (
               <div className="dm-scope-tabs" role="tablist" aria-label="Conversation type">
-                {[{ key: 'all', label: 'All' }, { key: 'personal', label: 'Personal' }, { key: 'business', label: 'Business' }].map((entry) => (
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'personal', label: 'Personal' },
+                  { key: 'business', label: 'Business' },
+                ].map((entry) => (
                   <button
                     key={entry.key}
                     type="button"
@@ -544,55 +601,64 @@ const MessagesPage = () => {
               </div>
             )}
 
-            {!sharedMode && <div className="dm-saved-filters" aria-label="Saved views">
-              <button
-                type="button"
-                className={`dm-scope-tab${unreadOnly ? ' is-active' : ''}`}
-                aria-pressed={unreadOnly}
-                onClick={() => setUnreadOnly(!unreadOnly)}
-              >
-                Unread only
-              </button>
-              {savedFilters.map((filter) => (
-                <span key={filter.name} className="dm-saved-filter">
-                  <button type="button" onClick={() => applySavedFilter(filter)}>{filter.name}</button>
-                  <button
-                    type="button"
-                    className="dm-saved-filter-remove"
-                    aria-label={`Remove ${filter.name} view`}
-                    onClick={() => removeSavedFilter(filter.name)}
-                  >
-                    <CloseIcon size={10} />
-                  </button>
-                </span>
-              ))}
-              <details className="dm-save-filter">
-                <summary>Save view</summary>
-                <form onSubmit={saveCurrentFilter}>
-                  <input
-                    className="form-input"
-                    value={filterName}
-                    onChange={(event) => setFilterName(event.target.value.slice(0, 24))}
-                    placeholder="View name"
-                    maxLength={24}
-                    aria-label="Saved view name"
-                  />
-                  <button type="submit" className="btn btn-ghost btn-sm" disabled={!filterName.trim()}>
-                    Save
-                  </button>
-                </form>
-              </details>
-            </div>}
+            {!sharedMode && (
+              <div className="dm-saved-filters" aria-label="Saved views">
+                <button
+                  type="button"
+                  className={`dm-scope-tab${unreadOnly ? ' is-active' : ''}`}
+                  aria-pressed={unreadOnly}
+                  onClick={() => setUnreadOnly(!unreadOnly)}
+                >
+                  Unread only
+                </button>
+                {savedFilters.map((filter) => (
+                  <span key={filter.name} className="dm-saved-filter">
+                    <button type="button" onClick={() => applySavedFilter(filter)}>
+                      {filter.name}
+                    </button>
+                    <button
+                      type="button"
+                      className="dm-saved-filter-remove"
+                      aria-label={`Remove ${filter.name} view`}
+                      onClick={() => removeSavedFilter(filter.name)}
+                    >
+                      <CloseIcon size={10} />
+                    </button>
+                  </span>
+                ))}
+                <details className="dm-save-filter">
+                  <summary>Save view</summary>
+                  <form onSubmit={saveCurrentFilter}>
+                    <input
+                      className="form-input"
+                      value={filterName}
+                      onChange={(event) => setFilterName(event.target.value.slice(0, 24))}
+                      placeholder="View name"
+                      maxLength={24}
+                      aria-label="Saved view name"
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-ghost btn-sm"
+                      disabled={!filterName.trim()}
+                    >
+                      Save
+                    </button>
+                  </form>
+                </details>
+              </div>
+            )}
 
             <div className="dm-tabs" role="tablist" aria-label="Inbox folders">
               {folders.map((entry) => {
-                const badge = entry.key === 'requests'
-                  ? counts.requests
-                  : entry.key === 'filtered'
-                    ? counts.filtered
-                    : entry.key === 'inbox'
-                      ? counts.unread
-                      : 0;
+                const badge =
+                  entry.key === 'requests'
+                    ? counts.requests
+                    : entry.key === 'filtered'
+                      ? counts.filtered
+                      : entry.key === 'inbox'
+                        ? counts.unread
+                        : 0;
                 return (
                   <button
                     key={entry.key}
@@ -603,7 +669,9 @@ const MessagesPage = () => {
                     onClick={() => setFolder(entry.key)}
                   >
                     {entry.label}
-                    {badge > 0 && <span className="dm-tab-badge">{badge > 99 ? '99+' : badge}</span>}
+                    {badge > 0 && (
+                      <span className="dm-tab-badge">{badge > 99 ? '99+' : badge}</span>
+                    )}
                   </button>
                 );
               })}
@@ -616,7 +684,11 @@ const MessagesPage = () => {
             )}
 
             {listLoading ? (
-              <div className="dm-list dm-list-loading" role="status" aria-label="Loading conversations">
+              <div
+                className="dm-list dm-list-loading"
+                role="status"
+                aria-label="Loading conversations"
+              >
                 {[0, 1, 2, 3].map((row) => (
                   <div key={row} className="dm-row-skeleton">
                     <span className="skel" style={{ width: 42, height: 42, borderRadius: 999 }} />
@@ -629,7 +701,9 @@ const MessagesPage = () => {
               </div>
             ) : items.length === 0 ? (
               <div className="dm-list-empty">
-                <span className="dm-list-empty-icon" aria-hidden="true"><MailIcon size={20} /></span>
+                <span className="dm-list-empty-icon" aria-hidden="true">
+                  <MailIcon size={20} />
+                </span>
                 <strong>{empty.title}</strong>
                 <p>{empty.body}</p>
               </div>
@@ -640,14 +714,20 @@ const MessagesPage = () => {
                   const preview = item.filtered
                     ? 'Filtered request'
                     : item.state === 'request'
-                      ? (item.isRecipient ? 'Message request' : 'Waiting for acceptance')
+                      ? item.isRecipient
+                        ? 'Message request'
+                        : 'Waiting for acceptance'
                       : item.lastMessagePreview || 'No messages yet';
                   return (
                     <li key={item._id}>
                       <button
                         type="button"
                         className={`dm-row${activeId === item._id ? ' is-active' : ''}${unread > 0 ? ' is-unread' : ''}`}
-                        onClick={() => { setActionError(''); setListCollapsed(false); selectThread(item._id); }}
+                        onClick={() => {
+                          setActionError('');
+                          setListCollapsed(false);
+                          selectThread(item._id);
+                        }}
                         aria-current={activeId === item._id ? 'true' : undefined}
                       >
                         <span className="dm-avatar" aria-hidden="true">
@@ -662,15 +742,25 @@ const MessagesPage = () => {
                           </span>
                           <span className="dm-row-bottom">
                             <span className="dm-row-preview">
-                              {item.filtered && <span className="dm-chip dm-chip-filtered">Filtered</span>}
-                              {item.state === 'request' && !item.filtered && <span className="dm-chip">Request</span>}
-                              {item.businessThread && <span className="dm-chip dm-chip-business">Business</span>}
+                              {item.filtered && (
+                                <span className="dm-chip dm-chip-filtered">Filtered</span>
+                              )}
+                              {item.state === 'request' && !item.filtered && (
+                                <span className="dm-chip">Request</span>
+                              )}
+                              {item.businessThread && (
+                                <span className="dm-chip dm-chip-business">Business</span>
+                              )}
                               {(item.labels || []).slice(0, 2).map((label) => (
-                                <span key={label} className="dm-chip dm-chip-label">{label}</span>
+                                <span key={label} className="dm-chip dm-chip-label">
+                                  {label}
+                                </span>
                               ))}
                               {preview}
                             </span>
-                            {unread > 0 && <span className="dm-unread">{unread > 9 ? '9+' : unread}</span>}
+                            {unread > 0 && (
+                              <span className="dm-unread">{unread > 9 ? '9+' : unread}</span>
+                            )}
                           </span>
                         </span>
                       </button>
@@ -690,7 +780,9 @@ const MessagesPage = () => {
               </div>
             ) : threadError ? (
               <div className="dm-pane-empty">
-                <span className="dm-pane-empty-icon" aria-hidden="true"><AlertIcon size={22} /></span>
+                <span className="dm-pane-empty-icon" aria-hidden="true">
+                  <AlertIcon size={22} />
+                </span>
                 <h2>Conversation unavailable</h2>
                 <p>{threadError}</p>
               </div>
@@ -707,12 +799,18 @@ const MessagesPage = () => {
                 onSetLabels={setLabels}
                 onReport={report}
                 quickReplies={quickReplies}
-                sharedInbox={sharedMode ? { role: activeTeamRole, ownerUsername: activeTeam?.username || '' } : null}
+                sharedInbox={
+                  sharedMode
+                    ? { role: activeTeamRole, ownerUsername: activeTeam?.username || '' }
+                    : null
+                }
                 onBack={closeThread}
               />
             ) : (
               <div className="dm-pane-empty">
-                <span className="dm-pane-empty-icon" aria-hidden="true"><MailIcon size={22} /></span>
+                <span className="dm-pane-empty-icon" aria-hidden="true">
+                  <MailIcon size={22} />
+                </span>
                 <h2>Pick a conversation</h2>
                 <p>Your private threads and pending requests live here. Nothing is public.</p>
               </div>

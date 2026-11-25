@@ -53,14 +53,14 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   // one-per-day quota.
   await User.collection.updateMany(
     { _id: { $in: [bob.id, dave.id].map((id) => new mongoose.Types.ObjectId(id)) } },
-    { $set: { createdAt: established } }
+    { $set: { createdAt: established } },
   );
   await User.updateOne({ _id: admin.id }, { $set: { role: 'admin' } });
 
   const settings = await api('/api/account/dm-settings', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { hiddenWords: ['crypto'] }
+    body: { hiddenWords: ['crypto'] },
   });
   check('a creator can add hidden words', () => {
     assert.equal(settings.status, 200, JSON.stringify(settings.data));
@@ -70,7 +70,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const hiddenRequest = await api('/api/messages/requests', {
     method: 'POST',
     cookie: bob.cookie,
-    body: { recipientId: alice.id, text: 'Want to buy crypto with me?' }
+    body: { recipientId: alice.id, text: 'Want to buy crypto with me?' },
   });
   check('a hidden-word request is accepted but filtered silently', () => {
     assert.equal(hiddenRequest.status, 201, JSON.stringify(hiddenRequest.data));
@@ -88,13 +88,23 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
     assert.equal(summary.data.filtered, 1);
   });
 
-  const requestLane = await api('/api/messages/conversations?folder=requests', { cookie: alice.cookie });
-  const filteredLane = await api('/api/messages/conversations?folder=filtered', { cookie: alice.cookie });
+  const requestLane = await api('/api/messages/conversations?folder=requests', {
+    cookie: alice.cookie,
+  });
+  const filteredLane = await api('/api/messages/conversations?folder=filtered', {
+    cookie: alice.cookie,
+  });
   check('the filtered request appears only in the Filtered lane', () => {
     assert.equal(requestLane.status, 200, JSON.stringify(requestLane.data));
     assert.equal(filteredLane.status, 200, JSON.stringify(filteredLane.data));
-    assert.equal(requestLane.data.items.some((item) => item._id === hiddenId), false);
-    assert.equal(filteredLane.data.items.some((item) => item._id === hiddenId), true);
+    assert.equal(
+      requestLane.data.items.some((item) => item._id === hiddenId),
+      false,
+    );
+    assert.equal(
+      filteredLane.data.items.some((item) => item._id === hiddenId),
+      true,
+    );
   });
 
   const aliceView = await api(`/api/messages/conversations/${hiddenId}`, { cookie: alice.cookie });
@@ -108,7 +118,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const labels = await api(`/api/messages/conversations/${hiddenId}/labels`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { labels: ['VIP', 'Collab', 'vip'] }
+    body: { labels: ['VIP', 'Collab', 'vip'] },
   });
   check('a creator can add private labels', () => {
     assert.equal(labels.status, 200, JSON.stringify(labels.data));
@@ -124,7 +134,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
 
   const accepted = await api(`/api/messages/conversations/${hiddenId}/accept`, {
     method: 'POST',
-    cookie: alice.cookie
+    cookie: alice.cookie,
   });
   check('a filtered request can still be accepted', () => {
     assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
@@ -134,7 +144,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const activeReply = await api(`/api/messages/conversations/${hiddenId}/messages`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { text: 'Thanks for accepting.' }
+    body: { text: 'Thanks for accepting.' },
   });
   check('accepting a filtered request opens the thread', () => {
     assert.equal(activeReply.status, 201, JSON.stringify(activeReply.data));
@@ -146,8 +156,8 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
     body: {
       availability: 'away',
       awayMessage: 'Back after the weekend',
-      quickReplies: ['Thanks, I will take a look.', 'Not this month.']
-    }
+      quickReplies: ['Thanks, I will take a look.', 'Not this month.'],
+    },
   });
   check('a creator can set away mode and quick replies', () => {
     assert.equal(creatorTools.status, 200, JSON.stringify(creatorTools.data));
@@ -155,7 +165,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
     assert.equal(creatorTools.data.dmSettings.awayMessage, 'Back after the weekend');
     assert.deepEqual(creatorTools.data.dmSettings.quickReplies, [
       'Thanks, I will take a look.',
-      'Not this month.'
+      'Not this month.',
     ]);
   });
 
@@ -176,7 +186,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const paused = await api('/api/account/dm-settings', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { availability: 'paused' }
+    body: { availability: 'paused' },
   });
   check('a creator can pause the inbox', () => {
     assert.equal(paused.status, 200, JSON.stringify(paused.data));
@@ -193,7 +203,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const duringPause = await api('/api/messages/requests', {
     method: 'POST',
     cookie: dave.cookie,
-    body: { recipientId: alice.id, text: 'Are you around?' }
+    body: { recipientId: alice.id, text: 'Are you around?' },
   });
   check('a paused inbox refuses a new request', () => {
     assert.equal(duringPause.status, 403, JSON.stringify(duringPause.data));
@@ -203,7 +213,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const existingThread = await api(`/api/messages/conversations/${hiddenId}/messages`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { text: 'The existing thread still works.' }
+    body: { text: 'The existing thread still works.' },
   });
   check('pausing does not interrupt an accepted conversation', () => {
     assert.equal(existingThread.status, 201, JSON.stringify(existingThread.data));
@@ -212,12 +222,12 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   await api('/api/account/dm-settings', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { availability: 'away', awayMessage: 'Back after the weekend' }
+    body: { availability: 'away', awayMessage: 'Back after the weekend' },
   });
   const awayReply = await api(`/api/messages/conversations/${hiddenId}/messages`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { text: 'One more note before you go.' }
+    body: { text: 'One more note before you go.' },
   });
   check('an away thread sends one auto-reply', () => {
     assert.equal(awayReply.status, 201, JSON.stringify(awayReply.data));
@@ -227,7 +237,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const secondAwayReply = await api(`/api/messages/conversations/${hiddenId}/messages`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { text: 'And one more.' }
+    body: { text: 'And one more.' },
   });
   check('the away auto-reply is limited to once per day', () => {
     assert.equal(secondAwayReply.status, 201, JSON.stringify(secondAwayReply.data));
@@ -237,7 +247,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   await api('/api/account/dm-settings', {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { availability: 'open' }
+    body: { availability: 'open' },
   });
 
   const campaignText = 'Same campaign opener for every creator.';
@@ -245,7 +255,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
     const sent = await api('/api/messages/requests', {
       method: 'POST',
       cookie: bob.cookie,
-      body: { recipientId: recipient.id, text: campaignText }
+      body: { recipientId: recipient.id, text: campaignText },
     });
     check(`campaign request to ${recipient.username} is created`, () => {
       assert.equal(sent.status, 201, JSON.stringify(sent.data));
@@ -253,7 +263,9 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   }
 
   const irisSummary = await api('/api/messages/summary', { cookie: iris.cookie });
-  const irisLane = await api('/api/messages/conversations?folder=filtered', { cookie: iris.cookie });
+  const irisLane = await api('/api/messages/conversations?folder=filtered', {
+    cookie: iris.cookie,
+  });
   check('identical outreach is detected on the third recipient', () => {
     assert.equal(irisSummary.status, 200, JSON.stringify(irisSummary.data));
     assert.equal(irisSummary.data.requests, 0);
@@ -262,11 +274,14 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
     assert.equal(irisLane.data.items[0].filterReason, 'campaign');
   });
 
-  const ginaReport = await api(`/api/messages/conversations/${(await api('/api/messages/conversations?folder=requests', { cookie: gina.cookie })).data.items[0]._id}/report`, {
-    method: 'POST',
-    cookie: gina.cookie,
-    body: { reason: 'spam', note: 'Repeated cold outreach', block: false }
-  });
+  const ginaReport = await api(
+    `/api/messages/conversations/${(await api('/api/messages/conversations?folder=requests', { cookie: gina.cookie })).data.items[0]._id}/report`,
+    {
+      method: 'POST',
+      cookie: gina.cookie,
+      body: { reason: 'spam', note: 'Repeated cold outreach', block: false },
+    },
+  );
   check('a recipient can report a pending request', () => {
     assert.equal(ginaReport.status, 201, JSON.stringify(ginaReport.data));
     assert.equal(ginaReport.data.reported, true);
@@ -284,7 +299,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const restrictedRequest = await api('/api/messages/requests', {
     method: 'POST',
     cookie: bob.cookie,
-    body: { recipientId: jack.id, text: 'A different pitch for a new creator.' }
+    body: { recipientId: jack.id, text: 'A different pitch for a new creator.' },
   });
   const jackSummary = await api('/api/messages/summary', { cookie: jack.cookie });
   check('a restricted sender lands in Filtered without being told', () => {
@@ -307,7 +322,7 @@ async function scenarios({ alice, bob, dave, gina, henry, iris, jack, admin }) {
   const resolved = await api(`/api/admin/dm-reports/${reportId}/resolve`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { status: 'dismissed', note: 'No action needed for the probe.' }
+    body: { status: 'dismissed', note: 'No action needed for the probe.' },
   });
   check('an admin can resolve a report with an audit note', () => {
     assert.equal(resolved.status, 200, JSON.stringify(resolved.data));

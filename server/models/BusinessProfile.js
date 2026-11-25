@@ -12,14 +12,14 @@ const BusinessProfileSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
     displayName: { type: String, required: true, trim: true, minlength: 2, maxlength: 80 },
     category: {
       type: String,
       enum: ['creator', 'esports', 'studio', 'brand', 'other'],
       default: 'creator',
-      index: true
+      index: true,
     },
     description: { type: String, default: '', trim: true, maxlength: 600 },
     website: { type: String, default: '', trim: true, maxlength: 200 },
@@ -31,13 +31,13 @@ const BusinessProfileSchema = new mongoose.Schema(
     contactMethod: {
       type: String,
       enum: ['email', 'phone', 'other'],
-      default: 'email'
+      default: 'email',
     },
     contactDetail: { type: String, default: '', trim: true, maxlength: 120 },
     proofType: {
       type: String,
       enum: ['registration', 'tax', 'domain_email', 'official_profile', 'other'],
-      default: 'other'
+      default: 'other',
     },
     proofUrl: { type: String, default: '', trim: true, maxlength: 300 },
     proofNote: { type: String, default: '', trim: true, maxlength: 600 },
@@ -60,21 +60,25 @@ const BusinessProfileSchema = new mongoose.Schema(
     links: {
       type: [String],
       default: [],
-      set: (values) => (Array.isArray(values)
-        ? values.map((value) => String(value).trim().slice(0, 200)).filter(Boolean).slice(0, 5)
-        : [])
+      set: (values) =>
+        Array.isArray(values)
+          ? values
+              .map((value) => String(value).trim().slice(0, 200))
+              .filter(Boolean)
+              .slice(0, 5)
+          : [],
     },
 
     verificationStatus: {
       type: String,
       enum: ['none', 'pending', 'verified', 'rejected', 'expired'],
       default: 'none',
-      index: true
+      index: true,
     },
     verificationMethod: {
       type: String,
       enum: ['dns', 'manual', null],
-      default: null
+      default: null,
     },
     verificationDomain: { type: String, default: '', trim: true, maxlength: 120 },
     verificationToken: { type: String, default: '', maxlength: 80 },
@@ -85,9 +89,9 @@ const BusinessProfileSchema = new mongoose.Schema(
     // Internal outreach health. A complaint-rate pause is deliberately silent
     // on the public profile; the business owner sees it in settings.
     complaints: { type: Number, default: 0, min: 0 },
-    outreachPaused: { type: Boolean, default: false }
+    outreachPaused: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 BusinessProfileSchema.index({ verificationStatus: 1, createdAt: -1 });

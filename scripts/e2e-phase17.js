@@ -44,7 +44,7 @@ const { getOutbox, resetOutbox } = require('../server/utils/email');
 const {
   monthsBefore,
   expireAbandonedBusinessApplications,
-  purgeExpiredBusinessEvidence
+  purgeExpiredBusinessEvidence,
 } = require('../server/utils/businessRetention');
 const { notifyBusinessRetention } = require('../server/utils/businessRetentionNotices');
 
@@ -63,20 +63,20 @@ const businessBody = (displayName, address, website = 'https://olive.example') =
   contactMethod: 'email',
   proofType: 'registration',
   proofUrl: `${website}/registration`,
-  proofNote: 'Company registration record is available at the proof link.'
+  proofNote: 'Company registration record is available at the proof link.',
 });
 
 async function applyForManualReview(user, body) {
   const saved = await api('/api/account/business-profile', {
     method: 'POST',
     cookie: user.cookie,
-    body
+    body,
   });
   assert.equal(saved.status, 200, `save business profile: ${JSON.stringify(saved.data)}`);
   const requested = await api('/api/account/business-verification', {
     method: 'POST',
     cookie: user.cookie,
-    body: { method: 'manual' }
+    body: { method: 'manual' },
   });
   assert.equal(requested.status, 200, `request review: ${JSON.stringify(requested.data)}`);
   return BusinessProfile.findOne({ userId: user.id }).lean();
@@ -94,13 +94,13 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
       displayName: 'Olive Interactive',
       category: 'studio',
       website: 'https://olive.example',
-      supportEmail: 'hello@olive.example'
-    }
+      supportEmail: 'hello@olive.example',
+    },
   });
   const noEvidence = await api('/api/account/business-verification', {
     method: 'POST',
     cookie: olive.cookie,
-    body: { method: 'manual' }
+    body: { method: 'manual' },
   });
   check('manual review refuses an application with no evidence', () => {
     assert.equal(noEvidence.status, 400, JSON.stringify(noEvidence.data));
@@ -110,7 +110,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   const withEvidence = await api('/api/account/business-profile', {
     method: 'POST',
     cookie: olive.cookie,
-    body: businessBody('Olive Interactive', 'legal@olive.example')
+    body: businessBody('Olive Interactive', 'legal@olive.example'),
   });
   check('the official contact and proof are stored on the profile', () => {
     assert.equal(withEvidence.status, 200, JSON.stringify(withEvidence.data));
@@ -122,7 +122,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   const requested = await api('/api/account/business-verification', {
     method: 'POST',
     cookie: olive.cookie,
-    body: { method: 'manual' }
+    body: { method: 'manual' },
   });
   check('a complete application waits for a manual decision', () => {
     assert.equal(requested.status, 200, JSON.stringify(requested.data));
@@ -134,7 +134,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   const oliveProfile = await BusinessProfile.findOne({ userId: olive.id }).lean();
 
   const queue = await api('/api/admin/business-verifications?status=pending', {
-    cookie: admin.cookie
+    cookie: admin.cookie,
   });
   const queueItem = queue.data?.items?.find((item) => item.user?.username === 'biz17olive');
   check('the review queue shows the evidence and blocks demotion before contact', () => {
@@ -152,8 +152,8 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
     cookie: admin.cookie,
     body: {
       channel: 'email',
-      message: 'Please confirm the legal entity name and the registration number.'
-    }
+      message: 'Please confirm the legal entity name and the registration number.',
+    },
   });
   check('a reviewer records the official contact', () => {
     assert.equal(contact.status, 200, JSON.stringify(contact.data));
@@ -171,7 +171,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   const earlyDemotion = await api(`/api/admin/business-verifications/${queueItem._id}/demote`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { reason: 'The registration evidence could not be confirmed.' }
+    body: { reason: 'The registration evidence could not be confirmed.' },
   });
   check('demotion is refused while the response window is open', () => {
     assert.equal(earlyDemotion.status, 409, JSON.stringify(earlyDemotion.data));
@@ -181,7 +181,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   const tooShort = await api('/api/account/business-verification/respond', {
     method: 'POST',
     cookie: olive.cookie,
-    body: { note: 'ok' }
+    body: { note: 'ok' },
   });
   check('an answer must actually explain the business position', () => {
     assert.equal(tooShort.status, 400, JSON.stringify(tooShort.data));
@@ -191,8 +191,8 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
     method: 'POST',
     cookie: olive.cookie,
     body: {
-      note: 'The legal name is Olive Interactive Ltd and the registration number is 12345678.'
-    }
+      note: 'The legal name is Olive Interactive Ltd and the registration number is 12345678.',
+    },
   });
   check('the owner can answer the review from settings', () => {
     assert.equal(answer.status, 200, JSON.stringify(answer.data));
@@ -201,9 +201,11 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   });
 
   const queueAfterAnswer = await api('/api/admin/business-verifications?status=pending', {
-    cookie: admin.cookie
+    cookie: admin.cookie,
   });
-  const answeredItem = queueAfterAnswer.data?.items?.find((item) => item.user?.username === 'biz17olive');
+  const answeredItem = queueAfterAnswer.data?.items?.find(
+    (item) => item.user?.username === 'biz17olive',
+  );
   check('the reviewer reads the answer next to the evidence', () => {
     assert.ok(answeredItem, 'missing application after the answer');
     assert.match(answeredItem.business.reviewResponseNote, /12345678/);
@@ -214,7 +216,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   const verified = await api(`/api/admin/business-verifications/${queueItem._id}/resolve`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { status: 'verified', note: 'Registration checked against the public record.' }
+    body: { status: 'verified', note: 'Registration checked against the public record.' },
   });
   check('a reviewer can verify the application', () => {
     assert.equal(verified.status, 200, JSON.stringify(verified.data));
@@ -242,13 +244,13 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   // collection: request nine days ago, contact eight days ago.
   await BusinessProfile.collection.updateOne(
     { _id: oliveProfile._id },
-    { $set: { verificationRequestedAt: daysAgo(9), reviewContactedAt: daysAgo(8) } }
+    { $set: { verificationRequestedAt: daysAgo(9), reviewContactedAt: daysAgo(8) } },
   );
 
   const demoted = await api(`/api/admin/business-verifications/${queueItem._id}/demote`, {
     method: 'POST',
     cookie: admin.cookie,
-    body: { reason: 'The registration evidence belongs to a different company.' }
+    body: { reason: 'The registration evidence belongs to a different company.' },
   });
   check('demotion succeeds once the response window has passed', () => {
     assert.equal(demoted.status, 200, JSON.stringify(demoted.data));
@@ -271,10 +273,10 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const demotionAudits = await BusinessVerificationAudit.countDocuments({
     businessProfileId: oliveProfile._id,
-    status: 'demoted'
+    status: 'demoted',
   });
   const demotionMail = getOutbox().find(
-    (mail) => mail.to === 'legal@olive.example' && /personal profile/i.test(mail.subject)
+    (mail) => mail.to === 'legal@olive.example' && /personal profile/i.test(mail.subject),
   );
   check('the demotion is audited and explained to the official contact', () => {
     assert.equal(demotionAudits, 1);
@@ -283,16 +285,20 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const platformAudits = await AuditLog.distinct('actionType', {
     targetId: oliveProfile._id,
-    targetModel: 'BusinessProfile'
+    targetModel: 'BusinessProfile',
   });
   check('contact, answer and demotion reach the platform audit log', () => {
-    for (const action of ['PLATFORM_BUSINESS_CONTACT', 'PLATFORM_BUSINESS_RESPOND', 'PLATFORM_BUSINESS_DEMOTE']) {
+    for (const action of [
+      'PLATFORM_BUSINESS_CONTACT',
+      'PLATFORM_BUSINESS_RESPOND',
+      'PLATFORM_BUSINESS_DEMOTE',
+    ]) {
       assert.ok(platformAudits.includes(action), `missing ${action}`);
     }
   });
 
   const reviewAuditStatuses = await BusinessVerificationAudit.distinct('status', {
-    businessProfileId: oliveProfile._id
+    businessProfileId: oliveProfile._id,
   });
   check('the review trail keeps contact, answer, decision and demotion', () => {
     for (const status of ['contacted', 'responded', 'verified', 'demoted']) {
@@ -303,7 +309,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   // ── Abandoned application expiry ──────────────────────────────────────────
   const periProfile = await applyForManualReview(
     peri,
-    businessBody('Peri Publishing', 'ops@peri.example', 'https://peri.example')
+    businessBody('Peri Publishing', 'ops@peri.example', 'https://peri.example'),
   );
   await BusinessProfile.collection.updateOne(
     { _id: periProfile._id },
@@ -311,9 +317,9 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
       $set: {
         verificationRequestedAt: daysAgo(120),
         updatedAt: daysAgo(100),
-        verificationToken: 'expiry-token'
-      }
-    }
+        verificationToken: 'expiry-token',
+      },
+    },
   );
 
   resetOutbox();
@@ -334,7 +340,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const expiryAudit = await BusinessVerificationAudit.countDocuments({
     businessProfileId: periProfile._id,
-    status: 'expired'
+    status: 'expired',
   });
   const expiryClaim = expiry.claims.find((claim) => claim.id === String(periProfile._id));
   check('expiry writes one audit row and claims the owner for notice', () => {
@@ -345,7 +351,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const expiryNotices = await notifyBusinessRetention(expiry.claims, { kind: 'expired' });
   const expiryMail = getOutbox().find(
-    (mail) => mail.to === 'ops@peri.example' && /expired/i.test(mail.subject)
+    (mail) => mail.to === 'ops@peri.example' && /expired/i.test(mail.subject),
   );
   check('the owner is told about the lapse in-app and by email', () => {
     assert.ok(expiryNotices.notified >= 1, 'no in-app notice');
@@ -355,7 +361,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const periNotice = await Notification.findOne({
     userId: peri.id,
-    dedupeKey: /^business-verification-expired:/
+    dedupeKey: /^business-verification-expired:/,
   }).lean();
   check('the expiry notice is durable rather than a 15-day ping', () => {
     assert.ok(periNotice, 'no stored notification');
@@ -373,11 +379,11 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
   // ── Absolute 12-month cap ─────────────────────────────────────────────────
   const quinnProfile = await applyForManualReview(
     quinn,
-    businessBody('Quinn Quarterlies', 'legal@quinn.example', 'https://quinn.example')
+    businessBody('Quinn Quarterlies', 'legal@quinn.example', 'https://quinn.example'),
   );
   await BusinessProfile.collection.updateOne(
     { _id: quinnProfile._id },
-    { $set: { verificationRequestedAt: daysAgo(400) } }
+    { $set: { verificationRequestedAt: daysAgo(400) } },
   );
   const capSweep = await expireAbandonedBusinessApplications();
   const quinnAfterCap = await BusinessProfile.findById(quinnProfile._id).lean();
@@ -400,7 +406,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
     reviewResponseNote: 'The registration was confirmed in 2024.',
     verificationStatus: 'verified',
     verifiedAt: monthsBefore(new Date(), 25),
-    reviewDecidedAt: monthsBefore(new Date(), 25)
+    reviewDecidedAt: monthsBefore(new Date(), 25),
   });
   const recentProfile = await BusinessProfile.create({
     userId: new mongoose.Types.ObjectId(),
@@ -411,7 +417,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
     proofNote: 'Still inside the retention window.',
     verificationStatus: 'verified',
     verifiedAt: monthsBefore(new Date(), 23),
-    reviewDecidedAt: monthsBefore(new Date(), 23)
+    reviewDecidedAt: monthsBefore(new Date(), 23),
   });
 
   resetOutbox();
@@ -441,7 +447,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const purgeNotices = await notifyBusinessRetention(purge.claims, { kind: 'purged' });
   const purgeMail = getOutbox().find(
-    (mail) => mail.to === 'legal@rosa.example' && /evidence/i.test(mail.subject)
+    (mail) => mail.to === 'legal@rosa.example' && /evidence/i.test(mail.subject),
   );
   check('the owner is told that the evidence window closed', () => {
     assert.equal(purgeNotices.notified, 1);
@@ -452,7 +458,7 @@ async function scenarios({ olive, peri, quinn, rosa, admin }) {
 
   const rosaNotice = await Notification.findOne({
     userId: rosa.id,
-    dedupeKey: /^business-evidence-purged:/
+    dedupeKey: /^business-evidence-purged:/,
   }).lean();
   const rosaAccount = await api('/api/account', { cookie: rosa.cookie });
   check('the purge notice is durable and visible with the purged profile', () => {

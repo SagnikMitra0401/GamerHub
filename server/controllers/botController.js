@@ -15,8 +15,9 @@ const syncYoutube = async (req, res, next) => {
   try {
     if (!youtubeBot.isConfigured()) {
       return res.status(503).json({
-        message: 'The gaming bot needs YOUTUBE_API_KEY in the server environment before it can fetch videos.',
-        code: 'BOT_NOT_CONFIGURED'
+        message:
+          'The gaming bot needs YOUTUBE_API_KEY in the server environment before it can fetch videos.',
+        code: 'BOT_NOT_CONFIGURED',
       });
     }
 
@@ -42,7 +43,7 @@ const getBotStatus = async (req, res, next) => {
       lastSync: status.lastSync,
       cacheTtlMinutes: status.cacheTtlMinutes,
       lookbackDays: status.lookbackDays,
-      maxGamesPerSync: status.maxGamesPerSync
+      maxGamesPerSync: status.maxGamesPerSync,
     });
   } catch (err) {
     next(err);

@@ -59,9 +59,7 @@ async function eraseAccount(user) {
   if (!userId) return { erased: false, reason: 'no-user' };
 
   // Re-read: the caller's snapshot may be stale (e.g. a cancellation race).
-  const fresh = await User.findById(userId)
-    .select('_id status sessionVersion username')
-    .lean();
+  const fresh = await User.findById(userId).select('_id status sessionVersion username').lean();
   if (!fresh || fresh.status === 'deleted') {
     return { erased: false, reason: 'already-erased' };
   }
@@ -72,7 +70,7 @@ async function eraseAccount(user) {
   // the same content twice or re-transfer ownership.
   const claim = await User.updateOne(
     { _id: userId, status: { $ne: 'deleted' } },
-    erasurePatch(fresh)
+    erasurePatch(fresh),
   );
   if (!claim.modifiedCount) return { erased: false, reason: 'claim-lost' };
 
@@ -89,7 +87,7 @@ async function eraseAccount(user) {
   const ownedChannelIds = await BroadcastChannel.find({ ownerId: userId }).distinct('_id');
   const subscribedChannelIds = await BroadcastSubscription.find({ userId }).distinct('channelId');
   const invitationIds = await Invitation.find({
-    $or: [{ inviterUserId: userId }, { recipientUserId: userId }]
+    $or: [{ inviterUserId: userId }, { recipientUserId: userId }],
   }).distinct('_id');
   const conversationIds = await Conversation.find({ participantIds: userId }).distinct('_id');
   const joinRequestIds = await CommunityJoinRequest.find({ userId }).distinct('_id');
@@ -106,68 +104,75 @@ async function eraseAccount(user) {
     ...(commentIds.length ? [{ 'metadata.commentId': { $in: commentIds.map(String) } }] : []),
     ...(postIds.length ? [{ 'metadata.postId': { $in: postIds.map(String) } }] : []),
     ...(messageIds.length ? [{ 'metadata.messageId': { $in: messageIds.map(String) } }] : []),
-    ...(ownedChannelIds.length ? [{ 'metadata.channelId': { $in: ownedChannelIds.map(String) } }] : []),
-    ...(invitationIds.length ? [{ 'metadata.invitationId': { $in: invitationIds.map(String) } }] : []),
-    ...(conversationIds.length ? [{ 'metadata.conversationId': { $in: conversationIds.map(String) } }] : []),
-    ...(joinRequestIds.length ? [{ 'metadata.requestId': { $in: joinRequestIds.map(String) } }] : [])
+    ...(ownedChannelIds.length
+      ? [{ 'metadata.channelId': { $in: ownedChannelIds.map(String) } }]
+      : []),
+    ...(invitationIds.length
+      ? [{ 'metadata.invitationId': { $in: invitationIds.map(String) } }]
+      : []),
+    ...(conversationIds.length
+      ? [{ 'metadata.conversationId': { $in: conversationIds.map(String) } }]
+      : []),
+    ...(joinRequestIds.length
+      ? [{ 'metadata.requestId': { $in: joinRequestIds.map(String) } }]
+      : []),
   ];
 
   const mediaRows = await MediaAsset.find({
     $or: [
       { ownerId: userId },
       ...(postIds.length ? [{ refType: 'Post', refId: { $in: postIds } }] : []),
-      ...(storyIds.length ? [{ refType: 'Story', refId: { $in: storyIds } }] : [])
-    ]
-  }).select('_id publicId resourceType').lean();
+      ...(storyIds.length ? [{ refType: 'Story', refId: { $in: storyIds } }] : []),
+    ],
+  })
+    .select('_id publicId resourceType')
+    .lean();
 
   // Remote objects are best-effort: a Cloudinary outage must not leave the
   // account half-erased in the database.
-  await Promise.allSettled(mediaRows.map((row) => (
-    deleteFromCloudinary(row.publicId, row.resourceType || 'image')
-  )));
+  await Promise.allSettled(
+    mediaRows.map((row) => deleteFromCloudinary(row.publicId, row.resourceType || 'image')),
+  );
 
   const objectId = new mongoose.Types.ObjectId(userId);
 
   await Promise.all([
-    Post.updateMany(
-      { likes: objectId },
-      [
-        { $set: { likes: { $filter: { input: '$likes', as: 'like', cond: { $ne: ['$$like', objectId] } } } } },
-        { $set: { likeCount: { $size: '$likes' } } }
-      ]
-    ),
+    Post.updateMany({ likes: objectId }, [
+      {
+        $set: {
+          likes: { $filter: { input: '$likes', as: 'like', cond: { $ne: ['$$like', objectId] } } },
+        },
+      },
+      { $set: { likeCount: { $size: '$likes' } } },
+    ]),
     Post.deleteMany({ userId }),
     Comment.deleteMany({
-      $or: [
-        { userId },
-        ...(postIds.length ? [{ postId: { $in: postIds } }] : [])
-      ]
+      $or: [{ userId }, ...(postIds.length ? [{ postId: { $in: postIds } }] : [])],
     }),
     Story.deleteMany({ authorId: userId }),
     StoryView.deleteMany({
-      $or: [
-        { viewerId: userId },
-        ...(storyIds.length ? [{ storyId: { $in: storyIds } }] : [])
-      ]
+      $or: [{ viewerId: userId }, ...(storyIds.length ? [{ storyId: { $in: storyIds } }] : [])],
     }),
     BroadcastChannel.deleteMany({ ownerId: userId }),
     BroadcastMessage.deleteMany({
       $or: [
         { authorId: userId },
-        ...(ownedChannelIds.length ? [{ channelId: { $in: ownedChannelIds } }] : [])
-      ]
+        ...(ownedChannelIds.length ? [{ channelId: { $in: ownedChannelIds } }] : []),
+      ],
     }),
     BroadcastSubscription.deleteMany({
       $or: [
         { userId },
-        ...(ownedChannelIds.length ? [{ channelId: { $in: ownedChannelIds } }] : [])
-      ]
+        ...(ownedChannelIds.length ? [{ channelId: { $in: ownedChannelIds } }] : []),
+      ],
     }),
     ...(subscribedChannelIds.length
-      ? [BroadcastChannel.updateMany(
-          { _id: { $in: subscribedChannelIds }, subscriberCount: { $gt: 0 } },
-          { $inc: { subscriberCount: -1 } }
-        )]
+      ? [
+          BroadcastChannel.updateMany(
+            { _id: { $in: subscribedChannelIds }, subscriberCount: { $gt: 0 } },
+            { $inc: { subscriberCount: -1 } },
+          ),
+        ]
       : []),
     Message.updateMany(
       { senderId: userId },
@@ -179,9 +184,9 @@ async function eraseAccount(user) {
           deletedBy: userId,
           attachments: [],
           reactions: [],
-          mentions: []
-        }
-      }
+          mentions: [],
+        },
+      },
     ),
     // Other people's replies quote a snapshot of this account's words, and
     // mentions carry its username. Scrub both; the tombstone alone would leave
@@ -195,23 +200,23 @@ async function eraseAccount(user) {
               $cond: [
                 { $in: ['$replyTo.messageId', messageIds] },
                 { $mergeObjects: ['$replyTo', { preview: '[deleted]', senderName: '[deleted]' }] },
-                '$replyTo'
-              ]
+                '$replyTo',
+              ],
             },
             mentions: {
               $filter: {
                 input: { $ifNull: ['$mentions', []] },
                 as: 'mention',
-                cond: { $ne: ['$$mention.userId', objectId] }
-              }
-            }
-          }
-        }
-      ]
+                cond: { $ne: ['$$mention.userId', objectId] },
+              },
+            },
+          },
+        },
+      ],
     ),
     BusinessProfile.deleteMany({ userId }),
     BusinessTeamMember.deleteMany({
-      $or: [{ businessOwnerId: userId }, { memberId: userId }]
+      $or: [{ businessOwnerId: userId }, { memberId: userId }],
     }),
     MediaAsset.deleteMany({ _id: { $in: mediaRows.map((row) => row._id) } }),
     // Notifications received by this account, plus pings to other people that
@@ -225,16 +230,19 @@ async function eraseAccount(user) {
         { reporterId: userId },
         { targetType: 'member', targetId: userId },
         ...(messageIds.length ? [{ targetType: 'message', targetId: { $in: messageIds } }] : []),
-        ...(forumPostIds.length ? [{ targetType: 'forumPost', targetId: { $in: forumPostIds } }] : [])
-      ]
+        ...(forumPostIds.length
+          ? [{ targetType: 'forumPost', targetId: { $in: forumPostIds } }]
+          : []),
+      ],
     }),
     // Audit rows stay for moderation history, but no row may keep the released
     // handle in its metadata snapshot.
     ...(fresh.username
-      ? [AuditLog.updateMany(
-          { 'metadata.username': fresh.username },
-          [{ $set: { metadata: { $mergeObjects: ['$metadata', { username: '[deleted]' }] } } }]
-        )]
+      ? [
+          AuditLog.updateMany({ 'metadata.username': fresh.username }, [
+            { $set: { metadata: { $mergeObjects: ['$metadata', { username: '[deleted]' }] } } },
+          ]),
+        ]
       : []),
     ProductEvent.deleteMany({ userId }),
     SquadChatMessage.deleteMany({ authorUserId: userId }),
@@ -253,11 +261,16 @@ async function eraseAccount(user) {
 
     User.updateMany(
       { _id: { $ne: userId } },
-      { $pull: { followers: userId, following: userId, blockedUsers: userId, mutedUsers: userId } }
+      { $pull: { followers: userId, following: userId, blockedUsers: userId, mutedUsers: userId } },
     ),
     ...(postIds.length
-      ? [User.updateMany({ savedPosts: { $in: postIds } }, { $pull: { savedPosts: { $in: postIds } } })]
-      : [])
+      ? [
+          User.updateMany(
+            { savedPosts: { $in: postIds } },
+            { $pull: { savedPosts: { $in: postIds } } },
+          ),
+        ]
+      : []),
   ]);
 
   return { erased: true, succession };

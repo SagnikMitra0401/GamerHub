@@ -9,8 +9,8 @@ const VIDEO_CHUNK_BYTES = 6 * 1024 * 1024;
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 /**
@@ -24,7 +24,8 @@ const uploadToCloudinary = async (filePath, options = {}) => {
   } catch {
     sizeBytes = 0;
   }
-  const chunked = options.resourceType === 'video' || (sizeBytes > VIDEO_CHUNK_BYTES && !options.resourceType);
+  const chunked =
+    options.resourceType === 'video' || (sizeBytes > VIDEO_CHUNK_BYTES && !options.resourceType);
 
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
@@ -32,21 +33,19 @@ const uploadToCloudinary = async (filePath, options = {}) => {
       {
         resource_type: 'auto', // Detects if it's an image or a video automatically
         timeout: UPLOAD_TIMEOUT_MS,
-        ...(chunked && sizeBytes > VIDEO_CHUNK_BYTES
-          ? { chunk_size: VIDEO_CHUNK_BYTES }
-          : {}),
+        ...(chunked && sizeBytes > VIDEO_CHUNK_BYTES ? { chunk_size: VIDEO_CHUNK_BYTES } : {}),
         // A caller that passes a full public_id (new media scheme) must not
         // also pass `folder`, so the default only applies when none is given.
         ...(options.publicId
           ? { public_id: options.publicId }
           : { folder: options.folder || 'gaming-hub-media' }),
         ...(options.resourceType ? { resource_type: options.resourceType } : {}),
-        ...(options.imageMetadata === false ? { image_metadata: false } : {})
+        ...(options.imageMetadata === false ? { image_metadata: false } : {}),
       },
       (error, result) => {
         if (error) return reject(error);
         resolve(result);
-      }
+      },
     );
   });
 };
@@ -63,7 +62,7 @@ const deleteFromCloudinary = async (publicId, resourceType = 'image') => {
       (error, result) => {
         if (error) return reject(error);
         resolve(result);
-      }
+      },
     );
   });
 };

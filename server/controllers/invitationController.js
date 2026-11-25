@@ -32,14 +32,14 @@ const toView = (invite) => ({
   expiresAt: invite.expiresAt,
   createdAt: invite.createdAt,
   respondedAt: invite.respondedAt,
-  inviter: { id: String(invite.inviterUserId), username: invite.inviterUsername || 'a player' }
+  inviter: { id: String(invite.inviterUserId), username: invite.inviterUsername || 'a player' },
 });
 
 /** Lazily flip stale pending invites; every read and response does this. */
 async function expireStale(now = new Date()) {
   await Invitation.updateMany(
     { status: 'pending', expiresAt: { $lte: now } },
-    { $set: { status: 'expired' } }
+    { $set: { status: 'expired' } },
   ).catch(() => {});
 }
 
@@ -62,7 +62,7 @@ const createInvitation = async (req, res, next) => {
 
     const [recipient, inviter] = await Promise.all([
       User.findById(recipientId).select('_id username status privacySettings blockedUsers').lean(),
-      User.findById(req.user._id).select('_id username status following blockedUsers').lean()
+      User.findById(req.user._id).select('_id username status following blockedUsers').lean(),
     ]);
     if (!recipient) throw notFound('User not found');
 
@@ -71,17 +71,20 @@ const createInvitation = async (req, res, next) => {
       targetType,
       recipient,
       inviter,
-      inviterFollowsRecipient: followsRecipient
+      inviterFollowsRecipient: followsRecipient,
     });
     if (!consent.ok) {
-      const status = consent.code === 'NOT_FOUND' ? 404 : consent.code === 'SELF_INVITE' ? 409 : 403;
+      const status =
+        consent.code === 'NOT_FOUND' ? 404 : consent.code === 'SELF_INVITE' ? 409 : 403;
       throw new HttpError(status, consent.reason, { code: consent.code });
     }
 
     let targetName = '';
 
     if (targetType === 'squad') {
-      const party = await Party.findById(targetId).select('_id gameTitle leaderId members status').lean();
+      const party = await Party.findById(targetId)
+        .select('_id gameTitle leaderId members status')
+        .lean();
       if (!party) throw notFound('Squad not found');
       if (idOf(party.leaderId) !== String(req.user._id)) {
         throw forbidden('Only the squad leader can invite players.');
@@ -92,7 +95,9 @@ const createInvitation = async (req, res, next) => {
       }
       targetName = party.gameTitle;
     } else {
-      const community = await Community.findById(targetId).select('_id name members ownerId').lean();
+      const community = await Community.findById(targetId)
+        .select('_id name members ownerId')
+        .lean();
       if (!community) throw notFound('Server not found');
       const { permissions } = communityPermissions(community, req.user._id);
       if (!permissions.includes(CAP.ADD_MEMBERS)) {
@@ -117,10 +122,11 @@ const createInvitation = async (req, res, next) => {
         targetId,
         targetName,
         message,
-        expiresAt
+        expiresAt,
       });
     } catch (err) {
-      if (err.code === 11000) throw conflict('That player already has a pending invitation for this.');
+      if (err.code === 11000)
+        throw conflict('That player already has a pending invitation for this.');
       throw err;
     }
 
@@ -128,16 +134,17 @@ const createInvitation = async (req, res, next) => {
       userId: recipient._id,
       type: 'social',
       title: `${req.user.username} invited you`,
-      message: targetType === 'squad'
-        ? `Join their ${targetName} squad.`
-        : `Join the ${targetName} server.`,
+      message:
+        targetType === 'squad'
+          ? `Join their ${targetName} squad.`
+          : `Join the ${targetName} server.`,
       actionUrl: targetType === 'squad' ? '/lfg' : '/communities',
       metadata: {
         kind: 'invitation',
         invitationId: String(invitation._id),
         targetType,
-        targetId: String(targetId)
-      }
+        targetId: String(targetId),
+      },
     });
 
     res.status(201).json(toView(invitation));
@@ -155,7 +162,7 @@ const listInbox = async (req, res, next) => {
     const items = await Invitation.find({
       recipientUserId: req.user._id,
       status: 'pending',
-      expiresAt: { $gt: now }
+      expiresAt: { $gt: now },
     })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -185,7 +192,7 @@ async function loadOwnInvitation(req) {
   if (!isId(req.params.id)) throw badRequest('Invalid invitation id');
   const invitation = await Invitation.findOne({
     _id: req.params.id,
-    recipientUserId: req.user._id
+    recipientUserId: req.user._id,
   });
   if (!invitation) throw notFound('Invitation not found');
   return invitation;
@@ -212,7 +219,7 @@ async function acceptSquadInvite(invitation, userId) {
       const joined = await Party.findOneAndUpdate(
         { _id: party._id, 'members.userId': { $ne: userId }, status: { $ne: 'closed' } },
         { $push: { members: { userId, role: 'member', joinedAt: new Date() } } },
-        { new: true }
+        { new: true },
       );
       if (!joined) throw conflict('That squad changed while you were accepting. Try again.');
       if (joined.members.length >= joined.maxSlots && joined.status === 'open') {
@@ -223,7 +230,12 @@ async function acceptSquadInvite(invitation, userId) {
     }
   }
 
-  return { targetType: 'squad', targetId: String(party._id), targetName: party.gameTitle, actionUrl: '/lfg' };
+  return {
+    targetType: 'squad',
+    targetId: String(party._id),
+    targetName: party.gameTitle,
+    actionUrl: '/lfg',
+  };
 }
 
 async function acceptServerInvite(invitation, userId) {
@@ -242,13 +254,23 @@ async function acceptServerInvite(invitation, userId) {
     const updated = await Community.findOneAndUpdate(
       { _id: community._id, 'members.userId': { $ne: userId } },
       { $push: { members: { userId, role: 'member', joinedAt: new Date() } } },
-      { new: true, select: 'slug name' }
+      { new: true, select: 'slug name' },
     );
     if (!updated) throw conflict('You are already a member of this server.');
-    return { targetType: 'community_server', targetId: String(community._id), targetName: community.name, actionUrl: `/communities/${updated.slug}` };
+    return {
+      targetType: 'community_server',
+      targetId: String(community._id),
+      targetName: community.name,
+      actionUrl: `/communities/${updated.slug}`,
+    };
   }
 
-  return { targetType: 'community_server', targetId: String(community._id), targetName: community.name, actionUrl: `/communities/${community.slug}` };
+  return {
+    targetType: 'community_server',
+    targetId: String(community._id),
+    targetName: community.name,
+    actionUrl: `/communities/${community.slug}`,
+  };
 }
 
 /** POST /api/invitations/:id/accept */
@@ -266,9 +288,10 @@ const acceptInvitation = async (req, res, next) => {
       throw conflict('This invitation has expired.');
     }
 
-    const result = invitation.targetType === 'squad'
-      ? await acceptSquadInvite(invitation, req.user._id)
-      : await acceptServerInvite(invitation, req.user._id);
+    const result =
+      invitation.targetType === 'squad'
+        ? await acceptSquadInvite(invitation, req.user._id)
+        : await acceptServerInvite(invitation, req.user._id);
 
     invitation.status = 'accepted';
     invitation.respondedAt = new Date();
@@ -284,7 +307,7 @@ const acceptInvitation = async (req, res, next) => {
       title: `${req.user.username} accepted your invitation`,
       message: result.targetName ? `${req.user.username} joined ${result.targetName}.` : '',
       actionUrl: result.actionUrl,
-      metadata: { kind: 'invitation_accepted', invitationId: String(invitation._id) }
+      metadata: { kind: 'invitation_accepted', invitationId: String(invitation._id) },
     });
 
     res.status(200).json({ status: 'accepted', ...result });
@@ -309,7 +332,7 @@ const declineInvitation = async (req, res, next) => {
       type: 'social',
       title: `${req.user.username} declined your invitation`,
       actionUrl: invitation.targetType === 'squad' ? '/lfg' : '/communities',
-      metadata: { kind: 'invitation_declined', invitationId: String(invitation._id) }
+      metadata: { kind: 'invitation_declined', invitationId: String(invitation._id) },
     });
 
     res.status(200).json({ status: 'declined' });
@@ -324,10 +347,11 @@ const revokeInvitation = async (req, res, next) => {
     if (!isId(req.params.id)) throw badRequest('Invalid invitation id');
     const invitation = await Invitation.findOne({
       _id: req.params.id,
-      inviterUserId: req.user._id
+      inviterUserId: req.user._id,
     });
     if (!invitation) throw notFound('Invitation not found');
-    if (invitation.status !== 'pending') throw conflict('Only a pending invitation can be revoked.');
+    if (invitation.status !== 'pending')
+      throw conflict('Only a pending invitation can be revoked.');
 
     invitation.status = 'revoked';
     invitation.respondedAt = new Date();
@@ -354,7 +378,7 @@ const migrateSquadToServer = async (req, res, next) => {
     const [party, community, inviter] = await Promise.all([
       Party.findById(req.params.id).select('_id gameTitle leaderId members status').lean(),
       Community.findById(communityId).select('_id name members ownerId').lean(),
-      User.findById(req.user._id).select('_id following blockedUsers').lean()
+      User.findById(req.user._id).select('_id following blockedUsers').lean(),
     ]);
 
     if (!party) throw notFound('Squad not found');
@@ -390,7 +414,7 @@ const migrateSquadToServer = async (req, res, next) => {
         targetType: 'community_server',
         recipient,
         inviter,
-        inviterFollowsRecipient: containsId(inviter?.following, recipient._id)
+        inviterFollowsRecipient: containsId(inviter?.following, recipient._id),
       });
       if (!consent.ok) {
         skipped.push({ userId: String(recipient._id), reason: consent.code });
@@ -406,7 +430,7 @@ const migrateSquadToServer = async (req, res, next) => {
           targetId: community._id,
           targetName: community.name,
           message: `Your ${party.gameTitle} squad is moving to ${community.name}.`,
-          expiresAt: new Date(Date.now() + TTL_MS)
+          expiresAt: new Date(Date.now() + TTL_MS),
         });
         created.push(String(invitation._id));
 
@@ -416,7 +440,11 @@ const migrateSquadToServer = async (req, res, next) => {
           title: `${req.user.username} invited you to ${community.name}`,
           message: `Your ${party.gameTitle} squad is moving to this server.`,
           actionUrl: '/communities',
-          metadata: { kind: 'invitation', invitationId: String(invitation._id), targetType: 'community_server' }
+          metadata: {
+            kind: 'invitation',
+            invitationId: String(invitation._id),
+            targetType: 'community_server',
+          },
         });
       } catch (err) {
         if (err.code === 11000) {
@@ -431,7 +459,7 @@ const migrateSquadToServer = async (req, res, next) => {
       invited: created.length,
       skipped,
       invitationIds: created,
-      communityId: String(community._id)
+      communityId: String(community._id),
     });
   } catch (err) {
     next(err);
@@ -447,5 +475,5 @@ module.exports = {
   revokeInvitation,
   migrateSquadToServer,
   expireStale,
-  TTL_DAYS
+  TTL_DAYS,
 };

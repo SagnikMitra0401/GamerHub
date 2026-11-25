@@ -21,45 +21,45 @@ const CHAT_POLICY = Object.freeze({
     /** Collapse runs of blank lines so a message cannot inflate the DOM. */
     maxBlankLineRun: 2,
     /** Maximum number of lines accepted in a single message. */
-    maxLines: 40
+    maxLines: 40,
   }),
   flood: Object.freeze({
     windowMs: 5 * 1000,
-    maxMessages: 5
+    maxMessages: 5,
   }),
   typing: Object.freeze({
     throttleMs: 2000,
     /** Client-side "is typing" display lifetime. */
-    indicatorTtlMs: 6000
+    indicatorTtlMs: 6000,
   }),
   slowmode: Object.freeze({
     minSeconds: 0,
-    maxSeconds: 120
+    maxSeconds: 120,
   }),
   history: Object.freeze({
     defaultLimit: 50,
-    maxLimit: 50
+    maxLimit: 50,
   }),
   channels: Object.freeze({
     maxPerCommunity: 50,
     maxNameLength: 40,
     maxTopicLength: 100,
-    namePattern: /^[a-z0-9-]+$/
+    namePattern: /^[a-z0-9-]+$/,
   }),
   community: Object.freeze({
     maxMembers: 5000,
     maxNameLength: 40,
     minNameLength: 3,
-    maxDescriptionLength: 200
+    maxDescriptionLength: 200,
   }),
   audit: Object.freeze({
     defaultLimit: 30,
-    maxLimit: 50
+    maxLimit: 50,
   }),
   retention: Object.freeze({
     minDays: 0,
-    maxDays: 365
-  })
+    maxDays: 365,
+  }),
 });
 
 module.exports = { CHAT_POLICY };

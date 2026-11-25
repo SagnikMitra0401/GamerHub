@@ -14,7 +14,7 @@ function localParts(now, timezone) {
     day: '2-digit',
     hour: '2-digit',
     weekday: 'short',
-    hourCycle: 'h23'
+    hourCycle: 'h23',
   }).formatToParts(now);
   const get = (type) => parts.find((part) => part.type === type)?.value || '';
   return {
@@ -22,7 +22,7 @@ function localParts(now, timezone) {
     month: get('month'),
     day: get('day'),
     hour: Number(get('hour')) || 0,
-    weekday: get('weekday')
+    weekday: get('weekday'),
   };
 }
 
@@ -60,7 +60,7 @@ function buildDigest({ requests = 0, unread = 0 } = {}) {
   return {
     title: 'Your message digest',
     message: parts.join(' · '),
-    actionUrl: requests > 0 ? '/messages?folder=requests' : '/messages'
+    actionUrl: requests > 0 ? '/messages?folder=requests' : '/messages',
   };
 }
 
@@ -70,18 +70,21 @@ async function digestCounts(userId, now = new Date()) {
       recipientId: userId,
       state: 'request',
       requestExpiresAt: { $gt: now },
-      filteredAt: null
+      filteredAt: null,
     }),
     Conversation.find({
       participantIds: userId,
       state: 'active',
-      archivedBy: { $ne: userId }
-    }).select('unreadCounts').lean()
+      archivedBy: { $ne: userId },
+    })
+      .select('unreadCounts')
+      .lean(),
   ]);
 
-  const unread = active.reduce((total, conversation) => (
-    total + (Number(conversation.unreadCounts?.[String(userId)]) || 0)
-  ), 0);
+  const unread = active.reduce(
+    (total, conversation) => total + (Number(conversation.unreadCounts?.[String(userId)]) || 0),
+    0,
+  );
   return { requests, unread };
 }
 
@@ -110,7 +113,7 @@ async function sendDmDigests({ now = new Date() } = {}) {
         message: digest.message,
         actionUrl: digest.actionUrl,
         metadata: { kind: 'dm_digest', ...counts },
-        dedupeKey: `dm-digest:${String(user._id)}:${settings.digest}:${digestPeriodKey(settings, now)}`
+        dedupeKey: `dm-digest:${String(user._id)}:${settings.digest}:${digestPeriodKey(settings, now)}`,
       });
       if (notification) sent += 1;
     } catch (err) {
@@ -125,9 +128,10 @@ let startupTimer = null;
 
 function startDmDigestWorker({ intervalMs = 60 * 60 * 1000 } = {}) {
   if (timer) return timer;
-  const run = () => sendDmDigests().catch((err) => {
-    console.error('[DM digest] run failed:', err.message);
-  });
+  const run = () =>
+    sendDmDigests().catch((err) => {
+      console.error('[DM digest] run failed:', err.message);
+    });
 
   timer = setInterval(run, intervalMs);
   if (timer.unref) timer.unref();
@@ -144,5 +148,5 @@ module.exports = {
   buildDigest,
   digestCounts,
   sendDmDigests,
-  startDmDigestWorker
+  startDmDigestWorker,
 };

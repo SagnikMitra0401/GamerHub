@@ -6,11 +6,19 @@ import SegmentedTabs from './SegmentedTabs';
 const options = [
   { key: 'global', label: 'Global' },
   { key: 'following', label: 'Following' },
-  { key: 'latest', label: 'Latest' }
+  { key: 'latest', label: 'Latest' },
 ];
 
 const renderTabs = (props = {}) =>
-  render(<SegmentedTabs ariaLabel="Sort posts" options={options} value="global" onChange={() => {}} {...props} />);
+  render(
+    <SegmentedTabs
+      ariaLabel="Sort posts"
+      options={options}
+      value="global"
+      onChange={() => {}}
+      {...props}
+    />,
+  );
 
 afterEach(() => {
   delete globalThis.ResizeObserver;
@@ -22,13 +30,18 @@ describe('SegmentedTabs', () => {
 
     expect(screen.getByRole('group', { name: 'Sort posts' })).toBeInTheDocument();
     expect(screen.getAllByRole('button')).toHaveLength(options.length);
-    options.forEach(option => expect(screen.getByRole('button', { name: option.label })).toBeInTheDocument());
+    options.forEach((option) =>
+      expect(screen.getByRole('button', { name: option.label })).toBeInTheDocument(),
+    );
   });
 
   it('marks exactly the active tab as pressed', () => {
     renderTabs({ value: 'following' });
 
-    expect(screen.getByRole('button', { name: 'Following' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Following' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByRole('button', { name: 'Following' })).toHaveClass('is-active');
     expect(screen.getByRole('button', { name: 'Global' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: 'Latest' })).toHaveAttribute('aria-pressed', 'false');
@@ -51,7 +64,7 @@ describe('SegmentedTabs', () => {
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'Global' })).toHaveFocus();
 
-    await userEvent.keyboard('{ArrowRight}');   // native button order, no custom handler
+    await userEvent.keyboard('{ArrowRight}'); // native button order, no custom handler
     await userEvent.tab();
     expect(screen.getByRole('button', { name: 'Following' })).toHaveFocus();
 
@@ -70,7 +83,15 @@ describe('SegmentedTabs', () => {
     await waitFor(() => expect(tray).toHaveClass('is-ready'));
 
     // A size change (the compact nav) must not remount the pill or lose state.
-    rerender(<SegmentedTabs ariaLabel="Sort posts" value="latest" onChange={() => {}} options={options} size="sm" />);
+    rerender(
+      <SegmentedTabs
+        ariaLabel="Sort posts"
+        value="latest"
+        onChange={() => {}}
+        options={options}
+        size="sm"
+      />,
+    );
     expect(container.querySelector('.seg-tray')).toHaveClass('seg-tray--sm');
     expect(screen.getByRole('button', { name: 'Latest' })).toHaveAttribute('aria-pressed', 'true');
   });
@@ -78,7 +99,7 @@ describe('SegmentedTabs', () => {
   it('renders without an active tab when the value matches nothing', () => {
     renderTabs({ value: 'deleted-tab' });
 
-    screen.getAllByRole('button').forEach(button => {
+    screen.getAllByRole('button').forEach((button) => {
       expect(button).toHaveAttribute('aria-pressed', 'false');
     });
   });
@@ -87,12 +108,15 @@ describe('SegmentedTabs', () => {
     const observe = vi.fn();
     const disconnect = vi.fn();
     globalThis.ResizeObserver = class {
-      constructor() { this.observe = observe; this.disconnect = disconnect; }
+      constructor() {
+        this.observe = observe;
+        this.disconnect = disconnect;
+      }
     };
 
     const { unmount } = renderTabs();
 
-    expect(observe).toHaveBeenCalledTimes(options.length + 1);   // tray + every button
+    expect(observe).toHaveBeenCalledTimes(options.length + 1); // tray + every button
     unmount();
     expect(disconnect).toHaveBeenCalled();
   });

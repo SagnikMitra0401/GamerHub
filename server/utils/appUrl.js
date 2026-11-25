@@ -1,6 +1,9 @@
 const { isLoopbackOrigin } = require('./origins');
 
-const strip = (value) => String(value || '').trim().replace(/\/+$/, '');
+const strip = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\/+$/, '');
 
 /**
  * Canonical public origin for links that leave the app (server invites).

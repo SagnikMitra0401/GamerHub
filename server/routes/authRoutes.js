@@ -1,9 +1,26 @@
 const express = require('express');
 const {
-  register, login, logout, logoutAll, getProviders, googleLogin, linkGoogle, unlinkGoogle,
-  getMe, updateProfile, verifyEmail, verifyEmailWithCode, resendVerification,
-  setRecoveryEmail, verifyRecoveryEmail, removeRecoveryEmail, startRecovery, verifyRecovery,
-  forgotPassword, resetPassword, changePassword
+  register,
+  login,
+  logout,
+  logoutAll,
+  getProviders,
+  googleLogin,
+  linkGoogle,
+  unlinkGoogle,
+  getMe,
+  updateProfile,
+  verifyEmail,
+  verifyEmailWithCode,
+  resendVerification,
+  setRecoveryEmail,
+  verifyRecoveryEmail,
+  removeRecoveryEmail,
+  startRecovery,
+  verifyRecovery,
+  forgotPassword,
+  resetPassword,
+  changePassword,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { createLimiter } = require('../middleware/limiters');
@@ -14,7 +31,7 @@ const authLimiter = createLimiter({
   name: 'auth',
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
-  message: 'Too many attempts. Please try again later.'
+  message: 'Too many attempts. Please try again later.',
 });
 
 // Account mail is deliberately tight: a person needs a handful of links, a
@@ -23,14 +40,14 @@ const emailLimiter = createLimiter({
   name: 'account-email',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.ACCOUNT_EMAIL_RATE_LIMIT_MAX) || 3,
-  message: 'Too many email requests. Try again in an hour.'
+  message: 'Too many email requests. Try again in an hour.',
 });
 
 const passwordLimiter = createLimiter({
   name: 'account-password',
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.ACCOUNT_PASSWORD_RATE_LIMIT_MAX) || 10,
-  message: 'Too many password attempts. Try again in a few minutes.'
+  message: 'Too many password attempts. Try again in a few minutes.',
 });
 
 router.get('/providers', getProviders);

@@ -42,7 +42,7 @@ const VerifyEmail = () => {
       } catch (err) {
         setStatus('error');
         setMessage(
-          err.response?.data?.message || 'This link is invalid or has expired. Request a new one.'
+          err.response?.data?.message || 'This link is invalid or has expired. Request a new one.',
         );
       }
     })();
@@ -111,11 +111,7 @@ const VerifyEmail = () => {
               Your email is verified. Password changes and account recovery are unlocked.
             </div>
             <p className="auth-footer">
-              {user ? (
-                <Link to={continueTo}>Continue</Link>
-              ) : (
-                <Link to="/login">Sign in</Link>
-              )}
+              {user ? <Link to={continueTo}>Continue</Link> : <Link to="/login">Sign in</Link>}
             </p>
           </>
         )}
@@ -134,8 +130,8 @@ const VerifyEmail = () => {
         {!verified && user && (
           <>
             <p className="auth-subtitle">
-              We sent an 8-digit code to <strong>{user.email}</strong>. It expires after 10
-              minutes and it is only in that email, so it never appears in this page.
+              We sent an 8-digit code to <strong>{user.email}</strong>. It expires after 10 minutes
+              and it is only in that email, so it never appears in this page.
             </p>
 
             {status === 'error' && message && <div className="form-error">{message}</div>}
@@ -160,7 +156,7 @@ const VerifyEmail = () => {
                     fontFamily: 'monospace',
                     fontSize: '1.4rem',
                     letterSpacing: '0.45em',
-                    textAlign: 'center'
+                    textAlign: 'center',
                   }}
                   required
                 />

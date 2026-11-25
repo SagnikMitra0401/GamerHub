@@ -16,7 +16,7 @@ const {
   domainUri,
   getDomainConnection,
   connectionOptions,
-  domainStatus
+  domainStatus,
 } = require('../config/connections');
 
 const ORIGINAL = { ...process.env };

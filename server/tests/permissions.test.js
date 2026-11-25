@@ -9,7 +9,7 @@ const {
   resolveCommunityRole,
   canAssignCommunityRole,
   canKickCommunityMember,
-  assignableRoles
+  assignableRoles,
 } = require('../utils/permissions');
 
 const makeCommunity = (overrides = {}) => ({
@@ -18,9 +18,9 @@ const makeCommunity = (overrides = {}) => ({
     { userId: 'owner1', role: 'owner' },
     { userId: 'admin1', role: 'admin' },
     { userId: 'mod1', role: 'moderator' },
-    { userId: 'member1', role: 'member' }
+    { userId: 'member1', role: 'member' },
   ],
-  ...overrides
+  ...overrides,
 });
 
 test('role hierarchy is strict', () => {
@@ -60,7 +60,7 @@ test('resolveCommunityRole handles plain, populated and legacy documents', () =>
   // Populated docs (what the API returns after .populate().lean())
   const populated = {
     ownerId: { _id: 'owner1' },
-    members: [{ userId: { _id: 'member1', username: 'm' }, role: 'member' }]
+    members: [{ userId: { _id: 'member1', username: 'm' }, role: 'member' }],
   };
   assert.equal(resolveCommunityRole(populated, 'owner1'), 'owner');
   assert.equal(resolveCommunityRole(populated, 'member1'), 'member');

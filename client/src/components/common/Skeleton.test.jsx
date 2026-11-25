@@ -1,12 +1,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import {
-  ChatSkeleton,
-  PostListSkeleton,
-  ProfileSkeleton,
-  SettingsSkeleton
-} from './Skeleton';
+import { ChatSkeleton, PostListSkeleton, ProfileSkeleton, SettingsSkeleton } from './Skeleton';
 
 /**
  * Skeletons are decorative boxes, so the only meaningful contract is:

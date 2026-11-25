@@ -27,11 +27,7 @@ const NODE_ENVS = ['development', 'production', 'test'];
 // Values shipped in .env.example. Leaving one in place is worse than leaving the
 // key empty: the key looks configured to every health check while the secret is
 // public. Comparison is exact and case-insensitive.
-const PLACEHOLDERS = new Set([
-  'replace-with-64-random-characters',
-  'your-key-here',
-  'changeme'
-]);
+const PLACEHOLDERS = new Set(['replace-with-64-random-characters', 'your-key-here', 'changeme']);
 
 /**
  * Optional integrations and the keys each one needs. A group with some keys set
@@ -43,26 +39,26 @@ const OPTIONAL_GROUPS = [
     label: 'Cloudinary',
     keys: ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'],
     effect: 'media uploads',
-    when: () => true
+    when: () => true,
   },
   {
     label: 'the Gmail bridge',
     keys: ['GMAIL_BRIDGE_URL', 'GMAIL_BRIDGE_SECRET'],
     effect: 'verification and reset mail',
-    when: () => true
+    when: () => true,
   },
   {
     label: 'IGDB',
     keys: ['IGDB_CLIENT_ID', 'IGDB_CLIENT_SECRET'],
     effect: 'catalog enrichment',
-    when: () => true
+    when: () => true,
   },
   {
     label: 'Upstash Redis',
     keys: ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
     effect: 'the shared cache',
-    when: (env) => String(env.REDIS_ENABLED || '').trim() === '1'
-  }
+    when: (env) => String(env.REDIS_ENABLED || '').trim() === '1',
+  },
 ];
 
 const present = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -110,7 +106,9 @@ function originProblems(key, value, { production = false } = {}) {
       return [`${label} must use https in production; http is for local development only.`];
     }
     if (url.pathname !== '/' || url.search || url.hash) {
-      return [`${label} includes a path, query or fragment; an origin is scheme, host and port only.`];
+      return [
+        `${label} includes a path, query or fragment; an origin is scheme, host and port only.`,
+      ];
     }
     return [];
   });
@@ -144,28 +142,34 @@ function validateEnv(env = process.env) {
     errors.push('JWT_SECRET is still the .env.example placeholder; generate a random value.');
   } else if (env.JWT_SECRET.trim().length < MIN_JWT_SECRET_LENGTH) {
     errors.push(
-      `JWT_SECRET is ${env.JWT_SECRET.trim().length} characters; at least ${MIN_JWT_SECRET_LENGTH} are required.`
+      `JWT_SECRET is ${env.JWT_SECRET.trim().length} characters; at least ${MIN_JWT_SECRET_LENGTH} are required.`,
     );
   }
 
   if (!present(env.CLIENT_URL)) {
     if (production) {
-      errors.push('CLIENT_URL is not set; production needs the web origin for CORS and share links.');
+      errors.push(
+        'CLIENT_URL is not set; production needs the web origin for CORS and share links.',
+      );
     }
   } else {
     errors.push(...originProblems('CLIENT_URL', env.CLIENT_URL, { production }));
   }
 
   if (present(env.EXTRA_ALLOWED_ORIGINS)) {
-    errors.push(...originProblems('EXTRA_ALLOWED_ORIGINS', env.EXTRA_ALLOWED_ORIGINS, { production }));
+    errors.push(
+      ...originProblems('EXTRA_ALLOWED_ORIGINS', env.EXTRA_ALLOWED_ORIGINS, { production }),
+    );
   }
 
   if (production) {
     if (!present(env.EMAIL_CODE_PEPPER)) {
-      errors.push('EMAIL_CODE_PEPPER is not set; production refuses to derive a pepper from another key.');
+      errors.push(
+        'EMAIL_CODE_PEPPER is not set; production refuses to derive a pepper from another key.',
+      );
     } else if (env.EMAIL_CODE_PEPPER.trim().length < MIN_PEPPER_LENGTH) {
       warnings.push(
-        `EMAIL_CODE_PEPPER is ${env.EMAIL_CODE_PEPPER.trim().length} characters; ${MIN_PEPPER_LENGTH} or more is recommended.`
+        `EMAIL_CODE_PEPPER is ${env.EMAIL_CODE_PEPPER.trim().length} characters; ${MIN_PEPPER_LENGTH} or more is recommended.`,
       );
     }
   }
@@ -179,7 +183,7 @@ function validateEnv(env = process.env) {
     const missing = group.keys.filter((key) => !present(env[key]));
     if (missing.length === 0 || missing.length === group.keys.length) continue;
     warnings.push(
-      `${group.label} is partly configured (${missing.join(', ')} missing); ${group.effect} stay off until every key is set.`
+      `${group.label} is partly configured (${missing.join(', ')} missing); ${group.effect} stay off until every key is set.`,
     );
   }
 
@@ -210,5 +214,5 @@ module.exports = {
   MIN_PEPPER_LENGTH,
   validateEnv,
   loadEnv,
-  originProblems
+  originProblems,
 };

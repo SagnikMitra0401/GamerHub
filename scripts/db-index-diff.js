@@ -16,8 +16,19 @@ const mongoose = require('mongoose');
 const path = require('path');
 
 const MODELS = [
-  'User', 'Post', 'Comment', 'Community', 'Channel', 'Message', 'Party',
-  'Notification', 'AuditLog', 'Report', 'Game', 'MediaAsset', 'Attachment'
+  'User',
+  'Post',
+  'Comment',
+  'Community',
+  'Channel',
+  'Message',
+  'Party',
+  'Notification',
+  'AuditLog',
+  'Report',
+  'Game',
+  'MediaAsset',
+  'Attachment',
 ];
 
 async function run() {
@@ -52,8 +63,12 @@ async function run() {
     }
 
     const declared = (Model.schema.indexes() || []).map(([keys, options = {}]) => ({
-      name: options.name || Object.keys(keys).map((key) => `${key}_1`).join('_'),
-      keys
+      name:
+        options.name ||
+        Object.keys(keys)
+          .map((key) => `${key}_1`)
+          .join('_'),
+      keys,
     }));
     const liveNames = new Set(live.map((index) => index.name));
     const declaredNames = new Set(declared.map((index) => index.name));
@@ -62,7 +77,9 @@ async function run() {
     const extra = live.filter((index) => index.name !== '_id_' && !declaredNames.has(index.name));
 
     if (!missing.length && !extra.length) {
-      console.log(`${name.padEnd(14)} in sync (${live.length} index${live.length === 1 ? '' : 'es'})`);
+      console.log(
+        `${name.padEnd(14)} in sync (${live.length} index${live.length === 1 ? '' : 'es'})`,
+      );
       continue;
     }
 

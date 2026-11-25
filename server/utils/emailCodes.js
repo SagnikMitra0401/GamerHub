@@ -4,7 +4,7 @@ const EmailChallenge = require('../models/EmailChallenge');
 const PURPOSES = Object.freeze({
   VERIFY_EMAIL: 'verify_email',
   VERIFY_RECOVERY: 'verify_recovery',
-  RECOVER_ACCOUNT: 'recover_account'
+  RECOVER_ACCOUNT: 'recover_account',
 });
 
 const TTL_MS = 10 * 60 * 1000;
@@ -70,12 +70,12 @@ async function issueEmailChallenge(userId, purpose, { target = '' } = {}) {
     target: String(target || '').slice(0, 254),
     codeHash: hashCode(userId, purpose, code),
     attempts: 0,
-    expiresAt: new Date(now.getTime() + TTL_MS)
+    expiresAt: new Date(now.getTime() + TTL_MS),
   };
 
   await EmailChallenge.updateMany(
     { userId, purpose, consumedAt: null },
-    { $set: { consumedAt: now } }
+    { $set: { consumedAt: now } },
   );
 
   let created;
@@ -88,7 +88,7 @@ async function issueEmailChallenge(userId, purpose, { target = '' } = {}) {
     if (err && err.code === 11000) {
       await EmailChallenge.updateMany(
         { userId, purpose, consumedAt: null },
-        { $set: { consumedAt: new Date() } }
+        { $set: { consumedAt: new Date() } },
       );
       created = await EmailChallenge.create(doc);
     } else {
@@ -118,7 +118,7 @@ async function consumeEmailChallenge(userId, purpose, code) {
   if (challenge.expiresAt.getTime() <= now.getTime()) {
     await EmailChallenge.updateOne(
       { _id: challenge._id, consumedAt: null },
-      { $set: { consumedAt: now } }
+      { $set: { consumedAt: now } },
     );
     return { ok: false, reason: 'expired', attemptsRemaining: 0 };
   }
@@ -126,7 +126,7 @@ async function consumeEmailChallenge(userId, purpose, code) {
   const counted = await EmailChallenge.findOneAndUpdate(
     { _id: challenge._id, consumedAt: null, attempts: { $lt: MAX_ATTEMPTS } },
     { $inc: { attempts: 1 } },
-    { new: true }
+    { new: true },
   ).lean();
 
   if (!counted) return { ok: false, reason: 'locked', attemptsRemaining: 0 };
@@ -135,7 +135,7 @@ async function consumeEmailChallenge(userId, purpose, code) {
     return {
       ok: false,
       reason: 'mismatch',
-      attemptsRemaining: Math.max(0, MAX_ATTEMPTS - counted.attempts)
+      attemptsRemaining: Math.max(0, MAX_ATTEMPTS - counted.attempts),
     };
   }
 
@@ -144,7 +144,7 @@ async function consumeEmailChallenge(userId, purpose, code) {
   const won = await EmailChallenge.findOneAndUpdate(
     { _id: challenge._id, consumedAt: null },
     { $set: { consumedAt: now } },
-    { new: true }
+    { new: true },
   ).lean();
 
   if (!won) return { ok: false, reason: 'missing', attemptsRemaining: 0 };
@@ -155,7 +155,7 @@ async function consumeEmailChallenge(userId, purpose, code) {
 async function invalidateEmailChallenges(userId, purpose) {
   await EmailChallenge.updateMany(
     { userId, purpose, consumedAt: null },
-    { $set: { consumedAt: new Date() } }
+    { $set: { consumedAt: new Date() } },
   );
 }
 
@@ -169,5 +169,5 @@ module.exports = {
   hashCode,
   issueEmailChallenge,
   consumeEmailChallenge,
-  invalidateEmailChallenges
+  invalidateEmailChallenges,
 };

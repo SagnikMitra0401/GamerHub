@@ -14,7 +14,8 @@
 const mongoose = require('mongoose');
 const Game = require('../models/Game');
 
-const EDITION_SUFFIX = /\b(game of the year|goty|definitive|deluxe|ultimate|complete|enhanced|remastered|remake|anniversary)\b[\s\S]*$/i;
+const EDITION_SUFFIX =
+  /\b(game of the year|goty|definitive|deluxe|ultimate|complete|enhanced|remastered|remake|anniversary)\b[\s\S]*$/i;
 
 /** Accent- and punctuation-insensitive form used for comparison. */
 function gameKey(value) {
@@ -80,9 +81,11 @@ function buildGameRecord({
   requirements = null,
   externalIds = {},
   stats = null,
-  now = new Date()
+  now = new Date(),
 } = {}) {
-  const cleanTitle = String(title || '').trim().slice(0, 160);
+  const cleanTitle = String(title || '')
+    .trim()
+    .slice(0, 160);
   const key = canonicalKey(cleanTitle);
   if (!cleanTitle || !key) return null;
 
@@ -96,7 +99,10 @@ function buildGameRecord({
     cover: cover || { url: null, imageId: null },
     screenshots: (Array.isArray(screenshots) ? screenshots : []).filter(Boolean).slice(0, 8),
     genres: [...new Set((Array.isArray(genres) ? genres : []).filter(Boolean))].slice(0, 8),
-    platforms: [...new Set((Array.isArray(platforms) ? platforms : []).filter(Boolean))].slice(0, 10),
+    platforms: [...new Set((Array.isArray(platforms) ? platforms : []).filter(Boolean))].slice(
+      0,
+      10,
+    ),
     releaseYear: yearFrom(releaseDate),
     requirements: requirements || {},
     externalIds: externalIds || {},
@@ -104,7 +110,7 @@ function buildGameRecord({
     source,
     status,
     lastSyncedAt: now,
-    schemaVersion: 1
+    schemaVersion: 1,
   };
 }
 
@@ -120,28 +126,30 @@ function mergeStats(primaryStats = {}, duplicateStats = {}) {
 
 function mergeGameDocuments(primary, duplicate) {
   if (!primary || !duplicate) return primary;
-  const aliasKeys = new Set([
-    ...(primary.aliasKeys || []),
-    ...(duplicate.aliasKeys || []),
-    duplicate.key
-  ].filter(Boolean));
+  const aliasKeys = new Set(
+    [...(primary.aliasKeys || []), ...(duplicate.aliasKeys || []), duplicate.key].filter(Boolean),
+  );
   aliasKeys.delete(primary.key);
 
-  const aliases = [...new Set([
-    ...(primary.aliases || []),
-    ...(duplicate.aliases || []),
-    duplicate.title
-  ].filter((value) => value && value !== primary.title))];
+  const aliases = [
+    ...new Set(
+      [...(primary.aliases || []), ...(duplicate.aliases || []), duplicate.title].filter(
+        (value) => value && value !== primary.title,
+      ),
+    ),
+  ];
 
   return {
     ...primary,
     aliases,
     aliasKeys: [...aliasKeys],
-    screenshots: [...new Set([...(primary.screenshots || []), ...(duplicate.screenshots || [])])].slice(0, 8),
+    screenshots: [
+      ...new Set([...(primary.screenshots || []), ...(duplicate.screenshots || [])]),
+    ].slice(0, 8),
     genres: [...new Set([...(primary.genres || []), ...(duplicate.genres || [])])],
     platforms: [...new Set([...(primary.platforms || []), ...(duplicate.platforms || [])])],
     stats: mergeStats(primary.stats, duplicate.stats),
-    summary: primary.summary || duplicate.summary || ''
+    summary: primary.summary || duplicate.summary || '',
   };
 }
 
@@ -151,7 +159,7 @@ function collectPlayerTitles(user) {
     ...(Array.isArray(user?.preferences?.favoriteGames) ? user.preferences.favoriteGames : []),
     ...(Array.isArray(user?.gamerPassport?.activeGames)
       ? user.gamerPassport.activeGames.map((entry) => entry?.gameName)
-      : [])
+      : []),
   ].filter(Boolean);
 }
 
@@ -190,7 +198,7 @@ async function resolveGame(title, { source = 'user', now = new Date() } = {}) {
       return await Game.findOneAndUpdate(
         { key: base.key },
         { $setOnInsert: { ...base, slug } },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true },
       ).lean();
     } catch (err) {
       if (err?.code !== 11000) throw err;
@@ -215,7 +223,10 @@ async function applyFavoriteGameChange(previousTitles = [], nextTitles = []) {
   const removed = [...before].filter((key) => !after.has(key));
 
   const resolveKey = async (key) => {
-    const direct = await Game.findOne({ $or: [{ key }, { aliasKeys: key }], status: { $ne: 'merged' } })
+    const direct = await Game.findOne({
+      $or: [{ key }, { aliasKeys: key }],
+      status: { $ne: 'merged' },
+    })
       .select('_id')
       .lean();
     return direct?._id || null;
@@ -237,14 +248,17 @@ async function applyFavoriteGameChange(previousTitles = [], nextTitles = []) {
     increments.map(({ id, delta }) => ({
       updateOne: {
         filter: { _id: id },
-        update: { $inc: { 'stats.favoriteCount': delta } }
-      }
+        update: { $inc: { 'stats.favoriteCount': delta } },
+      },
     })),
-    { ordered: false }
+    { ordered: false },
   );
 
   // A counter should never go negative even if a document was edited by hand.
-  await Game.updateMany({ 'stats.favoriteCount': { $lt: 0 } }, { $set: { 'stats.favoriteCount': 0 } });
+  await Game.updateMany(
+    { 'stats.favoriteCount': { $lt: 0 } },
+    { $set: { 'stats.favoriteCount': 0 } },
+  );
 
   return { added: added.length, removed: removed.length };
 }
@@ -272,5 +286,5 @@ module.exports = {
   findGameByTitle,
   resolveGame,
   resolveGameTitles,
-  applyFavoriteGameChange
+  applyFavoriteGameChange,
 };

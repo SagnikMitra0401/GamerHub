@@ -1,8 +1,5 @@
 const ProductEvent = require('../models/ProductEvent');
-const {
-  PRODUCT_EVENT_NAMES,
-  FIRST_EVENT_NAMES
-} = /** @type {any} */ (ProductEvent);
+const { PRODUCT_EVENT_NAMES, FIRST_EVENT_NAMES } = /** @type {any} */ (ProductEvent);
 
 const EVENT_NAMES = new Set(PRODUCT_EVENT_NAMES);
 const FIRST_EVENTS = new Set(FIRST_EVENT_NAMES);
@@ -10,7 +7,8 @@ const FIRST_EVENTS = new Set(FIRST_EVENT_NAMES);
 const MAX_PROPS = 10;
 const MAX_KEY_LENGTH = 40;
 const MAX_STRING_LENGTH = 120;
-const SENSITIVE_KEY = /email|token|password|secret|authorization|cookie|(^|_)ip($|_)|address|message|text|body|content|stack/i;
+const SENSITIVE_KEY =
+  /email|token|password|secret|authorization|cookie|(^|_)ip($|_)|address|message|text|body|content|stack/i;
 const EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PROP_KEY = /^[a-z][a-z0-9_]*$/i;
 
@@ -53,8 +51,7 @@ function sanitizeEventProps(input) {
   return clean;
 }
 
-const isAllowedEventName = (name) =>
-  typeof name === 'string' && EVENT_NAMES.has(name);
+const isAllowedEventName = (name) => typeof name === 'string' && EVENT_NAMES.has(name);
 
 /**
  * Persist one event. Fire-and-forget by design: a telemetry failure must never
@@ -67,7 +64,7 @@ async function recordEvent(name, userId = null, props = {}) {
     return await ProductEvent.create({
       userId: userId || null,
       name,
-      props: sanitizeEventProps(props)
+      props: sanitizeEventProps(props),
     });
   } catch (err) {
     if (err?.code !== 11000) {
@@ -91,10 +88,10 @@ async function recordFirstEvent(name, userId = null, props = {}) {
         $setOnInsert: {
           userId,
           name,
-          props: sanitizeEventProps(props)
-        }
+          props: sanitizeEventProps(props),
+        },
       },
-      { upsert: true }
+      { upsert: true },
     );
     return true;
   } catch (err) {
@@ -110,5 +107,5 @@ module.exports = {
   isAllowedEventName,
   sanitizeEventProps,
   recordEvent,
-  recordFirstEvent
+  recordFirstEvent,
 };

@@ -37,15 +37,15 @@ function cleanStringList(input, { maxLength = 40, limit = MAX_FAVORITES } = {}) 
   return out;
 }
 
-
-
 // GET /api/users/:username — public profile
 const getProfile = async (req, res, next) => {
   try {
     const user = await User.findOne({ username: req.params.username })
       // Sign-in identities, session counters and personal block lists are not
       // public profile data.
-      .select('-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers -recoveryEmail -recoveryEmailVerifiedAt -recoveryEligibleAt')
+      .select(
+        '-passwordHash -email -authIdentities -sessionVersion -deletionRequestedAt -mutedUsers -recoveryEmail -recoveryEmailVerifiedAt -recoveryEligibleAt',
+      )
       .populate('followers', 'username')
       .populate('following', 'username')
       .lean();
@@ -53,14 +53,17 @@ const getProfile = async (req, res, next) => {
 
     const isSelf = req.user && String(req.user._id) === String(user._id);
     const isStaff = req.user?.role === 'admin';
-    const blocked = Boolean(req.user) && (
-      (req.user.blockedUsers || []).some((entry) => String(entry) === String(user._id))
-      || (user.blockedUsers || []).some((entry) => String(entry) === String(req.user._id))
-    );
+    const blocked =
+      Boolean(req.user) &&
+      ((req.user.blockedUsers || []).some((entry) => String(entry) === String(user._id)) ||
+        (user.blockedUsers || []).some((entry) => String(entry) === String(req.user._id)));
 
     // Frozen, suspended and deleted profiles are not a back door into content
     // the feed and search already hide. A symmetric block is a 404.
-    if ((['frozen', 'suspended', 'deleted'].includes(user.status) && !isSelf && !isStaff) || blocked) {
+    if (
+      (['frozen', 'suspended', 'deleted'].includes(user.status) && !isSelf && !isStaff) ||
+      blocked
+    ) {
       throw notFound('User not found');
     }
 
@@ -89,7 +92,7 @@ const getProfile = async (req, res, next) => {
           slug: c.slug,
           icon: c.icon,
           isPrivate: c.isPrivate,
-          role
+          role,
         };
       })
       .filter(Boolean)
@@ -102,24 +105,25 @@ const getProfile = async (req, res, next) => {
         : null,
       req.user?.profileType === 'creator_business'
         ? BusinessProfile.findOne({ userId: req.user._id }).select('verificationStatus').lean()
-        : null
+        : null,
     ]);
     const dm = describeDmPolicy({
       recipient: user,
       viewer: req.user,
-      viewerIsBusiness: viewerBusiness?.verificationStatus === 'verified'
+      viewerIsBusiness: viewerBusiness?.verificationStatus === 'verified',
     });
     const profile = {
       ...user,
       // A frozen account reads offline even to itself and staff.
-      presence: user.status === 'frozen'
-        ? { status: 'offline', activeGame: '', lastActive: null }
-        : publicPresence(user.presence),
+      presence:
+        user.status === 'frozen'
+          ? { status: 'offline', activeGame: '', lastActive: null }
+          : publicPresence(user.presence),
       business: publicBusinessProfile(recipientBusiness),
       postCount,
       isFollowing,
       dm,
-      communities
+      communities,
     };
 
     // The policy matrix is a private contact surface; the viewer only receives
@@ -148,13 +152,16 @@ const getUserPosts = async (req, res, next) => {
       .lean();
     if (!target) throw notFound('User not found');
 
-    const blocked = Boolean(req.user) && (
-      (req.user.blockedUsers || []).some((entry) => String(entry) === String(target._id))
-      || (target.blockedUsers || []).some((entry) => String(entry) === String(req.user._id))
-    );
-    if ((['frozen', 'suspended', 'deleted'].includes(target.status)
-      && String(req.user?._id) !== String(target._id)
-      && req.user?.role !== 'admin') || blocked) {
+    const blocked =
+      Boolean(req.user) &&
+      ((req.user.blockedUsers || []).some((entry) => String(entry) === String(target._id)) ||
+        (target.blockedUsers || []).some((entry) => String(entry) === String(req.user._id)));
+    if (
+      (['frozen', 'suspended', 'deleted'].includes(target.status) &&
+        String(req.user?._id) !== String(target._id) &&
+        req.user?.role !== 'admin') ||
+      blocked
+    ) {
       throw notFound('User not found');
     }
 
@@ -176,7 +183,9 @@ const getUserPosts = async (req, res, next) => {
 // POST /api/users/:username/follow — toggle follow/unfollow
 const toggleFollow = async (req, res, next) => {
   try {
-    const target = await User.findOne({ username: req.params.username }).select('_id username status');
+    const target = await User.findOne({ username: req.params.username }).select(
+      '_id username status',
+    );
     if (!target) throw notFound('User not found');
 
     if (target.status === 'frozen') {
@@ -188,14 +197,14 @@ const toggleFollow = async (req, res, next) => {
     }
 
     const alreadyFollowing = req.user.following.some(
-      (id) => id.toString() === target._id.toString()
+      (id) => id.toString() === target._id.toString(),
     );
 
     if (alreadyFollowing) {
-      await User.findByIdAndUpdate(req.user._id,  { $pull: { following: target._id } });
+      await User.findByIdAndUpdate(req.user._id, { $pull: { following: target._id } });
       await User.findByIdAndUpdate(target._id, { $pull: { followers: req.user._id } });
     } else {
-      await User.findByIdAndUpdate(req.user._id,  { $addToSet: { following: target._id } });
+      await User.findByIdAndUpdate(req.user._id, { $addToSet: { following: target._id } });
       await User.findByIdAndUpdate(target._id, { $addToSet: { followers: req.user._id } });
       recordFirstEvent('first_follow', req.user._id, { surface: 'profile' });
 
@@ -216,7 +225,7 @@ const toggleFollow = async (req, res, next) => {
 
     res.status(200).json({
       following: !alreadyFollowing,
-      followers: updated.followers
+      followers: updated.followers,
     });
   } catch (err) {
     next(err);
@@ -232,7 +241,7 @@ const toggleSavePost = async (req, res, next) => {
     const alreadySaved = req.user.savedPosts.some((id) => id.toString() === postId);
 
     const update = alreadySaved
-      ? { $pull:     { savedPosts: postId } }
+      ? { $pull: { savedPosts: postId } }
       : { $addToSet: { savedPosts: postId } };
 
     await User.findByIdAndUpdate(req.user._id, update);
@@ -251,15 +260,16 @@ const toggleFavouriteChannel = async (req, res, next) => {
     const alreadyFav = req.user.favoriteChannels.includes(channel);
 
     const update = alreadyFav
-      ? { $pull:     { favoriteChannels: channel } }
+      ? { $pull: { favoriteChannels: channel } }
       : { $addToSet: { favoriteChannels: channel } };
 
-    const updated = await User.findByIdAndUpdate(req.user._id, update, { new: true })
-      .select('favoriteChannels');
+    const updated = await User.findByIdAndUpdate(req.user._id, update, { new: true }).select(
+      'favoriteChannels',
+    );
 
     res.status(200).json({
       favourited: !alreadyFav,
-      favoriteChannels: updated.favoriteChannels
+      favoriteChannels: updated.favoriteChannels,
     });
   } catch (err) {
     next(err);
@@ -273,7 +283,7 @@ const getSavedPosts = async (req, res, next) => {
       .select('savedPosts')
       .populate({
         path: 'savedPosts',
-        populate: { path: 'userId', select: 'username level role' }
+        populate: { path: 'userId', select: 'username level role' },
       })
       .lean();
 
@@ -302,12 +312,11 @@ const searchAll = async (req, res, next) => {
     // scan the user collection on every keystroke.
     const [blockedByThem, hiddenAccounts] = await Promise.all([
       blockedIdsFor(req.user?._id),
-      hiddenAccountIds()
+      hiddenAccountIds(),
     ]);
-    const blockedIds = [...new Set([
-      ...((req.user?.blockedUsers || []).map(String)),
-      ...blockedByThem
-    ])];
+    const blockedIds = [
+      ...new Set([...(req.user?.blockedUsers || []).map(String), ...blockedByThem]),
+    ];
 
     // Post authors are filtered after the populate, which is cheaper than
     // loading every frozen account into a `$nin` before the text query.
@@ -316,7 +325,7 @@ const searchAll = async (req, res, next) => {
     const userFilter = {
       username: { $regex: `^${safe}`, $options: 'i' },
       'privacySettings.discoverableInSearch': { $ne: false },
-      status: { $nin: ['frozen', 'suspended', 'deleted'] }
+      status: { $nin: ['frozen', 'suspended', 'deleted'] },
     };
     if (hiddenIds.length) userFilter._id = { $nin: hiddenIds };
 
@@ -338,19 +347,20 @@ const searchAll = async (req, res, next) => {
 
       // Anchored prefix, not an unanchored scan: the unique username index can
       // serve `^handle` directly.
-      User.find(userFilter)
-        .select('username level role medals')
-        .limit(8)
-        .lean(),
+      User.find(userFilter).select('username level role medals').limit(8).lean(),
 
       // Anchored prefix: `^gam` can walk the multikey tags index, while a bare
       // regex would scan every post document on each search.
-      Post.distinct('tags', { tags: { $regex: `^${safe}`, $options: 'i' } })
-        .then((t) => t.slice(0, 10))
+      Post.distinct('tags', { tags: { $regex: `^${safe}`, $options: 'i' } }).then((t) =>
+        t.slice(0, 10),
+      ),
     ]);
 
     const visiblePosts = posts
-      .filter((post) => post.userId && post.userId.status !== 'frozen' && post.userId.status !== 'suspended')
+      .filter(
+        (post) =>
+          post.userId && post.userId.status !== 'frozen' && post.userId.status !== 'suspended',
+      )
       .slice(0, 10);
 
     res.status(200).json({ posts: visiblePosts, users, tags });
@@ -371,11 +381,11 @@ const updateGamerPassport = async (req, res, next) => {
 
     if (gameIds && typeof gameIds === 'object') {
       passportData.gameIds = {
-        riotId:     sanitizeLine(gameIds.riotId, 40),
-        steamId:    sanitizeLine(gameIds.steamId, 40),
-        psnTag:     sanitizeLine(gameIds.psnTag, 40),
-        xboxTag:    sanitizeLine(gameIds.xboxTag, 40),
-        discordTag: sanitizeLine(gameIds.discordTag, 40)
+        riotId: sanitizeLine(gameIds.riotId, 40),
+        steamId: sanitizeLine(gameIds.steamId, 40),
+        psnTag: sanitizeLine(gameIds.psnTag, 40),
+        xboxTag: sanitizeLine(gameIds.xboxTag, 40),
+        discordTag: sanitizeLine(gameIds.discordTag, 40),
       };
     }
 
@@ -384,9 +394,11 @@ const updateGamerPassport = async (req, res, next) => {
         .filter((g) => g && typeof g.gameName === 'string' && g.gameName.trim())
         .slice(0, 10)
         .map((g) => ({
-          gameName:    sanitizeLine(g.gameName, 40),
-          platform:    ['PC', 'PlayStation', 'Xbox', 'Switch', 'Mobile', 'Other'].includes(g.platform) ? g.platform : 'PC',
-          rankOrLevel: sanitizeLine(g.rankOrLevel, 40)
+          gameName: sanitizeLine(g.gameName, 40),
+          platform: ['PC', 'PlayStation', 'Xbox', 'Switch', 'Mobile', 'Other'].includes(g.platform)
+            ? g.platform
+            : 'PC',
+          rankOrLevel: sanitizeLine(g.rankOrLevel, 40),
         }));
     }
 
@@ -400,16 +412,18 @@ const updateGamerPassport = async (req, res, next) => {
           if (isPrimary) foundPrimary = true;
 
           return {
-            rigName:    sanitizeLine(r.rigName, 40),
-            deviceType: ['PC', 'Laptop', 'Mobile', 'Console', 'Handheld'].includes(r.deviceType) ? r.deviceType : 'PC',
+            rigName: sanitizeLine(r.rigName, 40),
+            deviceType: ['PC', 'Laptop', 'Mobile', 'Console', 'Handheld'].includes(r.deviceType)
+              ? r.deviceType
+              : 'PC',
             isPrimary,
             specs: {
-              cpu:         sanitizeLine(r.specs?.cpu, 60),
-              gpu:         sanitizeLine(r.specs?.gpu, 60),
-              ram:         sanitizeLine(r.specs?.ram, 40),
-              monitor:     sanitizeLine(r.specs?.monitor, 60),
-              peripherals: sanitizeLine(r.specs?.peripherals, 120)
-            }
+              cpu: sanitizeLine(r.specs?.cpu, 60),
+              gpu: sanitizeLine(r.specs?.gpu, 60),
+              ram: sanitizeLine(r.specs?.ram, 40),
+              monitor: sanitizeLine(r.specs?.monitor, 60),
+              peripherals: sanitizeLine(r.specs?.peripherals, 120),
+            },
           };
         });
 
@@ -421,7 +435,7 @@ const updateGamerPassport = async (req, res, next) => {
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       { $set: { gamerPassport: passportData } },
-      { new: true }
+      { new: true },
     ).select('gamerPassport');
 
     res.status(200).json(updatedUser.gamerPassport);
@@ -454,21 +468,21 @@ const updatePreferences = async (req, res, next) => {
       if (!Array.isArray(platforms)) throw badRequest('platforms must be an array.');
       const invalid = platforms.filter((p) => !USER_PLATFORMS.includes(p));
       if (invalid.length) {
-        throw badRequest(`Invalid platform(s): ${invalid.join(', ')}. Allowed: ${USER_PLATFORMS.join(', ')}`);
+        throw badRequest(
+          `Invalid platform(s): ${invalid.join(', ')}. Allowed: ${USER_PLATFORMS.join(', ')}`,
+        );
       }
       updates['preferences.platforms'] = [...new Set(platforms)];
     }
 
     if (!Object.keys(updates).length) throw badRequest('No preferences provided.');
 
-    const previous = await User.findById(req.user._id)
-      .select('preferences.favoriteGames')
-      .lean();
+    const previous = await User.findById(req.user._id).select('preferences.favoriteGames').lean();
 
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select('preferences');
 
     // Keep the canonical catalog in step with the free-text titles saved here.
@@ -476,7 +490,7 @@ const updatePreferences = async (req, res, next) => {
       await resolveGameTitles(updated.preferences?.favoriteGames || []);
       await applyFavoriteGameChange(
         previous?.preferences?.favoriteGames || [],
-        updated.preferences?.favoriteGames || []
+        updated.preferences?.favoriteGames || [],
       );
     }
 
@@ -498,9 +512,7 @@ const updatePresence = async (req, res, next) => {
       throw badRequest('status must be one of: online, in_game, offline, invisible.');
     }
 
-    const activeGame = status === 'in_game'
-      ? sanitizeLine(req.body?.activeGame, 60)
-      : '';
+    const activeGame = status === 'in_game' ? sanitizeLine(req.body?.activeGame, 60) : '';
     if (status === 'in_game' && !activeGame) {
       throw badRequest('Pick a game to show as your active game.');
     }
@@ -509,14 +521,14 @@ const updatePresence = async (req, res, next) => {
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       { $set: { presence } },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select('presence');
 
     // Everyone else sees the public projection (invisible -> offline).
     getIO()?.emit('presence_change', {
       userId: String(req.user._id),
       username: req.user.username,
-      ...publicPresence(updated.presence)
+      ...publicPresence(updated.presence),
     });
 
     res.status(200).json({ presence: updated.presence });
@@ -537,5 +549,5 @@ module.exports = {
   updatePreferences,
   updatePresence,
   publicPresence,
-  cleanStringList
+  cleanStringList,
 };

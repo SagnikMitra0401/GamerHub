@@ -17,7 +17,7 @@ email.sendBusinessReviewEmail = async () => ({ id: 'test' });
 domainVerification.checkDnsToken = async ({ domain }) => ({
   ok: true,
   domain,
-  recordName: `_gamerhub-verify.${domain}`
+  recordName: `_gamerhub-verify.${domain}`,
 });
 
 const BusinessProfile = require('../models/BusinessProfile');
@@ -30,7 +30,7 @@ const {
   requestBusinessVerification,
   checkBusinessVerification,
   resolveBusinessVerification,
-  demoteBusinessAccount
+  demoteBusinessAccount,
 } = require('../controllers/businessController');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -43,7 +43,7 @@ const originals = {
   userFindById: User.findById,
   userUpdateOne: User.updateOne,
   teamUpdateMany: BusinessTeamMember.updateMany,
-  auditCreate: BusinessVerificationAudit.create
+  auditCreate: BusinessVerificationAudit.create,
 };
 const audits = [];
 
@@ -54,7 +54,9 @@ test.beforeEach(() => {
     return payload;
   };
   User.findById = () => ({
-    select: () => ({ lean: async () => ({ _id: 'c'.repeat(24), profileType: 'creator_business' }) })
+    select: () => ({
+      lean: async () => ({ _id: 'c'.repeat(24), profileType: 'creator_business' }),
+    }),
   });
   User.updateOne = async () => ({ modifiedCount: 1 });
   BusinessTeamMember.updateMany = async () => ({ modifiedCount: 0 });
@@ -80,7 +82,7 @@ test('a manual verification stamps the evidence-retention clock', async () => {
   const result = await invoke(resolveBusinessVerification, {
     params: { id: profile._id },
     body: { status: 'verified', note: 'Registry checked.' },
-    user: { _id: 'd'.repeat(24) }
+    user: { _id: 'd'.repeat(24) },
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -97,7 +99,7 @@ test('a rejection stamps the evidence-retention clock', async () => {
   const result = await invoke(resolveBusinessVerification, {
     params: { id: profile._id },
     body: { status: 'rejected', note: 'Proof does not match the business.' },
-    user: { _id: 'd'.repeat(24) }
+    user: { _id: 'd'.repeat(24) },
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -113,12 +115,12 @@ test('an automatic DNS match stamps the evidence-retention clock', async () => {
     verificationMethod: 'dns',
     verificationDomain: 'neonrift.example',
     verificationToken: 'token-value',
-    reviewDecidedAt: null
+    reviewDecidedAt: null,
   });
   BusinessProfile.findOne = async () => profile;
 
   const result = await invoke(checkBusinessVerification, {
-    user: { _id: 'c'.repeat(24) }
+    user: { _id: 'c'.repeat(24) },
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -134,14 +136,14 @@ test('demotion stamps the evidence-retention clock', async () => {
     verificationStatus: 'verified',
     verificationRequestedAt: ago(9),
     reviewContactedAt: ago(8),
-    reviewDecidedAt: ago(30)
+    reviewDecidedAt: ago(30),
   });
   BusinessProfile.findById = async () => profile;
 
   const result = await invoke(demoteBusinessAccount, {
     params: { id: profile._id },
     body: { reason: 'The listing does not identify this business.' },
-    user: { _id: 'd'.repeat(24) }
+    user: { _id: 'd'.repeat(24) },
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -158,13 +160,13 @@ test('a new verification request clears the decision clock and old correspondenc
     reviewDecidedAt: ago(400),
     reviewContactedAt: ago(410),
     reviewRespondedAt: ago(405),
-    reviewResponseNote: 'The old answer to the old review.'
+    reviewResponseNote: 'The old answer to the old review.',
   });
   BusinessProfile.findOne = async () => profile;
 
   const result = await invoke(requestBusinessVerification, {
     user: { _id: 'c'.repeat(24) },
-    body: { method: 'dns' }
+    body: { method: 'dns' },
   });
 
   assert.equal(result.failure, null, result.failure?.message);
@@ -180,7 +182,7 @@ test('editing the website no longer postpones evidence retention', async () => {
   const existing = fakeProfile({
     verificationStatus: 'verified',
     website: 'https://old.example',
-    reviewDecidedAt: decidedAt
+    reviewDecidedAt: decidedAt,
   });
   const saved = { ...existing, verificationStatus: 'none', website: 'https://new.example' };
 
@@ -196,16 +198,20 @@ test('editing the website no longer postpones evidence retention', async () => {
     body: {
       displayName: 'Neon Rift Studio',
       website: 'https://new.example',
-      contactEmail: 'legal@neonrift.example'
-    }
+      contactEmail: 'legal@neonrift.example',
+    },
   });
 
   assert.equal(result.failure, null, result.failure?.message);
-  assert.equal(updatePayload.verificationStatus, 'none', 'a domain change still resets verification');
+  assert.equal(
+    updatePayload.verificationStatus,
+    'none',
+    'a domain change still resets verification',
+  );
   assert.equal(
     'reviewDecidedAt' in updatePayload,
     false,
-    'a profile edit must not move or clear the past decision'
+    'a profile edit must not move or clear the past decision',
   );
 });
 
@@ -249,7 +255,7 @@ function fakeProfile(overrides = {}) {
     async save() {
       this.saves += 1;
       return this;
-    }
+    },
   };
 }
 
@@ -264,9 +270,11 @@ async function invoke(handler, req) {
     json(payload) {
       this.payload = payload;
       return this;
-    }
+    },
   };
   let failure = null;
-  await handler(req, response, (err) => { failure = err; });
+  await handler(req, response, (err) => {
+    failure = err;
+  });
   return { failure, response };
 }

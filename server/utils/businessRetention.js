@@ -26,7 +26,7 @@ const EVIDENCE_FIELDS = Object.freeze([
   'contactDetail',
   'proofUrl',
   'proofNote',
-  'reviewResponseNote'
+  'reviewResponseNote',
 ]);
 
 /** Last calendar day of the month that holds `date`. */
@@ -87,8 +87,8 @@ function abandonedApplicationFilter(inactivityCutoff, absoluteCutoff = inactivit
     verificationRequestedAt: { $ne: null, $lte: inactivityCutoff },
     $or: [
       { updatedAt: { $lte: inactivityCutoff } },
-      { verificationRequestedAt: { $lte: absoluteCutoff } }
-    ]
+      { verificationRequestedAt: { $lte: absoluteCutoff } },
+    ],
   };
 }
 
@@ -103,7 +103,7 @@ function retentionClaim(row) {
     verificationRequestedAt: row.verificationRequestedAt || null,
     // Legacy rows decided before `reviewDecidedAt` existed still deserve the
     // real date in their notice, not "an earlier date".
-    reviewDecidedAt: row.reviewDecidedAt || row.verifiedAt || row.demotedAt || null
+    reviewDecidedAt: row.reviewDecidedAt || row.verifiedAt || row.demotedAt || null,
   };
 }
 
@@ -121,11 +121,11 @@ function evidencePurgeFilter(cutoff) {
         $or: [
           { reviewDecidedAt: { $ne: null, $lte: cutoff } },
           { reviewDecidedAt: null, verifiedAt: { $ne: null, $lte: cutoff } },
-          { reviewDecidedAt: null, demotedAt: { $ne: null, $lte: cutoff } }
-        ]
+          { reviewDecidedAt: null, demotedAt: { $ne: null, $lte: cutoff } },
+        ],
       },
-      { $or: EVIDENCE_FIELDS.map((field) => ({ [field]: { $exists: true, $ne: '' } })) }
-    ]
+      { $or: EVIDENCE_FIELDS.map((field) => ({ [field]: { $exists: true, $ne: '' } })) },
+    ],
   };
 }
 
@@ -138,7 +138,7 @@ function evidencePurgeFilter(cutoff) {
 async function expireAbandonedBusinessApplications({
   now = new Date(),
   profiles = BusinessProfile,
-  audits = BusinessVerificationAudit
+  audits = BusinessVerificationAudit,
 } = {}) {
   const cutoff = abandonedApplicationCutoff(now);
   const maxCutoff = abandonedApplicationMaxCutoff(now);
@@ -160,9 +160,9 @@ async function expireAbandonedBusinessApplications({
         verificationMethod: null,
         verificationDomain: '',
         verificationToken: '',
-        reviewDecidedAt: now
-      }
-    }
+        reviewDecidedAt: now,
+      },
+    },
   );
 
   // Only rows this run moved. A reviewer who decided between the read and the
@@ -174,17 +174,19 @@ async function expireAbandonedBusinessApplications({
     .lean();
   if (!expiredRows.length) return { expired: 0, cutoff, claims: [] };
 
-  await audits.insertMany(expiredRows.map((row) => ({
-    businessProfileId: row._id,
-    actorId: null,
-    status: 'expired',
-    note: `Application expired after ${ABANDONED_APPLICATION_DAYS} days without activity or ${ABANDONED_APPLICATION_MAX_MONTHS} months open.`
-  })));
+  await audits.insertMany(
+    expiredRows.map((row) => ({
+      businessProfileId: row._id,
+      actorId: null,
+      status: 'expired',
+      note: `Application expired after ${ABANDONED_APPLICATION_DAYS} days without activity or ${ABANDONED_APPLICATION_MAX_MONTHS} months open.`,
+    })),
+  );
 
   return {
     expired: expiredRows.length,
     cutoff,
-    claims: expiredRows.map(retentionClaim)
+    claims: expiredRows.map(retentionClaim),
   };
 }
 
@@ -212,13 +214,13 @@ async function purgeExpiredBusinessEvidence({ now = new Date(), profiles = Busin
 
   const result = await profiles.updateMany(
     { _id: { $in: candidates.map((row) => row._id) } },
-    { $set: set }
+    { $set: set },
   );
 
   return {
     profiles: result.modifiedCount || 0,
     cutoff,
-    claims: candidates.map(retentionClaim)
+    claims: candidates.map(retentionClaim),
   };
 }
 
@@ -226,7 +228,10 @@ async function purgeExpiredBusinessEvidence({ now = new Date(), profiles = Busin
  * Drop audit rows past the defence window. Each row is one decision or
  * correspondence event, so the cutoff is applied per row.
  */
-async function purgeExpiredBusinessAudits({ now = new Date(), audits = BusinessVerificationAudit } = {}) {
+async function purgeExpiredBusinessAudits({
+  now = new Date(),
+  audits = BusinessVerificationAudit,
+} = {}) {
   const cutoff = auditPurgeCutoff(now);
   const result = await audits.deleteMany({ createdAt: { $lt: cutoff } });
   return { audits: result.deletedCount || 0, cutoff };
@@ -249,5 +254,5 @@ module.exports = {
   expireAbandonedBusinessApplications,
   evidencePurgeFilter,
   purgeExpiredBusinessEvidence,
-  purgeExpiredBusinessAudits
+  purgeExpiredBusinessAudits,
 };

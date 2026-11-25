@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
 
 const Community = require('../models/Community');
-const Channel   = require('../models/Channel');
-const Message   = require('../models/Message');
-const AuditLog  = require('../models/AuditLog');
-const User      = require('../models/User');
-const ForumPost   = require('../models/ForumPost');
-const ForumReply  = require('../models/ForumReply');
-const Attachment  = require('../models/Attachment');
-const MediaAsset  = require('../models/MediaAsset');
+const Channel = require('../models/Channel');
+const Message = require('../models/Message');
+const AuditLog = require('../models/AuditLog');
+const User = require('../models/User');
+const ForumPost = require('../models/ForumPost');
+const ForumReply = require('../models/ForumReply');
+const Attachment = require('../models/Attachment');
+const MediaAsset = require('../models/MediaAsset');
 const { deleteFromCloudinary } = require('../config/cloudinary');
-const Report      = require('../models/Report');
+const Report = require('../models/Report');
 const CommunityInvite = require('../models/CommunityInvite');
 const CommunityJoinRequest = require('../models/CommunityJoinRequest');
 const { INVITE_AUDIT_SCOPE } = require('./inviteController');
@@ -24,7 +24,7 @@ const {
   resolveCommunityRole,
   communityPermissions,
   canAssignCommunityRole,
-  canKickCommunityMember
+  canKickCommunityMember,
 } = require('../utils/permissions');
 const { sanitizeLine } = require('../utils/sanitize');
 const { normalizeGames } = require('../utils/onboarding');
@@ -53,14 +53,16 @@ async function purgeAttachments(filter) {
   const rows = await Attachment.find(filter).select('_id assetId cloudinaryId mimeType').lean();
   if (!rows.length) return;
 
-  await Promise.allSettled(rows.map((row) => (
-    row.cloudinaryId
-      ? deleteFromCloudinary(
-          row.cloudinaryId,
-          row.mimeType?.startsWith('video/') ? 'video' : 'image'
-        )
-      : Promise.resolve()
-  )));
+  await Promise.allSettled(
+    rows.map((row) =>
+      row.cloudinaryId
+        ? deleteFromCloudinary(
+            row.cloudinaryId,
+            row.mimeType?.startsWith('video/') ? 'video' : 'image',
+          )
+        : Promise.resolve(),
+    ),
+  );
 
   const assetIds = rows.map((row) => row.assetId).filter(Boolean);
   await Attachment.deleteMany({ _id: { $in: rows.map((row) => row._id) } });
@@ -111,7 +113,7 @@ const memberSummary = (entry) => ({
   presence: publicPresence(entry.userId?.presence),
   joinedAt: entry.joinedAt,
   // Only surfaced so moderators can see and lift an active timeout.
-  timeoutUntil: entry.timeoutUntil || null
+  timeoutUntil: entry.timeoutUntil || null,
 });
 
 /** Replace raw presence on each populated member with its public projection. */
@@ -127,13 +129,18 @@ const withPublicPresence = (members = []) =>
 const createCommunity = async (req, res, next) => {
   try {
     const name = sanitizeLine(req.body.name, CHAT_POLICY.community.maxNameLength);
-    const description = sanitizeLine(req.body.description, CHAT_POLICY.community.maxDescriptionLength);
+    const description = sanitizeLine(
+      req.body.description,
+      CHAT_POLICY.community.maxDescriptionLength,
+    );
     const icon = sanitizeLine(req.body.icon, 100) || '🎮';
     const isPrivate = !!req.body.isPrivate;
     const games = normalizeGames(req.body.games, { limit: 5 });
 
     if (name.length < CHAT_POLICY.community.minNameLength) {
-      throw badRequest(`Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`);
+      throw badRequest(
+        `Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`,
+      );
     }
 
     const baseSlug = makeSlug(name) || 'community';
@@ -150,7 +157,7 @@ const createCommunity = async (req, res, next) => {
       games,
       isPrivate,
       ownerId: req.user._id,
-      members: [{ userId: req.user._id, role: 'owner' }]
+      members: [{ userId: req.user._id, role: 'owner' }],
     });
 
     await Channel.create({
@@ -158,14 +165,14 @@ const createCommunity = async (req, res, next) => {
       name: 'general',
       topic: 'General chat for everyone',
       type: 'text',
-      position: 0
+      position: 0,
     });
 
     res.status(201).json({
       ...community.toObject(),
       memberCount: 1,
       callerRole: 'owner',
-      callerPermissions: communityPermissions(community, req.user._id).permissions
+      callerPermissions: communityPermissions(community, req.user._id).permissions,
     });
   } catch (err) {
     next(err);
@@ -193,7 +200,7 @@ const getCommunities = async (req, res, next) => {
         ...rest,
         memberCount: (members || []).length,
         callerRole: role,
-        isMember: !!role
+        isMember: !!role,
       };
     });
 
@@ -230,7 +237,7 @@ const getCommunityBySlug = async (req, res, next) => {
       .lean();
 
     const visibleChannels = allChannels.filter((ch) =>
-      role ? roleAtLeast(role, ch.minRoleToRead) : ch.minRoleToRead === 'member'
+      role ? roleAtLeast(role, ch.minRoleToRead) : ch.minRoleToRead === 'member',
     );
 
     const memberCount = (community.members || []).length;
@@ -242,7 +249,7 @@ const getCommunityBySlug = async (req, res, next) => {
       channels: visibleChannels,
       callerRole: role,
       callerPermissions: permissions,
-      memberCount
+      memberCount,
     });
   } catch (err) {
     next(err);
@@ -264,7 +271,11 @@ const getCommunityMembers = async (req, res, next) => {
     let members = sortMembers(populated.members);
 
     if (q) {
-      members = members.filter((m) => String(m.userId?.username || '').toLowerCase().includes(q));
+      members = members.filter((m) =>
+        String(m.userId?.username || '')
+          .toLowerCase()
+          .includes(q),
+      );
     }
 
     const total = members.length;
@@ -274,7 +285,7 @@ const getCommunityMembers = async (req, res, next) => {
       members: members.slice(start, start + limit).map(memberSummary),
       total,
       page,
-      hasMore: start + limit < total
+      hasMore: start + limit < total,
     });
   } catch (err) {
     next(err);
@@ -294,7 +305,7 @@ const joinCommunity = async (req, res, next) => {
     }
     // A ban outlives leaving, kicking and re-inviting.
     const banned = (community.bannedUsers || []).some(
-      (entry) => String(entry.userId?._id ?? entry.userId) === String(req.user._id)
+      (entry) => String(entry.userId?._id ?? entry.userId) === String(req.user._id),
     );
     if (banned) throw forbidden('You are banned from this server.');
     if ((community.members || []).length >= CHAT_POLICY.community.maxMembers) {
@@ -307,7 +318,7 @@ const joinCommunity = async (req, res, next) => {
 
     emitToCommunity(community._id, 'community_updated', {
       communityId: String(community._id),
-      memberCount: community.members.length
+      memberCount: community.members.length,
     });
 
     res.status(200).json({ message: 'Joined successfully.', role: 'member' });
@@ -328,9 +339,7 @@ const leaveCommunity = async (req, res, next) => {
     }
 
     community.members = /** @type {any} */ (
-      community.members.filter(
-        (m) => String(m.userId?._id ?? m.userId) !== String(req.user._id)
-      )
+      community.members.filter((m) => String(m.userId?._id ?? m.userId) !== String(req.user._id))
     );
     await community.save();
 
@@ -338,7 +347,7 @@ const leaveCommunity = async (req, res, next) => {
     emitToCommunity(community._id, 'member_left', {
       communityId: String(community._id),
       userId: String(req.user._id),
-      memberCount: community.members.length
+      memberCount: community.members.length,
     });
 
     res.status(200).json({ message: 'Left server.' });
@@ -353,8 +362,10 @@ const addMember = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     const { role: actorRole } = requireCapability(
-      community, req.user._id, CAP.ADD_MEMBERS,
-      'You need the Admin or Owner role to add members.'
+      community,
+      req.user._id,
+      CAP.ADD_MEMBERS,
+      'You need the Admin or Owner role to add members.',
     );
 
     const username = sanitizeLine(req.body.username, 20);
@@ -363,7 +374,8 @@ const addMember = async (req, res, next) => {
 
     const target = await User.findOne({ username }).select('_id username level').lean();
     if (!target) throw notFound('User not found.');
-    if (resolveCommunityRole(community, target._id)) throw conflict('That user is already a member.');
+    if (resolveCommunityRole(community, target._id))
+      throw conflict('That user is already a member.');
 
     const assignment = canAssignCommunityRole(actorRole, 'member', newRole);
     if (!assignment.ok) throw forbidden(assignment.reason);
@@ -381,18 +393,18 @@ const addMember = async (req, res, next) => {
       actionType: 'MEMBER_ADD',
       targetId: target._id,
       targetModel: 'User',
-      metadata: { username: target.username, role: newRole }
+      metadata: { username: target.username, role: newRole },
     });
 
     emitToCommunity(community._id, 'member_added', {
       communityId: String(community._id),
       userId: String(target._id),
       role: newRole,
-      memberCount: community.members.length
+      memberCount: community.members.length,
     });
 
     res.status(201).json({
-      member: { userId: target._id, username: target.username, level: target.level, role: newRole }
+      member: { userId: target._id, username: target.username, level: target.level, role: newRole },
     });
   } catch (err) {
     next(err);
@@ -409,12 +421,14 @@ const updateMemberRole = async (req, res, next) => {
 
     const community = await loadCommunity(req.params.id);
     const { role: actorRole } = requireCapability(
-      community, req.user._id, CAP.MANAGE_ROLES,
-      'You need the Admin or Owner role to manage roles.'
+      community,
+      req.user._id,
+      CAP.MANAGE_ROLES,
+      'You need the Admin or Owner role to manage roles.',
     );
 
     const targetEntry = community.members.find(
-      (m) => String(m.userId?._id ?? m.userId) === String(req.params.userId)
+      (m) => String(m.userId?._id ?? m.userId) === String(req.params.userId),
     );
     if (!targetEntry) throw notFound('Target user is not a member of this server.');
 
@@ -431,19 +445,19 @@ const updateMemberRole = async (req, res, next) => {
       actionType: 'ROLE_UPDATE',
       targetId: targetEntry.userId,
       targetModel: 'User',
-      metadata: { newRole, previousRole }
+      metadata: { newRole, previousRole },
     });
 
     emitToCommunity(community._id, 'member_role_updated', {
       communityId: String(community._id),
       userId: String(targetEntry.userId?._id ?? targetEntry.userId),
-      role: newRole
+      role: newRole,
     });
 
     res.status(200).json({
       message: `Role updated to ${newRole}.`,
       userId: String(targetEntry.userId?._id ?? targetEntry.userId),
-      newRole
+      newRole,
     });
   } catch (err) {
     next(err);
@@ -455,18 +469,20 @@ const kickMember = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     const { role: actorRole } = requireCapability(
-      community, req.user._id, CAP.KICK_MEMBERS,
-      'You need the Admin or Owner role to kick members.'
+      community,
+      req.user._id,
+      CAP.KICK_MEMBERS,
+      'You need the Admin or Owner role to kick members.',
     );
 
     const targetId = String(req.params.userId);
     const targetEntry = community.members.find(
-      (m) => String(m.userId?._id ?? m.userId) === targetId
+      (m) => String(m.userId?._id ?? m.userId) === targetId,
     );
     if (!targetEntry) throw notFound('Target user is not a member of this server.');
 
     const permission = canKickCommunityMember(actorRole, targetEntry.role, {
-      self: targetId === String(req.user._id)
+      self: targetId === String(req.user._id),
     });
     if (!permission.ok) throw forbidden(permission.reason);
 
@@ -481,14 +497,14 @@ const kickMember = async (req, res, next) => {
       actionType: 'MEMBER_KICK',
       targetId: targetEntry.userId,
       targetModel: 'User',
-      metadata: { role: targetEntry.role }
+      metadata: { role: targetEntry.role },
     });
 
     evictUserFromCommunity(targetId, community._id);
     emitToCommunity(community._id, 'member_kicked', {
       communityId: String(community._id),
       userId: targetId,
-      memberCount: community.members.length
+      memberCount: community.members.length,
     });
 
     res.status(200).json({ message: 'Member removed.', userId: targetId });
@@ -503,8 +519,10 @@ const updateCommunity = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.MANAGE_SERVER,
-      'Only the owner can change server settings.'
+      community,
+      req.user._id,
+      CAP.MANAGE_SERVER,
+      'Only the owner can change server settings.',
     );
 
     const changes = {};
@@ -512,12 +530,17 @@ const updateCommunity = async (req, res, next) => {
     if (req.body.name !== undefined) {
       const name = sanitizeLine(req.body.name, CHAT_POLICY.community.maxNameLength);
       if (name.length < CHAT_POLICY.community.minNameLength) {
-        throw badRequest(`Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`);
+        throw badRequest(
+          `Community name must be at least ${CHAT_POLICY.community.minNameLength} characters.`,
+        );
       }
       changes.name = name;
     }
     if (req.body.description !== undefined) {
-      changes.description = sanitizeLine(req.body.description, CHAT_POLICY.community.maxDescriptionLength);
+      changes.description = sanitizeLine(
+        req.body.description,
+        CHAT_POLICY.community.maxDescriptionLength,
+      );
     }
     if (req.body.games !== undefined) {
       changes.games = normalizeGames(req.body.games, { limit: 5 });
@@ -540,12 +563,12 @@ const updateCommunity = async (req, res, next) => {
       actionType: 'SETTINGS_UPDATE',
       targetId: community._id,
       targetModel: 'Community',
-      metadata: { changes: Object.keys(changes) }
+      metadata: { changes: Object.keys(changes) },
     });
 
     emitToCommunity(community._id, 'community_updated', {
       communityId: String(community._id),
-      settingsChanged: true
+      settingsChanged: true,
     });
 
     res.status(200).json(community);
@@ -563,7 +586,7 @@ const deleteCommunity = async (req, res, next) => {
     }
 
     emitToCommunity(community._id, 'community_deleted', {
-      communityId: String(community._id)
+      communityId: String(community._id),
     });
 
     await Message.deleteMany({ communityId: community._id });
@@ -588,8 +611,10 @@ const createChannel = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.MANAGE_CHANNELS,
-      'Only Admins and Owners can create channels.'
+      community,
+      req.user._id,
+      CAP.MANAGE_CHANNELS,
+      'Only Admins and Owners can create channels.',
     );
 
     const name = channelName(req.body.name);
@@ -616,32 +641,40 @@ const createChannel = async (req, res, next) => {
       name,
       topic: sanitizeLine(req.body.topic, CHAT_POLICY.channels.maxTopicLength),
       type: CHANNEL_TYPES.includes(req.body.type) ? req.body.type : 'text',
-      position: Number.isFinite(Number(req.body.position)) ? Number(req.body.position) : channelCount,
+      position: Number.isFinite(Number(req.body.position))
+        ? Number(req.body.position)
+        : channelCount,
       minRoleToRead: minRoleToRead,
       minRoleToWrite: minRoleToWrite,
       slowModeSeconds: Math.min(
         Math.max(Number(req.body.slowModeSeconds) || 0, CHAT_POLICY.slowmode.minSeconds),
-        CHAT_POLICY.slowmode.maxSeconds
+        CHAT_POLICY.slowmode.maxSeconds,
       ),
       retentionDays: Math.min(
         Math.max(Number(req.body.retentionDays) || 0, CHAT_POLICY.retention.minDays),
-        CHAT_POLICY.retention.maxDays
+        CHAT_POLICY.retention.maxDays,
       ),
       isProtected: !!req.body.isProtected,
-      attachmentsEnabled: req.body.attachmentsEnabled !== undefined ? !!req.body.attachmentsEnabled : true,
+      attachmentsEnabled:
+        req.body.attachmentsEnabled !== undefined ? !!req.body.attachmentsEnabled : true,
       forumConfig: (() => {
         const incoming = req.body.forumConfig || {};
         return {
           allowedTags: Array.isArray(incoming.allowedTags)
-            ? incoming.allowedTags.map((tag) => sanitizeLine(tag, 24).toLowerCase()).filter(Boolean).slice(0, 20)
+            ? incoming.allowedTags
+                .map((tag) => sanitizeLine(tag, 24).toLowerCase())
+                .filter(Boolean)
+                .slice(0, 20)
             : [],
           requireTag: !!incoming.requireTag,
           postCreationRoleMin: COMMUNITY_ROLES.includes(incoming.postCreationRoleMin)
-            ? incoming.postCreationRoleMin : 'member',
+            ? incoming.postCreationRoleMin
+            : 'member',
           replyRoleMin: COMMUNITY_ROLES.includes(incoming.replyRoleMin)
-            ? incoming.replyRoleMin : 'member'
+            ? incoming.replyRoleMin
+            : 'member',
         };
-      })()
+      })(),
     });
 
     recordAudit({
@@ -650,7 +683,7 @@ const createChannel = async (req, res, next) => {
       actionType: 'CHANNEL_CREATE',
       targetId: channel._id,
       targetModel: 'Channel',
-      metadata: { name: channel.name, type: channel.type }
+      metadata: { name: channel.name, type: channel.type },
     });
 
     emitToCommunity(community._id, 'channel_created', channel.toObject());
@@ -669,8 +702,10 @@ const updateChannel = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.MANAGE_CHANNELS,
-      'Only Admins and Owners can change channels.'
+      community,
+      req.user._id,
+      CAP.MANAGE_CHANNELS,
+      'Only Admins and Owners can change channels.',
     );
 
     if (!mongoose.Types.ObjectId.isValid(String(req.params.channelId))) {
@@ -678,7 +713,7 @@ const updateChannel = async (req, res, next) => {
     }
     const channel = await Channel.findOne({
       _id: req.params.channelId,
-      communityId: community._id
+      communityId: community._id,
     });
     if (!channel) throw notFound('Channel not found.');
 
@@ -696,37 +731,59 @@ const updateChannel = async (req, res, next) => {
     }
     if (req.body.forumConfig !== undefined && req.body.forumConfig !== null) {
       const incoming = req.body.forumConfig || {};
+      const existingForumConfig = /** @type {any} */ (channel.forumConfig);
       updates.forumConfig = {
-        ...(/** @type {any} */ (channel.forumConfig)?.toObject?.() ?? channel.forumConfig ?? {}),
+        ...(existingForumConfig?.toObject?.() ?? existingForumConfig ?? {}),
         ...(Array.isArray(incoming.allowedTags)
-          ? { allowedTags: incoming.allowedTags.map((tag) => sanitizeLine(tag, 24).toLowerCase()).filter(Boolean).slice(0, 20) }
+          ? {
+              allowedTags: incoming.allowedTags
+                .map((tag) => sanitizeLine(tag, 24).toLowerCase())
+                .filter(Boolean)
+                .slice(0, 20),
+            }
           : {}),
         ...(incoming.requireTag !== undefined ? { requireTag: !!incoming.requireTag } : {}),
         ...(COMMUNITY_ROLES.includes(incoming.postCreationRoleMin)
-          ? { postCreationRoleMin: incoming.postCreationRoleMin } : {}),
+          ? { postCreationRoleMin: incoming.postCreationRoleMin }
+          : {}),
         ...(COMMUNITY_ROLES.includes(incoming.replyRoleMin)
-          ? { replyRoleMin: incoming.replyRoleMin } : {})
+          ? { replyRoleMin: incoming.replyRoleMin }
+          : {}),
       };
     }
     if (req.body.minRoleToRead !== undefined) {
-      if (!COMMUNITY_ROLES.includes(req.body.minRoleToRead)) throw badRequest('Invalid read role gate.');
+      if (!COMMUNITY_ROLES.includes(req.body.minRoleToRead))
+        throw badRequest('Invalid read role gate.');
       updates.minRoleToRead = req.body.minRoleToRead;
     }
     if (req.body.minRoleToWrite !== undefined) {
-      if (!COMMUNITY_ROLES.includes(req.body.minRoleToWrite)) throw badRequest('Invalid write role gate.');
+      if (!COMMUNITY_ROLES.includes(req.body.minRoleToWrite))
+        throw badRequest('Invalid write role gate.');
       updates.minRoleToWrite = req.body.minRoleToWrite;
     }
     if (req.body.slowModeSeconds !== undefined) {
       const value = Number(req.body.slowModeSeconds);
-      if (!Number.isFinite(value) || value < CHAT_POLICY.slowmode.minSeconds || value > CHAT_POLICY.slowmode.maxSeconds) {
-        throw badRequest(`Slowmode must be between ${CHAT_POLICY.slowmode.minSeconds} and ${CHAT_POLICY.slowmode.maxSeconds} seconds.`);
+      if (
+        !Number.isFinite(value) ||
+        value < CHAT_POLICY.slowmode.minSeconds ||
+        value > CHAT_POLICY.slowmode.maxSeconds
+      ) {
+        throw badRequest(
+          `Slowmode must be between ${CHAT_POLICY.slowmode.minSeconds} and ${CHAT_POLICY.slowmode.maxSeconds} seconds.`,
+        );
       }
       updates.slowModeSeconds = Math.trunc(value);
     }
     if (req.body.retentionDays !== undefined) {
       const value = Number(req.body.retentionDays);
-      if (!Number.isFinite(value) || value < CHAT_POLICY.retention.minDays || value > CHAT_POLICY.retention.maxDays) {
-        throw badRequest(`Retention must be between ${CHAT_POLICY.retention.minDays} and ${CHAT_POLICY.retention.maxDays} days.`);
+      if (
+        !Number.isFinite(value) ||
+        value < CHAT_POLICY.retention.minDays ||
+        value > CHAT_POLICY.retention.maxDays
+      ) {
+        throw badRequest(
+          `Retention must be between ${CHAT_POLICY.retention.minDays} and ${CHAT_POLICY.retention.maxDays} days.`,
+        );
       }
       updates.retentionDays = Math.trunc(value);
     }
@@ -750,7 +807,7 @@ const updateChannel = async (req, res, next) => {
       actionType: 'CHANNEL_UPDATE',
       targetId: channel._id,
       targetModel: 'Channel',
-      metadata: { fields: Object.keys(updates) }
+      metadata: { fields: Object.keys(updates) },
     });
 
     emitToCommunity(community._id, 'channel_updated', channel.toObject());
@@ -767,8 +824,10 @@ const deleteChannel = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.MANAGE_CHANNELS,
-      'Only Admins and Owners can delete channels.'
+      community,
+      req.user._id,
+      CAP.MANAGE_CHANNELS,
+      'Only Admins and Owners can delete channels.',
     );
 
     if (!mongoose.Types.ObjectId.isValid(String(req.params.channelId))) {
@@ -776,7 +835,7 @@ const deleteChannel = async (req, res, next) => {
     }
     const channel = await Channel.findOne({
       _id: req.params.channelId,
-      communityId: community._id
+      communityId: community._id,
     });
     if (!channel) throw notFound('Channel not found.');
 
@@ -797,12 +856,12 @@ const deleteChannel = async (req, res, next) => {
       actionType: 'CHANNEL_DELETE',
       targetId: channel._id,
       targetModel: 'Channel',
-      metadata: { name: channel.name }
+      metadata: { name: channel.name },
     });
 
     emitToCommunity(community._id, 'channel_deleted', {
       communityId: String(community._id),
-      channelId: String(channel._id)
+      channelId: String(channel._id),
     });
 
     res.status(200).json({ message: 'Channel deleted.', channelId: String(channel._id) });
@@ -837,7 +896,7 @@ const getChannelMessages = async (req, res, next) => {
 
     const { limit } = parsePagination(req.query, {
       defaultLimit: CHAT_POLICY.history.defaultLimit,
-      maxLimit: CHAT_POLICY.history.maxLimit
+      maxLimit: CHAT_POLICY.history.maxLimit,
     });
 
     const query = { channelId: channel._id };
@@ -859,16 +918,16 @@ const getChannelMessages = async (req, res, next) => {
 
     // Attach each sender's server role (platform role stays on senderId.role).
     const roleByUser = new Map(
-      (community.members || []).map((m) =>
-        /** @type {[string, string]} */ ([String(m.userId?._id ?? m.userId), m.role])
-      )
+      (community.members || []).map(
+        (m) => /** @type {[string, string]} */ ([String(m.userId?._id ?? m.userId), m.role]),
+      ),
     );
     const decorated = messages.reverse().map((message) => ({
       ...message,
       // Reaction user ids never leave the server: a count plus "mine" is all
       // the UI needs, and it keeps history payloads small.
       reactions: serializeReactions(message.reactions, req.user?._id),
-      communityRole: roleByUser.get(String(message.senderId?._id ?? message.senderId)) || null
+      communityRole: roleByUser.get(String(message.senderId?._id ?? message.senderId)) || null,
     }));
 
     res.status(200).json({ messages: decorated, hasMore });
@@ -882,13 +941,15 @@ const getAuditLog = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.VIEW_AUDIT_LOG,
-      'Only Admins and Owners can view the audit log.'
+      community,
+      req.user._id,
+      CAP.VIEW_AUDIT_LOG,
+      'Only Admins and Owners can view the audit log.',
     );
 
     const { limit } = parsePagination(req.query, {
       defaultLimit: CHAT_POLICY.audit.defaultLimit,
-      maxLimit: CHAT_POLICY.audit.maxLimit
+      maxLimit: CHAT_POLICY.audit.maxLimit,
     });
 
     const query = { communityId: community._id };
@@ -932,5 +993,5 @@ module.exports = {
   updateChannel,
   deleteChannel,
   getChannelMessages,
-  getAuditLog
+  getAuditLog,
 };

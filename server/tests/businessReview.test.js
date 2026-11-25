@@ -5,13 +5,13 @@ const {
   sanitizeBusinessProfile,
   publicBusinessProfile,
   ownerBusinessProfile,
-  manualReviewReadiness
+  manualReviewReadiness,
 } = require('../utils/business');
 
 const base = {
   displayName: 'Neon Rift Studio',
   website: 'https://studio.example',
-  supportEmail: 'hello@studio.example'
+  supportEmail: 'hello@studio.example',
 };
 
 test('business evidence fields are sanitized and normalized', () => {
@@ -22,7 +22,7 @@ test('business evidence fields are sanitized and normalized', () => {
     contactDetail: '+1 555 0100',
     proofType: 'registration',
     proofUrl: 'https://registry.example/company/123',
-    proofNote: 'Company registration entry.'
+    proofNote: 'Company registration entry.',
   });
 
   assert.equal(result.ok, true);
@@ -37,7 +37,7 @@ test('proof and contact values cannot smuggle unsafe links or unknown enums', ()
     ...base,
     contactMethod: 'carrier-pigeon',
     proofType: 'vibes',
-    proofUrl: 'javascript:alert(1)'
+    proofUrl: 'javascript:alert(1)',
   });
 
   assert.equal(result.ok, false);
@@ -48,14 +48,14 @@ test('manual review needs a reachable contact and real evidence', () => {
   assert.equal(manualReviewReadiness({}).ok, false);
 
   const noEvidence = manualReviewReadiness({
-    supportEmail: 'hello@studio.example'
+    supportEmail: 'hello@studio.example',
   });
   assert.equal(noEvidence.ok, false);
   assert.match(noEvidence.reason, /proof/i);
 
   const phoneWithoutDetail = manualReviewReadiness({
     contactMethod: 'phone',
-    proofNote: 'Registered in the company registry.'
+    proofNote: 'Registered in the company registry.',
   });
   assert.equal(phoneWithoutDetail.ok, false);
   assert.match(phoneWithoutDetail.reason, /contact method/i);
@@ -63,7 +63,7 @@ test('manual review needs a reachable contact and real evidence', () => {
   const valid = manualReviewReadiness({
     contactEmail: 'owner@studio.example',
     contactMethod: 'email',
-    proofNote: 'Registered in the company registry.'
+    proofNote: 'Registered in the company registry.',
   });
   assert.equal(valid.ok, true);
   assert.equal(valid.contactEmail, 'owner@studio.example');
@@ -79,7 +79,7 @@ test('public business projection never exposes private review data', () => {
     reviewContactedAt: new Date(),
     demotionReason: 'Internal note',
     verificationStatus: 'pending',
-    verificationToken: 'secret-token'
+    verificationToken: 'secret-token',
   };
 
   const publicCard = publicBusinessProfile(profile);

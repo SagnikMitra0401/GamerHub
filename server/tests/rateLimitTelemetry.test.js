@@ -11,7 +11,7 @@ test('rate-limit hits appear in the admin snapshot', () => {
   const traffic = snapshot();
   assert.deepEqual(traffic.rateLimits, [
     { name: 'dm-write', hits: 2 },
-    { name: 'search', hits: 1 }
+    { name: 'search', hits: 1 },
   ]);
 });
 

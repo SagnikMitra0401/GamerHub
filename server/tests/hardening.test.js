@@ -53,19 +53,25 @@ const jwtSecretFixture = ['8f4b1c2d9e6a7b3c', '5d0e1f2a4b6c8d0e'].join('');
 const bearerTokenFixture = ['Bearer', ' eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abc'].join('');
 
 const secretCases = [
-  [`mongodb+srv://leak:${['sup3r', 'Secret'].join('')}@cluster0.example.net/db`, 'database URI with credentials'],
+  [
+    `mongodb+srv://leak:${['sup3r', 'Secret'].join('')}@cluster0.example.net/db`,
+    'database URI with credentials',
+  ],
   [`const key = "${awsKeyFixture}";`, 'AWS access key id'],
   [`google: "${googleKeyFixture}"`, 'Google API key'],
   [`stripe: "${stripeKeyFixture}"`, 'Stripe secret key'],
   ['-----BEGIN RSA PRIVATE KEY-----', 'private key block'],
   [`JWT_SECRET="${jwtSecretFixture}"`, 'quoted secret assignment'],
-  [`Authorization: "${bearerTokenFixture}"`, 'literal bearer token']
+  [`Authorization: "${bearerTokenFixture}"`, 'literal bearer token'],
 ];
 
 for (const [sample, expected] of secretCases) {
   test(`detects ${expected}`, () => {
     const hits = scanText(sample);
-    assert.ok(hits.some((hit) => hit.name === expected), JSON.stringify(hits));
+    assert.ok(
+      hits.some((hit) => hit.name === expected),
+      JSON.stringify(hits),
+    );
   });
 }
 
@@ -76,7 +82,7 @@ test('ignores variable names, placeholders and ordinary URLs', () => {
     'CLOUDINARY_API_KEY=your-key-here',
     'MongoDB Atlas connection string, including the database name.',
     'https://example.com/api/keys',
-    'sk_test_placeholder'
+    'sk_test_placeholder',
   ].join('\n');
   assert.deepEqual(scanText(clean), []);
 });

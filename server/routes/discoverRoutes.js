@@ -5,7 +5,7 @@ const { browseLimiter } = require('../middleware/limiters');
 const {
   getOnboardingSuggestions,
   startOnboarding,
-  completeOnboarding
+  completeOnboarding,
 } = require('../controllers/discoverController');
 
 router.get('/onboarding', protect, browseLimiter, getOnboardingSuggestions);

@@ -26,15 +26,26 @@ const WatchPage = () => {
     setLoading(true);
     setError('');
 
-    axiosInstance.get(`/posts/${id}`)
-      .then(({ data }) => { if (!cancelled) setPost(data); })
+    axiosInstance
+      .get(`/posts/${id}`)
+      .then(({ data }) => {
+        if (!cancelled) setPost(data);
+      })
       .catch((err) => {
         if (cancelled) return;
-        setError(err.response?.status === 404 ? 'This video is no longer available.' : 'The video could not be loaded.');
+        setError(
+          err.response?.status === 404
+            ? 'This video is no longer available.'
+            : 'The video could not be loaded.',
+        );
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -44,22 +55,29 @@ const WatchPage = () => {
     const params = { limit: 9, sort: 'trending' };
     if (tag) params.channel = tag;
 
-    axiosInstance.get('/posts', { params })
+    axiosInstance
+      .get('/posts', { params })
       .then(({ data }) => {
         if (cancelled) return;
         const list = Array.isArray(data) ? data : [];
         setNextUp(list.filter((entry) => entry._id !== post._id).slice(0, 6));
       })
-      .catch(() => { if (!cancelled) setNextUp([]); });
+      .catch(() => {
+        if (!cancelled) setNextUp([]);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [post]);
 
   if (loading) {
     return (
       <main className="page watch-page">
         <div className="container">
-          <div className="watch-player-skeleton" role="status">Loading video…</div>
+          <div className="watch-player-skeleton" role="status">
+            Loading video…
+          </div>
         </div>
       </main>
     );
@@ -72,7 +90,9 @@ const WatchPage = () => {
           <div className="post-list-empty">
             <h3>{error || 'Video not found'}</h3>
             <p>It may have been deleted by its author or by moderation.</p>
-            <Link to="/clips" className="btn btn-primary">Browse clips</Link>
+            <Link to="/clips" className="btn btn-primary">
+              Browse clips
+            </Link>
           </div>
         </div>
       </main>
@@ -102,7 +122,9 @@ const WatchPage = () => {
             ) : (
               <div className="watch-empty">
                 <p>This post has no playable video.</p>
-                <Link to={`/posts/${post._id}`} className="btn btn-ghost btn-sm">Open the post</Link>
+                <Link to={`/posts/${post._id}`} className="btn btn-ghost btn-sm">
+                  Open the post
+                </Link>
               </div>
             )}
           </div>
@@ -120,9 +142,13 @@ const WatchPage = () => {
 
           <div className="watch-links">
             {post.tags?.slice(0, 4).map((tag) => (
-              <Link key={tag} to={`/c/${encodeURIComponent(tag)}`} className="tag">#{tag}</Link>
+              <Link key={tag} to={`/c/${encodeURIComponent(tag)}`} className="tag">
+                #{tag}
+              </Link>
             ))}
-            <Link to={`/posts/${post._id}`} className="btn btn-ghost btn-sm">Comments &amp; likes</Link>
+            <Link to={`/posts/${post._id}`} className="btn btn-ghost btn-sm">
+              Comments &amp; likes
+            </Link>
           </div>
         </div>
 

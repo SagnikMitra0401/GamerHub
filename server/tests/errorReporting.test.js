@@ -6,20 +6,26 @@ const sentry = {
   options: null,
   errors: [],
   tags: {},
-  init(options) { this.options = options; },
+  init(options) {
+    this.options = options;
+  },
   withScope(callback) {
     callback({
-      setTag: (key, value) => { this.tags[key] = value; }
+      setTag: (key, value) => {
+        this.tags[key] = value;
+      },
     });
   },
-  captureException(err) { this.errors.push(err); }
+  captureException(err) {
+    this.errors.push(err);
+  },
 };
 
 require.cache[SENTRY_PATH] = {
   id: SENTRY_PATH,
   filename: SENTRY_PATH,
   loaded: true,
-  exports: sentry
+  exports: sentry,
 };
 
 const {
@@ -27,7 +33,7 @@ const {
   captureServerError,
   errorReportingStatus,
   resetErrorReporting,
-  scrubEvent
+  scrubEvent,
 } = require('../utils/errorReporting');
 
 const clear = () => {
@@ -60,13 +66,16 @@ test('capturing an error sends request tags but not request bodies', () => {
   clear();
   process.env.SENTRY_DSN = 'https://public@o1.ingest.sentry.io/1';
   const err = new Error('boom');
-  assert.equal(captureServerError(err, {
-    id: 'req-12345678',
-    method: 'POST',
-    path: '/api/posts',
-    headers: { cookie: 'must-not-leak' },
-    body: { password: 'must-not-leak' }
-  }), true);
+  assert.equal(
+    captureServerError(err, {
+      id: 'req-12345678',
+      method: 'POST',
+      path: '/api/posts',
+      headers: { cookie: 'must-not-leak' },
+      body: { password: 'must-not-leak' },
+    }),
+    true,
+  );
 
   assert.equal(sentry.errors.length, 1);
   assert.equal(sentry.tags.request_id, 'req-12345678');
@@ -82,10 +91,10 @@ test('the beforeSend scrubber removes credentials and request bodies', () => {
       url: 'https://example.com/reset?token=abc123',
       data: { password: 'hunter2' },
       cookies: { session: 'abc' },
-      headers: { authorization: 'Bearer abc' }
+      headers: { authorization: 'Bearer abc' },
     },
     exception: { values: [{ value: 'failed for player@example.com' }] },
-    breadcrumbs: [{ message: 'token=abc123', data: { body: 'private' } }]
+    breadcrumbs: [{ message: 'token=abc123', data: { body: 'private' } }],
   });
 
   assert.equal(event.message.includes('player@example.com'), false);

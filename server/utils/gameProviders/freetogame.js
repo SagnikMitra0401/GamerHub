@@ -17,8 +17,7 @@ const cache = createTtlCache({ ttlMs: CACHE_TTL_MS, maxEntries: 4 });
 let lastGood = null;
 
 const httpsOnly = (url) => (typeof url === 'string' && /^https:\/\//i.test(url) ? url : null);
-const httpOrHttps = (url) =>
-  typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null;
+const httpOrHttps = (url) => (typeof url === 'string' && /^https?:\/\//i.test(url) ? url : null);
 
 function normalizeGame(raw = {}) {
   return {
@@ -32,7 +31,7 @@ function normalizeGame(raw = {}) {
     developer: sanitizeLine(raw.developer, 80),
     releaseDate: sanitizeLine(raw.release_date, 20),
     gameUrl: httpsOnly(raw.game_url),
-    profileUrl: httpsOnly(raw.freetogame_profile_url)
+    profileUrl: httpsOnly(raw.freetogame_profile_url),
   };
 }
 
@@ -77,8 +76,8 @@ async function getGameDetail(id) {
       processor: sanitizeLine(requirements.processor, 120),
       memory: sanitizeLine(requirements.memory, 60),
       graphics: sanitizeLine(requirements.graphics, 120),
-      storage: sanitizeLine(requirements.storage, 60)
-    }
+      storage: sanitizeLine(requirements.storage, 60),
+    },
   };
 }
 
@@ -110,5 +109,5 @@ module.exports = {
   normalizeGame,
   getCatalog,
   getGameDetail,
-  searchGames
+  searchGames,
 };

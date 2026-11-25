@@ -6,7 +6,13 @@ import { CloseIcon } from '../common/icons';
 import CommunitySigil from './CommunitySigil';
 
 const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted }) => {
-  const [form, setForm] = useState({ name: '', description: '', icon: '', games: '', isPrivate: false });
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    icon: '',
+    games: '',
+    isPrivate: false,
+  });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -19,7 +25,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
       description: community.description || '',
       icon: community.icon || '',
       games: (community.games || []).join(', '),
-      isPrivate: !!community.isPrivate
+      isPrivate: !!community.isPrivate,
     });
     setError('');
     setConfirmDelete(false);
@@ -34,7 +40,10 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
     try {
       const payload = {
         ...form,
-        games: form.games.split(',').map((game) => game.trim()).filter(Boolean)
+        games: form.games
+          .split(',')
+          .map((game) => game.trim())
+          .filter(Boolean),
       };
       const { data } = await axiosInstance.patch(`/communities/${community._id}`, payload);
       onSaved?.(data);
@@ -62,18 +71,34 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
   };
 
   return ReactDOM.createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="server-settings-title">
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px' }}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="server-settings-title"
+    >
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px' }}>
         <div className="modal-header-row">
-          <h2 id="server-settings-title" className="modal-title" style={{ margin: 0 }}>Server Settings</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+          <h2 id="server-settings-title" className="modal-title" style={{ margin: 0 }}>
+            Server Settings
+          </h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close">
+            <CloseIcon size={16} />
+          </button>
         </div>
 
-        {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
+        {error && (
+          <div className="form-error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={save}>
           <div className="form-group">
-            <label className="form-label" htmlFor="server-name">Name</label>
+            <label className="form-label" htmlFor="server-name">
+              Name
+            </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
               <CommunitySigil name={form.name || community.name} icon={community.icon} size={40} />
               <input
@@ -81,35 +106,40 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
                 className="form-input"
                 value={form.name}
                 maxLength={40}
-                onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               />
             </div>
             <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-              The sigil follows the name; the URL slug stays unchanged so existing links keep working.
+              The sigil follows the name; the URL slug stays unchanged so existing links keep
+              working.
             </span>
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="server-description">Description</label>
+            <label className="form-label" htmlFor="server-description">
+              Description
+            </label>
             <textarea
               id="server-description"
               className="form-textarea"
               rows={3}
               maxLength={200}
               value={form.description}
-              onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="server-games">Games</label>
+            <label className="form-label" htmlFor="server-games">
+              Games
+            </label>
             <input
               id="server-games"
               className="form-input"
               maxLength={200}
               value={form.games}
               placeholder="Valorant, Apex Legends"
-              onChange={e => setForm(prev => ({ ...prev, games: e.target.value }))}
+              onChange={(e) => setForm((prev) => ({ ...prev, games: e.target.value }))}
             />
             <span className="text-muted" style={{ fontSize: '0.72rem' }}>
               Up to 5 comma-separated games used by Discover suggestions.
@@ -120,7 +150,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
             <input
               type="checkbox"
               checked={form.isPrivate}
-              onChange={e => setForm(prev => ({ ...prev, isPrivate: e.target.checked }))}
+              onChange={(e) => setForm((prev) => ({ ...prev, isPrivate: e.target.checked }))}
             />
             Invite-only server (only members can see it)
           </label>
@@ -135,7 +165,9 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
               Delete server
             </button>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <button type="button" className="btn btn-ghost" onClick={onClose}>
+                Cancel
+              </button>
               <button className="btn btn-primary" disabled={saving}>
                 {saving ? 'Saving…' : 'Save settings'}
               </button>
@@ -154,7 +186,7 @@ const CommunitySettingsModal = ({ isOpen, onClose, community, onSaved, onDeleted
         />
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

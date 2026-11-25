@@ -19,8 +19,11 @@ const LinkPreviewCard = ({ preview, onDismiss, clickable = true }) => {
   if (!preview || !preview.url) return null;
 
   const hostname = (() => {
-    try { return new URL(preview.url).hostname.replace(/^www\./, ''); }
-    catch { return preview.siteName || 'link'; }
+    try {
+      return new URL(preview.url).hostname.replace(/^www\./, '');
+    } catch {
+      return preview.siteName || 'link';
+    }
   })();
 
   const displaySite = preview.siteName || hostname;
@@ -120,7 +123,11 @@ const LinkPreviewCard = ({ preview, onDismiss, clickable = true }) => {
       {onDismiss && (
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDismiss(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDismiss();
+          }}
           title="Remove preview"
           style={{
             position: 'absolute',

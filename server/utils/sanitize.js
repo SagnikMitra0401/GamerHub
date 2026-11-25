@@ -84,9 +84,8 @@ function decodeHtmlEntities(value) {
   if (typeof value !== 'string') return '';
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code) => {
     if (code[0] === '#') {
-      const num = code[1].toLowerCase() === 'x'
-        ? parseInt(code.slice(2), 16)
-        : parseInt(code.slice(1), 10);
+      const num =
+        code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
       if (!Number.isFinite(num) || num <= 0 || num > 0x10ffff) return match;
       try {
         return String.fromCodePoint(num);
@@ -125,7 +124,7 @@ function sanitizeLinkPreview(payload) {
     title: sanitizeLine(payload.title, 200) || null,
     description: sanitizeLine(payload.description, 500) || null,
     image: isHttpUrl(image) ? image.slice(0, 2048) : null,
-    siteName: sanitizeLine(payload.siteName, 80) || null
+    siteName: sanitizeLine(payload.siteName, 80) || null,
   };
 }
 
@@ -194,11 +193,7 @@ function normalizeTags(input) {
     }
   }
 
-  const list = Array.isArray(source)
-    ? source
-    : typeof source === 'string'
-      ? source.split(',')
-      : [];
+  const list = Array.isArray(source) ? source : typeof source === 'string' ? source.split(',') : [];
 
   const seen = new Set();
   const tags = [];
@@ -230,5 +225,5 @@ module.exports = {
   normalizeTags,
   extractHashtags,
   tagKey,
-  cleanTag
+  cleanTag,
 };

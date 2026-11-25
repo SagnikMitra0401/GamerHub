@@ -8,7 +8,7 @@ import ResetPassword from './ResetPassword';
 const mocks = vi.hoisted(() => ({ post: vi.fn() }));
 
 vi.mock('../api/axiosInstance', () => ({
-  default: { post: mocks.post }
+  default: { post: mocks.post },
 }));
 
 const renderPage = (page, initialEntries = ['/']) =>
@@ -29,7 +29,7 @@ describe('account recovery pages', () => {
 
     expect(await screen.findByText(/reset link is on its way/i)).toBeInTheDocument();
     expect(mocks.post).toHaveBeenCalledWith('/auth/forgot-password', {
-      email: 'player@example.com'
+      email: 'player@example.com',
     });
   });
 
@@ -57,7 +57,7 @@ describe('account recovery pages', () => {
     expect(await screen.findByText(/password has been changed/i)).toBeInTheDocument();
     expect(mocks.post).toHaveBeenCalledWith('/auth/reset-password', {
       token: 'abc',
-      password: 'newpassword123'
+      password: 'newpassword123',
     });
   });
 });

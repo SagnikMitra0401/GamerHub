@@ -10,9 +10,7 @@ const { mediaPublicId: buildMediaPublicId } = require('../utils/mediaPaths');
 const { sanitizeLine } = require('../utils/sanitize');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
 const { canViewStory, groupStories, idOf } = require('../utils/storyAccess');
-const {
-  STORY_TTL_MS, STORY_BACKGROUNDS, STORY_VISIBILITY
-} = require('../models/Story');
+const { STORY_TTL_MS, STORY_BACKGROUNDS, STORY_VISIBILITY } = require('../models/Story');
 
 const HIDDEN_STATUS = ['frozen', 'suspended', 'deleted', 'deletion_pending'];
 const isStaff = (user) => ['admin', 'moderator'].includes(user?.role);
@@ -54,14 +52,18 @@ const createStory = async (req, res, next) => {
       if (req.file.size > maxAllowed) {
         cleanupTempFile(tempFilePath);
         tempFilePath = null;
-        throw badRequest(isVideo ? 'Story videos must be 50MB or less.' : 'Story images must be 5MB or less.');
+        throw badRequest(
+          isVideo ? 'Story videos must be 50MB or less.' : 'Story images must be 5MB or less.',
+        );
       }
 
       if (isVideo) {
         const publicId = buildMediaPublicId({ surface: 'story', ownerId: req.user._id });
         const result = await uploadToCloudinary(tempFilePath, { publicId, resourceType: 'video' });
         const asset = await registerVideoAsset({
-          result, ownerId: req.user._id, surface: 'story'
+          result,
+          ownerId: req.user._id,
+          surface: 'story',
         });
         mediaUrl = asset.derivatives.video || result.secure_url;
         mediaPublicId = result.public_id;
@@ -74,7 +76,7 @@ const createStory = async (req, res, next) => {
           mimeType: req.file.mimetype,
           sizeBytes: req.file.size,
           surface: 'story',
-          ownerId: req.user._id
+          ownerId: req.user._id,
         });
         mediaUrl = asset.derivatives.full || result.secure_url;
         mediaCardUrl = asset.derivatives.card;
@@ -98,7 +100,7 @@ const createStory = async (req, res, next) => {
       mediaCardUrl,
       mediaPublicId,
       mediaAssetId,
-      expiresAt: new Date(Date.now() + STORY_TTL_MS)
+      expiresAt: new Date(Date.now() + STORY_TTL_MS),
     });
 
     if (mediaAssetId) {
@@ -120,8 +122,8 @@ const createStory = async (req, res, next) => {
         _id: String(req.user._id),
         username: req.user.username,
         level: req.user.level || 1,
-        role: req.user.role || 'user'
-      }
+        role: req.user.role || 'user',
+      },
     });
   } catch (err) {
     cleanupTempFile(tempFilePath);
@@ -144,11 +146,14 @@ const getStories = async (req, res, next) => {
     // Filter by visibility in the database, not after a fixed 300-row window:
     // a burst of public stories must not crowd followed authors out of the rail.
     const authorScope = viewer
-      ? [{ authorId: viewer._id }, ...(followingIds.length ? [{ authorId: { $in: followingIds } }] : [])]
+      ? [
+          { authorId: viewer._id },
+          ...(followingIds.length ? [{ authorId: { $in: followingIds } }] : []),
+        ]
       : [];
     const stories = await Story.find({
       expiresAt: { $gt: new Date() },
-      $or: [{ visibility: 'public' }, ...authorScope]
+      $or: [{ visibility: 'public' }, ...authorScope],
     })
       .sort({ createdAt: -1 })
       .limit(300)
@@ -175,8 +180,10 @@ const getStories = async (req, res, next) => {
     if (viewer && visible.length) {
       const rows = await StoryView.find({
         viewerId: viewer._id,
-        storyId: { $in: visible.map((story) => story._id) }
-      }).select('storyId').lean();
+        storyId: { $in: visible.map((story) => story._id) },
+      })
+        .select('storyId')
+        .lean();
       seenIds = rows.map((row) => String(row.storyId));
     }
 
@@ -199,14 +206,14 @@ const viewStory = async (req, res, next) => {
       story,
       viewerId: req.user._id,
       followingIds: req.user.following || [],
-      blockedIds: req.user.blockedUsers || []
+      blockedIds: req.user.blockedUsers || [],
     });
     if (!allowed) throw forbidden('You cannot view this story.');
 
     const result = await StoryView.updateOne(
       { storyId: story._id, viewerId: req.user._id },
       { $setOnInsert: { storyId: story._id, viewerId: req.user._id } },
-      { upsert: true }
+      { upsert: true },
     );
 
     const counted = Boolean(result.upsertedCount);
@@ -228,7 +235,8 @@ const getStoryViewers = async (req, res, next) => {
     if (!story) throw notFound('Story not found');
 
     const owner = String(story.authorId) === String(req.user._id);
-    if (!owner && !isStaff(req.user)) throw forbidden('Only the author can see who viewed this story.');
+    if (!owner && !isStaff(req.user))
+      throw forbidden('Only the author can see who viewed this story.');
 
     const rows = await StoryView.find({ storyId: story._id })
       .sort({ createdAt: -1 })
@@ -244,8 +252,8 @@ const getStoryViewers = async (req, res, next) => {
           _id: String(row.viewerId._id),
           username: row.viewerId.username,
           level: row.viewerId.level || 1,
-          viewedAt: row.createdAt
-        }))
+          viewedAt: row.createdAt,
+        })),
     });
   } catch (err) {
     next(err);
@@ -268,7 +276,7 @@ const deleteStory = async (req, res, next) => {
     if (story.mediaPublicId) {
       await deleteFromCloudinary(
         story.mediaPublicId,
-        story.kind === 'video' ? 'video' : 'image'
+        story.kind === 'video' ? 'video' : 'image',
       ).catch((err) => console.error('[Story] Cloudinary delete failed:', err.message));
     }
     if (story.mediaAssetId) {

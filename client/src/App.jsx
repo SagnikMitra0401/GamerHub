@@ -48,7 +48,7 @@ const ATMOSPHERES = [
   ['/settings', 'settings'],
   ['/messages', 'messages'],
   ['/admin', 'admin'],
-  ['/', 'feed']
+  ['/', 'feed'],
 ];
 
 /**
@@ -90,9 +90,9 @@ const AtmosphereSync = () => {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    const match = ATMOSPHERES.find(([prefix]) => (
-      prefix === '/' ? pathname === '/' : pathname.startsWith(prefix)
-    ));
+    const match = ATMOSPHERES.find(([prefix]) =>
+      prefix === '/' ? pathname === '/' : pathname.startsWith(prefix),
+    );
     document.body.dataset.atmosphere = match?.[1] || 'feed';
   }, [pathname]);
 
@@ -109,9 +109,17 @@ const AtmosphereSync = () => {
  * timestamp from the migration and are never interrupted.
  */
 const ONBOARDING_ALLOWED = [
-  '/welcome', '/discover', '/verify-email', '/settings',
-  '/login', '/register', '/forgot-password', '/reset-password', '/account-recovery',
-  '/privacy', '/terms'
+  '/welcome',
+  '/discover',
+  '/verify-email',
+  '/settings',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/account-recovery',
+  '/privacy',
+  '/terms',
 ];
 
 const OnboardingGate = () => {
@@ -121,8 +129,9 @@ const OnboardingGate = () => {
 
   useEffect(() => {
     if (loading || !user || user.onboardingCompletedAt !== null) return;
-    const allowed = pathname.startsWith('/join/')
-      || ONBOARDING_ALLOWED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    const allowed =
+      pathname.startsWith('/join/') ||
+      ONBOARDING_ALLOWED.some((path) => pathname === path || pathname.startsWith(`${path}/`));
     if (!allowed) navigate('/welcome', { replace: true });
   }, [user, loading, pathname, navigate]);
 
@@ -153,46 +162,75 @@ function App() {
         <Navbar />
         <EmailVerificationBanner />
         <Routes>
-          <Route path="/"                       element={<Feed />} />
-          <Route path="/posts/:id"              element={<PostDetail />} />
-          <Route path="/clips"                  element={<ClipsPage />} />
-          <Route path="/watch/:id"              element={<WatchPage />} />
-          <Route path="/login"                  element={<Login />} />
-          <Route path="/register"               element={<Register />} />
-          <Route path="/forgot-password"        element={<ForgotPassword />} />
-          <Route path="/reset-password"         element={<ResetPassword />} />
-          <Route path="/verify-email"           element={<VerifyEmail />} />
-          <Route path="/account-recovery"       element={<AccountRecovery />} />
-          <Route path="/u/:username"            element={<ProfilePage />} />
-          <Route path="/c/:tag"                 element={<ChannelPage />} />
-          <Route path="/channels"               element={<ChannelsPage />} />
-          <Route path="/channels/:slug"         element={<BroadcastChannelPage />} />
-          <Route path="/communities"            element={<CommunitiesHome />} />
-          <Route path="/communities/:slug"      element={<CommunityPage />} />
-          <Route path="/join/:code"             element={<JoinInvite />} />
-          <Route path="/lfg"                    element={<LfgPage />} />
-          <Route path="/games"                  element={<GameCatalog />} />
-          <Route path="/games/:slug"            element={<GameDetail />} />
-          <Route path="/welcome"                element={<PrivateRoute><Welcome /></PrivateRoute>} />
-          <Route path="/discover"               element={<PrivateRoute><Discover /></PrivateRoute>} />
-          <Route path="/admin"                  element={<AdminDashboard />} />
-          <Route path="/settings"               element={<PrivateRoute><SettingsPage /></PrivateRoute>} />
-          <Route path="/messages"               element={<PrivateRoute><MessagesPage /></PrivateRoute>} />
-          <Route path="/notifications"          element={<PrivateRoute><Notifications /></PrivateRoute>} />
-          <Route path="/privacy"                element={<PrivacyPolicy />} />
-          <Route path="/terms"                  element={<TermsOfService />} />
+          <Route path="/" element={<Feed />} />
+          <Route path="/posts/:id" element={<PostDetail />} />
+          <Route path="/clips" element={<ClipsPage />} />
+          <Route path="/watch/:id" element={<WatchPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/account-recovery" element={<AccountRecovery />} />
+          <Route path="/u/:username" element={<ProfilePage />} />
+          <Route path="/c/:tag" element={<ChannelPage />} />
+          <Route path="/channels" element={<ChannelsPage />} />
+          <Route path="/channels/:slug" element={<BroadcastChannelPage />} />
+          <Route path="/communities" element={<CommunitiesHome />} />
+          <Route path="/communities/:slug" element={<CommunityPage />} />
+          <Route path="/join/:code" element={<JoinInvite />} />
+          <Route path="/lfg" element={<LfgPage />} />
+          <Route path="/games" element={<GameCatalog />} />
+          <Route path="/games/:slug" element={<GameDetail />} />
+          <Route
+            path="/welcome"
+            element={
+              <PrivateRoute>
+                <Welcome />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/discover"
+            element={
+              <PrivateRoute>
+                <Discover />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route
+            path="/settings"
+            element={
+              <PrivateRoute>
+                <SettingsPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <PrivateRoute>
+                <MessagesPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute>
+                <Notifications />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           {/* A wrong URL shows a real 404 instead of redirecting: a silent
               redirect makes a broken link look like a working one. */}
-          <Route path="*"                       element={<NotFound />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
-        <GlobalToolbar
-          onSearchOpen={() => setSearchOpen(true)}
-          onCreateOpen={handleCreateOpen}
-        />
-        <SearchModal
-          isOpen={searchOpen}
-          onClose={() => setSearchOpen(false)}
-        />
+        <GlobalToolbar onSearchOpen={() => setSearchOpen(true)} onCreateOpen={handleCreateOpen} />
+        <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       </AuthProvider>
     </BrowserRouter>
   );

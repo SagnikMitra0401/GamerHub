@@ -12,8 +12,9 @@ const MAX_CURSOR_LENGTH = 120;
 /** Keyset cursor: last createdAt plus _id as the tiebreaker (createdAt repeats). */
 function encodeCursor(item) {
   const createdAt = item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt);
-  return Buffer.from(JSON.stringify([createdAt.toISOString(), String(item._id)]), 'utf8')
-    .toString('base64url');
+  return Buffer.from(JSON.stringify([createdAt.toISOString(), String(item._id)]), 'utf8').toString(
+    'base64url',
+  );
 }
 
 function decodeCursor(raw) {
@@ -44,20 +45,19 @@ const listNotifications = async (req, res, next) => {
     if (req.query.before) {
       const cursor = decodeCursor(String(req.query.before));
       if (!cursor) throw badRequest('Invalid cursor');
-      query.$and = [{
-        $or: [
-          { createdAt: { $lt: cursor.createdAt } },
-          { createdAt: cursor.createdAt, _id: { $lt: cursor.id } }
-        ]
-      }];
+      query.$and = [
+        {
+          $or: [
+            { createdAt: { $lt: cursor.createdAt } },
+            { createdAt: cursor.createdAt, _id: { $lt: cursor.id } },
+          ],
+        },
+      ];
     }
 
     const [items, unreadCount] = await Promise.all([
-      Notification.find(query)
-        .sort({ createdAt: -1, _id: -1 })
-        .limit(limit)
-        .lean(),
-      unreadCountFor(req.user._id)
+      Notification.find(query).sort({ createdAt: -1, _id: -1 }).limit(limit).lean(),
+      unreadCountFor(req.user._id),
     ]);
 
     const nextCursor = items.length === limit ? encodeCursor(items[items.length - 1]) : null;
@@ -71,13 +71,14 @@ const listNotifications = async (req, res, next) => {
 // PATCH /api/notifications/:id/read
 const markRead = async (req, res, next) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw badRequest('Invalid notification id');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      throw badRequest('Invalid notification id');
 
     // Scoped by userId: an id alone must never grant access to someone else's ping.
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
       { $set: { read: true } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!notification) throw notFound('Notification not found');
@@ -111,17 +112,20 @@ const opened = async (req, res, next) => {
 /** POST /api/notifications/:id/clicked — scoped to the caller's own row. */
 const clicked = async (req, res, next) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw badRequest('Invalid notification id');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id))
+      throw badRequest('Invalid notification id');
 
     const notification = await Notification.findOne({
       _id: req.params.id,
-      userId: req.user._id
-    }).select('type metadata').lean();
+      userId: req.user._id,
+    })
+      .select('type metadata')
+      .lean();
     if (!notification) throw notFound('Notification not found');
 
     recordEvent('notification_clicked', req.user._id, {
       surface: surfaceFrom(req.body),
-      kind: notification.metadata?.kind || notification.type || 'social'
+      kind: notification.metadata?.kind || notification.type || 'social',
     });
     res.status(200).json({ ok: true });
   } catch (err) {

@@ -19,7 +19,7 @@ const validEnv = (overrides = {}) => ({
   MONGO_URI: 'mongodb+srv://user:password@cluster.example.net/gamerhub',
   JWT_SECRET: 'a'.repeat(64),
   CLIENT_URL: 'http://localhost:3000',
-  ...overrides
+  ...overrides,
 });
 
 const errorsOf = (env) => validateEnv(env).errors.join('\n');
@@ -42,7 +42,7 @@ test('a short JWT_SECRET reports the minimum and never the value', () => {
 test('the example placeholder is refused even though it is long enough', () => {
   assert.match(
     errorsOf(validEnv({ JWT_SECRET: 'replace-with-64-random-characters' })),
-    /placeholder/
+    /placeholder/,
   );
 });
 
@@ -72,7 +72,7 @@ test('production refuses a plain-http origin', () => {
   const env = validEnv({
     NODE_ENV: 'production',
     CLIENT_URL: 'http://gamerhub.example',
-    EMAIL_CODE_PEPPER: 'p'.repeat(32)
+    EMAIL_CODE_PEPPER: 'p'.repeat(32),
   });
   assert.match(errorsOf(env), /CLIENT_URL\[1\] must use https in production/);
 });
@@ -82,7 +82,7 @@ test('production refuses a plain-http extra origin even with an https client url
     NODE_ENV: 'production',
     CLIENT_URL: 'https://gamerhub.example',
     EXTRA_ALLOWED_ORIGINS: 'https://preview.gamerhub.example, http://old.gamerhub.example',
-    EMAIL_CODE_PEPPER: 'p'.repeat(32)
+    EMAIL_CODE_PEPPER: 'p'.repeat(32),
   });
   const text = errorsOf(env);
   assert.match(text, /EXTRA_ALLOWED_ORIGINS\[2\] must use https in production/);
@@ -125,7 +125,7 @@ test('a partly configured optional integration warns without blocking', () => {
 test('loadEnv exits 1 and names every missing required key', () => {
   const result = spawnSync(process.execPath, ['-e', "require('./server/config/env').loadEnv({})"], {
     cwd: ROOT,
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stderr, /JWT_SECRET is not set/);

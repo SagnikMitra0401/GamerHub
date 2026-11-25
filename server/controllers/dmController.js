@@ -11,7 +11,7 @@ const {
   postMessage,
   markRead,
   reportConversation,
-  summary
+  summary,
 } = require('../utils/dmService');
 const { getIO } = require('../config/socket');
 
@@ -19,14 +19,14 @@ const readLimiter = createLimiter({
   name: 'dm-read',
   windowMs: 60 * 1000,
   max: Number(process.env.DM_READ_RATE_LIMIT_MAX) || 180,
-  message: 'You are refreshing your inbox very quickly. Give it a minute.'
+  message: 'You are refreshing your inbox very quickly. Give it a minute.',
 });
 
 const writeLimiter = createLimiter({
   name: 'dm-write',
   windowMs: 60 * 1000,
   max: Number(process.env.DM_WRITE_RATE_LIMIT_MAX) || 60,
-  message: 'You are sending messages very quickly. Slow down for a moment.'
+  message: 'You are sending messages very quickly. Slow down for a moment.',
 });
 
 // The daily and weekly product quotas live in dmPolicy; this is only a coarse
@@ -35,11 +35,13 @@ const requestLimiter = createLimiter({
   name: 'dm-request',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.DM_REQUEST_RATE_LIMIT_MAX) || 15,
-  message: 'Too many message requests. Try again later.'
+  message: 'Too many message requests. Try again later.',
 });
 
 const emitToParticipants = (conversationId, event, payload) => {
-  getIO()?.to(`dm:${String(conversationId)}`).emit(event, payload);
+  getIO()
+    ?.to(`dm:${String(conversationId)}`)
+    .emit(event, payload);
 };
 
 /** GET /api/messages/summary */
@@ -60,7 +62,7 @@ const getConversations = async (req, res, next) => {
       scope: req.query.scope || 'all',
       unreadOnly: req.query.unread === '1',
       before: req.query.before || null,
-      limit: req.query.limit
+      limit: req.query.limit,
     });
     res.status(200).json(result);
   } catch (err) {
@@ -90,7 +92,7 @@ const startRequest = async (req, res, next) => {
       company: req.body?.company,
       website: req.body?.website,
       budgetBand: req.body?.budgetBand,
-      timeline: req.body?.timeline
+      timeline: req.body?.timeline,
     });
     res.status(201).json(result);
   } catch (err) {
@@ -104,7 +106,7 @@ const accept = async (req, res, next) => {
     const result = await acceptRequest({ conversationId: req.params.id, userId: req.user._id });
     emitToParticipants(req.params.id, 'dm_accepted', {
       conversationId: String(req.params.id),
-      conversation: result.conversation
+      conversation: result.conversation,
     });
     res.status(200).json(result);
   } catch (err) {
@@ -129,13 +131,13 @@ const sendMessage = async (req, res, next) => {
     const result = await postMessage({
       conversationId: req.params.id,
       sender: req.user,
-      text: req.body?.text
+      text: req.body?.text,
     });
     emitToParticipants(req.params.id, 'dm_message', result);
     if (result.autoReply) {
       emitToParticipants(req.params.id, 'dm_message', {
         message: result.autoReply,
-        conversation: result.conversation
+        conversation: result.conversation,
       });
     }
     res.status(201).json(result);
@@ -150,7 +152,7 @@ const read = async (req, res, next) => {
     const result = await markRead({ conversationId: req.params.id, userId: req.user._id });
     emitToParticipants(req.params.id, 'dm_read', {
       conversationId: String(req.params.id),
-      userId: String(req.user._id)
+      userId: String(req.user._id),
     });
     res.status(200).json(result);
   } catch (err) {
@@ -161,7 +163,10 @@ const read = async (req, res, next) => {
 /** POST /api/messages/conversations/:id/archive */
 const archive = async (req, res, next) => {
   try {
-    const result = await archiveConversation({ conversationId: req.params.id, userId: req.user._id });
+    const result = await archiveConversation({
+      conversationId: req.params.id,
+      userId: req.user._id,
+    });
     res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -174,7 +179,7 @@ const mute = async (req, res, next) => {
     const result = await setMuted({
       conversationId: req.params.id,
       userId: req.user._id,
-      muted: req.body?.muted !== false
+      muted: req.body?.muted !== false,
     });
     res.status(200).json(result);
   } catch (err) {
@@ -188,7 +193,7 @@ const updateLabels = async (req, res, next) => {
     const result = await setLabels({
       conversationId: req.params.id,
       userId: req.user._id,
-      labels: req.body?.labels
+      labels: req.body?.labels,
     });
     res.status(200).json(result);
   } catch (err) {
@@ -205,11 +210,11 @@ const report = async (req, res, next) => {
       reason: req.body?.reason,
       note: req.body?.note,
       messageIds: req.body?.messageIds,
-      block: req.body?.block === true
+      block: req.body?.block === true,
     });
     res.status(201).json({
       reported: true,
-      blocked: result.blocked
+      blocked: result.blocked,
     });
   } catch (err) {
     next(err);
@@ -231,5 +236,5 @@ module.exports = {
   report,
   readLimiter,
   writeLimiter,
-  requestLimiter
+  requestLimiter,
 };

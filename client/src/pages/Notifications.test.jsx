@@ -9,19 +9,19 @@ const mocks = vi.hoisted(() => ({
   patch: vi.fn(),
   post: vi.fn(),
   socketOn: vi.fn(),
-  socketOff: vi.fn()
+  socketOff: vi.fn(),
 }));
 
 vi.mock('../api/axiosInstance', () => ({
-  default: { get: mocks.get, patch: mocks.patch, post: mocks.post }
+  default: { get: mocks.get, patch: mocks.patch, post: mocks.post },
 }));
 
 vi.mock('../api/socket', () => ({
-  connectSocket: () => ({ on: mocks.socketOn, off: mocks.socketOff })
+  connectSocket: () => ({ on: mocks.socketOn, off: mocks.socketOff }),
 }));
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ token: 'token' })
+  useAuth: () => ({ token: 'token' }),
 }));
 
 const notification = (overrides = {}) => ({
@@ -32,24 +32,31 @@ const notification = (overrides = {}) => ({
   read: false,
   createdAt: new Date().toISOString(),
   actionUrl: '/lfg',
-  ...overrides
+  ...overrides,
 });
 
 const firstPage = {
   items: [
     notification(),
-    notification({ _id: 'n2', type: 'social', title: 'A comment landed', read: true, metadata: { kind: 'comment' }, actionUrl: null })
+    notification({
+      _id: 'n2',
+      type: 'social',
+      title: 'A comment landed',
+      read: true,
+      metadata: { kind: 'comment' },
+      actionUrl: null,
+    }),
   ],
   unreadCount: 1,
   nextCursor: 'cursor-1',
-  hasMore: true
+  hasMore: true,
 };
 
 const renderPage = () =>
   render(
     <MemoryRouter initialEntries={['/notifications']}>
       <Notifications />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
 beforeEach(() => {
@@ -74,8 +81,8 @@ describe('notification history', () => {
         items: [notification({ _id: 'n3', title: 'Old squad ping', read: true })],
         unreadCount: 1,
         nextCursor: null,
-        hasMore: false
-      }
+        hasMore: false,
+      },
     });
     await user.click(screen.getByRole('button', { name: 'Load older' }));
 

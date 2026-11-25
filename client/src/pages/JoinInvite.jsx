@@ -29,7 +29,8 @@ const JoinInvite = () => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    axiosInstance.get(`/communities/invites/${code}`)
+    axiosInstance
+      .get(`/communities/invites/${code}`)
       .then(({ data }) => {
         if (cancelled) return;
         setPreview(data);
@@ -39,11 +40,15 @@ const JoinInvite = () => {
         if (cancelled) return;
         setError({
           status: err.response?.status,
-          message: err.response?.data?.message || 'This invite link is not valid.'
+          message: err.response?.data?.message || 'This invite link is not valid.',
         });
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [code, user?._id]);
 
   const join = async () => {
@@ -70,7 +75,9 @@ const JoinInvite = () => {
       <div className="container" style={{ maxWidth: '560px', paddingTop: '2.5rem' }}>
         {busy && !preview && (
           <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-            <p className="text-muted" style={{ margin: 0 }}>Checking invite link…</p>
+            <p className="text-muted" style={{ margin: 0 }}>
+              Checking invite link…
+            </p>
           </div>
         )}
 
@@ -85,9 +92,15 @@ const JoinInvite = () => {
             <p className="text-muted" style={{ marginBottom: '1.25rem' }}>
               {error.message}
             </p>
-            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link to="/communities" className="btn btn-primary btn-sm">Browse public servers</Link>
-              <Link to="/" className="btn btn-ghost btn-sm">Back to the feed</Link>
+            <div
+              style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}
+            >
+              <Link to="/communities" className="btn btn-primary btn-sm">
+                Browse public servers
+              </Link>
+              <Link to="/" className="btn btn-ghost btn-sm">
+                Back to the feed
+              </Link>
             </div>
           </div>
         )}
@@ -96,20 +109,51 @@ const JoinInvite = () => {
           <div className="card" style={{ padding: '1.75rem' }}>
             <span className="dm-eyebrow">Server invite</span>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', margin: '0.6rem 0 0.9rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.9rem',
+                margin: '0.6rem 0 0.9rem',
+              }}
+            >
               <CommunitySigil
                 name={preview.community.name}
                 icon={preview.community.icon}
                 size={56}
               />
               <div style={{ minWidth: 0 }}>
-                <h1 style={{ margin: 0, fontSize: '1.35rem', lineHeight: 1.2, overflowWrap: 'anywhere' }}>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: '1.35rem',
+                    lineHeight: 1.2,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
                   {preview.community.name}
                 </h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.3rem' }}>
-                  <span className="text-muted" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    flexWrap: 'wrap',
+                    marginTop: '0.3rem',
+                  }}
+                >
+                  <span
+                    className="text-muted"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontSize: '0.78rem',
+                    }}
+                  >
                     <UsersIcon size={13} />
-                    {preview.community.memberCount} member{preview.community.memberCount === 1 ? '' : 's'}
+                    {preview.community.memberCount} member
+                    {preview.community.memberCount === 1 ? '' : 's'}
                   </span>
                   <span
                     className="community-private-tag"
@@ -122,7 +166,14 @@ const JoinInvite = () => {
             </div>
 
             {preview.community.description && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55, overflowWrap: 'anywhere' }}>
+              <p
+                style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.88rem',
+                  lineHeight: 1.55,
+                  overflowWrap: 'anywhere',
+                }}
+              >
                 {preview.community.description}
               </p>
             )}
@@ -131,9 +182,11 @@ const JoinInvite = () => {
               {preview.community.isPrivate
                 ? 'This server is invite-only. A link like this one is the only way in, and the person who shared it can revoke it.'
                 : 'This server is public. The link is a shortcut that adds you and opens the chat directly.'}
-              {preview.requiresApproval && ' Joining also needs a manager\'s approval.'}
-              {preview.expiresAt && ` This link expires ${new Date(preview.expiresAt).toLocaleDateString()}.`}
-              {preview.maxUses > 0 && ` It can be used ${Math.max(0, preview.maxUses - preview.uses)} more time${preview.maxUses - preview.uses === 1 ? '' : 's'}.`}
+              {preview.requiresApproval && " Joining also needs a manager's approval."}
+              {preview.expiresAt &&
+                ` This link expires ${new Date(preview.expiresAt).toLocaleDateString()}.`}
+              {preview.maxUses > 0 &&
+                ` It can be used ${Math.max(0, preview.maxUses - preview.uses)} more time${preview.maxUses - preview.uses === 1 ? '' : 's'}.`}
             </p>
 
             {joinError && (
@@ -147,17 +200,25 @@ const JoinInvite = () => {
                 <p style={{ margin: 0, fontSize: '0.85rem' }}>
                   You are already a member of this server.
                 </p>
-                <Link to={`/communities/${preview.community.slug}`} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
+                <Link
+                  to={`/communities/${preview.community.slug}`}
+                  className="btn btn-primary btn-sm"
+                  style={{ alignSelf: 'flex-start' }}
+                >
                   Open the server
                 </Link>
               </div>
             ) : preview.pendingRequest || requested ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                  <strong>Request pending.</strong> A manager of {preview.community.name} will review
-                  your request. You'll get a notification as soon as it is decided.
+                  <strong>Request pending.</strong> A manager of {preview.community.name} will
+                  review your request. You'll get a notification as soon as it is decided.
                 </p>
-                <Link to="/communities" className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
+                <Link
+                  to="/communities"
+                  className="btn btn-ghost btn-sm"
+                  style={{ alignSelf: 'flex-start' }}
+                >
                   Browse other servers
                 </Link>
               </div>
@@ -171,8 +232,12 @@ const JoinInvite = () => {
                   style={{ alignSelf: 'flex-start' }}
                 >
                   {joining
-                    ? (preview.requiresApproval ? 'Sending request…' : 'Joining…')
-                    : (preview.requiresApproval ? 'Request to join' : `Join ${preview.community.name}`)}
+                    ? preview.requiresApproval
+                      ? 'Sending request…'
+                      : 'Joining…'
+                    : preview.requiresApproval
+                      ? 'Request to join'
+                      : `Join ${preview.community.name}`}
                 </button>
                 <span className="text-muted" style={{ fontSize: '0.75rem' }}>
                   {preview.requiresApproval

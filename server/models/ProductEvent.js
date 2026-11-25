@@ -21,7 +21,7 @@ const PRODUCT_EVENT_NAMES = [
   'password_reset_completed',
   'email_verified',
   'notification_opened',
-  'notification_clicked'
+  'notification_clicked',
 ];
 
 // These describe a one-time milestone. A unique partial index makes the
@@ -34,7 +34,7 @@ const FIRST_EVENT_NAMES = [
   'first_follow',
   'first_post',
   'first_comment',
-  'first_message'
+  'first_message',
 ];
 
 const PRODUCT_EVENT_TTL_DAYS = 180;
@@ -45,19 +45,19 @@ const ProductEventSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null
+      default: null,
     },
     name: {
       type: String,
       enum: PRODUCT_EVENT_NAMES,
-      required: true
+      required: true,
     },
     props: {
       type: mongoose.Schema.Types.Mixed,
-      default: {}
-    }
+      default: {},
+    },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 // Funnel queries by event name and time.
@@ -71,13 +71,13 @@ ProductEventSchema.index(
   {
     unique: true,
     name: 'product_events_first_unique',
-    partialFilterExpression: { name: { $in: FIRST_EVENT_NAMES } }
-  }
+    partialFilterExpression: { name: { $in: FIRST_EVENT_NAMES } },
+  },
 );
 // Analytics data has a bounded life: 180 days, then Mongo reclaims it.
 ProductEventSchema.index(
   { createdAt: 1 },
-  { name: 'product_events_ttl', expireAfterSeconds: PRODUCT_EVENT_TTL_SECONDS }
+  { name: 'product_events_ttl', expireAfterSeconds: PRODUCT_EVENT_TTL_SECONDS },
 );
 
 const ProductEvent = mongoose.model('ProductEvent', ProductEventSchema);

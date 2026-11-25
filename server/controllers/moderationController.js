@@ -19,7 +19,7 @@ const {
   communityPermissions,
   canModerateMember,
   canKickCommunityMember,
-  resolveCommunityRole
+  resolveCommunityRole,
 } = require('../utils/permissions');
 const { sanitizeLine } = require('../utils/sanitize');
 const { recordAudit } = require('../utils/audit');
@@ -60,7 +60,9 @@ async function targetExists(community, targetType, targetId) {
   if (targetType === 'forumPost') {
     return ForumPost.exists({ _id: targetId, communityId: community._id, isDeleted: false });
   }
-  const isMember = (community.members || []).some((member) => memberIdOf(member) === String(targetId));
+  const isMember = (community.members || []).some(
+    (member) => memberIdOf(member) === String(targetId),
+  );
   return isMember ? targetId : null;
 }
 
@@ -105,7 +107,7 @@ const createReport = async (req, res, next) => {
         targetType,
         targetId,
         reason,
-        note: sanitizeLine(req.body.note, 300)
+        note: sanitizeLine(req.body.note, 300),
       });
     } catch (err) {
       // Duplicate report (same reporter + target) is a silent no-op.
@@ -122,7 +124,12 @@ const createReport = async (req, res, next) => {
 const listReports = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
-    requireCapability(community, req.user._id, CAP.VIEW_REPORTS, 'You do not have permission to view reports.');
+    requireCapability(
+      community,
+      req.user._id,
+      CAP.VIEW_REPORTS,
+      'You do not have permission to view reports.',
+    );
 
     const status = sanitizeLine(req.query.status, 20) || 'open';
     if (!['open', 'reviewed', 'dismissed', 'all'].includes(status)) {
@@ -141,7 +148,7 @@ const listReports = async (req, res, next) => {
         .populate('reporterId', 'username')
         .populate('reviewedBy', 'username')
         .lean(),
-      Report.countDocuments(filter)
+      Report.countDocuments(filter),
     ]);
 
     // One bulk lookup per target type keeps the queue at three queries.
@@ -151,24 +158,30 @@ const listReports = async (req, res, next) => {
 
     const [messages, posts, members] = await Promise.all([
       messageIds.length
-        ? Message.find({ _id: { $in: messageIds } }).select('text channelId senderId createdAt').lean()
+        ? Message.find({ _id: { $in: messageIds } })
+            .select('text channelId senderId createdAt')
+            .lean()
         : [],
       forumIds.length
-        ? ForumPost.find({ _id: { $in: forumIds } }).select('title status authorId createdAt').lean()
+        ? ForumPost.find({ _id: { $in: forumIds } })
+            .select('title status authorId createdAt')
+            .lean()
         : [],
       memberIds.length
-        ? User.find({ _id: { $in: memberIds } }).select('username level').lean()
-        : []
+        ? User.find({ _id: { $in: memberIds } })
+            .select('username level')
+            .lean()
+        : [],
     ]);
 
     const messageById = new Map(
-      messages.map((row) => /** @type {[string, any]} */ ([String(row._id), row]))
+      messages.map((row) => /** @type {[string, any]} */ ([String(row._id), row])),
     );
     const postById = new Map(
-      posts.map((row) => /** @type {[string, any]} */ ([String(row._id), row]))
+      posts.map((row) => /** @type {[string, any]} */ ([String(row._id), row])),
     );
     const memberById = new Map(
-      members.map((row) => /** @type {[string, any]} */ ([String(row._id), row]))
+      members.map((row) => /** @type {[string, any]} */ ([String(row._id), row])),
     );
 
     res.set('Cache-Control', 'private, no-store');
@@ -178,7 +191,9 @@ const listReports = async (req, res, next) => {
         let preview = null;
         if (report.targetType === 'message') {
           const row = messageById.get(id);
-          preview = row ? { text: row.text, channelId: row.channelId, createdAt: row.createdAt } : null;
+          preview = row
+            ? { text: row.text, channelId: row.channelId, createdAt: row.createdAt }
+            : null;
         } else if (report.targetType === 'forumPost') {
           const row = postById.get(id);
           preview = row ? { title: row.title, status: row.status, createdAt: row.createdAt } : null;
@@ -195,12 +210,12 @@ const listReports = async (req, res, next) => {
           reviewedBy: report.reviewedBy
             ? { _id: report.reviewedBy._id, username: report.reviewedBy.username }
             : null,
-          targetPreview: preview
+          targetPreview: preview,
         };
       }),
       total,
       page,
-      hasMore: skip + reports.length < total
+      hasMore: skip + reports.length < total,
     });
   } catch (err) {
     next(err);
@@ -211,7 +226,12 @@ const listReports = async (req, res, next) => {
 const reviewReport = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
-    requireCapability(community, req.user._id, CAP.VIEW_REPORTS, 'You do not have permission to review reports.');
+    requireCapability(
+      community,
+      req.user._id,
+      CAP.VIEW_REPORTS,
+      'You do not have permission to review reports.',
+    );
 
     const status = sanitizeLine(req.body.status, 20);
     if (!['reviewed', 'dismissed'].includes(status)) {
@@ -233,7 +253,7 @@ const reviewReport = async (req, res, next) => {
       actionType: 'REPORT_REVIEWED',
       targetId: report._id,
       targetModel: 'Report',
-      metadata: { status, targetType: report.targetType }
+      metadata: { status, targetType: report.targetType },
     });
 
     res.status(200).json({ reportId: String(report._id), status: report.status });
@@ -247,8 +267,10 @@ const setTimeout_ = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     const { role: actorRole } = requireCapability(
-      community, req.user._id, CAP.TIMEOUT_MEMBERS,
-      'You do not have permission to time members out.'
+      community,
+      req.user._id,
+      CAP.TIMEOUT_MEMBERS,
+      'You do not have permission to time members out.',
     );
 
     if (!mongoose.Types.ObjectId.isValid(String(req.params.userId))) {
@@ -256,12 +278,12 @@ const setTimeout_ = async (req, res, next) => {
     }
 
     const targetEntry = (community.members || []).find(
-      (member) => memberIdOf(member) === String(req.params.userId)
+      (member) => memberIdOf(member) === String(req.params.userId),
     );
     if (!targetEntry) throw notFound('That user is not a member of this server.');
 
     const permission = canModerateMember(actorRole, targetEntry.role, {
-      self: memberIdOf(targetEntry) === String(req.user._id)
+      self: memberIdOf(targetEntry) === String(req.user._id),
     });
     if (!permission.ok) throw forbidden(permission.reason);
 
@@ -273,7 +295,7 @@ const setTimeout_ = async (req, res, next) => {
     const timeoutUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
     await Community.updateOne(
       { _id: community._id, 'members.userId': targetEntry.userId },
-      { $set: { 'members.$.timeoutUntil': timeoutUntil } }
+      { $set: { 'members.$.timeoutUntil': timeoutUntil } },
     );
 
     recordAudit({
@@ -282,17 +304,19 @@ const setTimeout_ = async (req, res, next) => {
       actionType: 'MEMBER_TIMEOUT',
       targetId: targetEntry.userId,
       targetModel: 'User',
-      metadata: { durationMinutes, timeoutUntil }
+      metadata: { durationMinutes, timeoutUntil },
     });
 
-    getIO()?.to(`user:${String(targetEntry.userId)}`).emit('member_timed_out', {
-      communityId: String(community._id),
-      timeoutUntil
-    });
+    getIO()
+      ?.to(`user:${String(targetEntry.userId)}`)
+      .emit('member_timed_out', {
+        communityId: String(community._id),
+        timeoutUntil,
+      });
     emitToCommunity(community._id, 'member_timed_out', {
       communityId: String(community._id),
       userId: String(targetEntry.userId),
-      timeoutUntil
+      timeoutUntil,
     });
 
     res.status(200).json({ userId: String(targetEntry.userId), timeoutUntil });
@@ -305,23 +329,25 @@ const liftTimeout = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     const { role: actorRole } = requireCapability(
-      community, req.user._id, CAP.TIMEOUT_MEMBERS,
-      'You do not have permission to lift timeouts.'
+      community,
+      req.user._id,
+      CAP.TIMEOUT_MEMBERS,
+      'You do not have permission to lift timeouts.',
     );
 
     const targetEntry = (community.members || []).find(
-      (member) => memberIdOf(member) === String(req.params.userId)
+      (member) => memberIdOf(member) === String(req.params.userId),
     );
     if (!targetEntry) throw notFound('That user is not a member of this server.');
 
     const permission = canModerateMember(actorRole, targetEntry.role, {
-      self: memberIdOf(targetEntry) === String(req.user._id)
+      self: memberIdOf(targetEntry) === String(req.user._id),
     });
     if (!permission.ok) throw forbidden(permission.reason);
 
     await Community.updateOne(
       { _id: community._id, 'members.userId': targetEntry.userId },
-      { $set: { 'members.$.timeoutUntil': null } }
+      { $set: { 'members.$.timeoutUntil': null } },
     );
 
     recordAudit({
@@ -330,12 +356,12 @@ const liftTimeout = async (req, res, next) => {
       actionType: 'MEMBER_TIMEOUT_LIFT',
       targetId: targetEntry.userId,
       targetModel: 'User',
-      metadata: {}
+      metadata: {},
     });
 
     emitToCommunity(community._id, 'member_timeout_lifted', {
       communityId: String(community._id),
-      userId: String(targetEntry.userId)
+      userId: String(targetEntry.userId),
     });
 
     res.status(200).json({ userId: String(targetEntry.userId), timeoutUntil: null });
@@ -349,8 +375,10 @@ const banMember = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     const { role: actorRole } = requireCapability(
-      community, req.user._id, CAP.KICK_MEMBERS,
-      'You need the Admin or Owner role to ban members.'
+      community,
+      req.user._id,
+      CAP.KICK_MEMBERS,
+      'You need the Admin or Owner role to ban members.',
     );
 
     const targetId = String(req.params.userId);
@@ -365,9 +393,7 @@ const banMember = async (req, res, next) => {
 
     const reason = sanitizeLine(req.body.reason, 200);
 
-    const alreadyBanned = (community.bannedUsers || []).some(
-      (ban) => memberIdOf(ban) === targetId
-    );
+    const alreadyBanned = (community.bannedUsers || []).some((ban) => memberIdOf(ban) === targetId);
     if (alreadyBanned) throw conflict('That user is already banned.');
 
     const memberId = targetEntry?.userId ?? targetId;
@@ -376,10 +402,10 @@ const banMember = async (req, res, next) => {
       { _id: community._id },
       {
         $push: {
-          bannedUsers: { userId: memberId, bannedBy: req.user._id, reason, bannedAt: new Date() }
+          bannedUsers: { userId: memberId, bannedBy: req.user._id, reason, bannedAt: new Date() },
         },
-        $pull: { members: { userId: memberId } }
-      }
+        $pull: { members: { userId: memberId } },
+      },
     );
 
     recordAudit({
@@ -388,13 +414,13 @@ const banMember = async (req, res, next) => {
       actionType: 'MEMBER_BAN',
       targetId: targetEntry?.userId ?? targetId,
       targetModel: 'User',
-      metadata: { reason, previousRole: targetRole }
+      metadata: { reason, previousRole: targetRole },
     });
 
     evictUserFromCommunity(targetId, community._id);
     emitToCommunity(community._id, 'member_banned', {
       communityId: String(community._id),
-      userId: targetId
+      userId: targetId,
     });
 
     res.status(200).json({ message: 'Member banned.', userId: targetId });
@@ -407,8 +433,10 @@ const unbanMember = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.KICK_MEMBERS,
-      'You need the Admin or Owner role to unban members.'
+      community,
+      req.user._id,
+      CAP.KICK_MEMBERS,
+      'You need the Admin or Owner role to unban members.',
     );
 
     const targetId = String(req.params.userId);
@@ -416,7 +444,7 @@ const unbanMember = async (req, res, next) => {
 
     const result = await Community.updateOne(
       { _id: community._id },
-      { $pull: { bannedUsers: { userId: targetId } } }
+      { $pull: { bannedUsers: { userId: targetId } } },
     );
     if (!result.modifiedCount) throw notFound('That user is not banned.');
 
@@ -426,7 +454,7 @@ const unbanMember = async (req, res, next) => {
       actionType: 'MEMBER_UNBAN',
       targetId,
       targetModel: 'User',
-      metadata: {}
+      metadata: {},
     });
 
     res.status(200).json({ message: 'Ban lifted.', userId: targetId });
@@ -439,8 +467,10 @@ const listBans = async (req, res, next) => {
   try {
     const community = await loadCommunity(req.params.id);
     requireCapability(
-      community, req.user._id, CAP.KICK_MEMBERS,
-      'You need the Admin or Owner role to view bans.'
+      community,
+      req.user._id,
+      CAP.KICK_MEMBERS,
+      'You need the Admin or Owner role to view bans.',
     );
 
     const populated = await community.populate('bannedUsers.userId', 'username level');
@@ -451,7 +481,7 @@ const listBans = async (req, res, next) => {
         username: ban.userId?.username || 'Unknown',
         level: ban.userId?.level ?? 1,
         reason: ban.reason,
-        bannedAt: ban.bannedAt
+        bannedAt: ban.bannedAt,
       }));
 
     res.set('Cache-Control', 'private, no-store');
@@ -464,8 +494,10 @@ const listBans = async (req, res, next) => {
 // ─── POST /api/users/:id/mute (personal, per-user) ──────────────────────────
 const toggleMute = async (req, res, next) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(String(req.params.id))) throw badRequest('Invalid user id');
-    if (String(req.params.id) === String(req.user._id)) throw badRequest('You cannot mute yourself.');
+    if (!mongoose.Types.ObjectId.isValid(String(req.params.id)))
+      throw badRequest('Invalid user id');
+    if (String(req.params.id) === String(req.user._id))
+      throw badRequest('You cannot mute yourself.');
 
     const target = await User.findById(req.params.id).select('_id username').lean();
     if (!target) throw notFound('User not found.');
@@ -475,7 +507,9 @@ const toggleMute = async (req, res, next) => {
 
     await User.updateOne(
       { _id: req.user._id },
-      alreadyMuted ? { $pull: { mutedUsers: target._id } } : { $addToSet: { mutedUsers: target._id } }
+      alreadyMuted
+        ? { $pull: { mutedUsers: target._id } }
+        : { $addToSet: { mutedUsers: target._id } },
     );
 
     res.status(200).json({
@@ -483,7 +517,7 @@ const toggleMute = async (req, res, next) => {
       muted: !alreadyMuted,
       mutedUsers: alreadyMuted
         ? (me.mutedUsers || []).map(String).filter((id) => id !== String(target._id))
-        : [...(me?.mutedUsers || []).map(String), String(target._id)]
+        : [...(me?.mutedUsers || []).map(String), String(target._id)],
     });
   } catch (err) {
     next(err);
@@ -511,5 +545,5 @@ module.exports = {
   listBans,
   toggleMute,
   getMutedUsers,
-  TIMEOUT_DURATIONS_MINUTES
+  TIMEOUT_DURATIONS_MINUTES,
 };

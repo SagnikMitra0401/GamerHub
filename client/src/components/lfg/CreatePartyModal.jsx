@@ -13,7 +13,7 @@ const emptyForm = {
   activity: '',
   maxSlots: 5,
   minRank: '',
-  micRequired: false
+  micRequired: false,
 };
 
 const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
@@ -29,19 +29,26 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
     setError('');
 
     let cancelled = false;
-    axiosInstance.get('/games?limit=60')
-      .then(({ data }) => { if (!cancelled) setCatalog(Array.isArray(data.games) ? data.games : []); })
-      .catch(() => { if (!cancelled) setCatalog([]); });
+    axiosInstance
+      .get('/games?limit=60')
+      .then(({ data }) => {
+        if (!cancelled) setCatalog(Array.isArray(data.games) ? data.games : []);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([]);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const set = (patch) => setForm(prev => ({ ...prev, ...patch }));
+  const set = (patch) => setForm((prev) => ({ ...prev, ...patch }));
 
   const onGameTitle = (value) => {
-    const match = catalog.find(g => g.title.toLowerCase() === value.trim().toLowerCase());
+    const match = catalog.find((g) => g.title.toLowerCase() === value.trim().toLowerCase());
     set({ gameTitle: value, gameThumbnail: match?.thumbnail || null });
   };
 
@@ -55,7 +62,7 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
         gameThumbnail: form.gameThumbnail,
         activity: form.activity,
         maxSlots: Number(form.maxSlots),
-        requirements: { minRank: form.minRank, micRequired: form.micRequired }
+        requirements: { minRank: form.minRank, micRequired: form.micRequired },
       });
       onCreated?.(data);
       onClose();
@@ -67,18 +74,34 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
   };
 
   return ReactDOM.createPortal(
-    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="create-party-title">
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-party-title"
+    >
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
         <div className="modal-header-row">
-          <h2 id="create-party-title" className="modal-title" style={{ margin: 0 }}>Recruit a squad</h2>
-          <button onClick={onClose} className="modal-close" aria-label="Close"><CloseIcon size={16} /></button>
+          <h2 id="create-party-title" className="modal-title" style={{ margin: 0 }}>
+            Recruit a squad
+          </h2>
+          <button onClick={onClose} className="modal-close" aria-label="Close">
+            <CloseIcon size={16} />
+          </button>
         </div>
 
-        {error && <div className="form-error" style={{ marginBottom: '0.75rem' }}>{error}</div>}
+        {error && (
+          <div className="form-error" style={{ marginBottom: '0.75rem' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={submit}>
           <div className="form-group">
-            <label className="form-label" htmlFor="party-game">Game</label>
+            <label className="form-label" htmlFor="party-game">
+              Game
+            </label>
             <input
               id="party-game"
               className="form-input"
@@ -87,17 +110,19 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
               maxLength={60}
               required
               placeholder="Valorant, Apex Legends, Overwatch 2…"
-              onChange={e => onGameTitle(e.target.value)}
+              onChange={(e) => onGameTitle(e.target.value)}
             />
             <datalist id="party-game-options">
-              {catalog.slice(0, 40).map(game => (
+              {catalog.slice(0, 40).map((game) => (
                 <option key={game.id} value={game.title} />
               ))}
             </datalist>
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="party-activity">Activity</label>
+            <label className="form-label" htmlFor="party-activity">
+              Activity
+            </label>
             <input
               id="party-activity"
               className="form-input"
@@ -105,37 +130,45 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
               value={form.activity}
               maxLength={60}
               placeholder="Ranked Competitive, Casual Fun…"
-              onChange={e => set({ activity: e.target.value })}
+              onChange={(e) => set({ activity: e.target.value })}
             />
             <datalist id="party-activity-options">
-              {ACTIVITY_SUGGESTIONS.map(activity => <option key={activity} value={activity} />)}
+              {ACTIVITY_SUGGESTIONS.map((activity) => (
+                <option key={activity} value={activity} />
+              ))}
             </datalist>
           </div>
 
           <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label" htmlFor="party-slots">Squad size</label>
+              <label className="form-label" htmlFor="party-slots">
+                Squad size
+              </label>
               <select
                 id="party-slots"
                 className="form-input"
                 value={form.maxSlots}
-                onChange={e => set({ maxSlots: Number(e.target.value) })}
+                onChange={(e) => set({ maxSlots: Number(e.target.value) })}
               >
-                {SLOT_OPTIONS.map(slots => (
-                  <option key={slots} value={slots}>{slots} players</option>
+                {SLOT_OPTIONS.map((slots) => (
+                  <option key={slots} value={slots}>
+                    {slots} players
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="party-rank">Minimum rank</label>
+              <label className="form-label" htmlFor="party-rank">
+                Minimum rank
+              </label>
               <input
                 id="party-rank"
                 className="form-input"
                 value={form.minRank}
                 maxLength={20}
                 placeholder="Diamond+ (optional)"
-                onChange={e => set({ minRank: e.target.value })}
+                onChange={(e) => set({ minRank: e.target.value })}
               />
             </div>
           </div>
@@ -144,7 +177,7 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
             <input
               type="checkbox"
               checked={form.micRequired}
-              onChange={e => set({ micRequired: e.target.checked })}
+              onChange={(e) => set({ micRequired: e.target.checked })}
             />
             Mic required
           </label>
@@ -154,7 +187,9 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
           </p>
 
           <div className="modal-footer" style={{ marginTop: '1rem' }}>
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
+              Cancel
+            </button>
             <button className="btn btn-primary" disabled={saving}>
               {saving ? 'Creating…' : 'Create squad'}
             </button>
@@ -162,7 +197,7 @@ const CreatePartyModal = ({ isOpen, onClose, onCreated }) => {
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

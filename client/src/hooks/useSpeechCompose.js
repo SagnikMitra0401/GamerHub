@@ -11,7 +11,8 @@ export function useSpeechCompose({ onTranscript, onError } = {}) {
   const recognitionRef = useRef(null);
   const [listening, setListening] = useState(false);
 
-  const supported = typeof window !== 'undefined' &&
+  const supported =
+    typeof window !== 'undefined' &&
     Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   const stop = useCallback(() => {
@@ -59,13 +60,16 @@ export function useSpeechCompose({ onTranscript, onError } = {}) {
   }, [onError, onTranscript, supported]);
 
   // Never leave the microphone open after the composer unmounts.
-  useEffect(() => () => {
-    try {
-      recognitionRef.current?.abort();
-    } catch {
-      /* nothing to abort */
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        /* nothing to abort */
+      }
+    },
+    [],
+  );
 
   return { start, stop, listening, supported };
 }

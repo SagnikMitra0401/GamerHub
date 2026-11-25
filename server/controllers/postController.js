@@ -11,7 +11,12 @@ const { scrapePreview, normaliseUrl } = require('../utils/scrapePreview');
 const { awardXp } = require('../utils/gamification');
 const { recordFirstEvent } = require('../utils/productEvents');
 const {
-  sanitizeLine, sanitizeText, sanitizeLinkPreview, normalizeTags, extractHashtags, escapeRegex
+  sanitizeLine,
+  sanitizeText,
+  sanitizeLinkPreview,
+  normalizeTags,
+  extractHashtags,
+  escapeRegex,
 } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 const { badRequest, forbidden, notFound } = require('../utils/httpError');
@@ -90,7 +95,7 @@ const createPost = async (req, res, next) => {
           mimeType: req.file.mimetype,
           sizeBytes: req.file.size,
           surface: 'post',
-          ownerId: req.user._id
+          ownerId: req.user._id,
         });
         mediaUrl = asset.derivatives.full || result.secure_url;
         mediaCardUrl = asset.derivatives.card;
@@ -121,9 +126,8 @@ const createPost = async (req, res, next) => {
     // YouTube is never downloaded: the post embeds the linked video, and the id
     // is re-derived here from the scraped URL (or the body text) so a client
     // cannot point the embed at an unrelated video.
-    const youtubeId = parseYouTubeId(linkPreview?.url)
-      || findYouTubeIdInText(`${title} ${content}`)
-      || null;
+    const youtubeId =
+      parseYouTubeId(linkPreview?.url) || findYouTubeIdInText(`${title} ${content}`) || null;
     const videoSource = mediaType === 'video' ? 'upload' : youtubeId ? 'youtube' : null;
 
     const post = await Post.create({
@@ -139,7 +143,7 @@ const createPost = async (req, res, next) => {
       videoSource,
       youtubeId,
       durationSeconds,
-      linkPreview: linkPreview || {}
+      linkPreview: linkPreview || {},
     });
 
     if (mediaAssetId) {
@@ -150,7 +154,10 @@ const createPost = async (req, res, next) => {
     recordFirstEvent('first_post', req.user._id, { media: isMediaPost });
     awardXp(req.user._id, isMediaPost ? 10 : 5, isMediaPost ? 'highlight_poster' : null);
 
-    const populatedPost = await Post.findById(post._id).populate('userId', 'username level role profileType');
+    const populatedPost = await Post.findById(post._id).populate(
+      'userId',
+      'username level role profileType',
+    );
     res.status(201).json(populatedPost);
   } catch (err) {
     cleanupTempFile(tempFilePath);
@@ -195,18 +202,18 @@ const getPosts = async (req, res, next) => {
       trendScore: {
         $add: [
           { $ifNull: ['$likeCount', { $size: '$likes' }] },
-          { $multiply: [{ $ifNull: ['$commentCount', 0] }, 2] }
-        ]
+          { $multiply: [{ $ifNull: ['$commentCount', 0] }, 2] },
+        ],
       },
       boostScore: favChannels.length
         ? {
             $cond: {
               if: { $gt: [{ $size: { $setIntersection: ['$tags', favChannels] } }, 0] },
               then: 1000,
-              else: 0
-            }
+              else: 0,
+            },
           }
-        : { $literal: 0 }
+        : { $literal: 0 },
     };
 
     /** @type {Record<string, 1|-1>} */
@@ -228,7 +235,7 @@ const getPosts = async (req, res, next) => {
       ...(viewerId
         ? { $or: [{ status: { $nin: ['frozen', 'suspended', 'deleted'] } }, { _id: viewerId }] }
         : { status: { $nin: ['frozen', 'suspended', 'deleted'] } }),
-      ...(blockedIds.length ? { _id: { $nin: blockedIds } } : {})
+      ...(blockedIds.length ? { _id: { $nin: blockedIds } } : {}),
     };
 
     const posts = await Post.aggregate([
@@ -244,15 +251,15 @@ const getPosts = async (req, res, next) => {
             {
               $match: {
                 $expr: { $eq: ['$_id', '$$authorId'] },
-                ...authorVisible
-              }
+                ...authorVisible,
+              },
             },
             // ⚠️ Never widen this projection: emails and password hashes must
             // never be reachable from an unauthenticated feed request.
-            { $project: { _id: 1, username: 1, level: 1, role: 1, profileType: 1 } }
+            { $project: { _id: 1, username: 1, level: 1, role: 1, profileType: 1 } },
           ],
-          as: 'author'
-        }
+          as: 'author',
+        },
       },
       { $unwind: '$author' },
       {
@@ -272,21 +279,19 @@ const getPosts = async (req, res, next) => {
           linkPreview: 1,
           createdAt: 1,
           updatedAt: 1,
-          likeCount: 1
-        }
-      }
+          likeCount: 1,
+        },
+      },
     ]);
 
     if (forYou) {
-      const prefs = await User.findById(req.user._id)
-        .select('preferences favoriteChannels')
-        .lean();
+      const prefs = await User.findById(req.user._id).select('preferences favoriteChannels').lean();
 
       const ranked = rankPostsForUser(posts, {
         favoriteGames: prefs?.preferences?.favoriteGames || [],
         favoriteGenres: prefs?.preferences?.favoriteGenres || [],
         favoriteChannels: prefs?.favoriteChannels || [],
-        following: req.user.following || []
+        following: req.user.following || [],
       });
 
       return res.status(200).json(ranked.slice(skip, skip + limit));
@@ -310,15 +315,17 @@ const getPostById = async (req, res, next) => {
 
     const viewerId = String(req.user?._id || '');
     const author = post.userId;
-    const blocked = Boolean(viewerId && author) && (
-      (req.user?.blockedUsers || []).some((entry) => String(entry) === String(author._id))
-      || (author.blockedUsers || []).some((entry) => String(entry) === viewerId)
-    );
+    const blocked =
+      Boolean(viewerId && author) &&
+      ((req.user?.blockedUsers || []).some((entry) => String(entry) === String(author._id)) ||
+        (author.blockedUsers || []).some((entry) => String(entry) === viewerId));
     if (blocked) throw notFound('Post not found');
 
     // Same rule as the feed: hidden from everybody except its author.
-    if (['frozen', 'suspended', 'deleted'].includes(author?.status)
-      && String(author?._id) !== viewerId) {
+    if (
+      ['frozen', 'suspended', 'deleted'].includes(author?.status) &&
+      String(author?._id) !== viewerId
+    ) {
       throw notFound('Post not found');
     }
     if (post.hiddenAt && req.user?.role !== 'admin') throw notFound('Post not found');
@@ -348,10 +355,15 @@ const updatePost = async (req, res, next) => {
     }
     // Tags follow the text: a new inline #hashtag is added on edit. Existing
     // tags are kept unless the caller replaced the tag field explicitly.
-    if (req.body.tags !== undefined || updates.title !== undefined || updates.content !== undefined) {
+    if (
+      req.body.tags !== undefined ||
+      updates.title !== undefined ||
+      updates.content !== undefined
+    ) {
       const title = updates.title ?? req.resource.title;
       const content = updates.content ?? req.resource.content;
-      const baseTags = req.body.tags !== undefined ? normalizeTags(req.body.tags) : req.resource.tags;
+      const baseTags =
+        req.body.tags !== undefined ? normalizeTags(req.body.tags) : req.resource.tags;
       updates.tags = normalizeTags([...baseTags, ...extractHashtags(title, content)]);
     }
 
@@ -361,7 +373,13 @@ const updatePost = async (req, res, next) => {
       const title = updates.title ?? req.resource.title;
       const content = updates.content ?? req.resource.content;
       const preview = sanitizeLinkPreview(await scrapePreview([title, content].join(' '), 4000));
-      updates.linkPreview = preview || { url: null, title: null, description: null, image: null, siteName: null };
+      updates.linkPreview = preview || {
+        url: null,
+        title: null,
+        description: null,
+        image: null,
+        siteName: null,
+      };
     }
 
     Object.assign(req.resource, updates);
@@ -377,7 +395,7 @@ const deletePost = async (req, res, next) => {
     if (req.resource.mediaPublicId) {
       await deleteFromCloudinary(
         req.resource.mediaPublicId,
-        req.resource.mediaType === 'video' ? 'video' : 'image'
+        req.resource.mediaType === 'video' ? 'video' : 'image',
       ).catch((err) => {
         console.error('Failed to delete asset from Cloudinary:', err.message);
       });
@@ -389,7 +407,7 @@ const deletePost = async (req, res, next) => {
     await Comment.deleteMany({ postId: req.resource._id });
     await User.updateMany(
       { savedPosts: req.resource._id },
-      { $pull: { savedPosts: req.resource._id } }
+      { $pull: { savedPosts: req.resource._id } },
     );
     await req.resource.deleteOne();
 
@@ -417,13 +435,13 @@ const toggleLike = async (req, res, next) => {
     // denormalisation migration, without shipping the liker array back.
     const [post] = await Post.aggregate([
       { $match: { _id: new mongoose.Types.ObjectId(id) } },
-      { $project: { userId: 1, likeCount: { $ifNull: ['$likeCount', { $size: '$likes' }] } } }
+      { $project: { userId: 1, likeCount: { $ifNull: ['$likeCount', { $size: '$likes' }] } } },
     ]);
     if (!post) throw notFound('Post not found');
 
     const [alreadyLiked, pendingAction] = await Promise.all([
       Post.exists({ _id: id, likes: userId }),
-      readPendingLike(id, userId)
+      readPendingLike(id, userId),
     ]);
 
     const dbHasLike = !!alreadyLiked;
@@ -435,23 +453,24 @@ const toggleLike = async (req, res, next) => {
     // it. A queued toggle that has not flushed yet is not in the database, so
     // reconcile the two before applying this click.
     const base = Number.isFinite(post.likeCount) ? post.likeCount : 0;
-    const effectiveBase = base
-      + (pendingAction === 'like' && !dbHasLike ? 1 : 0)
-      - (pendingAction === 'unlike' && dbHasLike ? 1 : 0);
+    const effectiveBase =
+      base +
+      (pendingAction === 'like' && !dbHasLike ? 1 : 0) -
+      (pendingAction === 'unlike' && dbHasLike ? 1 : 0);
 
     const buffered = await bufferLikeEvent(id, userId, action);
     if (buffered) {
       return res.status(200).json({
         likeCount: Math.max(0, effectiveBase + (liked ? 1 : -1)),
         liked,
-        buffered: true
+        buffered: true,
       });
     }
 
     const updated = await Post.findByIdAndUpdate(
       id,
       likePipeline(liked ? { adds: [userId] } : { removes: [userId] }),
-      { new: true, projection: { likeCount: 1, userId: 1 } }
+      { new: true, projection: { likeCount: 1, userId: 1 } },
     ).lean();
     if (!updated) throw notFound('Post not found');
 
@@ -487,7 +506,7 @@ const suggestTags = async (req, res, next) => {
       { $group: { _id: '$tags', count: { $sum: 1 } } },
       { $sort: { count: -1, _id: 1 } },
       { $limit: 8 },
-      { $project: { _id: 0, tag: '$_id', count: 1 } }
+      { $project: { _id: 0, tag: '$_id', count: 1 } },
     ]);
 
     return res.status(200).json(tags);
@@ -528,5 +547,5 @@ module.exports = {
   deletePost,
   toggleLike,
   previewLink,
-  suggestTags
+  suggestTags,
 };

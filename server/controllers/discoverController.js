@@ -13,7 +13,7 @@ const {
   gameMatches,
   communityScore,
   publicSuggestionPlayer,
-  countMatchingTags
+  countMatchingTags,
 } = require('../utils/onboarding');
 const { recordFirstEvent } = require('../utils/productEvents');
 const { resolveGameTitles, applyFavoriteGameChange } = require('../utils/gameRegistry');
@@ -41,17 +41,16 @@ const getOnboardingSuggestions = async (req, res, next) => {
     const platforms = normalizePlatforms(req.query.platforms);
 
     const blockedByThem = await blockedIdsFor(viewerId);
-    const blockedIds = [...new Set([
-      ...((req.user.blockedUsers || []).map(String)),
-      ...blockedByThem
-    ])];
+    const blockedIds = [
+      ...new Set([...(req.user.blockedUsers || []).map(String), ...blockedByThem]),
+    ];
     const gameRegexes = games.map((game) => new RegExp(`^${escapeRegex(game)}`, 'i'));
 
     // ── Squads ──────────────────────────────────────────────────────────────
     const squadRows = await Party.find({
       status: 'open',
       expiresAt: { $gt: new Date() },
-      'members.userId': { $ne: viewerId }
+      'members.userId': { $ne: viewerId },
     })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -92,13 +91,15 @@ const getOnboardingSuggestions = async (req, res, next) => {
         openSlots: openSlots(party),
         maxSlots: party.maxSlots,
         micRequired: !!party.requirements?.micRequired,
-        leader: party.leaderId ? {
-          id: idOf(party.leaderId),
-          username: party.leaderId.username,
-          level: party.leaderId.level || 1,
-          presence: publicPresence(party.leaderId.presence)
-        } : null,
-        popular: !entry.matchedGame
+        leader: party.leaderId
+          ? {
+              id: idOf(party.leaderId),
+              username: party.leaderId.username,
+              level: party.leaderId.level || 1,
+              presence: publicPresence(party.leaderId.presence),
+            }
+          : null,
+        popular: !entry.matchedGame,
       });
     }
 
@@ -110,17 +111,22 @@ const getOnboardingSuggestions = async (req, res, next) => {
       .lean();
 
     const scoredCommunities = communityRows
-      .filter((community) => !(community.members || []).some((member) => sameId(member.userId, viewerId)))
-      .filter((community) => !(community.bannedUsers || []).some((ban) => sameId(ban.userId, viewerId)))
+      .filter(
+        (community) => !(community.members || []).some((member) => sameId(member.userId, viewerId)),
+      )
+      .filter(
+        (community) => !(community.bannedUsers || []).some((ban) => sameId(ban.userId, viewerId)),
+      )
       .map((community) => ({
         community,
         score: communityScore(community, games),
-        memberCount: (community.members || []).length
+        memberCount: (community.members || []).length,
       }))
-      .sort((a, b) =>
-        b.score - a.score ||
-        b.memberCount - a.memberCount ||
-        new Date(b.community.createdAt).getTime() - new Date(a.community.createdAt).getTime()
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          b.memberCount - a.memberCount ||
+          new Date(b.community.createdAt).getTime() - new Date(a.community.createdAt).getTime(),
       )
       .slice(0, 5);
 
@@ -132,7 +138,7 @@ const getOnboardingSuggestions = async (req, res, next) => {
       icon: community.icon || '🎮',
       memberCount,
       games: Array.isArray(community.games) ? community.games : [],
-      popular: !score
+      popular: !score,
     }));
 
     // ── Players ─────────────────────────────────────────────────────────────
@@ -144,8 +150,8 @@ const getOnboardingSuggestions = async (req, res, next) => {
         'privacySettings.discoverableInSearch': { $ne: false },
         $or: [
           { 'preferences.favoriteGames': { $in: gameRegexes } },
-          { 'gamerPassport.activeGames.gameName': { $in: gameRegexes } }
-        ]
+          { 'gamerPassport.activeGames.gameName': { $in: gameRegexes } },
+        ],
       };
       if (blockedIds.length) playerFilter._id.$nin = blockedIds;
 
@@ -158,9 +164,9 @@ const getOnboardingSuggestions = async (req, res, next) => {
         .map((player) => ({
           ...publicSuggestionPlayer(
             { ...player, presence: publicPresence(player.presence) },
-            games
+            games,
           ),
-          following: (req.user.following || []).some((id) => sameId(id, player._id))
+          following: (req.user.following || []).some((id) => sameId(id, player._id)),
         }))
         .filter((player) => player.sharedGames.length > 0)
         .slice(0, 5);
@@ -188,8 +194,8 @@ const getOnboardingSuggestions = async (req, res, next) => {
       // showing its popularity fallback.
       fallback: {
         squads: games.length > 0 && !squadsHaveMatch,
-        communities: games.length > 0 && !communitiesHaveMatch
-      }
+        communities: games.length > 0 && !communitiesHaveMatch,
+      },
     });
   } catch (err) {
     next(err);
@@ -224,14 +230,12 @@ const completeOnboarding = async (req, res, next) => {
       updates['preferences.platforms'] = normalizePlatforms(req.body.platforms);
     }
 
-    const previous = await User.findById(req.user._id)
-      .select('preferences.favoriteGames')
-      .lean();
+    const previous = await User.findById(req.user._id).select('preferences.favoriteGames').lean();
 
     const updated = await User.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
-      { new: true, runValidators: true, select: 'onboardingCompletedAt preferences' }
+      { new: true, runValidators: true, select: 'onboardingCompletedAt preferences' },
     ).lean();
 
     // Every chosen game becomes a canonical catalog row (provisional if no
@@ -239,21 +243,18 @@ const completeOnboarding = async (req, res, next) => {
     if (updates['preferences.favoriteGames']) {
       const nextGames = updated.preferences?.favoriteGames || [];
       await resolveGameTitles(nextGames);
-      await applyFavoriteGameChange(
-        previous?.preferences?.favoriteGames || [],
-        nextGames
-      );
+      await applyFavoriteGameChange(previous?.preferences?.favoriteGames || [], nextGames);
     }
 
     const skipped = req.body?.skipped === true;
     recordFirstEvent(skipped ? 'onboarding_skipped' : 'onboarding_completed', req.user._id, {
       games: updated.preferences?.favoriteGames?.length || 0,
-      platforms: updated.preferences?.platforms?.length || 0
+      platforms: updated.preferences?.platforms?.length || 0,
     });
 
     res.status(200).json({
       onboardingCompletedAt: updated.onboardingCompletedAt,
-      preferences: updated.preferences
+      preferences: updated.preferences,
     });
   } catch (err) {
     next(err);
@@ -263,5 +264,5 @@ const completeOnboarding = async (req, res, next) => {
 module.exports = {
   getOnboardingSuggestions,
   startOnboarding,
-  completeOnboarding
+  completeOnboarding,
 };

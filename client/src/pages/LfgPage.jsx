@@ -27,7 +27,9 @@ const SlotDots = ({ taken, max }) => (
     {Array.from({ length: max }).map((_, idx) => (
       <span key={idx} className={`lfg-slot${idx < taken ? ' filled' : ''}`} />
     ))}
-    <span className="lfg-slot-count">{taken}/{max}</span>
+    <span className="lfg-slot-count">
+      {taken}/{max}
+    </span>
   </span>
 );
 
@@ -41,13 +43,23 @@ const chatTimeLeft = (expiresAt) => {
 };
 
 const PartyCard = ({
-  party, onJoin, onRespond, onClose, onLock, onUnlock, onLeave, onOpenChat,
-  joining, joinMessage, setJoinMessage
+  party,
+  onJoin,
+  onRespond,
+  onClose,
+  onLock,
+  onUnlock,
+  onLeave,
+  onOpenChat,
+  joining,
+  joinMessage,
+  setJoinMessage,
 }) => {
   const members = party.members || [];
   const isLeader = party.viewerMembership === 'leader';
   const isMember = party.viewerMembership === 'member';
-  const canJoin = party.viewerMembership === 'none' && party.openSlots > 0 && party.status === 'open';
+  const canJoin =
+    party.viewerMembership === 'none' && party.openSlots > 0 && party.status === 'open';
   const chat = party.chat;
 
   return (
@@ -58,7 +70,11 @@ const PartyCard = ({
           src={party.gameThumbnail}
           alt=""
           loading="lazy"
-          fallback={<div className="lfg-thumb lfg-thumb-fallback" aria-hidden="true">LFG</div>}
+          fallback={
+            <div className="lfg-thumb lfg-thumb-fallback" aria-hidden="true">
+              LFG
+            </div>
+          }
         />
         <div className="lfg-card-head">
           <h3 className="lfg-game">{party.gameTitle}</h3>
@@ -66,7 +82,9 @@ const PartyCard = ({
           <div className="lfg-tags">
             <SlotDots taken={members.length} max={party.maxSlots} />
             {party.requirements?.micRequired && <span className="lfg-tag">Mic required</span>}
-            {party.requirements?.minRank && <span className="lfg-tag">{party.requirements.minRank}</span>}
+            {party.requirements?.minRank && (
+              <span className="lfg-tag">{party.requirements.minRank}</span>
+            )}
             {isLeader && <span className="lfg-tag lfg-tag-lead">Your squad</span>}
             {chat && (
               <span className={`lfg-tag lfg-chat-tag${chat.state !== 'active' ? ' ended' : ''}`}>
@@ -75,11 +93,13 @@ const PartyCard = ({
             )}
           </div>
         </div>
-        <span className="lfg-expiry">{party.status === 'open' ? timeLeft(party.expiresAt) : party.status}</span>
+        <span className="lfg-expiry">
+          {party.status === 'open' ? timeLeft(party.expiresAt) : party.status}
+        </span>
       </div>
 
       <div className="lfg-members">
-        {members.map(member => (
+        {members.map((member) => (
           <span key={userId(member.user)} className="lfg-member" title={userName(member.user)}>
             <span className="lfg-avatar">{userName(member.user).slice(0, 1).toUpperCase()}</span>
             {userName(member.user)}
@@ -91,7 +111,7 @@ const PartyCard = ({
       {isLeader && (party.requests || []).length > 0 && (
         <div className="lfg-requests">
           <h4>Pending requests ({party.requests.length})</h4>
-          {party.requests.map(request => (
+          {party.requests.map((request) => (
             <div key={userId(request.user)} className="lfg-request">
               <span className="lfg-request-name">
                 @{userName(request.user)}
@@ -126,7 +146,7 @@ const PartyCard = ({
             value={joinMessage[party._id] || ''}
             maxLength={200}
             placeholder="Optional message to the leader"
-            onChange={e => setJoinMessage(prev => ({ ...prev, [party._id]: e.target.value }))}
+            onChange={(e) => setJoinMessage((prev) => ({ ...prev, [party._id]: e.target.value }))}
           />
           <button
             type="button"
@@ -142,9 +162,7 @@ const PartyCard = ({
       {party.viewerMembership === 'pending' && (
         <p className="lfg-note">Request sent. Waiting for the leader.</p>
       )}
-      {isMember && !chat && (
-        <p className="lfg-note">You are in this squad.</p>
-      )}
+      {isMember && !chat && <p className="lfg-note">You are in this squad.</p>}
 
       {(isLeader || isMember || chat) && (
         <div className="lfg-card-footer">
@@ -200,26 +218,32 @@ const LfgPage = () => {
   const reloadTimer = useRef(null);
   const glowRef = useCursorGlow();
 
-  const load = useCallback(async (currentFilters = filters) => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = new URLSearchParams();
-      if (currentFilters.game.trim()) params.set('game', currentFilters.game.trim());
-      if (currentFilters.mic) params.set('mic', '1');
-      if (currentFilters.openSlots) params.set('openSlots', '1');
+  const load = useCallback(
+    async (currentFilters = filters) => {
+      setLoading(true);
+      setError('');
+      try {
+        const params = new URLSearchParams();
+        if (currentFilters.game.trim()) params.set('game', currentFilters.game.trim());
+        if (currentFilters.mic) params.set('mic', '1');
+        if (currentFilters.openSlots) params.set('openSlots', '1');
 
-      const { data } = await axiosInstance.get(`/lfg?${params.toString()}`);
-      setParties(Array.isArray(data.items) ? data.items : []);
-    } catch {
-      setError('Could not load the LFG board.');
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
+        const { data } = await axiosInstance.get(`/lfg?${params.toString()}`);
+        setParties(Array.isArray(data.items) ? data.items : []);
+      } catch {
+        setError('Could not load the LFG board.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters],
+  );
 
   const loadMine = useCallback(async () => {
-    if (!user) { setMine([]); return; }
+    if (!user) {
+      setMine([]);
+      return;
+    }
     try {
       const { data } = await axiosInstance.get('/lfg/mine');
       setMine(Array.isArray(data.items) ? data.items : []);
@@ -228,8 +252,12 @@ const LfgPage = () => {
     }
   }, [user?._id]);
 
-  useEffect(() => { load(filters); }, [filters.mic, filters.openSlots]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { loadMine(); }, [loadMine]);
+  useEffect(() => {
+    load(filters);
+  }, [filters.mic, filters.openSlots]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadMine();
+  }, [loadMine]);
 
   // Live board: any slot change anywhere re-reads the list (debounced).
   useEffect(() => {
@@ -244,7 +272,9 @@ const LfgPage = () => {
       }, 350);
     };
     const onRequest = (payload) => {
-      setToast(`${payload?.requester?.username || 'A player'} wants to join your ${payload?.gameTitle || 'squad'}.`);
+      setToast(
+        `${payload?.requester?.username || 'A player'} wants to join your ${payload?.gameTitle || 'squad'}.`,
+      );
       scheduleReload();
     };
 
@@ -267,9 +297,11 @@ const LfgPage = () => {
     setJoining(party._id);
     setError('');
     try {
-      await axiosInstance.post(`/lfg/${party._id}/request`, { message: joinMessage[party._id] || '' });
+      await axiosInstance.post(`/lfg/${party._id}/request`, {
+        message: joinMessage[party._id] || '',
+      });
       setToast(`Request sent to @${userName(party.leader)}.`);
-      setJoinMessage(prev => ({ ...prev, [party._id]: '' }));
+      setJoinMessage((prev) => ({ ...prev, [party._id]: '' }));
       await load(filters);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send that request.');
@@ -282,8 +314,11 @@ const LfgPage = () => {
     setJoining(`${party._id}:${applicantId}`);
     setError('');
     try {
-      const { data } = await axiosInstance.patch(`/lfg/${party._id}/respond`, { userId: applicantId, action });
-      setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
+      const { data } = await axiosInstance.patch(`/lfg/${party._id}/respond`, {
+        userId: applicantId,
+        action,
+      });
+      setMine((prev) => prev.map((p) => (p._id === data.party._id ? data.party : p)));
       setToast(action === 'accept' ? 'Player added to your squad.' : 'Request declined.');
       load(filters);
     } catch (err) {
@@ -298,7 +333,7 @@ const LfgPage = () => {
     setError('');
     try {
       const { data } = await axiosInstance.post(`/lfg/${party._id}/lock`);
-      setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
+      setMine((prev) => prev.map((p) => (p._id === data.party._id ? data.party : p)));
       setToast('Squad locked. The temporary chat is live for 15 days.');
       load(filters);
     } catch (err) {
@@ -313,7 +348,7 @@ const LfgPage = () => {
     setError('');
     try {
       const { data } = await axiosInstance.post(`/lfg/${party._id}/unlock`);
-      setMine(prev => prev.map(p => (p._id === data.party._id ? data.party : p)));
+      setMine((prev) => prev.map((p) => (p._id === data.party._id ? data.party : p)));
       setToast('Recruiting again.');
       load(filters);
     } catch (err) {
@@ -328,7 +363,7 @@ const LfgPage = () => {
     setError('');
     try {
       await axiosInstance.post(`/lfg/${party._id}/leave`);
-      setMine(prev => prev.filter(p => p._id !== party._id));
+      setMine((prev) => prev.filter((p) => p._id !== party._id));
       setToast('You left the squad.');
       load(filters);
     } catch (err) {
@@ -341,7 +376,7 @@ const LfgPage = () => {
   const closeParty = async (party) => {
     try {
       await axiosInstance.delete(`/lfg/${party._id}`);
-      setMine(prev => prev.filter(p => p._id !== party._id));
+      setMine((prev) => prev.filter((p) => p._id !== party._id));
       setToast('Squad closed.');
       load(filters);
     } catch (err) {
@@ -373,8 +408,8 @@ const LfgPage = () => {
 
   // A squad you lead or play in already has its own card above; showing it
   // again under "Open squads" made the board look like it had duplicates.
-  const mineIds = new Set(mine.map(party => String(party._id)));
-  const openParties = parties.filter(party => !mineIds.has(String(party._id)));
+  const mineIds = new Set(mine.map((party) => String(party._id)));
+  const openParties = parties.filter((party) => !mineIds.has(String(party._id)));
 
   return (
     <main className="page" ref={glowRef}>
@@ -385,9 +420,13 @@ const LfgPage = () => {
             <p className="page-subtitle">Find a squad, fill your slots, play together.</p>
           </div>
           {user ? (
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create squad</button>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+              + Create squad
+            </button>
           ) : (
-            <Link to="/login" className="btn btn-primary">Sign in to post</Link>
+            <Link to="/login" className="btn btn-primary">
+              Sign in to post
+            </Link>
           )}
         </div>
 
@@ -400,13 +439,13 @@ const LfgPage = () => {
             value={filters.game}
             placeholder="Filter by game…"
             aria-label="Filter by game"
-            onChange={e => setFilters(prev => ({ ...prev, game: e.target.value }))}
+            onChange={(e) => setFilters((prev) => ({ ...prev, game: e.target.value }))}
           />
           <label className="checkbox-row">
             <input
               type="checkbox"
               checked={filters.mic}
-              onChange={e => setFilters(prev => ({ ...prev, mic: e.target.checked }))}
+              onChange={(e) => setFilters((prev) => ({ ...prev, mic: e.target.checked }))}
             />
             Mic only
           </label>
@@ -414,18 +453,20 @@ const LfgPage = () => {
             <input
               type="checkbox"
               checked={filters.openSlots}
-              onChange={e => setFilters(prev => ({ ...prev, openSlots: e.target.checked }))}
+              onChange={(e) => setFilters((prev) => ({ ...prev, openSlots: e.target.checked }))}
             />
             Open slots
           </label>
-          <button className="btn btn-ghost btn-sm" type="submit">Search</button>
+          <button className="btn btn-ghost btn-sm" type="submit">
+            Search
+          </button>
         </form>
 
         {user && mine.length > 0 && (
           <section className="lfg-section">
             <h2 className="section-heading">Your squads</h2>
             <div className="lfg-grid">
-              {mine.map(party => (
+              {mine.map((party) => (
                 <PartyCard
                   key={party._id}
                   party={party}
@@ -452,11 +493,15 @@ const LfgPage = () => {
           ) : openParties.length === 0 ? (
             <div className="post-list-empty">
               <h3>No other squads recruiting</h3>
-              <p>{mine.length ? 'Your squads are above. Create another to fill more slots.' : 'Be the first to post one. It takes ten seconds.'}</p>
+              <p>
+                {mine.length
+                  ? 'Your squads are above. Create another to fill more slots.'
+                  : 'Be the first to post one. It takes ten seconds.'}
+              </p>
             </div>
           ) : (
             <div className="lfg-grid">
-              {openParties.map(party => (
+              {openParties.map((party) => (
                 <PartyCard
                   key={party._id}
                   party={party}
@@ -480,8 +525,9 @@ const LfgPage = () => {
       <CreatePartyModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={(party) => {          setToast(`${party.gameTitle} squad is live.`);
-          setMine(prev => [party, ...prev]);
+        onCreated={(party) => {
+          setToast(`${party.gameTitle} squad is live.`);
+          setMine((prev) => [party, ...prev]);
           load(filters);
         }}
       />
@@ -497,14 +543,18 @@ const LfgPage = () => {
       <ConfirmModal
         isOpen={Boolean(confirmAction)}
         title={confirmAction?.kind === 'close' ? 'Close this squad?' : 'Leave this squad?'}
-        message={confirmAction
-          ? confirmAction.kind === 'close'
-            ? `Close your ${confirmAction.party.gameTitle} squad? Members lose the squad and its temporary chat.`
-            : `Leave ${confirmAction.party.gameTitle}? You can join again while it is open.`
-          : ''}
+        message={
+          confirmAction
+            ? confirmAction.kind === 'close'
+              ? `Close your ${confirmAction.party.gameTitle} squad? Members lose the squad and its temporary chat.`
+              : `Leave ${confirmAction.party.gameTitle}? You can join again while it is open.`
+            : ''
+        }
         confirmText={confirmAction?.kind === 'close' ? 'Close squad' : 'Leave squad'}
         isDanger={confirmAction?.kind === 'close'}
-        busy={Boolean(confirmAction?.kind === 'leave' && joining === `leave:${confirmAction.party._id}`)}
+        busy={Boolean(
+          confirmAction?.kind === 'leave' && joining === `leave:${confirmAction.party._id}`,
+        )}
         onCancel={() => setConfirmAction(null)}
         onConfirm={confirmSquadAction}
       />

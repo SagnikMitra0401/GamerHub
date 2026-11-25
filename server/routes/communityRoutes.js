@@ -20,7 +20,7 @@ const {
   updateChannel,
   deleteChannel,
   getChannelMessages,
-  getAuditLog
+  getAuditLog,
 } = require('../controllers/communityController');
 
 const {
@@ -31,14 +31,14 @@ const {
   approveJoinRequest,
   denyJoinRequest,
   getInvitePreview,
-  joinWithInvite
+  joinWithInvite,
 } = require('../controllers/inviteController');
 
 const {
   toggleReaction,
   togglePin,
   getPinnedMessages,
-  searchMessages
+  searchMessages,
 } = require('../controllers/messageController');
 
 const {
@@ -50,13 +50,13 @@ const {
   setForumPostStatus,
   createForumReply,
   updateForumReply,
-  deleteForumReply
+  deleteForumReply,
 } = require('../controllers/forumController');
 
 const {
   uploadAttachment,
   getAttachmentUrl,
-  deleteAttachment
+  deleteAttachment,
 } = require('../controllers/attachmentController');
 
 const {
@@ -67,17 +67,17 @@ const {
   liftTimeout,
   banMember,
   unbanMember,
-  listBans
+  listBans,
 } = require('../controllers/moderationController');
 
 // ⚠️ Static/specific routes MUST come before wildcard /:slug routes
 
 // ── Channel-scoped: messages, reactions, pins, attachments ──────────────────
 router.get('/channels/:channelId/messages', optionalProtect, getChannelMessages);
-router.get('/channels/:channelId/pins',     protect,         getPinnedMessages);
+router.get('/channels/:channelId/pins', protect, getPinnedMessages);
 
 router.post('/channels/:channelId/messages/:messageId/react', protect, activeOnly, toggleReaction);
-router.post('/channels/:channelId/messages/:messageId/pin',   protect, activeOnly, togglePin);
+router.post('/channels/:channelId/messages/:messageId/pin', protect, activeOnly, togglePin);
 router.delete('/channels/:channelId/messages/:messageId/pin', protect, activeOnly, togglePin);
 
 router.post(
@@ -85,71 +85,96 @@ router.post(
   protect,
   activeOnly,
   attachmentUpload.single('file'),
-  uploadAttachment
+  uploadAttachment,
 );
-router.get('/channels/:channelId/attachments/:attachmentId',    protect, getAttachmentUrl);
-router.delete('/channels/:channelId/attachments/:attachmentId', protect, activeOnly, deleteAttachment);
+router.get('/channels/:channelId/attachments/:attachmentId', protect, getAttachmentUrl);
+router.delete(
+  '/channels/:channelId/attachments/:attachmentId',
+  protect,
+  activeOnly,
+  deleteAttachment,
+);
 
 // ── Forum channels ──────────────────────────────────────────────────────────
-router.get('/:id/channels/:channelId/forum',           protect, listForumPosts);
-router.post('/:id/channels/:channelId/forum',          protect, activeOnly, createForumPost);
-router.get('/:id/channels/:channelId/forum/:postId',   protect, getForumPost);
-router.put('/:id/channels/:channelId/forum/:postId',   protect, activeOnly, updateForumPost);
+router.get('/:id/channels/:channelId/forum', protect, listForumPosts);
+router.post('/:id/channels/:channelId/forum', protect, activeOnly, createForumPost);
+router.get('/:id/channels/:channelId/forum/:postId', protect, getForumPost);
+router.put('/:id/channels/:channelId/forum/:postId', protect, activeOnly, updateForumPost);
 router.delete('/:id/channels/:channelId/forum/:postId', protect, activeOnly, deleteForumPost);
-router.patch('/:id/channels/:channelId/forum/:postId/status', protect, activeOnly, setForumPostStatus);
+router.patch(
+  '/:id/channels/:channelId/forum/:postId/status',
+  protect,
+  activeOnly,
+  setForumPostStatus,
+);
 
-router.post('/:id/channels/:channelId/forum/:postId/replies', protect, activeOnly, createForumReply);
-router.put('/:id/channels/:channelId/forum/:postId/replies/:replyId', protect, activeOnly, updateForumReply);
-router.delete('/:id/channels/:channelId/forum/:postId/replies/:replyId', protect, activeOnly, deleteForumReply);
+router.post(
+  '/:id/channels/:channelId/forum/:postId/replies',
+  protect,
+  activeOnly,
+  createForumReply,
+);
+router.put(
+  '/:id/channels/:channelId/forum/:postId/replies/:replyId',
+  protect,
+  activeOnly,
+  updateForumReply,
+);
+router.delete(
+  '/:id/channels/:channelId/forum/:postId/replies/:replyId',
+  protect,
+  activeOnly,
+  deleteForumReply,
+);
 
 // ── Invite links ────────────────────────────────────────────────────────────
 // The preview is public (the code is the capability); joining still needs an
 // account. These static paths must be declared before the /:id and /:slug ones.
-router.get('/invites/:code',           optionalProtect, browseLimiter, getInvitePreview);
-router.post('/invites/:code/join',     protect, activeOnly, browseLimiter, joinWithInvite);
-router.get('/:id/invites',             protect, listInvites);
-router.post('/:id/invites',            protect, activeOnly, createInvite);
+router.get('/invites/:code', optionalProtect, browseLimiter, getInvitePreview);
+router.post('/invites/:code/join', protect, activeOnly, browseLimiter, joinWithInvite);
+router.get('/:id/invites', protect, listInvites);
+router.post('/:id/invites', protect, activeOnly, createInvite);
 router.delete('/:id/invites/:inviteId', protect, activeOnly, revokeInvite);
 
 // Approval-gated links: managers review the queue before anyone is added.
-router.get('/:id/join-requests',                       protect, listJoinRequests);
-router.post('/:id/join-requests/:requestId/approve',    protect, activeOnly, approveJoinRequest);
-router.post('/:id/join-requests/:requestId/deny',       protect, activeOnly, denyJoinRequest);
+router.get('/:id/join-requests', protect, listJoinRequests);
+router.post('/:id/join-requests/:requestId/approve', protect, activeOnly, approveJoinRequest);
+router.post('/:id/join-requests/:requestId/deny', protect, activeOnly, denyJoinRequest);
 
 // ── Server administration ───────────────────────────────────────────────────
-router.get('/:id/members',            protect, getCommunityMembers);
-router.get('/:id/audit',              protect, getAuditLog);
-router.get('/:id/search',             protect, searchLimiter, searchMessages);
-router.patch('/:id',                  protect, activeOnly, updateCommunity);
-router.delete('/:id',                 protect, activeOnly, deleteCommunity);
+router.get('/:id/members', protect, getCommunityMembers);
+router.get('/:id/audit', protect, getAuditLog);
+router.get('/:id/search', protect, searchLimiter, searchMessages);
+router.patch('/:id', protect, activeOnly, updateCommunity);
+router.delete('/:id', protect, activeOnly, deleteCommunity);
 
 // ── Moderation ──────────────────────────────────────────────────────────────
-router.post('/:id/reports',              protect, createReport);
-router.get('/:id/reports',               protect, listReports);
-router.patch('/:id/reports/:reportId',   protect, activeOnly, reviewReport);
+router.post('/:id/reports', protect, createReport);
+router.get('/:id/reports', protect, listReports);
+router.patch('/:id/reports/:reportId', protect, activeOnly, reviewReport);
 
-router.post('/:id/members/:userId/timeout',   protect, activeOnly, setTimeoutMember);
+router.post('/:id/members/:userId/timeout', protect, activeOnly, setTimeoutMember);
 router.delete('/:id/members/:userId/timeout', protect, activeOnly, liftTimeout);
 
-router.get('/:id/bans',                protect, listBans);
-router.post('/:id/bans/:userId',       protect, activeOnly, banMember);
-router.delete('/:id/bans/:userId',     protect, activeOnly, unbanMember);
+router.get('/:id/bans', protect, listBans);
+router.post('/:id/bans/:userId', protect, activeOnly, banMember);
+router.delete('/:id/bans/:userId', protect, activeOnly, unbanMember);
 
 // ── Channel administration ──────────────────────────────────────────────────
-router.post('/:id/channels',                 protect, activeOnly, createChannel);
-router.patch('/:id/channels/:channelId',     protect, activeOnly, updateChannel);
-router.delete('/:id/channels/:channelId',    protect, activeOnly, deleteChannel);
+router.post('/:id/channels', protect, activeOnly, createChannel);
+router.patch('/:id/channels/:channelId', protect, activeOnly, updateChannel);
+router.delete('/:id/channels/:channelId', protect, activeOnly, deleteChannel);
 
 // ── Membership ──────────────────────────────────────────────────────────────
-router.post('/:id/join',                    protect, activeOnly, joinCommunity);
-router.post('/:id/leave',                   protect, leaveCommunity);
-router.post('/:id/members',                 protect, activeOnly, addMember);
-router.patch('/:id/members/:userId/role',   protect, activeOnly, updateMemberRole);
-router.delete('/:id/members/:userId',       protect, activeOnly, kickMember);
+router.post('/:id/join', protect, activeOnly, joinCommunity);
+router.post('/:id/leave', protect, leaveCommunity);
+router.post('/:id/members', protect, activeOnly, addMember);
+router.patch('/:id/members/:userId/role', protect, activeOnly, updateMemberRole);
+router.delete('/:id/members/:userId', protect, activeOnly, kickMember);
 
 // ── Communities CRUD ────────────────────────────────────────────────────────
-router.post('/',  protect, activeOnly, createCommunity);
-router.get('/',   optionalProtect, browseLimiter, getCommunities);
+router.post('/', protect, activeOnly, createCommunity);
+router.get('/', optionalProtect, browseLimiter, getCommunities);
 
 // Wildcard slug route — MUST be last
 router.get('/:slug', optionalProtect, getCommunityBySlug);

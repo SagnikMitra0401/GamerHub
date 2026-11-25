@@ -23,10 +23,10 @@ const { getRedis, redisKey } = require('../config/redis');
 const { awardXp } = require('./gamification');
 const { notifyLikeMilestone } = require('./socialNotifications');
 
-const BUFFER_KEY = 'likebuf';   // hash: "<postId>:<userId>" -> "like" | "unlike"
-const VIRAL_KEY = 'viral:10';   // set of posts already granted the 10-like medal
-const FLUSH_INTERVAL_MS = 5000;   // while work is flowing
-const IDLE_INTERVAL_MS = 60_000;  // no work: one HGETALL a minute, not twelve
+const BUFFER_KEY = 'likebuf'; // hash: "<postId>:<userId>" -> "like" | "unlike"
+const VIRAL_KEY = 'viral:10'; // set of posts already granted the 10-like medal
+const FLUSH_INTERVAL_MS = 5000; // while work is flowing
+const IDLE_INTERVAL_MS = 60_000; // no work: one HGETALL a minute, not twelve
 const MAX_IDLE_INTERVAL_MS = 60_000;
 const FLUSH_BATCH = 200;
 
@@ -125,7 +125,8 @@ async function flushLikeBuffer() {
 
       const postId = field.slice(0, separator);
       const userId = field.slice(separator + 1);
-      if (!mongoose.Types.ObjectId.isValid(postId) || !mongoose.Types.ObjectId.isValid(userId)) continue;
+      if (!mongoose.Types.ObjectId.isValid(postId) || !mongoose.Types.ObjectId.isValid(userId))
+        continue;
 
       const action = pending[field];
       if (action !== 'like' && action !== 'unlike') continue;
@@ -141,8 +142,8 @@ async function flushLikeBuffer() {
       const ops = [...byPost.entries()].map(([postId, group]) => ({
         updateOne: {
           filter: { _id: new mongoose.Types.ObjectId(postId) },
-          update: likePipeline(group)
-        }
+          update: likePipeline(group),
+        },
       }));
 
       // Throwing here keeps the events queued for the next tick; every stage is
@@ -170,8 +171,7 @@ async function flushLikeBuffer() {
  * triggers a milestone.
  */
 async function notifyBufferedLikeMilestones(byPost) {
-  const ids = [...byPost.keys()]
-    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const ids = [...byPost.keys()].filter((id) => mongoose.Types.ObjectId.isValid(id));
   if (!ids.length) return;
 
   try {
@@ -187,7 +187,7 @@ async function notifyBufferedLikeMilestones(byPost) {
       await notifyLikeMilestone({
         post,
         actor: group.adds.length === 1 ? group.adds[0] : null,
-        likeCount: post.likeCount
+        likeCount: post.likeCount,
       });
     }
   } catch (err) {
@@ -287,5 +287,5 @@ module.exports = {
   FLUSH_INTERVAL_MS,
   IDLE_INTERVAL_MS,
   FLUSH_BATCH,
-  BUFFER_KEY
+  BUFFER_KEY,
 };

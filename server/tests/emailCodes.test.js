@@ -12,7 +12,7 @@ const {
   CODE_LENGTH,
   generateCode,
   isCode,
-  hashCode
+  hashCode,
 } = require('../utils/emailCodes');
 const {
   sendVerificationCodeEmail,
@@ -22,7 +22,7 @@ const {
   sendAccountRecoveryCompletedEmail,
   redactSecrets,
   getOutbox,
-  resetOutbox
+  resetOutbox,
 } = require('../utils/email');
 
 test('codes are eight digits, zero-padded, and not sequential', () => {
@@ -80,10 +80,7 @@ test('production refuses to hash without a configured pepper', () => {
   delete process.env.EMAIL_CODE_PEPPER;
   process.env.NODE_ENV = 'production';
   try {
-    assert.throws(
-      () => hashCode('user', PURPOSES.VERIFY_EMAIL, '12345678'),
-      /EMAIL_CODE_PEPPER/
-    );
+    assert.throws(() => hashCode('user', PURPOSES.VERIFY_EMAIL, '12345678'), /EMAIL_CODE_PEPPER/);
   } finally {
     process.env.NODE_ENV = originalEnv;
     process.env.EMAIL_CODE_PEPPER = originalPepper;
@@ -112,7 +109,7 @@ test('the confirmation code email carries no link', async () => {
   await sendVerificationCodeEmail({
     to: 'player@example.com',
     username: '<script>',
-    code: '20481635'
+    code: '20481635',
   });
   const [mail] = getOutbox();
 
@@ -130,7 +127,7 @@ test('the recovery setup email names the address and the cooling-off rule', asyn
   await sendRecoverySetupCodeEmail({
     to: 'backup@example.com',
     username: 'player',
-    code: '91827364'
+    code: '91827364',
   });
   const [mail] = getOutbox();
 
@@ -145,7 +142,7 @@ test('the recovery code email warns without leaking a link', async () => {
   await sendAccountRecoveryCodeEmail({
     to: 'backup@example.com',
     username: 'player',
-    code: '55667788'
+    code: '55667788',
   });
   const [mail] = getOutbox();
 
@@ -162,12 +159,12 @@ test('change and completion notices carry no credentials', async () => {
     username: 'player',
     action: 'added',
     address: 'backup@example.com',
-    eligibleAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    eligibleAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
   await sendRecoveryEmailChangedEmail({
     to: 'player@example.com',
     username: 'player',
-    action: 'removed'
+    action: 'removed',
   });
   await sendAccountRecoveryCompletedEmail({ to: 'player@example.com', username: 'player' });
 

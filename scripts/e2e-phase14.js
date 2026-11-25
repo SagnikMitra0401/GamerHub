@@ -50,7 +50,9 @@ const { api, check, report, setBase, registerUser } = require('./lib/e2e-harness
 const waitForMail = async (to, subject, timeoutMs = 3000) => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    const mail = getOutbox().filter((item) => item.to === to && item.subject === subject).at(-1);
+    const mail = getOutbox()
+      .filter((item) => item.to === to && item.subject === subject)
+      .at(-1);
     if (mail) return mail;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
@@ -112,12 +114,15 @@ async function run() {
       assert.equal(aliceAccount.data.emailVerified, false);
     });
 
-    const verificationMail = await waitForMail('alice14@example.com', 'Your GamerHub confirmation code');
+    const verificationMail = await waitForMail(
+      'alice14@example.com',
+      'Your GamerHub confirmation code',
+    );
     const verificationCode = codeFrom(verificationMail);
     const verified = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { code: verificationCode }
+      body: { code: verificationCode },
     });
     check('a valid email code confirms the email', () => {
       assert.equal(verified.status, 200, JSON.stringify(verified.data));
@@ -132,7 +137,7 @@ async function run() {
     const reusedVerification = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { code: verificationCode }
+      body: { code: verificationCode },
     });
     check('re-submitting a consumed code is an idempotent no-op', () => {
       assert.equal(reusedVerification.status, 200);
@@ -144,7 +149,7 @@ async function run() {
     const foreignCode = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: carolEarly.cookie,
-      body: { code: verificationCode }
+      body: { code: verificationCode },
     });
     check("another account's code cannot verify this session", () => {
       assert.equal(foreignCode.status, 400, JSON.stringify(foreignCode.data));
@@ -152,7 +157,7 @@ async function run() {
 
     const resendAfterVerified = await api('/api/auth/verify-email/resend', {
       method: 'POST',
-      cookie: alice.cookie
+      cookie: alice.cookie,
     });
     check('resending after verification is a harmless no-op', () => {
       assert.equal(resendAfterVerified.status, 200);
@@ -164,7 +169,7 @@ async function run() {
     const blockedChange = await api('/api/auth/password', {
       method: 'PATCH',
       cookie: bob.cookie,
-      body: { currentPassword: 'password123', password: 'newpassword123' }
+      body: { currentPassword: 'password123', password: 'newpassword123' },
     });
     check('password change is refused until the email is verified', () => {
       assert.equal(blockedChange.status, 403, JSON.stringify(blockedChange.data));
@@ -173,26 +178,30 @@ async function run() {
 
     resetOutbox();
     const dave = await registerUser('dave14');
-    const firstDaveMail = await waitForMail('dave14@example.com', 'Your GamerHub confirmation code');
+    const firstDaveMail = await waitForMail(
+      'dave14@example.com',
+      'Your GamerHub confirmation code',
+    );
     const daveResend = await api('/api/auth/verify-email/resend', {
       method: 'POST',
-      cookie: dave.cookie
+      cookie: dave.cookie,
     });
     check('a resend issues a fresh confirmation code', () => assert.equal(daveResend.status, 200));
     const daveMails = getOutbox().filter(
-      (item) => item.to === 'dave14@example.com' && item.subject === 'Your GamerHub confirmation code'
+      (item) =>
+        item.to === 'dave14@example.com' && item.subject === 'Your GamerHub confirmation code',
     );
     const firstDaveCode = codeFrom(firstDaveMail);
     const latestDaveCode = codeFrom(daveMails.at(-1));
     const staleDave = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: dave.cookie,
-      body: { code: firstDaveCode }
+      body: { code: firstDaveCode },
     });
     const freshDave = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: dave.cookie,
-      body: { code: latestDaveCode }
+      body: { code: latestDaveCode },
     });
     check('only the newest code stays live', () => {
       assert.notEqual(firstDaveCode, latestDaveCode);
@@ -203,12 +212,12 @@ async function run() {
     const unknownEmail = `missing14_${Date.now().toString(36)}@example.com`;
     const unknownReset = await api('/api/auth/forgot-password', {
       method: 'POST',
-      body: { email: unknownEmail }
+      body: { email: unknownEmail },
     });
     resetOutbox();
     const aliceReset = await api('/api/auth/forgot-password', {
       method: 'POST',
-      body: { email: 'alice14@example.com' }
+      body: { email: 'alice14@example.com' },
     });
     check('forgot-password is enumeration-safe', () => {
       assert.equal(unknownReset.status, 202);
@@ -221,7 +230,7 @@ async function run() {
     const resetToken = tokenFrom(resetMail, '/reset-password');
     const reset = await api('/api/auth/reset-password', {
       method: 'POST',
-      body: { token: resetToken, password: 'newpassword123' }
+      body: { token: resetToken, password: 'newpassword123' },
     });
     check('a valid reset token changes the password', () => {
       assert.equal(reset.status, 200, JSON.stringify(reset.data));
@@ -229,23 +238,27 @@ async function run() {
     });
 
     const oldSession = await api('/api/auth/me', { cookie: alice.cookie });
-    check('resetting a password revokes the old session', () => assert.equal(oldSession.status, 401));
+    check('resetting a password revokes the old session', () =>
+      assert.equal(oldSession.status, 401),
+    );
 
     const oldLogin = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice14@example.com', password: 'password123' }
+      body: { email: 'alice14@example.com', password: 'password123' },
     });
     check('the old password no longer signs in', () => assert.equal(oldLogin.status, 401));
 
     const newLogin = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice14@example.com', password: 'newpassword123' }
+      body: { email: 'alice14@example.com', password: 'newpassword123' },
     });
-    check('the new password signs in', () => assert.equal(newLogin.status, 200, JSON.stringify(newLogin.data)));
+    check('the new password signs in', () =>
+      assert.equal(newLogin.status, 200, JSON.stringify(newLogin.data)),
+    );
 
     const reusedReset = await api('/api/auth/reset-password', {
       method: 'POST',
-      body: { token: resetToken, password: 'anotherpassword123' }
+      body: { token: resetToken, password: 'anotherpassword123' },
     });
     check('a reset token cannot be used twice', () => assert.equal(reusedReset.status, 400));
 
@@ -255,13 +268,13 @@ async function run() {
     await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: carol.cookie,
-      body: { code: codeFrom(carolMail) }
+      body: { code: codeFrom(carolMail) },
     });
 
     const changed = await api('/api/auth/password', {
       method: 'PATCH',
       cookie: carol.cookie,
-      body: { currentPassword: 'password123', password: 'changed123' }
+      body: { currentPassword: 'password123', password: 'changed123' },
     });
     check('a verified account can change its password with the current one', () => {
       assert.equal(changed.status, 200, JSON.stringify(changed.data));
@@ -269,13 +282,17 @@ async function run() {
     });
 
     const carolOldSession = await api('/api/auth/me', { cookie: carol.cookie });
-    check('changing a password revokes the old session', () => assert.equal(carolOldSession.status, 401));
+    check('changing a password revokes the old session', () =>
+      assert.equal(carolOldSession.status, 401),
+    );
 
     const carolNewLogin = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'carol14@example.com', password: 'changed123' }
+      body: { email: 'carol14@example.com', password: 'changed123' },
     });
-    check('the changed password signs in', () => assert.equal(carolNewLogin.status, 200, JSON.stringify(carolNewLogin.data)));
+    check('the changed password signs in', () =>
+      assert.equal(carolNewLogin.status, 200, JSON.stringify(carolNewLogin.data)),
+    );
 
     // ── 14B: game-first onboarding and discovery ────────────────────────────
     const owner = await registerUser('owner14b');
@@ -292,8 +309,8 @@ async function run() {
       body: {
         name: 'Valorant Onboarding QA',
         description: 'A public server for the onboarding discovery test.',
-        games: ['Valorant', 'Apex Legends']
-      }
+        games: ['Valorant', 'Apex Legends'],
+      },
     });
     check('community game tags persist on creation', () => {
       assert.equal(publicCommunity.status, 201, JSON.stringify(publicCommunity.data));
@@ -307,14 +324,14 @@ async function run() {
         name: 'Private Onboarding QA',
         description: 'Must never appear in discovery.',
         games: ['Valorant'],
-        isPrivate: true
-      }
+        isPrivate: true,
+      },
     });
 
     await api('/api/users/me/preferences', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { favoriteGames: ['Valorant'], platforms: ['PC'] }
+      body: { favoriteGames: ['Valorant'], platforms: ['PC'] },
     });
 
     const squad = await api('/api/lfg', {
@@ -324,8 +341,8 @@ async function run() {
         gameTitle: 'Valorant',
         activity: 'Ranked',
         maxSlots: 5,
-        requirements: { minRank: '', micRequired: true }
-      }
+        requirements: { minRank: '', micRequired: true },
+      },
     });
     check('a matching open squad exists for discovery', () => {
       assert.equal(squad.status, 201, JSON.stringify(squad.data));
@@ -333,18 +350,29 @@ async function run() {
     });
 
     const discover = await api('/api/discover/onboarding?games=Valorant&platforms=PC', {
-      cookie: nina.cookie
+      cookie: nina.cookie,
     });
     check('discovery returns matching squads, servers and players', () => {
       assert.equal(discover.status, 200, JSON.stringify(discover.data));
       assert.equal(discover.data.games[0], 'Valorant');
-      assert.equal(discover.data.squads.some((item) => item.gameTitle === 'Valorant'), true);
-      assert.equal(discover.data.communities.some((item) => item.id === String(publicCommunity.data._id)), true);
-      assert.equal(discover.data.players.some((item) => item.username === 'owner14b'), true);
+      assert.equal(
+        discover.data.squads.some((item) => item.gameTitle === 'Valorant'),
+        true,
+      );
+      assert.equal(
+        discover.data.communities.some((item) => item.id === String(publicCommunity.data._id)),
+        true,
+      );
+      assert.equal(
+        discover.data.players.some((item) => item.username === 'owner14b'),
+        true,
+      );
     });
 
     check('discovery never exposes private servers or private user fields', () => {
-      const community = discover.data.communities.find((item) => item.id === String(publicCommunity.data._id));
+      const community = discover.data.communities.find(
+        (item) => item.id === String(publicCommunity.data._id),
+      );
       const player = discover.data.players.find((item) => item.username === 'owner14b');
       assert.equal(community.members, undefined);
       assert.equal(community.email, undefined);
@@ -353,13 +381,13 @@ async function run() {
       assert.deepEqual(player.sharedGames, ['Valorant']);
       assert.equal(
         discover.data.communities.some((item) => item.name === 'Private Onboarding QA'),
-        false
+        false,
       );
       assert.equal(privateCommunity.status, 201);
     });
 
     const fallback = await api('/api/discover/onboarding?games=NoSuchGame', {
-      cookie: nina.cookie
+      cookie: nina.cookie,
     });
     check('discovery falls back to popular public suggestions instead of an empty page', () => {
       assert.equal(fallback.status, 200, JSON.stringify(fallback.data));
@@ -372,50 +400,71 @@ async function run() {
     const ownerMe = await api('/api/auth/me', { cookie: owner.cookie });
     const block = await api(`/api/account/block/${ownerMe.data.user._id}`, {
       method: 'POST',
-      cookie: nina.cookie
+      cookie: nina.cookie,
     });
     const blockedDiscover = await api('/api/discover/onboarding?games=Valorant', {
-      cookie: nina.cookie
+      cookie: nina.cookie,
     });
     check('blocking removes the player and their squad from discovery', () => {
       assert.equal(block.status, 200, JSON.stringify(block.data));
-      assert.equal(blockedDiscover.data.players.some((item) => item.username === 'owner14b'), false);
-      assert.equal(blockedDiscover.data.squads.some((item) => item.leader?.username === 'owner14b'), false);
+      assert.equal(
+        blockedDiscover.data.players.some((item) => item.username === 'owner14b'),
+        false,
+      );
+      assert.equal(
+        blockedDiscover.data.squads.some((item) => item.leader?.username === 'owner14b'),
+        false,
+      );
     });
-    await api(`/api/account/block/${ownerMe.data.user._id}`, { method: 'DELETE', cookie: nina.cookie });
+    await api(`/api/account/block/${ownerMe.data.user._id}`, {
+      method: 'DELETE',
+      cookie: nina.cookie,
+    });
 
     const join = await api(`/api/communities/${publicCommunity.data._id}/join`, {
       method: 'POST',
-      cookie: nina.cookie
+      cookie: nina.cookie,
     });
     const afterJoin = await api('/api/discover/onboarding?games=Valorant', {
-      cookie: nina.cookie
+      cookie: nina.cookie,
     });
     check('joined servers leave the suggestion list', () => {
       assert.equal(join.status, 200, JSON.stringify(join.data));
-      assert.equal(afterJoin.data.communities.some((item) => item.id === String(publicCommunity.data._id)), false);
+      assert.equal(
+        afterJoin.data.communities.some((item) => item.id === String(publicCommunity.data._id)),
+        false,
+      );
     });
 
     const complete = await api('/api/discover/onboarding/complete', {
       method: 'POST',
       cookie: nina.cookie,
-      body: { games: ['Valorant', 'Apex Legends', 'Elden Ring'], platforms: ['PC', 'Xbox'] }
+      body: { games: ['Valorant', 'Apex Legends', 'Elden Ring'], platforms: ['PC', 'Xbox'] },
     });
     check('finishing onboarding saves preferences and stamps completion', () => {
       assert.equal(complete.status, 200, JSON.stringify(complete.data));
       assert.ok(complete.data.onboardingCompletedAt);
-      assert.deepEqual(complete.data.preferences.favoriteGames, ['Valorant', 'Apex Legends', 'Elden Ring']);
+      assert.deepEqual(complete.data.preferences.favoriteGames, [
+        'Valorant',
+        'Apex Legends',
+        'Elden Ring',
+      ]);
       assert.deepEqual(complete.data.preferences.platforms, ['PC', 'Xbox']);
     });
 
     const completedMe = await api('/api/auth/me', { cookie: nina.cookie });
     check('the session reports onboarding as complete', () => {
       assert.ok(completedMe.data.user.onboardingCompletedAt);
-      assert.equal(completedMe.data.user.onboardingCompletedAt, complete.data.onboardingCompletedAt);
+      assert.equal(
+        completedMe.data.user.onboardingCompletedAt,
+        complete.data.onboardingCompletedAt,
+      );
     });
 
     const anonymousDiscover = await api('/api/discover/onboarding?games=Valorant');
-    check('discovery requires a signed-in player', () => assert.equal(anonymousDiscover.status, 401));
+    check('discovery requires a signed-in player', () =>
+      assert.equal(anonymousDiscover.status, 401),
+    );
 
     // ── 14C: notification history and category preferences ─────────────────
     const notificationAccount = await api('/api/account', { cookie: owner.cookie });
@@ -427,7 +476,7 @@ async function run() {
         likes: true,
         lfg: true,
         bot: true,
-        broadcast: true
+        broadcast: true,
       });
     });
 
@@ -439,12 +488,12 @@ async function run() {
     const ninaRequest = await api(`/api/lfg/${squad.data._id}/request`, {
       method: 'POST',
       cookie: nina.cookie,
-      body: { message: 'Nina would like a slot.' }
+      body: { message: 'Nina would like a slot.' },
     });
     const bobRequest = await api(`/api/lfg/${squad.data._id}/request`, {
       method: 'POST',
       cookie: bob.cookie,
-      body: { message: 'Bob would like a slot.' }
+      body: { message: 'Bob would like a slot.' },
     });
     check('two squad requests create two leader notifications', () => {
       assert.equal(ninaRequest.status, 200, JSON.stringify(ninaRequest.data));
@@ -452,7 +501,7 @@ async function run() {
     });
 
     const firstNotificationPage = await api('/api/notifications?limit=1', {
-      cookie: owner.cookie
+      cookie: owner.cookie,
     });
     check('notification history pages with an opaque cursor and unread count', () => {
       assert.equal(firstNotificationPage.status, 200, JSON.stringify(firstNotificationPage.data));
@@ -464,29 +513,35 @@ async function run() {
 
     const olderNotificationPage = await api(
       `/api/notifications?limit=1&before=${encodeURIComponent(firstNotificationPage.data.nextCursor)}`,
-      { cookie: owner.cookie }
+      { cookie: owner.cookie },
     );
     check('the cursor returns older notifications without repeating the first page', () => {
       assert.equal(olderNotificationPage.status, 200, JSON.stringify(olderNotificationPage.data));
       assert.equal(olderNotificationPage.data.items.length, 1);
       assert.notEqual(
         olderNotificationPage.data.items[0]._id,
-        firstNotificationPage.data.items[0]._id
+        firstNotificationPage.data.items[0]._id,
       );
     });
 
-    const foreignRead = await api(`/api/notifications/${firstNotificationPage.data.items[0]._id}/read`, {
-      method: 'PATCH',
-      cookie: nina.cookie
-    });
+    const foreignRead = await api(
+      `/api/notifications/${firstNotificationPage.data.items[0]._id}/read`,
+      {
+        method: 'PATCH',
+        cookie: nina.cookie,
+      },
+    );
     check('one player cannot read another player’s notification', () => {
       assert.equal(foreignRead.status, 404, JSON.stringify(foreignRead.data));
     });
 
-    const markedRead = await api(`/api/notifications/${firstNotificationPage.data.items[0]._id}/read`, {
-      method: 'PATCH',
-      cookie: owner.cookie
-    });
+    const markedRead = await api(
+      `/api/notifications/${firstNotificationPage.data.items[0]._id}/read`,
+      {
+        method: 'PATCH',
+        cookie: owner.cookie,
+      },
+    );
     check('marking a notification read returns the remaining unread count', () => {
       assert.equal(markedRead.status, 200, JSON.stringify(markedRead.data));
       assert.equal(markedRead.data.notification.read, true);
@@ -496,7 +551,7 @@ async function run() {
     const savedPreferences = await api('/api/account/notification-settings', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { lfg: false, comments: false }
+      body: { lfg: false, comments: false },
     });
     check('category preferences save partially and keep the rest enabled', () => {
       assert.equal(savedPreferences.status, 200, JSON.stringify(savedPreferences.data));
@@ -506,18 +561,21 @@ async function run() {
         likes: true,
         lfg: false,
         bot: true,
-        broadcast: true
+        broadcast: true,
       });
     });
 
     const unknownPreference = await api('/api/account/notification-settings', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { mentions: false }
+      body: { mentions: false },
     });
     check('unknown notification preferences are rejected', () => {
       assert.equal(unknownPreference.status, 400);
-      assert.match(String(unknownPreference.data?.message || ''), /unknown notification preference/i);
+      assert.match(
+        String(unknownPreference.data?.message || ''),
+        /unknown notification preference/i,
+      );
     });
 
     await api('/api/notifications/read-all', { method: 'POST', cookie: owner.cookie });
@@ -528,16 +586,16 @@ async function run() {
         gameTitle: 'Apex Legends',
         activity: 'Ranked',
         maxSlots: 3,
-        requirements: { minRank: '', micRequired: false }
-      }
+        requirements: { minRank: '', micRequired: false },
+      },
     });
     await api(`/api/lfg/${mutedSquad.data._id}/request`, {
       method: 'POST',
       cookie: nina.cookie,
-      body: { message: 'Muted category check.' }
+      body: { message: 'Muted category check.' },
     });
     const mutedHistory = await api('/api/notifications?unread=1&limit=5', {
-      cookie: owner.cookie
+      cookie: owner.cookie,
     });
     check('switching squad notifications off suppresses new pings at creation', () => {
       assert.equal(mutedHistory.status, 200, JSON.stringify(mutedHistory.data));
@@ -547,7 +605,7 @@ async function run() {
     await api('/api/account/notification-settings', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { lfg: true }
+      body: { lfg: true },
     });
     const enabledSquad = await api('/api/lfg', {
       method: 'POST',
@@ -556,22 +614,22 @@ async function run() {
         gameTitle: 'Elden Ring',
         activity: 'Co-op',
         maxSlots: 3,
-        requirements: { minRank: '', micRequired: false }
-      }
+        requirements: { minRank: '', micRequired: false },
+      },
     });
     await api(`/api/lfg/${enabledSquad.data._id}/request`, {
       method: 'POST',
       cookie: nina.cookie,
-      body: { message: 'Enabled category check.' }
+      body: { message: 'Enabled category check.' },
     });
     const enabledHistory = await api('/api/notifications?unread=1&limit=5', {
-      cookie: owner.cookie
+      cookie: owner.cookie,
     });
     check('switching squad notifications back on restores new pings', () => {
       assert.equal(enabledHistory.status, 200, JSON.stringify(enabledHistory.data));
       assert.equal(
         enabledHistory.data.items.some((item) => /New squad request/.test(item.title)),
-        true
+        true,
       );
     });
 
@@ -579,13 +637,13 @@ async function run() {
     await api('/api/account/notification-settings', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { comments: true, follows: true, likes: true }
+      body: { comments: true, follows: true, likes: true },
     });
 
     const socialPost = await api('/api/posts', {
       method: 'POST',
       cookie: owner.cookie,
-      body: { title: 'Social trigger QA', content: 'Comment and like this post.' }
+      body: { title: 'Social trigger QA', content: 'Comment and like this post.' },
     });
     check('the social-trigger post exists', () => {
       assert.equal(socialPost.status, 201, JSON.stringify(socialPost.data));
@@ -600,7 +658,7 @@ async function run() {
 
     const followed = await api('/api/users/owner14b/follow', {
       method: 'POST',
-      cookie: bob.cookie
+      cookie: bob.cookie,
     });
     check('a new follower is accepted', () => {
       assert.equal(followed.status, 200, JSON.stringify(followed.data));
@@ -614,7 +672,9 @@ async function run() {
 
     await api('/api/users/owner14b/follow', { method: 'POST', cookie: bob.cookie });
     await api('/api/users/owner14b/follow', { method: 'POST', cookie: bob.cookie });
-    const refollowItems = (await socialHistory()).filter((item) => item.metadata?.kind === 'follow');
+    const refollowItems = (await socialHistory()).filter(
+      (item) => item.metadata?.kind === 'follow',
+    );
     check('unfollow and re-follow never duplicates the follow ping', () => {
       assert.equal(refollowItems.length, 1);
     });
@@ -622,12 +682,14 @@ async function run() {
     const socialComment = await api(`/api/posts/${socialPostId}/comments`, {
       method: 'POST',
       cookie: nina.cookie,
-      body: { text: 'This is a social trigger comment.' }
+      body: { text: 'This is a social trigger comment.' },
     });
     check('the comment is created', () => {
       assert.equal(socialComment.status, 201, JSON.stringify(socialComment.data));
     });
-    const commentItems = (await socialHistory()).filter((item) => item.metadata?.kind === 'comment');
+    const commentItems = (await socialHistory()).filter(
+      (item) => item.metadata?.kind === 'comment',
+    );
     check('a comment creates exactly one notification for the post author', () => {
       assert.equal(commentItems.length, 1);
       assert.equal(commentItems[0].metadata.commentId, socialComment.data._id);
@@ -637,22 +699,26 @@ async function run() {
     await api(`/api/posts/${socialPostId}/comments`, {
       method: 'POST',
       cookie: owner.cookie,
-      body: { text: 'Replying to myself must stay silent.' }
+      body: { text: 'Replying to myself must stay silent.' },
     });
-    const afterSelfComment = (await socialHistory()).filter((item) => item.metadata?.kind === 'comment');
+    const afterSelfComment = (await socialHistory()).filter(
+      (item) => item.metadata?.kind === 'comment',
+    );
     check('the author commenting on their own post does not notify them', () => {
       assert.equal(afterSelfComment.length, 1);
     });
 
     const firstLike = await api(`/api/posts/${socialPostId}/like`, {
       method: 'POST',
-      cookie: bob.cookie
+      cookie: bob.cookie,
     });
     check('the first like succeeds', () => {
       assert.equal(firstLike.status, 200, JSON.stringify(firstLike.data));
       assert.equal(firstLike.data.likeCount, 1);
     });
-    const likeItems = (await socialHistory()).filter((item) => item.metadata?.kind === 'like_milestone');
+    const likeItems = (await socialHistory()).filter(
+      (item) => item.metadata?.kind === 'like_milestone',
+    );
     check('the first like creates one milestone notification', () => {
       assert.equal(likeItems.length, 1);
       assert.equal(likeItems[0].metadata.milestone, 1);
@@ -660,7 +726,9 @@ async function run() {
 
     await api(`/api/posts/${socialPostId}/like`, { method: 'POST', cookie: bob.cookie });
     await api(`/api/posts/${socialPostId}/like`, { method: 'POST', cookie: bob.cookie });
-    const afterRelike = (await socialHistory()).filter((item) => item.metadata?.kind === 'like_milestone');
+    const afterRelike = (await socialHistory()).filter(
+      (item) => item.metadata?.kind === 'like_milestone',
+    );
     check('unlike and re-like never duplicates a like milestone', () => {
       assert.equal(afterRelike.length, 1);
     });
@@ -668,31 +736,34 @@ async function run() {
     await api('/api/account/notification-settings', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { comments: false }
+      body: { comments: false },
     });
     await api(`/api/posts/${socialPostId}/comments`, {
       method: 'POST',
       cookie: nina.cookie,
-      body: { text: 'This comment should be suppressed.' }
+      body: { text: 'This comment should be suppressed.' },
     });
-    const afterMutedComment = (await socialHistory()).filter((item) => item.metadata?.kind === 'comment');
+    const afterMutedComment = (await socialHistory()).filter(
+      (item) => item.metadata?.kind === 'comment',
+    );
     check('switching comments off suppresses new comment notifications', () => {
       assert.equal(afterMutedComment.length, 1);
     });
     await api('/api/account/notification-settings', {
       method: 'PATCH',
       cookie: owner.cookie,
-      body: { comments: true }
+      body: { comments: true },
     });
 
     const ownPost = await api('/api/posts', {
       method: 'POST',
       cookie: owner.cookie,
-      body: { title: 'Self-like QA', content: 'This should not notify the author.' }
+      body: { title: 'Self-like QA', content: 'This should not notify the author.' },
     });
     await api(`/api/posts/${ownPost.data._id}/like`, { method: 'POST', cookie: owner.cookie });
     const selfLikeItems = (await socialHistory()).filter(
-      (item) => item.metadata?.kind === 'like_milestone' && item.metadata.postId === ownPost.data._id
+      (item) =>
+        item.metadata?.kind === 'like_milestone' && item.metadata.postId === ownPost.data._id,
     );
     check('liking your own post does not create a milestone notification', () => {
       assert.equal(selfLikeItems.length, 0);
@@ -709,7 +780,7 @@ async function run() {
     const blockPost = await api('/api/posts', {
       method: 'POST',
       cookie: blockAuthor.cookie,
-      body: { title: 'Blocked social QA', content: 'Blocked peers must stay silent.' }
+      body: { title: 'Blocked social QA', content: 'Blocked peers must stay silent.' },
     });
     check('the paired-account post exists', () => {
       assert.equal(blockPost.status, 201, JSON.stringify(blockPost.data));
@@ -718,7 +789,7 @@ async function run() {
 
     const blockResponse = await api(`/api/account/block/${blockedPeer.id}`, {
       method: 'POST',
-      cookie: blockAuthor.cookie
+      cookie: blockAuthor.cookie,
     });
     check('the author blocks one peer', () => {
       assert.equal(blockResponse.status, 200, JSON.stringify(blockResponse.data));
@@ -732,16 +803,16 @@ async function run() {
 
     const blockedFollow = await api('/api/users/blockauthor14c/follow', {
       method: 'POST',
-      cookie: blockedPeer.cookie
+      cookie: blockedPeer.cookie,
     });
     const blockedComment = await api(`/api/posts/${blockPostId}/comments`, {
       method: 'POST',
       cookie: blockedPeer.cookie,
-      body: { text: 'This blocked comment must not ping.' }
+      body: { text: 'This blocked comment must not ping.' },
     });
     const blockedLike = await api(`/api/posts/${blockPostId}/like`, {
       method: 'POST',
-      cookie: blockedPeer.cookie
+      cookie: blockedPeer.cookie,
     });
     const afterBlockedActions = await blockedHistory();
     check('blocked actions are accepted but create no social notifications', () => {
@@ -750,21 +821,24 @@ async function run() {
       assert.equal(blockedLike.status, 200, JSON.stringify(blockedLike.data));
       assert.equal(
         afterBlockedActions.filter(
-          (item) => item.metadata?.kind === 'follow' && item.metadata.followerId === blockedPeer.id
+          (item) => item.metadata?.kind === 'follow' && item.metadata.followerId === blockedPeer.id,
         ).length,
-        0
+        0,
       );
       assert.equal(
         afterBlockedActions.filter(
-          (item) => item.metadata?.kind === 'comment' && item.metadata.commentId === blockedComment.data._id
+          (item) =>
+            item.metadata?.kind === 'comment' &&
+            item.metadata.commentId === blockedComment.data._id,
         ).length,
-        0
+        0,
       );
       assert.equal(
         afterBlockedActions.filter(
-          (item) => item.metadata?.kind === 'like_milestone' && item.metadata.postId === blockPostId
+          (item) =>
+            item.metadata?.kind === 'like_milestone' && item.metadata.postId === blockPostId,
         ).length,
-        0
+        0,
       );
     });
 
@@ -773,16 +847,16 @@ async function run() {
     await api(`/api/posts/${blockPostId}/like`, { method: 'POST', cookie: blockedPeer.cookie });
     const allowedFollow = await api('/api/users/blockauthor14c/follow', {
       method: 'POST',
-      cookie: allowedPeer.cookie
+      cookie: allowedPeer.cookie,
     });
     const allowedComment = await api(`/api/posts/${blockPostId}/comments`, {
       method: 'POST',
       cookie: allowedPeer.cookie,
-      body: { text: 'This unblocked comment should ping once.' }
+      body: { text: 'This unblocked comment should ping once.' },
     });
     const allowedLike = await api(`/api/posts/${blockPostId}/like`, {
       method: 'POST',
-      cookie: allowedPeer.cookie
+      cookie: allowedPeer.cookie,
     });
     const afterAllowedActions = await blockedHistory();
     check('the unblocked peer creates the expected follow, comment and like pings', () => {
@@ -791,37 +865,46 @@ async function run() {
       assert.equal(allowedLike.status, 200, JSON.stringify(allowedLike.data));
       assert.equal(
         afterAllowedActions.filter(
-          (item) => item.metadata?.kind === 'follow' && item.metadata.followerId === allowedPeer.id
+          (item) => item.metadata?.kind === 'follow' && item.metadata.followerId === allowedPeer.id,
         ).length,
-        1
+        1,
       );
       assert.equal(
         afterAllowedActions.filter(
-          (item) => item.metadata?.kind === 'comment' && item.metadata.commentId === allowedComment.data._id
+          (item) =>
+            item.metadata?.kind === 'comment' &&
+            item.metadata.commentId === allowedComment.data._id,
         ).length,
-        1
+        1,
       );
       assert.equal(
         afterAllowedActions.filter(
-          (item) => item.metadata?.kind === 'like_milestone' && item.metadata.postId === blockPostId
+          (item) =>
+            item.metadata?.kind === 'like_milestone' && item.metadata.postId === blockPostId,
         ).length,
-        1
+        1,
       );
     });
-    check('the blocked peer still creates no social notifications after the control actions', () => {
-      assert.equal(
-        afterAllowedActions.filter(
-          (item) => item.metadata?.kind === 'follow' && item.metadata.followerId === blockedPeer.id
-        ).length,
-        0
-      );
-      assert.equal(
-        afterAllowedActions.filter(
-          (item) => item.metadata?.kind === 'comment' && item.metadata.commentId === blockedComment.data._id
-        ).length,
-        0
-      );
-    });
+    check(
+      'the blocked peer still creates no social notifications after the control actions',
+      () => {
+        assert.equal(
+          afterAllowedActions.filter(
+            (item) =>
+              item.metadata?.kind === 'follow' && item.metadata.followerId === blockedPeer.id,
+          ).length,
+          0,
+        );
+        assert.equal(
+          afterAllowedActions.filter(
+            (item) =>
+              item.metadata?.kind === 'comment' &&
+              item.metadata.commentId === blockedComment.data._id,
+          ).length,
+          0,
+        );
+      },
+    );
 
     // ── 14D: activation telemetry and launch readiness ─────────────────────
     const launchAdmin = await registerUser('launchadmin14d', { probeId: true });
@@ -839,7 +922,7 @@ async function run() {
       email: 'must-not-appear@example.com',
       text: 'must-not-appear',
       token: 'must-not-appear',
-      count: 1
+      count: 1,
     });
     check('product-event props drop sensitive fields', () => {
       assert.equal(redactedEvent.props.email, undefined);
@@ -850,7 +933,8 @@ async function run() {
     });
 
     const startOnboarding = await api('/api/discover/onboarding/start', {
-      method: 'POST', cookie: launchUser.cookie
+      method: 'POST',
+      cookie: launchUser.cookie,
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'onboarding_started' });
     check('opening onboarding records onboarding_started once', () => {
@@ -860,7 +944,7 @@ async function run() {
     const finishOnboarding = await api('/api/discover/onboarding/complete', {
       method: 'POST',
       cookie: launchUser.cookie,
-      body: { games: ['Valorant'], platforms: ['PC'], skipped: false }
+      body: { games: ['Valorant'], platforms: ['PC'], skipped: false },
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'onboarding_completed' });
     check('finishing onboarding records onboarding_completed', () => {
@@ -871,7 +955,7 @@ async function run() {
     await api('/api/discover/onboarding/complete', {
       method: 'POST',
       cookie: skipUser.cookie,
-      body: { games: [] , platforms: [], skipped: true }
+      body: { games: [], platforms: [], skipped: true },
     });
     await waitForProductEvent({ userId: skipUser.id, name: 'onboarding_skipped' });
     check('skipping onboarding is recorded separately from completion', () => {
@@ -881,10 +965,15 @@ async function run() {
     const funnelCommunity = await api('/api/communities', {
       method: 'POST',
       cookie: launchAdmin.cookie,
-      body: { name: 'Funnel QA Server', description: 'Activation telemetry QA.', games: ['Valorant'] }
+      body: {
+        name: 'Funnel QA Server',
+        description: 'Activation telemetry QA.',
+        games: ['Valorant'],
+      },
     });
     const funnelJoin = await api(`/api/communities/${funnelCommunity.data._id}/join`, {
-      method: 'POST', cookie: launchUser.cookie
+      method: 'POST',
+      cookie: launchUser.cookie,
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'first_join' });
     check('a first community join records first_join', () => {
@@ -892,7 +981,8 @@ async function run() {
     });
 
     const funnelFollow = await api('/api/users/launchadmin14d/follow', {
-      method: 'POST', cookie: launchUser.cookie
+      method: 'POST',
+      cookie: launchUser.cookie,
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'first_follow' });
     check('a first follow records first_follow', () => {
@@ -902,7 +992,7 @@ async function run() {
     const funnelPost = await api('/api/posts', {
       method: 'POST',
       cookie: launchUser.cookie,
-      body: { title: 'Funnel first post', content: 'Activation telemetry QA post.' }
+      body: { title: 'Funnel first post', content: 'Activation telemetry QA post.' },
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'first_post' });
     check('a first post records first_post', () => {
@@ -912,12 +1002,12 @@ async function run() {
     const adminPost = await api('/api/posts', {
       method: 'POST',
       cookie: launchAdmin.cookie,
-      body: { title: 'Funnel admin post', content: 'A post to comment on.' }
+      body: { title: 'Funnel admin post', content: 'A post to comment on.' },
     });
     const funnelComment = await api(`/api/posts/${adminPost.data._id}/comments`, {
       method: 'POST',
       cookie: launchUser.cookie,
-      body: { text: 'First funnel comment.' }
+      body: { text: 'First funnel comment.' },
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'first_comment' });
     check('a first comment records first_comment', () => {
@@ -930,7 +1020,7 @@ async function run() {
     const funnelDm = await api('/api/messages/requests', {
       method: 'POST',
       cookie: launchUser.cookie,
-      body: { recipientId: funnelPeer.id, text: 'First funnel message.' }
+      body: { recipientId: funnelPeer.id, text: 'First funnel message.' },
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'first_message' });
     check('a first direct message records first_message', () => {
@@ -943,13 +1033,17 @@ async function run() {
       title: 'Funnel click QA',
       message: 'Open this notification.',
       actionUrl: '/notifications',
-      metadata: { kind: 'comment' }
+      metadata: { kind: 'comment' },
     });
     const openedNotification = await api('/api/notifications/opened', {
-      method: 'POST', cookie: launchUser.cookie, body: { surface: 'page' }
+      method: 'POST',
+      cookie: launchUser.cookie,
+      body: { surface: 'page' },
     });
     const clickedNotification = await api(`/api/notifications/${funnelPing._id}/clicked`, {
-      method: 'POST', cookie: launchUser.cookie, body: { surface: 'page' }
+      method: 'POST',
+      cookie: launchUser.cookie,
+      body: { surface: 'page' },
     });
     await waitForProductEvent({ userId: launchUser.id, name: 'notification_opened' });
     await waitForProductEvent({ userId: launchUser.id, name: 'notification_clicked' });
@@ -960,46 +1054,55 @@ async function run() {
 
     const limitedEngagementUser = await registerUser('engagementlimit14d', { probeId: true });
     const overLimitOpened = await api('/api/notifications/opened', {
-      method: 'POST', cookie: launchUser.cookie, body: { surface: 'bell' }
+      method: 'POST',
+      cookie: launchUser.cookie,
+      body: { surface: 'bell' },
     });
     const limitedFirst = await api('/api/notifications/opened', {
-      method: 'POST', cookie: limitedEngagementUser.cookie, body: { surface: 'bell' }
+      method: 'POST',
+      cookie: limitedEngagementUser.cookie,
+      body: { surface: 'bell' },
     });
     const limitedSecond = await api('/api/notifications/opened', {
-      method: 'POST', cookie: limitedEngagementUser.cookie, body: { surface: 'bell' }
+      method: 'POST',
+      cookie: limitedEngagementUser.cookie,
+      body: { surface: 'bell' },
     });
     const limitedThird = await api('/api/notifications/opened', {
-      method: 'POST', cookie: limitedEngagementUser.cookie, body: { surface: 'bell' }
+      method: 'POST',
+      cookie: limitedEngagementUser.cookie,
+      body: { surface: 'bell' },
     });
     check('notification engagement telemetry is rate-limited per user', () => {
       assert.equal(overLimitOpened.status, 429);
       assert.deepEqual(
         [limitedFirst.status, limitedSecond.status, limitedThird.status],
-        [200, 200, 429]
+        [200, 200, 429],
       );
     });
 
     const eraseEventUser = await registerUser('eventerase14d', { probeId: true });
     await recordEvent('signup', eraseEventUser.id, { source: 'erasure-qa' });
     const eventExport = await api('/api/account/data-export', {
-      cookie: eraseEventUser.cookie, raw: true
+      cookie: eraseEventUser.cookie,
+      raw: true,
     });
     const eventExportBody = JSON.parse(eventExport.text);
-    check('the data export includes the caller\'s product events', () => {
+    check("the data export includes the caller's product events", () => {
       assert.equal(eventExport.status, 200);
       assert.ok(
         eventExportBody.analytics.productEvents.some((event) => event.name === 'signup'),
-        'signup event missing from export'
+        'signup event missing from export',
       );
     });
 
     const erasedEventUser = await api('/api/account/delete-now', {
       method: 'POST',
       cookie: eraseEventUser.cookie,
-      body: { confirmUsername: 'eventerase14d', password: 'password123' }
+      body: { confirmUsername: 'eventerase14d', password: 'password123' },
     });
     await waitForNoProductEvent({ userId: eraseEventUser.id });
-    check('account erasure removes that account\'s product events', () => {
+    check("account erasure removes that account's product events", () => {
       assert.equal(erasedEventUser.status, 200, JSON.stringify(erasedEventUser.data));
     });
 
@@ -1014,7 +1117,7 @@ async function run() {
     // ignore createdAt on a model update, which would defeat this fixture.
     await ProductEvent.collection.updateOne(
       { _id: staleSignup._id },
-      { $set: { createdAt: new Date(Date.now() - 40 * DAY_MS) } }
+      { $set: { createdAt: new Date(Date.now() - 40 * DAY_MS) } },
     );
     await recordEvent('onboarding_completed', staleCohortUser.id, { source: 'stale-cohort-qa' });
 
@@ -1030,26 +1133,26 @@ async function run() {
         userId: new mongoose.Types.ObjectId(day7EngagementUser.id),
         name: 'signup',
         props: { source: 'day7-fixture' },
-        createdAt: day7SignupAt
+        createdAt: day7SignupAt,
       },
       {
         userId: new mongoose.Types.ObjectId(day7EngagementUser.id),
         name: 'notification_opened',
         props: { surface: 'bell' },
-        createdAt: day7WindowAt
+        createdAt: day7WindowAt,
       },
       {
         userId: new mongoose.Types.ObjectId(day7ActiveUser.id),
         name: 'signup',
         props: { source: 'day7-fixture' },
-        createdAt: day7SignupAt
+        createdAt: day7SignupAt,
       },
       {
         userId: new mongoose.Types.ObjectId(day7ActiveUser.id),
         name: 'first_post',
         props: { source: 'day7-fixture' },
-        createdAt: day7WindowAt
-      }
+        createdAt: day7WindowAt,
+      },
     ]);
 
     const anonymousFunnel = await api('/api/admin/funnel');
@@ -1064,7 +1167,13 @@ async function run() {
     check('the funnel returns distinct-user step counts and conversions', () => {
       assert.deepEqual(
         adminFunnel.data.steps.map((step) => step.key),
-        ['signup', 'onboarding_completed', 'first_connection', 'first_contribution', 'day_7_return']
+        [
+          'signup',
+          'onboarding_completed',
+          'first_connection',
+          'first_contribution',
+          'day_7_return',
+        ],
       );
       assert.equal(adminFunnel.data.steps[0].users >= 5, true);
       assert.equal(adminFunnel.data.steps[1].users >= 1, true);
@@ -1080,7 +1189,7 @@ async function run() {
 
     const signupIds = await ProductEvent.distinct('userId', {
       name: 'signup',
-      createdAt: { $gte: new Date(adminFunnel.data.since) }
+      createdAt: { $gte: new Date(adminFunnel.data.since) },
     });
     check('the signup step counts each account once', () => {
       assert.equal(adminFunnel.data.steps[0].users, signupIds.length);
@@ -1090,27 +1199,32 @@ async function run() {
     const funnelCohort = await ProductEvent.distinct('userId', {
       name: 'signup',
       userId: { $ne: null },
-      createdAt: { $gte: funnelSince }
+      createdAt: { $gte: funnelSince },
     });
     const funnelCompleted = await ProductEvent.distinct('userId', {
       name: 'onboarding_completed',
       userId: { $in: funnelCohort },
-      createdAt: { $gte: funnelSince }
+      createdAt: { $gte: funnelSince },
     });
     const funnelConnected = await ProductEvent.distinct('userId', {
       name: { $in: ['first_join', 'first_follow'] },
       userId: { $in: funnelCompleted },
-      createdAt: { $gte: funnelSince }
+      createdAt: { $gte: funnelSince },
     });
     const funnelContributed = await ProductEvent.distinct('userId', {
       name: { $in: ['first_post', 'first_comment', 'first_message'] },
       userId: { $in: funnelConnected },
-      createdAt: { $gte: funnelSince }
+      createdAt: { $gte: funnelSince },
     });
     check('every funnel step is restricted to the same signup cohort', () => {
       assert.deepEqual(
         adminFunnel.data.steps.slice(0, 4).map((step) => step.users),
-        [funnelCohort.length, funnelCompleted.length, funnelConnected.length, funnelContributed.length]
+        [
+          funnelCohort.length,
+          funnelCompleted.length,
+          funnelConnected.length,
+          funnelContributed.length,
+        ],
       );
       assert.equal(funnelCohort.map(String).includes(String(staleCohortUser.id)), false);
       assert.equal(adminFunnel.data.steps[1].users <= adminFunnel.data.steps[0].users, true);
@@ -1143,20 +1257,20 @@ async function run() {
       userId: ownerId,
       type: 'social',
       title: 'Ordinary retention QA',
-      metadata: { kind: 'comment' }
+      metadata: { kind: 'comment' },
     });
     const expiredNotification = await Notification.create({
       userId: ownerId,
       type: 'social',
       title: 'Expired retention QA',
       metadata: { kind: 'comment' },
-      retentionAt: new Date(Date.now() - 60_000)
+      retentionAt: new Date(Date.now() - 60_000),
     });
     const durableNotification = await Notification.create({
       userId: ownerId,
       type: 'social',
       title: 'Durable retention QA',
-      metadata: { kind: 'follow_request' }
+      metadata: { kind: 'follow_request' },
     });
     check('ordinary notifications receive a 15-day retention date', () => {
       const days = (ordinaryRetention.retentionAt.getTime() - Date.now()) / 86_400_000;
@@ -1174,7 +1288,7 @@ async function run() {
       assert.ok(durableExists);
     });
     await Notification.deleteMany({
-      _id: { $in: [ordinaryRetention._id, durableNotification._id] }
+      _id: { $in: [ordinaryRetention._id, durableNotification._id] },
     });
   } finally {
     await mongoose.connection.dropDatabase();

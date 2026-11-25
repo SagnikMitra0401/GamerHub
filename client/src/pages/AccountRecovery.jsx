@@ -60,14 +60,14 @@ const AccountRecovery = () => {
       await axiosInstance.post('/auth/recovery/verify', {
         username: form.username,
         code,
-        newPassword: password
+        newPassword: password,
       });
       // Recovery revokes every session. Clearing the local user first stops the
       // login page from seeing a stale session and redirecting away from it.
       await fetchMe();
       navigate('/login', {
         replace: true,
-        state: { notice: 'Password reset. Sign in with the new password.' }
+        state: { notice: 'Password reset. Sign in with the new password.' },
       });
     } catch (err) {
       setError(err.response?.data?.message || 'That code is invalid or has expired.');
@@ -158,7 +158,7 @@ const AccountRecovery = () => {
                     fontFamily: 'monospace',
                     fontSize: '1.4rem',
                     letterSpacing: '0.45em',
-                    textAlign: 'center'
+                    textAlign: 'center',
                   }}
                   required
                 />

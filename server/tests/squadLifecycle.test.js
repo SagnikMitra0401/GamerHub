@@ -17,7 +17,7 @@ const {
   isOpen,
   isChatMember,
   canRefresh,
-  formatRemaining
+  formatRemaining,
 } = require('../utils/squadLifecycle');
 
 const NOW = new Date('2026-11-01T12:00:00.000Z');
@@ -31,7 +31,7 @@ const chat = (extra = {}) => ({
   memberIds: [owner, member],
   state: 'active',
   expiresAt: new Date(NOW.getTime() + CHAT_TTL_MS),
-  ...extra
+  ...extra,
 });
 
 test('a fresh chat expires 15 days out', () => {
@@ -82,11 +82,11 @@ test('remaining time is rendered in days, hours and minutes', () => {
   assert.equal(formatRemaining(chat(), NOW), '15d 0h left');
   assert.equal(
     formatRemaining(chat({ expiresAt: new Date(NOW.getTime() + 2 * 3_600_000) }), NOW),
-    '2h left'
+    '2h left',
   );
   assert.equal(
     formatRemaining(chat({ expiresAt: new Date(NOW.getTime() + 5 * 60_000) }), NOW),
-    '5m left'
+    '5m left',
   );
   assert.equal(formatRemaining(chat({ expiresAt: NOW }), NOW), 'expired');
 });

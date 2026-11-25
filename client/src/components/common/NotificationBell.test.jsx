@@ -18,19 +18,19 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   socketOn: vi.fn(),
   socketOff: vi.fn(),
-  auth: { user: { _id: 'u1' }, token: 'token' }
+  auth: { user: { _id: 'u1' }, token: 'token' },
 }));
 
 vi.mock('../../api/axiosInstance', () => ({
-  default: { get: mocks.get, patch: mocks.patch, post: mocks.post }
+  default: { get: mocks.get, patch: mocks.patch, post: mocks.post },
 }));
 
 vi.mock('../../api/socket', () => ({
-  connectSocket: () => ({ on: mocks.socketOn, off: mocks.socketOff })
+  connectSocket: () => ({ on: mocks.socketOn, off: mocks.socketOff }),
 }));
 
 vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => mocks.auth
+  useAuth: () => mocks.auth,
 }));
 
 const notification = (overrides = {}) => ({
@@ -41,21 +41,24 @@ const notification = (overrides = {}) => ({
   read: false,
   createdAt: new Date().toISOString(),
   actionUrl: '/lfg',
-  ...overrides
+  ...overrides,
 });
 
 const renderBell = () =>
   render(
     <MemoryRouter>
       <NotificationBell />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
 beforeEach(() => {
   mocks.auth.user = { _id: 'u1' };
   mocks.auth.token = 'token';
   mocks.get.mockReset().mockResolvedValue({
-    data: { items: [notification(), notification({ _id: 'n2', read: true, title: 'Older ping' })], unreadCount: 2 }
+    data: {
+      items: [notification(), notification({ _id: 'n2', read: true, title: 'Older ping' })],
+      unreadCount: 2,
+    },
   });
   mocks.patch.mockReset().mockResolvedValue({ data: {} });
   mocks.post.mockReset().mockResolvedValue({ data: {} });
@@ -87,7 +90,10 @@ describe('NotificationBell', () => {
 
     expect(screen.getByRole('dialog', { name: 'Notifications' })).toHaveClass('notif-panel');
     expect(document.querySelector('.notif-sheet-layer')).toBeNull();
-    expect(screen.getByRole('button', { name: /^Notifications/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /^Notifications/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 
   it('opens a portalled modal sheet on a phone so nothing can clip', async () => {
@@ -145,8 +151,12 @@ describe('NotificationBell', () => {
     renderBell();
     await userEvent.click(await screen.findByRole('button', { name: /^Notifications/ }));
 
-    const [, onNotification] = mocks.socketOn.mock.calls.find(([event]) => event === 'notification');
-    await act(async () => { onNotification(notification({ _id: 'n3', title: 'Fresh ping' })); });
+    const [, onNotification] = mocks.socketOn.mock.calls.find(
+      ([event]) => event === 'notification',
+    );
+    await act(async () => {
+      onNotification(notification({ _id: 'n3', title: 'Fresh ping' }));
+    });
 
     expect(await screen.findByText('Fresh ping')).toBeInTheDocument();
     expect(document.querySelector('.notif-badge')).toHaveTextContent('3');

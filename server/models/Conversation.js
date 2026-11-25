@@ -20,33 +20,33 @@ const ConversationSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
     participantIds: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
       required: true,
       validate: {
-        validator: value => Array.isArray(value) && value.length === 2,
-        message: 'A conversation has exactly two participants.'
-      }
+        validator: (value) => Array.isArray(value) && value.length === 2,
+        message: 'A conversation has exactly two participants.',
+      },
     },
     initiatorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     recipientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     state: {
       type: String,
       enum: ['request', 'active', 'declined', 'expired', 'blocked', 'archived', 'erased'],
       default: 'request',
-      index: true
+      index: true,
     },
 
     // Why the sender had standing to start contact. Kept for moderation and so
@@ -54,23 +54,23 @@ const ConversationSchema = new mongoose.Schema(
     context: {
       type: String,
       enum: ['profile', 'post', 'community', 'squad'],
-      default: 'profile'
+      default: 'profile',
     },
     contextId: {
       type: mongoose.Schema.Types.ObjectId,
-      default: null
+      default: null,
     },
     contextLabel: {
       type: String,
       default: '',
       trim: true,
-      maxlength: 80
+      maxlength: 80,
     },
 
     requestText: {
       type: String,
       default: '',
-      maxlength: 600
+      maxlength: 600,
     },
 
     // Structured first contact from a verified business. Personal requests
@@ -78,14 +78,14 @@ const ConversationSchema = new mongoose.Schema(
     requestIntent: {
       type: String,
       enum: ['collab', 'sponsorship', 'support', 'press', 'partnership', 'other', null],
-      default: null
+      default: null,
     },
     requestCompany: { type: String, default: '', maxlength: 80 },
     requestWebsite: { type: String, default: '', maxlength: 200 },
     requestBudgetBand: {
       type: String,
       enum: ['under_500', '500_2000', '2000_plus', null],
-      default: null
+      default: null,
     },
     requestTimeline: { type: String, default: '', maxlength: 40 },
     businessThread: { type: Boolean, default: false, index: true },
@@ -96,7 +96,7 @@ const ConversationSchema = new mongoose.Schema(
     filterReason: {
       type: String,
       enum: ['hidden_word', 'campaign', 'reputation', null],
-      default: null
+      default: null,
     },
     filterMatched: { type: String, default: '', maxlength: 24 },
 
@@ -106,7 +106,7 @@ const ConversationSchema = new mongoose.Schema(
     requestExpiresAt: {
       type: Date,
       default: null,
-      index: true
+      index: true,
     },
     acceptedAt: { type: Date, default: null },
 
@@ -127,21 +127,23 @@ const ConversationSchema = new mongoose.Schema(
     unreadCounts: {
       type: Map,
       of: Number,
-      default: {}
+      default: {},
     },
 
     // Private triage labels. `ownerId` scopes each label to one participant, so
     // the other side never sees the words a creator uses in their own inbox.
-    labels: [{
-      _id: false,
-      ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-      value: { type: String, required: true, trim: true, maxlength: 24 }
-    }],
+    labels: [
+      {
+        _id: false,
+        ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        value: { type: String, required: true, trim: true, maxlength: 24 },
+      },
+    ],
 
     mutedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    archivedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+    archivedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Inbox: participant + active + sort by recency.

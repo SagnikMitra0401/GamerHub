@@ -95,13 +95,13 @@ async function run() {
       body: {
         username: 'alice18',
         email: 'alice18@example.com',
-        password: 'password123'
-      }
+        password: 'password123',
+      },
     });
     const alice = {
       id: registration.data?.user?.id || registration.data?.user?._id,
       cookie: registration.cookie,
-      email: 'alice18@example.com'
+      email: 'alice18@example.com',
     };
     const registrationBody = JSON.stringify(registration.data || {});
 
@@ -110,7 +110,6 @@ async function run() {
       assert.equal(registration.data.verificationSent, true);
       assert.equal(registration.data.user.emailVerified, false);
     });
-
 
     const aliceMail = await waitForMail('alice18@example.com', CODE_SUBJECT);
     const aliceCode = codeFrom(aliceMail);
@@ -138,7 +137,7 @@ async function run() {
 
     const anonymous = await api('/api/auth/verify-email/code', {
       method: 'POST',
-      body: { code: aliceCode }
+      body: { code: aliceCode },
     });
     check('a code cannot be submitted without a session', () => {
       assert.equal(anonymous.status, 401);
@@ -147,7 +146,7 @@ async function run() {
     const badCode = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { code: wrongCodeFor(aliceCode) }
+      body: { code: wrongCodeFor(aliceCode) },
     });
     check('a wrong code is refused and counts one attempt', () => {
       assert.equal(badCode.status, 400, JSON.stringify(badCode.data));
@@ -158,7 +157,7 @@ async function run() {
     const confirmed = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { code: aliceCode }
+      body: { code: aliceCode },
     });
     check('the right code confirms the email', () => {
       assert.equal(confirmed.status, 200, JSON.stringify(confirmed.data));
@@ -177,10 +176,10 @@ async function run() {
     const bobFirstCode = codeFrom(bobFirstMail);
     const bobResend = await api('/api/auth/verify-email/resend', {
       method: 'POST',
-      cookie: bob.cookie
+      cookie: bob.cookie,
     });
     const bobMails = getOutbox().filter(
-      (item) => item.to === 'bob18@example.com' && item.subject === CODE_SUBJECT
+      (item) => item.to === 'bob18@example.com' && item.subject === CODE_SUBJECT,
     );
     const bobLatestCode = codeFrom(bobMails.at(-1));
 
@@ -193,12 +192,12 @@ async function run() {
     const staleBob = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: bob.cookie,
-      body: { code: bobFirstCode }
+      body: { code: bobFirstCode },
     });
     const freshBob = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: bob.cookie,
-      body: { code: bobLatestCode }
+      body: { code: bobLatestCode },
     });
     check('only the newest code is accepted', () => {
       assert.equal(staleBob.status, 400);
@@ -216,19 +215,19 @@ async function run() {
         await api('/api/auth/verify-email/code', {
           method: 'POST',
           cookie: lock.cookie,
-          body: { code: wrongCodeFor(lockCode) }
-        })
+          body: { code: wrongCodeFor(lockCode) },
+        }),
       );
     }
     const lockedOut = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: lock.cookie,
-      body: { code: lockCode }
+      body: { code: lockCode },
     });
     check('five wrong guesses lock the live code, even for the right digits', () => {
       assert.deepEqual(
         attempts.map((item) => item.status),
-        [400, 400, 400, 400, 400]
+        [400, 400, 400, 400, 400],
       );
       assert.equal(attempts.at(-1).data.attemptsRemaining, 0);
       assert.equal(lockedOut.status, 400);
@@ -236,12 +235,12 @@ async function run() {
 
     await api('/api/auth/verify-email/resend', { method: 'POST', cookie: lock.cookie });
     const lockMails = getOutbox().filter(
-      (item) => item.to === 'lock18@example.com' && item.subject === CODE_SUBJECT
+      (item) => item.to === 'lock18@example.com' && item.subject === CODE_SUBJECT,
     );
     const recoveredLock = await api('/api/auth/verify-email/code', {
       method: 'POST',
       cookie: lock.cookie,
-      body: { code: codeFrom(lockMails.at(-1)) }
+      body: { code: codeFrom(lockMails.at(-1)) },
     });
     check('a resend clears the lock and the new code works', () => {
       assert.equal(recoveredLock.status, 200, JSON.stringify(recoveredLock.data));
@@ -252,7 +251,7 @@ async function run() {
     const gateAttempt = await api('/api/auth/recovery-email', {
       method: 'POST',
       cookie: gate.cookie,
-      body: { email: 'gate18.backup@example.com' }
+      body: { email: 'gate18.backup@example.com' },
     });
     check('a recovery email needs a verified primary address', () => {
       assert.equal(gateAttempt.status, 403, JSON.stringify(gateAttempt.data));
@@ -263,7 +262,7 @@ async function run() {
     const primaryAttempt = await api('/api/auth/recovery-email', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { email: 'alice18@example.com' }
+      body: { email: 'alice18@example.com' },
     });
     check('the primary address cannot also be the backup', () => {
       assert.equal(primaryAttempt.status, 400, JSON.stringify(primaryAttempt.data));
@@ -272,7 +271,7 @@ async function run() {
     const addBackup = await api('/api/auth/recovery-email', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { email: 'alice18.backup@example.com' }
+      body: { email: 'alice18.backup@example.com' },
     });
     check('a verified account can start adding a backup address', () => {
       assert.equal(addBackup.status, 202, JSON.stringify(addBackup.data));
@@ -290,7 +289,7 @@ async function run() {
     const wrongSetup = await api('/api/auth/recovery-email/verify', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { code: wrongCodeFor(setupCode) }
+      body: { code: wrongCodeFor(setupCode) },
     });
     check('a wrong backup code is refused', () => {
       assert.equal(wrongSetup.status, 400, JSON.stringify(wrongSetup.data));
@@ -300,7 +299,7 @@ async function run() {
     const confirmedBackup = await api('/api/auth/recovery-email/verify', {
       method: 'POST',
       cookie: alice.cookie,
-      body: { code: setupCode }
+      body: { code: setupCode },
     });
     const eligibleAt = new Date(confirmedBackup.data?.recoveryEligibleAt || 0).getTime();
     check('the right backup code stores the address with a cooling-off date', () => {
@@ -311,10 +310,11 @@ async function run() {
     });
 
     const noticeToPrimary = getOutbox().some(
-      (item) => item.to === 'alice18@example.com' && /Recovery email added/.test(item.subject)
+      (item) => item.to === 'alice18@example.com' && /Recovery email added/.test(item.subject),
     );
     const noticeToBackup = getOutbox().some(
-      (item) => item.to === 'alice18.backup@example.com' && /Recovery email added/.test(item.subject)
+      (item) =>
+        item.to === 'alice18.backup@example.com' && /Recovery email added/.test(item.subject),
     );
     check('both inboxes are told about the new recovery path', () => {
       assert.equal(noticeToPrimary, true);
@@ -325,12 +325,9 @@ async function run() {
     resetOutbox();
     const earlyStart = await api('/api/auth/recovery/start', {
       method: 'POST',
-      body: { username: 'alice18', recoveryEmail: 'alice18.backup@example.com' }
+      body: { username: 'alice18', recoveryEmail: 'alice18.backup@example.com' },
     });
-    const noMailDuringWait = await expectNoMail(
-      'alice18.backup@example.com',
-      RECOVERY_SUBJECT
-    );
+    const noMailDuringWait = await expectNoMail('alice18.backup@example.com', RECOVERY_SUBJECT);
     check('recovery inside the waiting period sends nothing', () => {
       assert.equal(earlyStart.status, 202);
       assert.equal(noMailDuringWait, true);
@@ -338,11 +335,11 @@ async function run() {
 
     const wrongAddressStart = await api('/api/auth/recovery/start', {
       method: 'POST',
-      body: { username: 'alice18', recoveryEmail: 'stranger18@example.com' }
+      body: { username: 'alice18', recoveryEmail: 'stranger18@example.com' },
     });
     const unknownStart = await api('/api/auth/recovery/start', {
       method: 'POST',
-      body: { username: 'nobody_here_18', recoveryEmail: 'stranger18@example.com' }
+      body: { username: 'nobody_here_18', recoveryEmail: 'stranger18@example.com' },
     });
     check('recovery start looks the same for wrong and unknown details', () => {
       assert.deepEqual(wrongAddressStart.data, earlyStart.data);
@@ -352,21 +349,18 @@ async function run() {
 
     await User.updateOne(
       { _id: alice.id },
-      { $set: { recoveryEligibleAt: new Date(Date.now() - 1000) } }
+      { $set: { recoveryEligibleAt: new Date(Date.now() - 1000) } },
     );
     const start = await api('/api/auth/recovery/start', {
       method: 'POST',
-      body: { username: 'alice18', recoveryEmail: 'alice18.backup@example.com' }
+      body: { username: 'alice18', recoveryEmail: 'alice18.backup@example.com' },
     });
     const recoveryMail = await waitForMail('alice18.backup@example.com', RECOVERY_SUBJECT);
     const recoveryCode = codeFrom(recoveryMail);
 
     check('an eligible recovery sends a code to the backup address only', () => {
       assert.equal(start.status, 202);
-      assert.equal(
-        getOutbox().filter((item) => item.subject === RECOVERY_SUBJECT).length,
-        1
-      );
+      assert.equal(getOutbox().filter((item) => item.subject === RECOVERY_SUBJECT).length, 1);
       assert.doesNotMatch(recoveryMail.text, /verify-email\?token=/);
     });
 
@@ -375,8 +369,8 @@ async function run() {
       body: {
         username: 'alice18',
         code: wrongCodeFor(recoveryCode),
-        newPassword: 'recovered123'
-      }
+        newPassword: 'recovered123',
+      },
     });
     check('a wrong recovery code cannot reset the password', () => {
       assert.equal(wrongRecovery.status, 400, JSON.stringify(wrongRecovery.data));
@@ -387,8 +381,8 @@ async function run() {
       body: {
         username: 'alice18',
         code: recoveryCode,
-        newPassword: 'recovered123'
-      }
+        newPassword: 'recovered123',
+      },
     });
     check('the right recovery code sets a new password', () => {
       assert.equal(recovery.status, 200, JSON.stringify(recovery.data));
@@ -397,11 +391,11 @@ async function run() {
 
     const oldPassword = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice18@example.com', password: 'password123' }
+      body: { email: 'alice18@example.com', password: 'password123' },
     });
     const newPassword = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice18@example.com', password: 'recovered123' }
+      body: { email: 'alice18@example.com', password: 'recovered123' },
     });
     check('recovery replaces the password and revokes the old one', () => {
       assert.equal(oldPassword.status, 401);
@@ -424,7 +418,7 @@ async function run() {
 
     const backupLogin = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice18.backup@example.com', password: 'recovered123' }
+      body: { email: 'alice18.backup@example.com', password: 'recovered123' },
     });
     check('the backup address is not a sign-in identity', () => {
       assert.equal(backupLogin.status, 401);
@@ -433,11 +427,11 @@ async function run() {
     // ── removing the backup path kills recovery in flight ──────────────────
     const login = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'alice18@example.com', password: 'recovered123' }
+      body: { email: 'alice18@example.com', password: 'recovered123' },
     });
     const remove = await api('/api/auth/recovery-email', {
       method: 'DELETE',
-      cookie: login.cookie
+      cookie: login.cookie,
     });
     const afterRemove = await api('/api/auth/me', { cookie: login.cookie });
     check('removing the recovery email clears the stored address', () => {
@@ -456,7 +450,7 @@ async function run() {
       await sendVerificationCodeEmail({
         to: 'redact18@example.com',
         username: 'redact18',
-        code: '12345678'
+        code: '12345678',
       });
     } finally {
       console.log = originalLog;

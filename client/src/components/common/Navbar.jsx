@@ -13,19 +13,67 @@ const NAV_ITEMS = [
   { to: '/channels', label: 'Channels', icon: 'broadcast' },
   { to: '/communities', label: 'Servers', icon: 'servers' },
   { to: '/lfg', label: 'LFG', icon: 'target' },
-  { to: '/games', label: 'Games', icon: 'gamepad' }
+  { to: '/games', label: 'Games', icon: 'gamepad' },
 ];
 
 const PATHS = {
-  home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V21h13V9.5" /></>,
-  servers: <><rect x="3.5" y="4" width="17" height="6" rx="2" /><rect x="3.5" y="14" width="17" height="6" rx="2" /><path d="M7 7h.01M7 17h.01" /></>,
-  target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></>,
-  gamepad: <><rect x="2.5" y="7" width="19" height="10" rx="5" /><path d="M7 10v4M5 12h4" /><circle cx="16" cy="11" r="0.9" fill="currentColor" stroke="none" /><circle cx="18.5" cy="13.5" r="0.9" fill="currentColor" stroke="none" /></>,
-  compass: <><circle cx="12" cy="12" r="8.4" /><path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2z" /></>,
-  broadcast: <><circle cx="12" cy="12" r="2" /><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4" /></>,
-  film: <><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M8 4.5v15M16 4.5v15M3.5 9h4.5M3.5 15h4.5M16 9h4.5M16 15h4.5" /></>,
-  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-6.2 8-6.2s8 2.2 8 6.2" /></>,
-  admin: <><path d="M12 3l8 3v6c0 5-3.8 8.2-8 9-4.2-.8-8-4-8-9V6z" /><path d="m9 12 2 2 4-4" /></>
+  home: (
+    <>
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5.5 9.5V21h13V9.5" />
+    </>
+  ),
+  servers: (
+    <>
+      <rect x="3.5" y="4" width="17" height="6" rx="2" />
+      <rect x="3.5" y="14" width="17" height="6" rx="2" />
+      <path d="M7 7h.01M7 17h.01" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  gamepad: (
+    <>
+      <rect x="2.5" y="7" width="19" height="10" rx="5" />
+      <path d="M7 10v4M5 12h4" />
+      <circle cx="16" cy="11" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="13.5" r="0.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="8.4" />
+      <path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2z" />
+    </>
+  ),
+  broadcast: (
+    <>
+      <circle cx="12" cy="12" r="2" />
+      <path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4" />
+    </>
+  ),
+  film: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <path d="M8 4.5v15M16 4.5v15M3.5 9h4.5M3.5 15h4.5M16 9h4.5M16 15h4.5" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-6.2 8-6.2s8 2.2 8 6.2" />
+    </>
+  ),
+  admin: (
+    <>
+      <path d="M12 3l8 3v6c0 5-3.8 8.2-8 9-4.2-.8-8-4-8-9V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
 };
 
 const Glyph = ({ name, className = 'glyph' }) => (
@@ -48,9 +96,9 @@ const Glyph = ({ name, className = 'glyph' }) => (
 
 // Discover is a full navbar/drawer destination but not a fifth bottom-dock
 // slot; the dock is already at its comfortable width on a phone.
-const DOCK_ITEMS = NAV_ITEMS.filter((item) => (
-  item.to !== '/discover' && item.to !== '/clips' && item.to !== '/channels'
-));
+const DOCK_ITEMS = NAV_ITEMS.filter(
+  (item) => item.to !== '/discover' && item.to !== '/clips' && item.to !== '/channels',
+);
 
 const navClass = ({ isActive }) => `navbar-link${isActive ? ' active' : ''}`;
 const drawerClass = ({ isActive }) => `drawer-link${isActive ? ' active' : ''}`;
@@ -65,12 +113,16 @@ const Navbar = () => {
   const dmTotal = (dmCounts.requests || 0) + (dmCounts.unread || 0);
 
   // A route change should never leave the drawer hanging over the new page.
-  useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   // Resizing past the compact breakpoint makes the drawer meaningless.
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 861px)');
-    const onChange = (event) => { if (event.matches) setDrawerOpen(false); };
+    const onChange = (event) => {
+      if (event.matches) setDrawerOpen(false);
+    };
     desktop.addEventListener('change', onChange);
     return () => desktop.removeEventListener('change', onChange);
   }, []);
@@ -113,7 +165,7 @@ const Navbar = () => {
           </Link>
 
           <div className="navbar-links">
-            {items.map(item => (
+            {items.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={navClass}>
                 <Glyph name={item.icon} className="nav-link-icon" />
                 <span>{item.label}</span>
@@ -145,13 +197,21 @@ const Navbar = () => {
                 >
                   <SettingsIcon size={17} />
                 </Link>
-                <Link to={`/u/${user.username}`} className="navbar-username">{user.username}</Link>
-                <button className="btn btn-ghost btn-sm navbar-logout" onClick={handleLogout}>Log out</button>
+                <Link to={`/u/${user.username}`} className="navbar-username">
+                  {user.username}
+                </Link>
+                <button className="btn btn-ghost btn-sm navbar-logout" onClick={handleLogout}>
+                  Log out
+                </button>
               </>
             ) : (
               <>
-                <Link to="/login" className="btn btn-ghost btn-sm">Log in</Link>
-                <Link to="/register" className="btn btn-primary btn-sm">Join</Link>
+                <Link to="/login" className="btn btn-ghost btn-sm">
+                  Log in
+                </Link>
+                <Link to="/register" className="btn btn-primary btn-sm">
+                  Join
+                </Link>
               </>
             )}
 
@@ -160,7 +220,7 @@ const Navbar = () => {
               className="navbar-menu-btn"
               aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={drawerOpen}
-              onClick={() => setDrawerOpen(v => !v)}
+              onClick={() => setDrawerOpen((v) => !v)}
             >
               {drawerOpen ? <CloseIcon size={20} /> : <MenuIcon size={20} />}
             </button>
@@ -204,7 +264,7 @@ const Navbar = () => {
             <span>Messages</span>
             {dmTotal > 0 && <span className="drawer-badge">{dmTotal > 9 ? '9+' : dmTotal}</span>}
           </NavLink>
-          {items.map(item => (
+          {items.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} className={drawerClass}>
               <Glyph name={item.icon} className="drawer-icon" />
               <span>{item.label}</span>
@@ -224,7 +284,9 @@ const Navbar = () => {
               </span>
             </Link>
             <div className="drawer-actions">
-              <Link to="/settings" className="btn btn-ghost btn-sm">Account settings</Link>
+              <Link to="/settings" className="btn btn-ghost btn-sm">
+                Account settings
+              </Link>
               <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
                 Log out
               </button>
@@ -232,14 +294,18 @@ const Navbar = () => {
           </>
         ) : (
           <div className="drawer-actions">
-            <Link to="/login" className="btn btn-ghost btn-sm">Log in</Link>
-            <Link to="/register" className="btn btn-primary btn-sm">Create account</Link>
+            <Link to="/login" className="btn btn-ghost btn-sm">
+              Log in
+            </Link>
+            <Link to="/register" className="btn btn-primary btn-sm">
+              Create account
+            </Link>
           </div>
         )}
       </aside>
 
       <nav className="bottom-dock" aria-label="Primary navigation">
-        {DOCK_ITEMS.map(item => (
+        {DOCK_ITEMS.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end} className={dockClass}>
             <Glyph name={item.icon} className="dock-icon" />
             <span className="dock-label">{item.label}</span>
@@ -247,7 +313,9 @@ const Navbar = () => {
         ))}
         {user ? (
           <NavLink to={`/u/${user.username}`} className={dockClass}>
-            <span className="dock-avatar" aria-hidden="true">{initial}</span>
+            <span className="dock-avatar" aria-hidden="true">
+              {initial}
+            </span>
             <span className="dock-label">Profile</span>
           </NavLink>
         ) : (

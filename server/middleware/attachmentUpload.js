@@ -13,14 +13,14 @@ const attachmentUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: MAX_ATTACHMENT_BYTES,
-    files: 1
+    files: 1,
   },
   fileFilter: (req, file, cb) => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
       return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'file'));
     }
     return cb(null, true);
-  }
+  },
 });
 
 module.exports = attachmentUpload;

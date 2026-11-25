@@ -10,12 +10,12 @@ const RegisterForm = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const togglePlatform = p =>
-    setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  const togglePlatform = (p) =>
+    setPlatforms((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -34,7 +34,9 @@ const RegisterForm = () => {
     <form onSubmit={handleSubmit}>
       {error && <div className="form-error">{error}</div>}
       <div className="form-group">
-        <label className="form-label" htmlFor="reg-username">Username</label>
+        <label className="form-label" htmlFor="reg-username">
+          Username
+        </label>
         <input
           id="reg-username"
           className="form-input"
@@ -47,7 +49,9 @@ const RegisterForm = () => {
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="reg-email">Email</label>
+        <label className="form-label" htmlFor="reg-email">
+          Email
+        </label>
         <input
           id="reg-email"
           className="form-input"
@@ -60,7 +64,9 @@ const RegisterForm = () => {
         />
       </div>
       <div className="form-group">
-        <label className="form-label" htmlFor="reg-password">Password</label>
+        <label className="form-label" htmlFor="reg-password">
+          Password
+        </label>
         <input
           id="reg-password"
           className="form-input"
@@ -75,7 +81,7 @@ const RegisterForm = () => {
       <div className="form-group">
         <label className="form-label">Preferred Platforms</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
-          {PLATFORMS.map(p => (
+          {PLATFORMS.map((p) => (
             <button
               key={p}
               type="button"

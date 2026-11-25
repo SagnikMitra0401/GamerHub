@@ -3,12 +3,12 @@ import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 
 const OPTIONS = [
-  { key: 'online',    label: 'Online',    hint: 'Visible and available' },
-  { key: 'in_game',   label: 'Playing',   hint: 'Show the game you are in' },
-  { key: 'invisible', label: 'Invisible', hint: 'Appear offline to everyone' }
+  { key: 'online', label: 'Online', hint: 'Visible and available' },
+  { key: 'in_game', label: 'Playing', hint: 'Show the game you are in' },
+  { key: 'invisible', label: 'Invisible', hint: 'Appear offline to everyone' },
 ];
 
-const metaFor = (status) => OPTIONS.find(o => o.key === status) || OPTIONS[0];
+const metaFor = (status) => OPTIONS.find((o) => o.key === status) || OPTIONS[0];
 
 const PresencePill = () => {
   const { user, updateUser } = useAuth();
@@ -43,7 +43,7 @@ const PresencePill = () => {
     try {
       const { data } = await axiosInstance.patch('/users/presence', {
         status: nextStatus,
-        activeGame: nextStatus === 'in_game' ? nextGame : ''
+        activeGame: nextStatus === 'in_game' ? nextGame : '',
       });
       updateUser({ presence: data.presence });
       setOpen(false);
@@ -67,7 +67,11 @@ const PresencePill = () => {
         className="presence-pill"
         aria-label="Set your presence"
         aria-expanded={open}
-        onClick={() => { setOpen(v => !v); setPickingGame(false); setError(''); }}
+        onClick={() => {
+          setOpen((v) => !v);
+          setPickingGame(false);
+          setError('');
+        }}
       >
         <span aria-hidden="true" className={`presence-dot ${meta.key}`} />
         <span className="presence-label">
@@ -79,7 +83,7 @@ const PresencePill = () => {
         <div className="presence-menu" role="menu">
           {!pickingGame ? (
             <>
-              {OPTIONS.map(option => (
+              {OPTIONS.map((option) => (
                 <button
                   key={option.key}
                   type="button"
@@ -91,17 +95,25 @@ const PresencePill = () => {
                   <span aria-hidden="true" className={`presence-dot ${option.key}`} />
                   <span className="presence-option-text">
                     <strong>
-                      {option.key === 'in_game' && activeGame ? `Playing ${activeGame}` : option.label}
+                      {option.key === 'in_game' && activeGame
+                        ? `Playing ${activeGame}`
+                        : option.label}
                     </strong>
                     <small>{option.hint}</small>
                   </span>
                 </button>
               ))}
-              {error && <div className="form-error" style={{ margin: '0.35rem 0.5rem' }}>{error}</div>}
+              {error && (
+                <div className="form-error" style={{ margin: '0.35rem 0.5rem' }}>
+                  {error}
+                </div>
+              )}
             </>
           ) : (
             <div className="presence-game">
-              <label className="form-label" htmlFor="presence-game-input">What are you playing?</label>
+              <label className="form-label" htmlFor="presence-game-input">
+                What are you playing?
+              </label>
               <input
                 id="presence-game-input"
                 className="form-input"
@@ -109,12 +121,14 @@ const PresencePill = () => {
                 maxLength={60}
                 autoFocus
                 placeholder="e.g. Valorant"
-                onChange={e => setGame(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && game.trim()) save('in_game', game.trim()); }}
+                onChange={(e) => setGame(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && game.trim()) save('in_game', game.trim());
+                }}
               />
               {(user.preferences?.favoriteGames || []).length > 0 && (
                 <div className="presence-suggestions">
-                  {user.preferences.favoriteGames.slice(0, 5).map(fav => (
+                  {user.preferences.favoriteGames.slice(0, 5).map((fav) => (
                     <button
                       key={fav}
                       type="button"
@@ -128,7 +142,11 @@ const PresencePill = () => {
               )}
               {error && <div className="form-error">{error}</div>}
               <div className="presence-actions">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPickingGame(false)}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setPickingGame(false)}
+                >
                   Back
                 </button>
                 <button

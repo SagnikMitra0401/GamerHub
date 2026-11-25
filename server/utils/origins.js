@@ -70,4 +70,10 @@ function resetOriginCache() {
   cached = null;
 }
 
-module.exports = { isAllowedOrigin, corsOrigin, configuredOrigins, resetOriginCache, isLoopbackOrigin };
+module.exports = {
+  isAllowedOrigin,
+  corsOrigin,
+  configuredOrigins,
+  resetOriginCache,
+  isLoopbackOrigin,
+};

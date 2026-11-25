@@ -19,9 +19,7 @@ let serverErrors = 0;
 /** `/api/posts/64f.../likes` -> `/api/posts/:id/likes` so buckets stay bounded. */
 function normalizePath(originalUrl = '') {
   const path = originalUrl.split('?')[0] || '/';
-  return path
-    .replace(/\/[0-9a-fA-F]{24}(?=\/|$)/g, '/:id')
-    .slice(0, 120);
+  return path.replace(/\/[0-9a-fA-F]{24}(?=\/|$)/g, '/:id').slice(0, 120);
 }
 
 function record(method, path, statusCode, durationMs) {
@@ -74,7 +72,7 @@ function snapshot() {
       count: m.count,
       errors: m.errors,
       avgMs: Math.round((m.totalMs / m.count) * 100) / 100,
-      maxMs: Math.round(m.maxMs * 100) / 100
+      maxMs: Math.round(m.maxMs * 100) / 100,
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 15);
@@ -90,7 +88,7 @@ function snapshot() {
     topRoutes,
     rateLimits: [...rateLimits.entries()]
       .map(([name, hits]) => ({ name, hits }))
-      .sort((a, b) => b.hits - a.hits)
+      .sort((a, b) => b.hits - a.hits),
   };
 }
 
@@ -108,5 +106,5 @@ module.exports = {
   snapshot,
   resetMetrics,
   normalizePath,
-  recordRateLimit
+  recordRateLimit,
 };

@@ -64,7 +64,7 @@ function createRedisClient() {
     token: creds.token,
     // One retry keeps a transient blip from turning into a request failure;
     // the cache layer degrades for 30s after a second failure anyway.
-    retry: { retries: 1, backoff: () => 50 }
+    retry: { retries: 1, backoff: () => 50 },
   });
   return client;
 }

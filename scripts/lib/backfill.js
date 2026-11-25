@@ -31,7 +31,7 @@ async function writeCheckpoint(key, lastId, processed) {
   await checkpointCollection().updateOne(
     { _id: key },
     { $set: { lastId, processed, updatedAt: new Date() } },
-    { upsert: true }
+    { upsert: true },
   );
 }
 
@@ -54,7 +54,7 @@ async function runBackfill({
   checkpointKey = null,
   dryRun = false,
   throttleMs = 25,
-  log = console.log
+  log = console.log,
 }) {
   if (!model || typeof apply !== 'function') {
     throw new Error('runBackfill needs a model and an apply(docs) function');

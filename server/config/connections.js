@@ -34,7 +34,7 @@ const DOMAIN_LIMITS = Object.freeze({
   auth: 10,
   feed: 15,
   communities: 20,
-  squads: 20
+  squads: 20,
 });
 
 /** Squads are the only domain with its own driver connection. */
@@ -58,9 +58,10 @@ function domainUri(domain) {
 }
 
 const connectionOptions = (domain) => ({
-  maxPoolSize: Number(process.env[`MONGO_MAX_POOL_SIZE_${domain.toUpperCase()}`]) || DOMAIN_LIMITS[domain],
+  maxPoolSize:
+    Number(process.env[`MONGO_MAX_POOL_SIZE_${domain.toUpperCase()}`]) || DOMAIN_LIMITS[domain],
   serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000
+  socketTimeoutMS: 45000,
 });
 
 /**
@@ -104,7 +105,7 @@ function domainStatus() {
     feed: read(mongoose.connection),
     communities: read(mongoose.connection),
     squads: read(getDomainConnection('squads')),
-    squadsIsolated: getDomainConnection('squads') !== mongoose.connection
+    squadsIsolated: getDomainConnection('squads') !== mongoose.connection,
   };
 }
 
@@ -125,5 +126,5 @@ module.exports = {
   squadModel,
   domainStatus,
   closeDomainConnections,
-  connectionOptions
+  connectionOptions,
 };

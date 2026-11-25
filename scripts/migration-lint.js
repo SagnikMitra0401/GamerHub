@@ -25,7 +25,7 @@ const FILENAME = /^\d{14}-[a-z0-9][a-z0-9-]*\.js$/;
 const FORBIDDEN = [
   { pattern: /deleteMany\s*\(\s*\{\s*\}\s*\)/, message: 'unfiltered deleteMany({})' },
   { pattern: /\.dropDatabase\s*\(/, message: 'dropDatabase()' },
-  { pattern: /\.drop\s*\(\s*\)/, message: 'collection.drop()' }
+  { pattern: /\.drop\s*\(\s*\)/, message: 'collection.drop()' },
 ];
 
 /**
@@ -53,8 +53,13 @@ function lintSource(source, { file = 'migration.js', domain = null } = {}) {
   if (domain && !LINT_DOMAINS.includes(domain)) {
     errors.push(`${file}: unknown domain "${domain}"`);
   }
-  if (domain && /db\.collection\(\s*'(users|posts|communities|messages)'\s*\)/.test(text)
-      && domain !== 'auth' && domain !== 'feed' && domain !== 'communities') {
+  if (
+    domain &&
+    /db\.collection\(\s*'(users|posts|communities|messages)'\s*\)/.test(text) &&
+    domain !== 'auth' &&
+    domain !== 'feed' &&
+    domain !== 'communities'
+  ) {
     warnings.push(`${file}: writes another domain's collection`);
   }
 
@@ -89,7 +94,7 @@ function run() {
   for (const entry of files) {
     const result = lintSource(fs.readFileSync(entry.full, 'utf8'), {
       file: entry.file,
-      domain: entry.domain
+      domain: entry.domain,
     });
     errors.push(...result.errors);
     warnings.push(...result.warnings);
@@ -98,7 +103,9 @@ function run() {
   for (const warning of warnings) console.log(`WARN  ${warning}`);
   for (const error of errors) console.error(`FAIL  ${error}`);
 
-  console.log(`\nMigration lint: ${files.length} file(s), ${errors.length} error(s), ${warnings.length} warning(s)`);
+  console.log(
+    `\nMigration lint: ${files.length} file(s), ${errors.length} error(s), ${warnings.length} warning(s)`,
+  );
   if (errors.length) process.exit(1);
 }
 

@@ -10,14 +10,14 @@ const {
   normalizeTags,
   escapeRegex,
   isHttpUrl,
-  decodeHtmlEntities
+  decodeHtmlEntities,
 } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
 
 test('message normalisation strips hostile characters', () => {
   assert.deepEqual(normalizeMessageText('  hello\u0000 world  ', CHAT_POLICY), {
     ok: true,
-    text: 'hello world'
+    text: 'hello world',
   });
 
   // Bidi override + zero width hidden text
@@ -62,7 +62,7 @@ test('link previews only accept http(s) URLs', () => {
     description: 'desc',
     image: 'javascript:alert(1)',
     siteName: 'Example',
-    injected: 'nope'
+    injected: 'nope',
   });
 
   assert.equal(clean.url, 'https://example.com/page');
@@ -114,6 +114,6 @@ test('pagination is NaN-proof', () => {
   assert.deepEqual(parsePagination({ page: '999999', limit: '9999' }), {
     page: 10_000,
     limit: 50,
-    skip: 9_999 * 50
+    skip: 9_999 * 50,
   });
 });

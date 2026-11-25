@@ -8,7 +8,14 @@ import React, { useEffect, useState } from 'react';
  * transient network error. The fallback keeps the layout meaningful instead of
  * showing an empty image icon.
  */
-const SafeImage = ({ src, alt = '', fallback = null, onError, referrerPolicy = 'no-referrer', ...props }) => {
+const SafeImage = ({
+  src,
+  alt = '',
+  fallback = null,
+  onError,
+  referrerPolicy = 'no-referrer',
+  ...props
+}) => {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {

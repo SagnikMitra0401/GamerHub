@@ -8,7 +8,7 @@ const {
   closeChatForSquad,
   addMemberToChat,
   removeMemberFromChat,
-  toChatView
+  toChatView,
 } = require('../utils/squadChatService');
 const { notifyUser } = require('../utils/notify');
 const {
@@ -16,7 +16,7 @@ const {
   normalizePartyInput,
   canRequestJoin,
   membershipOf,
-  MAX_REQUEST_MESSAGE
+  MAX_REQUEST_MESSAGE,
 } = require('../utils/partyRules');
 const { sanitizeLine } = require('../utils/sanitize');
 const { parsePagination } = require('../utils/pagination');
@@ -30,7 +30,7 @@ const MEMBER_FIELDS = 'username level role presence';
 const POPULATE = [
   { path: 'leaderId', select: LEADER_FIELDS },
   { path: 'members.userId', select: MEMBER_FIELDS },
-  { path: 'requests.userId', select: 'username level role' }
+  { path: 'requests.userId', select: 'username level role' },
 ];
 
 const { publicPresence } = require('../utils/presence');
@@ -46,7 +46,7 @@ function publicPlayer(user) {
     username: user.username,
     level: user.level,
     role: user.role,
-    presence: publicPresence(user.presence)
+    presence: publicPresence(user.presence),
   };
 }
 
@@ -72,7 +72,8 @@ function toPartyView(party, viewerId) {
     lockedAt: party.lockedAt || null,
     // The chat id is only meaningful to a participant; the service still
     // re-checks membership on every read, so this is not the access control.
-    chatId: membershipOf(party, viewerId) === 'none' ? null : (party.chatId ? String(party.chatId) : null),
+    chatId:
+      membershipOf(party, viewerId) === 'none' ? null : party.chatId ? String(party.chatId) : null,
     // Enriched by attachChatMeta() when the caller is a participant.
     chat: null,
     requirements: party.requirements || { minRank: '', micRequired: false },
@@ -80,19 +81,19 @@ function toPartyView(party, viewerId) {
     members: (party.members || []).map((m) => ({
       user: publicPlayer(m.userId),
       role: m.role,
-      joinedAt: m.joinedAt
+      joinedAt: m.joinedAt,
     })),
     requestCount: isLeader ? (party.requests || []).length : undefined,
     requests: isLeader
       ? (party.requests || []).map((r) => ({
           user: publicPlayer(r.userId),
           message: r.message,
-          requestedAt: r.requestedAt
+          requestedAt: r.requestedAt,
         }))
       : undefined,
     viewerMembership: membershipOf(party, viewerId),
     createdAt: party.createdAt,
-    expiresAt: party.expiresAt
+    expiresAt: party.expiresAt,
   };
 }
 
@@ -103,7 +104,6 @@ function toPartyView(party, viewerId) {
 async function attachChatMeta(views, viewerId) {
   const chatIds = views.map((view) => view.chatId).filter(Boolean);
   if (!chatIds.length) return views;
-
 
   const chats = await SquadChat.find({ _id: { $in: chatIds } }).lean();
   const byId = new Map(chats.map((chat) => [String(chat._id), chat]));
@@ -126,8 +126,8 @@ function broadcastSlotUpdate(party) {
     openSlots: openSlots(party),
     members: (party.members || []).map((m) => ({
       userId: idOf(m.userId),
-      username: m.userId?.username || null
-    }))
+      username: m.userId?.username || null,
+    })),
   });
 }
 
@@ -154,19 +154,14 @@ const listParties = async (req, res, next) => {
 
     const [total, parties] = await Promise.all([
       Party.countDocuments(query),
-      Party.find(query)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate(POPULATE)
-        .lean()
+      Party.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).populate(POPULATE).lean(),
     ]);
 
     const items = await attachChatMeta(
       parties
         .map((p) => toPartyView(p, req.user?._id))
         .filter((p) => (req.query.openSlots === '1' ? p.openSlots > 0 : true)),
-      req.user?._id
+      req.user?._id,
     );
 
     res.status(200).json({ items, total, page, limit });
@@ -181,7 +176,7 @@ const listMyParties = async (req, res, next) => {
     const userId = req.user._id;
     const parties = await Party.find({
       $or: [{ leaderId: userId }, { 'members.userId': userId }],
-      status: { $ne: 'closed' }
+      status: { $ne: 'closed' },
     })
       .sort({ createdAt: -1 })
       .limit(20)
@@ -189,7 +184,10 @@ const listMyParties = async (req, res, next) => {
       .lean();
 
     res.status(200).json({
-      items: await attachChatMeta(parties.map((p) => toPartyView(p, userId)), userId)
+      items: await attachChatMeta(
+        parties.map((p) => toPartyView(p, userId)),
+        userId,
+      ),
     });
   } catch (err) {
     next(err);
@@ -206,7 +204,7 @@ const createParty = async (req, res, next) => {
       ...value,
       leaderId: req.user._id,
       members: [{ userId: req.user._id, role: 'leader', joinedAt: new Date() }],
-      status: 'open'
+      status: 'open',
     });
 
     // A squad title is a real catalog reference too; an unknown title becomes a
@@ -257,10 +255,10 @@ const requestJoin = async (req, res, next) => {
         _id: party._id,
         status: 'open',
         'requests.userId': { $ne: req.user._id },
-        'members.userId': { $ne: req.user._id }
+        'members.userId': { $ne: req.user._id },
       },
       { $push: { requests: { userId: req.user._id, message, requestedAt: new Date() } } },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) throw conflict('That request could not be sent. The squad may have changed.');
@@ -273,15 +271,17 @@ const requestJoin = async (req, res, next) => {
       title: `New squad request from @${req.user.username}`,
       message: `${req.user.username} wants to join your ${updated.gameTitle} squad${message ? `: “${message}”` : '.'}`,
       actionUrl: '/lfg',
-      metadata: { partyId: String(updated._id), requesterId: String(req.user._id) }
+      metadata: { partyId: String(updated._id), requesterId: String(req.user._id) },
     });
 
-    getIO()?.to(`user:${leaderId}`).emit('lfg_join_request', {
-      partyId: String(updated._id),
-      gameTitle: updated.gameTitle,
-      requester: { _id: String(req.user._id), username: req.user.username },
-      message
-    });
+    getIO()
+      ?.to(`user:${leaderId}`)
+      .emit('lfg_join_request', {
+        partyId: String(updated._id),
+        gameTitle: updated.gameTitle,
+        requester: { _id: String(req.user._id), username: req.user.username },
+        message,
+      });
 
     res.status(200).json({ requested: true, partyId: String(updated._id) });
   } catch (err) {
@@ -314,8 +314,10 @@ const respondToRequest = async (req, res, next) => {
       const updated = await Party.findByIdAndUpdate(
         party._id,
         { $pull: { requests: { userId: applicantId } } },
-        { new: true }
-      ).populate(POPULATE).lean();
+        { new: true },
+      )
+        .populate(POPULATE)
+        .lean();
 
       broadcastSlotUpdate(updated);
       const rejectView = toPartyView(updated, req.user._id);
@@ -330,13 +332,13 @@ const respondToRequest = async (req, res, next) => {
         _id: party._id,
         status: 'open',
         'requests.userId': applicantId,
-        'members.userId': { $ne: applicantId }
+        'members.userId': { $ne: applicantId },
       },
       {
         $pull: { requests: { userId: applicantId } },
-        $push: { members: { userId: applicantId, role: 'member', joinedAt: new Date() } }
+        $push: { members: { userId: applicantId, role: 'member', joinedAt: new Date() } },
       },
-      { new: true }
+      { new: true },
     );
 
     if (!joined) throw conflict('That player could not be added. The squad may have changed.');
@@ -367,7 +369,7 @@ const respondToRequest = async (req, res, next) => {
       title: `You joined a ${joined.gameTitle} squad`,
       message: `@${req.user.username} accepted your request. Check the LFG board for details.`,
       actionUrl: '/lfg',
-      metadata: { partyId: String(joined._id), leaderId: String(req.user._id) }
+      metadata: { partyId: String(joined._id), leaderId: String(req.user._id) },
     });
 
     const populated = await Party.findById(joined._id).populate(POPULATE).lean();
@@ -397,16 +399,18 @@ const closeParty = async (req, res, next) => {
 
     await Party.updateOne(
       { _id: party._id },
-      { $set: { status: 'closed', state: 'cancelled', completedAt: new Date() } }
+      { $set: { status: 'closed', state: 'cancelled', completedAt: new Date() } },
     );
 
     // Closing a squad ends its temporary chat; the thread is not kept alive.
     const closedChat = await closeChatForSquad(party._id);
     if (closedChat) {
-      getIO()?.to(`squad:${closedChat._id}`).emit('squad_chat_closed', {
-        chatId: String(closedChat._id),
-        reason: 'The squad was closed.'
-      });
+      getIO()
+        ?.to(`squad:${closedChat._id}`)
+        .emit('squad_chat_closed', {
+          chatId: String(closedChat._id),
+          reason: 'The squad was closed.',
+        });
     }
 
     getIO()?.emit('lfg_slot_updated', {
@@ -414,7 +418,7 @@ const closeParty = async (req, res, next) => {
       status: 'closed',
       openSlots: 0,
       maxSlots: party.maxSlots,
-      members: []
+      members: [],
     });
 
     res.status(200).json({ closed: true, partyId: String(party._id) });
@@ -450,11 +454,13 @@ const lockParty = async (req, res, next) => {
           status: 'full',
           state: party.state === 'recruiting' ? 'locked' : party.state,
           lockedAt: party.lockedAt || new Date(),
-          chatId: chat._id
-        }
+          chatId: chat._id,
+        },
       },
-      { new: true }
-    ).populate(POPULATE).lean();
+      { new: true },
+    )
+      .populate(POPULATE)
+      .lean();
 
     broadcastSlotUpdate(updated);
 
@@ -483,8 +489,10 @@ const unlockParty = async (req, res, next) => {
     const updated = await Party.findByIdAndUpdate(
       party._id,
       { $set: { status: 'open', state: 'recruiting' } },
-      { new: true }
-    ).populate(POPULATE).lean();
+      { new: true },
+    )
+      .populate(POPULATE)
+      .lean();
 
     broadcastSlotUpdate(updated);
     const view = toPartyView(updated, req.user._id);
@@ -514,10 +522,7 @@ const leaveParty = async (req, res, next) => {
       throw notFound('You are not in this squad.');
     }
 
-    await Party.updateOne(
-      { _id: party._id },
-      { $pull: { members: { userId: req.user._id } } }
-    );
+    await Party.updateOne({ _id: party._id }, { $pull: { members: { userId: req.user._id } } });
 
     const chat = await removeMemberFromChat(party._id, req.user._id);
     if (chat) evictUserFromSquadChat(req.user._id, chat._id);
@@ -528,7 +533,7 @@ const leaveParty = async (req, res, next) => {
       title: `@${req.user.username} left your squad`,
       message: `The ${party.gameTitle} squad has an open slot again.`,
       actionUrl: '/lfg',
-      metadata: { partyId: String(party._id), departedId: String(req.user._id) }
+      metadata: { partyId: String(party._id), departedId: String(req.user._id) },
     });
 
     const fresh = await Party.findById(party._id).populate(POPULATE).lean();
@@ -550,5 +555,5 @@ module.exports = {
   closeParty,
   lockParty,
   unlockParty,
-  leaveParty
+  leaveParty,
 };

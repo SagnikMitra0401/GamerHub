@@ -13,38 +13,41 @@ const STORY_KINDS = ['text', 'image', 'video'];
 const STORY_VISIBILITY = ['followers', 'public'];
 const STORY_BACKGROUNDS = ['aurora', 'sunset', 'ocean', 'ember', 'forest'];
 
-const StorySchema = new mongoose.Schema({
-  authorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true
+const StorySchema = new mongoose.Schema(
+  {
+    authorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+
+    kind: { type: String, enum: STORY_KINDS, required: true },
+
+    // Text statuses only.
+    text: { type: String, default: '', maxlength: 200 },
+    background: { type: String, enum: STORY_BACKGROUNDS, default: 'aurora' },
+
+    // Media statuses reuse the post media fields so the same ledger and delivery
+    // transforms apply.
+    mediaUrl: { type: String, default: null },
+    mediaCardUrl: { type: String, default: null },
+    mediaPublicId: { type: String, default: null },
+    mediaAssetId: { type: mongoose.Schema.Types.ObjectId, ref: 'MediaAsset', default: null },
+
+    caption: { type: String, default: '', maxlength: 200 },
+    visibility: { type: String, enum: STORY_VISIBILITY, default: 'followers' },
+
+    viewCount: { type: Number, default: 0, min: 0 },
+
+    expiresAt: {
+      type: Date,
+      required: true,
+      default: () => new Date(Date.now() + STORY_TTL_MS),
+    },
   },
-
-  kind: { type: String, enum: STORY_KINDS, required: true },
-
-  // Text statuses only.
-  text: { type: String, default: '', maxlength: 200 },
-  background: { type: String, enum: STORY_BACKGROUNDS, default: 'aurora' },
-
-  // Media statuses reuse the post media fields so the same ledger and delivery
-  // transforms apply.
-  mediaUrl: { type: String, default: null },
-  mediaCardUrl: { type: String, default: null },
-  mediaPublicId: { type: String, default: null },
-  mediaAssetId: { type: mongoose.Schema.Types.ObjectId, ref: 'MediaAsset', default: null },
-
-  caption: { type: String, default: '', maxlength: 200 },
-  visibility: { type: String, enum: STORY_VISIBILITY, default: 'followers' },
-
-  viewCount: { type: Number, default: 0, min: 0 },
-
-  expiresAt: {
-    type: Date,
-    required: true,
-    default: () => new Date(Date.now() + STORY_TTL_MS)
-  }
-}, { timestamps: true });
+  { timestamps: true },
+);
 
 StorySchema.index({ authorId: 1, createdAt: -1 });
 StorySchema.index({ visibility: 1, createdAt: -1 });

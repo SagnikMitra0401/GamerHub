@@ -17,7 +17,7 @@ const { purgeExpiredDmRequests } = require('../utils/dmService');
 const {
   expireAbandonedBusinessApplications,
   purgeExpiredBusinessEvidence,
-  purgeExpiredBusinessAudits
+  purgeExpiredBusinessAudits,
 } = require('../utils/businessRetention');
 const { notifyBusinessRetention } = require('../utils/businessRetentionNotices');
 
@@ -43,8 +43,10 @@ async function purgeExpiredMessages({ now = new Date() } = {}) {
     const cutoff = new Date(now.getTime() - channel.retentionDays * DAY_MS);
     const expired = await Message.find({
       channelId: channel._id,
-      createdAt: { $lt: cutoff }
-    }).select('_id').lean();
+      createdAt: { $lt: cutoff },
+    })
+      .select('_id')
+      .lean();
     if (!expired.length) continue;
 
     const messageIds = expired.map((message) => message._id);
@@ -53,11 +55,16 @@ async function purgeExpiredMessages({ now = new Date() } = {}) {
       .lean();
     const assets = attachments.map((attachment) => attachment.assetId).filter(Boolean);
 
-    await Promise.allSettled(attachments.map((attachment) => (
-      attachment.cloudinaryId
-        ? deleteFromCloudinary(attachment.cloudinaryId, attachment.mimeType?.startsWith('video/') ? 'video' : 'image')
-        : Promise.resolve()
-    )));
+    await Promise.allSettled(
+      attachments.map((attachment) =>
+        attachment.cloudinaryId
+          ? deleteFromCloudinary(
+              attachment.cloudinaryId,
+              attachment.mimeType?.startsWith('video/') ? 'video' : 'image',
+            )
+          : Promise.resolve(),
+      ),
+    );
 
     const result = await Message.deleteMany({ _id: { $in: messageIds } });
     await Attachment.deleteMany({ _id: { $in: attachments.map((attachment) => attachment._id) } });
@@ -79,10 +86,7 @@ async function purgeExpiredSquadChats({ now = new Date() } = {}) {
   // keeps settled chats out of the scan.
   const expired = await SquadChat.find({
     purgedAt: null,
-    $or: [
-      { state: 'active', expiresAt: { $lte: now } },
-      { state: 'expired' }
-    ]
+    $or: [{ state: 'active', expiresAt: { $lte: now } }, { state: 'expired' }],
   })
     .select('_id')
     .lean();
@@ -92,11 +96,13 @@ async function purgeExpiredSquadChats({ now = new Date() } = {}) {
   const messages = await SquadChatMessage.deleteMany({ chatId: { $in: chatIds } });
   await SquadChat.updateMany(
     { _id: { $in: chatIds } },
-    { $set: { state: 'expired', purgedAt: new Date() } }
+    { $set: { state: 'expired', purgedAt: new Date() } },
   );
 
   for (const chatId of chatIds) {
-    getIO()?.to(`squad:${chatId}`).emit('squad_chat_expired', { chatId: String(chatId) });
+    getIO()
+      ?.to(`squad:${chatId}`)
+      .emit('squad_chat_expired', { chatId: String(chatId) });
   }
 
   return { chats: chatIds.length, messages: messages.deletedCount || 0 };
@@ -110,7 +116,7 @@ async function purgeExpiredSquadChats({ now = new Date() } = {}) {
  */
 async function purgeExpiredNotifications({ now = new Date() } = {}) {
   const result = await Notification.deleteMany({
-    retentionAt: { $ne: null, $lte: now }
+    retentionAt: { $ne: null, $lte: now },
   });
   return result.deletedCount || 0;
 }
@@ -123,11 +129,14 @@ async function purgeExpiredNotifications({ now = new Date() } = {}) {
  * removed. Everything that points at the person — follows, blocks, mutes,
  * memberships, invitations, notifications — is pulled.
  */
-async function eraseDeletionPendingUsers({ now = new Date(), graceDays = DELETION_GRACE_DAYS } = {}) {
+async function eraseDeletionPendingUsers({
+  now = new Date(),
+  graceDays = DELETION_GRACE_DAYS,
+} = {}) {
   const cutoff = new Date(now.getTime() - graceDays * DAY_MS);
   const users = await User.find({
     status: 'deletion_pending',
-    deletionRequestedAt: { $lte: cutoff }
+    deletionRequestedAt: { $lte: cutoff },
   })
     .select('_id sessionVersion')
     .lean();
@@ -161,8 +170,8 @@ async function purgeOrphanMediaAssets({ now = new Date() } = {}) {
     $or: [
       { status: 'pending', createdAt: { $lt: pendingCutoff } },
       { status: 'rejected', createdAt: { $lt: pendingCutoff } },
-      { status: 'ready', refType: null, createdAt: { $lt: orphanCutoff } }
-    ]
+      { status: 'ready', refType: null, createdAt: { $lt: orphanCutoff } },
+    ],
   })
     .select('_id publicId resourceType status')
     .limit(200)
@@ -177,7 +186,7 @@ async function purgeOrphanMediaAssets({ now = new Date() } = {}) {
       Post.distinct('mediaAssetId', { mediaAssetId: { $in: readyIds } }),
       Story.distinct('mediaAssetId', { mediaAssetId: { $in: readyIds } }),
       BroadcastMessage.distinct('mediaAssetId', { mediaAssetId: { $in: readyIds } }),
-      Attachment.distinct('assetId', { assetId: { $in: readyIds } })
+      Attachment.distinct('assetId', { assetId: { $in: readyIds } }),
     ]);
     for (const id of [...postRefs, ...storyRefs, ...broadcastRefs, ...attachmentRefs]) {
       if (id) referenced.add(String(id));
@@ -189,7 +198,7 @@ async function purgeOrphanMediaAssets({ now = new Date() } = {}) {
     if (row.status === 'ready' && referenced.has(String(row._id))) continue;
     try {
       await cloudinary.uploader.destroy(row.publicId, {
-        resource_type: row.resourceType || 'image'
+        resource_type: row.resourceType || 'image',
       });
     } catch {
       // A missing remote object must not block ledger cleanup.
@@ -215,7 +224,7 @@ function startRetentionWorker() {
       purgedAudits: 0,
       notified: 0,
       emailed: 0,
-      emailFailed: 0
+      emailFailed: 0,
     };
 
     try {
@@ -229,7 +238,9 @@ function startRetentionWorker() {
     try {
       const squad = await purgeExpiredSquadChats();
       if (squad.chats > 0) {
-        console.log(`[Retention] expired ${squad.chats} squad chat(s), purged ${squad.messages} message(s)`);
+        console.log(
+          `[Retention] expired ${squad.chats} squad chat(s), purged ${squad.messages} message(s)`,
+        );
       }
     } catch (err) {
       failures += 1;
@@ -240,7 +251,7 @@ function startRetentionWorker() {
       const dm = await purgeExpiredDmRequests();
       if (dm.expired > 0 || dm.clearedDeclined > 0) {
         console.log(
-          `[Retention] expired ${dm.expired} message request(s), cleared ${dm.clearedDeclined} declined opener(s)`
+          `[Retention] expired ${dm.expired} message request(s), cleared ${dm.clearedDeclined} declined opener(s)`,
         );
       }
     } catch (err) {
@@ -281,7 +292,9 @@ function startRetentionWorker() {
         business.notified += notices.notified;
         business.emailed += notices.emailed;
         business.emailFailed += notices.failed;
-        console.log(`[Retention] cleared review evidence for ${evidence.profiles} business profile(s)`);
+        console.log(
+          `[Retention] cleared review evidence for ${evidence.profiles} business profile(s)`,
+        );
       }
     } catch (err) {
       failures += 1;
@@ -292,7 +305,9 @@ function startRetentionWorker() {
       const businessAudits = await purgeExpiredBusinessAudits();
       business.purgedAudits = businessAudits.audits;
       if (businessAudits.audits > 0) {
-        console.log(`[Retention] purged ${businessAudits.audits} expired business review audit row(s)`);
+        console.log(
+          `[Retention] purged ${businessAudits.audits} expired business review audit row(s)`,
+        );
       }
     } catch (err) {
       failures += 1;
@@ -320,7 +335,7 @@ function startRetentionWorker() {
     }
 
     console.log(
-      `[Retention] run finished in ${Date.now() - startedAt}ms (${failures} failed sweep(s))`
+      `[Retention] run finished in ${Date.now() - startedAt}ms (${failures} failed sweep(s))`,
     );
   };
 
@@ -339,5 +354,5 @@ module.exports = {
   startRetentionWorker,
   purgeExpiredDmRequests,
   DELETION_GRACE_DAYS,
-  RUN_INTERVAL_MS
+  RUN_INTERVAL_MS,
 };

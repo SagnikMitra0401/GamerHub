@@ -11,14 +11,17 @@ const post = ({ id, tags = [], likes = 0, comments = 0, hours = 0 }) => ({
   tags,
   likes: Array.from({ length: likes }, (_, i) => `liker-${i}`),
   commentCount: comments,
-  createdAt: new Date(NOW - hours * 3_600_000).toISOString()
+  createdAt: new Date(NOW - hours * 3_600_000).toISOString(),
 });
 
 test('a favourite game outranks a newer unrelated post', () => {
   const ranked = rankPostsForUser(
-    [post({ id: 'fresh', tags: ['news'], hours: 1 }), post({ id: 'match', tags: ['valorant'], hours: 20 })],
+    [
+      post({ id: 'fresh', tags: ['news'], hours: 1 }),
+      post({ id: 'match', tags: ['valorant'], hours: 20 }),
+    ],
     { favoriteGames: ['Valorant'] },
-    { now: NOW }
+    { now: NOW },
   );
 
   assert.equal(ranked[0]._id, 'match');
@@ -30,7 +33,7 @@ test('genres and followed channels are matched case-insensitively', () => {
   const ranked = rankPostsForUser(
     [post({ id: 'genre', tags: ['Shooter'] }), post({ id: 'channel', tags: ['FPS'] })],
     { favoriteGenres: ['shooter'], favoriteChannels: ['fps'] },
-    { now: NOW }
+    { now: NOW },
   );
 
   // Genre (50) beats channel (30).
@@ -43,10 +46,10 @@ test('with no preferences, engagement then recency decides', () => {
     [
       post({ id: 'quiet', hours: 1 }),
       post({ id: 'popular', hours: 5, likes: 10, comments: 4 }),
-      post({ id: 'mid', hours: 2, likes: 2 })
+      post({ id: 'mid', hours: 2, likes: 2 }),
     ],
     {},
-    { now: NOW }
+    { now: NOW },
   );
 
   assert.equal(ranked[0]._id, 'popular');
@@ -55,15 +58,22 @@ test('with no preferences, engagement then recency decides', () => {
 });
 
 test('engagement bonus is capped so old viral posts cannot dominate forever', () => {
-  const ranked = rankPostsForUser([post({ id: 'viral', likes: 500, comments: 200 })], {}, { now: NOW });
+  const ranked = rankPostsForUser(
+    [post({ id: 'viral', likes: 500, comments: 200 })],
+    {},
+    { now: NOW },
+  );
   assert.equal(ranked[0].rankScore, MAX_ENGAGEMENT_BONUS);
 });
 
 test('age applies a penalty when scores are otherwise equal', () => {
   const ranked = rankPostsForUser(
-    [post({ id: 'old', tags: ['valorant'], hours: 10 }), post({ id: 'new', tags: ['valorant'], hours: 2 })],
+    [
+      post({ id: 'old', tags: ['valorant'], hours: 10 }),
+      post({ id: 'new', tags: ['valorant'], hours: 2 }),
+    ],
     { favoriteGames: ['valorant'] },
-    { now: NOW }
+    { now: NOW },
   );
 
   assert.equal(ranked[0]._id, 'new');
@@ -74,11 +84,17 @@ test('tag matching ignores separators and a leading #', () => {
   const ranked = rankPostsForUser(
     [post({ id: 'hashtag', tags: ['eldenring'] }), post({ id: 'plain', tags: ['elden ring'] })],
     { favoriteGames: ['Elden Ring'], favoriteChannels: ['#elden-ring'] },
-    { now: NOW }
+    { now: NOW },
   );
 
-  assert.deepEqual(ranked.map((entry) => entry.rankScore), [80, 80]);
-  assert.equal(ranked.every((entry) => entry.matchedTags.length === 1), true);
+  assert.deepEqual(
+    ranked.map((entry) => entry.rankScore),
+    [80, 80],
+  );
+  assert.equal(
+    ranked.every((entry) => entry.matchedTags.length === 1),
+    true,
+  );
 });
 
 test('following the author adds a modest boost but does not beat a genre match', () => {
@@ -89,7 +105,7 @@ test('following the author adds a modest boost but does not beat a genre match',
   const ranked = rankPostsForUser(
     [followedAuthorPost, genrePost],
     { favoriteGenres: ['Shooter'], following: [author] },
-    { now: NOW }
+    { now: NOW },
   );
 
   assert.equal(ranked[0]._id, 'genre');

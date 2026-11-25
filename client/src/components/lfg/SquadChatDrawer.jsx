@@ -54,7 +54,9 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
     }
   }, [chatId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Countdown ticks without a re-render loop: one state update a minute.
   useEffect(() => {
@@ -73,11 +75,15 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
     };
     const onMessage = (message) => {
       if (!message || String(message.chatId) !== String(chatId)) return;
-      setMessages(prev => (prev.some(item => item._id === message._id) ? prev : [...prev, message]));
+      setMessages((prev) =>
+        prev.some((item) => item._id === message._id) ? prev : [...prev, message],
+      );
     };
     const onRefreshed = (payload) => {
       if (String(payload?.chatId) !== String(chatId)) return;
-      setChat(prev => (prev ? { ...prev, expiresAt: payload.expiresAt, refreshCount: payload.refreshCount } : prev));
+      setChat((prev) =>
+        prev ? { ...prev, expiresAt: payload.expiresAt, refreshCount: payload.refreshCount } : prev,
+      );
     };
     const onEnded = (payload) => {
       if (payload?.chatId && String(payload.chatId) !== String(chatId)) return;
@@ -108,7 +114,9 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
   }, [messages.length]);
 
   useEffect(() => {
-    const onKey = (event) => { if (event.key === 'Escape') onClose(); };
+    const onKey = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -126,7 +134,7 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
         socket.emit('send_squad_message', { chatId, text });
       } else {
         const { data } = await axiosInstance.post(`/squad-chats/${chatId}/messages`, { text });
-        setMessages(prev => [...prev, data.message]);
+        setMessages((prev) => [...prev, data.message]);
       }
       setDraft('');
     } catch (err) {
@@ -150,10 +158,7 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
     }
   };
 
-  const label = useMemo(
-    () => (chat ? remainingLabel(chat.expiresAt, now) : ''),
-    [chat, now]
-  );
+  const label = useMemo(() => (chat ? remainingLabel(chat.expiresAt, now) : ''), [chat, now]);
 
   return (
     <>
@@ -178,7 +183,12 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
                 {refreshing ? 'Extending…' : 'Extend 15d'}
               </button>
             )}
-            <button type="button" className="modal-close" onClick={onClose} aria-label="Close squad chat">
+            <button
+              type="button"
+              className="modal-close"
+              onClick={onClose}
+              aria-label="Close squad chat"
+            >
               <CloseIcon />
             </button>
           </div>
@@ -201,16 +211,21 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
             </div>
           ) : (
             <ul className="squad-messages">
-              {messages.map(message => (
+              {messages.map((message) => (
                 <li key={message._id} className="squad-message">
                   <span className="squad-message-avatar">
-                    {String(message.author?.username || '?').slice(0, 1).toUpperCase()}
+                    {String(message.author?.username || '?')
+                      .slice(0, 1)
+                      .toUpperCase()}
                   </span>
                   <div className="squad-message-body">
                     <div className="squad-message-head">
                       <span className="squad-message-author">@{message.author?.username}</span>
                       <span className="chat-timestamp">
-                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(message.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </span>
                     </div>
                     <p className="squad-message-text">
@@ -233,8 +248,8 @@ const SquadChatDrawer = ({ chatId, squadTitle, onClose }) => {
               rows={1}
               placeholder="Message your squad…"
               aria-label="Message your squad"
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => {
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   send(e);

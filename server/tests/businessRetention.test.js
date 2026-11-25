@@ -16,7 +16,7 @@ const {
   expireAbandonedBusinessApplications,
   evidencePurgeFilter,
   purgeExpiredBusinessEvidence,
-  purgeExpiredBusinessAudits
+  purgeExpiredBusinessAudits,
 } = require('../utils/businessRetention');
 const { retentionNotice, notifyBusinessRetention } = require('../utils/businessRetentionNotices');
 
@@ -31,15 +31,22 @@ function fakeProfiles(candidates = [], { afterUpdate = candidates } = {}) {
       if (calls.findCount === 1) calls.filter = filter;
       const rows = calls.findCount === 1 ? candidates : afterUpdate;
       return {
-        select() { return this; },
-        limit(value) { calls.limit = value; return this; },
-        async lean() { return rows; }
+        select() {
+          return this;
+        },
+        limit(value) {
+          calls.limit = value;
+          return this;
+        },
+        async lean() {
+          return rows;
+        },
       };
     },
     async updateMany(filter, update) {
       calls.updateMany = { filter, update };
       return { modifiedCount: candidates.length };
-    }
+    },
   };
 }
 
@@ -50,7 +57,7 @@ test('evidence is kept for 24 calendar months after the decision', () => {
   // Calendar arithmetic, not 730 days: a leap day lands on the end of February.
   assert.equal(
     evidencePurgeCutoff(new Date('2028-02-29T09:30:00.000Z')).toISOString(),
-    '2026-02-28T09:30:00.000Z'
+    '2026-02-28T09:30:00.000Z',
   );
 });
 
@@ -59,7 +66,7 @@ test('the review audit is kept for 3 years', () => {
   assert.equal(auditPurgeCutoff(NOW).toISOString(), '2026-11-22T12:00:00.000Z');
   assert.equal(
     auditPurgeCutoff(new Date('2028-02-29T00:00:00.000Z')).toISOString(),
-    '2025-02-28T00:00:00.000Z'
+    '2025-02-28T00:00:00.000Z',
   );
 });
 
@@ -76,10 +83,7 @@ test('an application lapses after 90 days without activity, or 12 months open', 
   assert.deepEqual(abandonedApplicationFilter(cutoff, maxCutoff), {
     verificationStatus: 'pending',
     verificationRequestedAt: { $ne: null, $lte: cutoff },
-    $or: [
-      { updatedAt: { $lte: cutoff } },
-      { verificationRequestedAt: { $lte: maxCutoff } }
-    ]
+    $or: [{ updatedAt: { $lte: cutoff } }, { verificationRequestedAt: { $lte: maxCutoff } }],
   });
 });
 
@@ -90,15 +94,15 @@ test('abandoned applications are closed, audited and claimed for notices', async
       userId: 'u1',
       displayName: 'Acme',
       contactEmail: 'a@acme.test',
-      verificationRequestedAt: new Date('2029-06-01T00:00:00.000Z')
+      verificationRequestedAt: new Date('2029-06-01T00:00:00.000Z'),
     },
     {
       _id: 'b',
       userId: 'u2',
       displayName: 'Beta',
       supportEmail: 'b@beta.test',
-      verificationRequestedAt: new Date('2029-07-01T00:00:00.000Z')
-    }
+      verificationRequestedAt: new Date('2029-07-01T00:00:00.000Z'),
+    },
   ]);
   let inserted = [];
 
@@ -106,8 +110,10 @@ test('abandoned applications are closed, audited and claimed for notices', async
     now: NOW,
     profiles: store,
     audits: {
-      async insertMany(rows) { inserted = rows; }
-    }
+      async insertMany(rows) {
+        inserted = rows;
+      },
+    },
   });
 
   assert.equal(result.expired, 2);
@@ -130,10 +136,7 @@ test('abandoned applications are closed, audited and claimed for notices', async
   assert.equal(result.claims[0].userId, 'u1');
   assert.equal(result.claims[0].contactEmail, 'a@acme.test');
   assert.equal(result.claims[1].supportEmail, 'b@beta.test');
-  assert.equal(
-    result.claims[0].verificationRequestedAt.toISOString(),
-    '2029-06-01T00:00:00.000Z'
-  );
+  assert.equal(result.claims[0].verificationRequestedAt.toISOString(), '2029-06-01T00:00:00.000Z');
 });
 
 test('an application decided during the sweep is not audited or announced as expired', async () => {
@@ -145,7 +148,11 @@ test('an application decided during the sweep is not audited or announced as exp
   const result = await expireAbandonedBusinessApplications({
     now: NOW,
     profiles: store,
-    audits: { async insertMany(rows) { inserted += rows.length; } }
+    audits: {
+      async insertMany(rows) {
+        inserted += rows.length;
+      },
+    },
   });
 
   assert.equal(result.expired, 0);
@@ -160,7 +167,11 @@ test('an empty abandonment sweep writes nothing', async () => {
   const result = await expireAbandonedBusinessApplications({
     now: NOW,
     profiles: store,
-    audits: { async insertMany(rows) { inserted += rows.length; } }
+    audits: {
+      async insertMany(rows) {
+        inserted += rows.length;
+      },
+    },
   });
 
   assert.equal(result.expired, 0);
@@ -176,14 +187,16 @@ test('the evidence sweep targets only decided profiles that still hold evidence'
   assert.deepEqual(filter.$and[0].$or, [
     { reviewDecidedAt: { $ne: null, $lte: cutoff } },
     { reviewDecidedAt: null, verifiedAt: { $ne: null, $lte: cutoff } },
-    { reviewDecidedAt: null, demotedAt: { $ne: null, $lte: cutoff } }
+    { reviewDecidedAt: null, demotedAt: { $ne: null, $lte: cutoff } },
   ]);
 
   assert.equal(filter.$and[1].$or.length, EVIDENCE_FIELDS.length);
   for (const field of EVIDENCE_FIELDS) {
     assert.ok(
-      filter.$and[1].$or.some((clause) => clause[field]?.$exists === true && clause[field]?.$ne === ''),
-      `${field} must be cleared only when present and non-empty`
+      filter.$and[1].$or.some(
+        (clause) => clause[field]?.$exists === true && clause[field]?.$ne === '',
+      ),
+      `${field} must be cleared only when present and non-empty`,
     );
   }
 });
@@ -195,9 +208,9 @@ test('old evidence is cleared in place and marked, leaving the audit intact', as
       userId: 'u1',
       displayName: 'Acme',
       contactEmail: 'a@acme.test',
-      reviewDecidedAt: new Date('2027-10-01T00:00:00.000Z')
+      reviewDecidedAt: new Date('2027-10-01T00:00:00.000Z'),
     },
-    { _id: 'b', userId: 'u2', displayName: 'Beta' }
+    { _id: 'b', userId: 'u2', displayName: 'Beta' },
   ]);
   const result = await purgeExpiredBusinessEvidence({ now: NOW, profiles: store });
 
@@ -216,10 +229,7 @@ test('old evidence is cleared in place and marked, leaving the audit intact', as
   // The contact is captured before being emptied, so the purge notice still
   // has somewhere to go for this run.
   assert.equal(result.claims[0].contactEmail, 'a@acme.test');
-  assert.equal(
-    result.claims[0].reviewDecidedAt.toISOString(),
-    '2027-10-01T00:00:00.000Z'
-  );
+  assert.equal(result.claims[0].reviewDecidedAt.toISOString(), '2027-10-01T00:00:00.000Z');
 });
 
 test('an empty evidence sweep does not issue an update', async () => {
@@ -239,8 +249,8 @@ test('audit rows older than the defence window are deleted', async () => {
       async deleteMany(filter) {
         calls.filter = filter;
         return { deletedCount: 7 };
-      }
-    }
+      },
+    },
   });
 
   assert.equal(result.audits, 7);
@@ -250,7 +260,11 @@ test('audit rows older than the defence window are deleted', async () => {
 test('an empty audit sweep reports zero, not undefined', async () => {
   const result = await purgeExpiredBusinessAudits({
     now: NOW,
-    audits: { async deleteMany() { return {}; } }
+    audits: {
+      async deleteMany() {
+        return {};
+      },
+    },
   });
   assert.equal(result.audits, 0);
 });
@@ -259,7 +273,7 @@ test('retention notices explain the change and are unique per review round', () 
   const expired = retentionNotice('expired', {
     id: 'p1',
     displayName: 'Acme',
-    verificationRequestedAt: new Date('2029-06-01T00:00:00.000Z')
+    verificationRequestedAt: new Date('2029-06-01T00:00:00.000Z'),
   });
   assert.equal(expired.title, 'Business verification request expired');
   assert.match(expired.message, /Acme/);
@@ -270,7 +284,7 @@ test('retention notices explain the change and are unique per review round', () 
   const purged = retentionNotice('purged', {
     id: 'p2',
     displayName: 'Acme',
-    reviewDecidedAt: new Date('2027-10-01T00:00:00.000Z')
+    reviewDecidedAt: new Date('2027-10-01T00:00:00.000Z'),
   });
   assert.equal(purged.title, 'Business review evidence deleted');
   assert.match(purged.message, /2027-10-01/);
@@ -285,20 +299,26 @@ test('retention notices reach the owner in-app and by official email', async () 
   const sent = [];
   const logged = [];
 
-  const result = await notifyBusinessRetention([
-    { id: 'p1', userId: 'u1', displayName: 'Acme', contactEmail: 'a@acme.test' },
-    { id: 'p2', userId: 'u2', displayName: 'Beta', supportEmail: 'b@beta.test' },
-    { id: 'p3', userId: 'u3', displayName: 'Gamma' },
-    { id: 'p4', userId: null, displayName: 'No owner' }
-  ], {
-    kind: 'expired',
-    notifyUser: async (input) => { stored.push(input); return input; },
-    sendEmail: async (input) => {
-      if (input.to === 'b@beta.test') throw new Error('mailbox unavailable');
-      sent.push(input);
+  const result = await notifyBusinessRetention(
+    [
+      { id: 'p1', userId: 'u1', displayName: 'Acme', contactEmail: 'a@acme.test' },
+      { id: 'p2', userId: 'u2', displayName: 'Beta', supportEmail: 'b@beta.test' },
+      { id: 'p3', userId: 'u3', displayName: 'Gamma' },
+      { id: 'p4', userId: null, displayName: 'No owner' },
+    ],
+    {
+      kind: 'expired',
+      notifyUser: async (input) => {
+        stored.push(input);
+        return input;
+      },
+      sendEmail: async (input) => {
+        if (input.to === 'b@beta.test') throw new Error('mailbox unavailable');
+        sent.push(input);
+      },
+      log: (message) => logged.push(message),
     },
-    log: (message) => logged.push(message)
-  });
+  );
 
   assert.equal(result.notified, 3, 'a claim without an owner is skipped');
   assert.equal(result.emailed, 1);
@@ -317,7 +337,7 @@ test('a legacy decision date labels the purge notice instead of "an earlier date
   const claim = retentionClaim({
     _id: 'p4',
     userId: 'u4',
-    demotedAt: new Date('2025-04-05T00:00:00.000Z')
+    demotedAt: new Date('2025-04-05T00:00:00.000Z'),
   });
   assert.equal(claim.reviewDecidedAt.toISOString(), '2025-04-05T00:00:00.000Z');
   assert.match(retentionNotice('purged', claim).message, /2025-04-05/);

@@ -30,10 +30,16 @@ const AttachmentThumb = ({ attachment, channelId }) => {
 
     axiosInstance
       .get(`/communities/channels/${channelId}/attachments/${attachment._id}`)
-      .then(({ data }) => { if (!cancelled) setUrl(data.url); })
-      .catch(() => { if (!cancelled) setFailed(true); });
+      .then(({ data }) => {
+        if (!cancelled) setUrl(data.url);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [attachment?._id, channelId]);
 
   if (failed) return null;
@@ -44,7 +50,9 @@ const AttachmentThumb = ({ attachment, channelId }) => {
       href={url || undefined}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={(event) => { if (!url) event.preventDefault(); }}
+      onClick={(event) => {
+        if (!url) event.preventDefault();
+      }}
       aria-label="Open attached image"
     >
       <SafeImage
@@ -66,9 +74,18 @@ const renderWithMentions = (text, mentions = []) => {
     if (!part.startsWith('@')) return part;
     const name = part.slice(1).toLowerCase();
     if (name === 'everyone') {
-      return <span key={index} className="chat-mention chat-mention-everyone">{part}</span>;
+      return (
+        <span key={index} className="chat-mention chat-mention-everyone">
+          {part}
+        </span>
+      );
     }
-    if (known.has(name)) return <span key={index} className="chat-mention">{part}</span>;
+    if (known.has(name))
+      return (
+        <span key={index} className="chat-mention">
+          {part}
+        </span>
+      );
     return part;
   });
 };
@@ -84,14 +101,14 @@ const MessageItem = ({
   onReply,
   onReact,
   onPin,
-  onReport
+  onReport,
 }) => {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const sender = message.senderId || {};
   const isAuthor = me && String(sender._id) === String(me._id);
-  const canDelete = !message.isDeleted
-    && (isAuthor || hasCapability(permissions, CAP.MANAGE_MESSAGES));
+  const canDelete =
+    !message.isDeleted && (isAuthor || hasCapability(permissions, CAP.MANAGE_MESSAGES));
   const canPin = !message.isDeleted && hasCapability(permissions, CAP.PIN_MESSAGES);
   const canReact = !message.isDeleted && hasCapability(permissions, CAP.ADD_REACTIONS);
   const canReport = !message.isDeleted && !isAuthor;
@@ -109,7 +126,11 @@ const MessageItem = ({
           <Link to={`/u/${sender.username || ''}`} className="chat-sender-name">
             {sender.username || 'Unknown'}
           </Link>
-          {sender.level && <span className="level-badge" style={{ fontSize: '0.65rem' }}>Lv{sender.level}</span>}
+          {sender.level && (
+            <span className="level-badge" style={{ fontSize: '0.65rem' }}>
+              Lv{sender.level}
+            </span>
+          )}
           {communityRole && communityRole !== 'member' && (
             <span style={{ fontSize: '0.68rem', color: ROLE_COLORS[communityRole] }}>
               {ROLE_LABELS[communityRole]}
@@ -118,7 +139,9 @@ const MessageItem = ({
           <span className="chat-timestamp">{timeAgo(message.createdAt)}</span>
           {message.isEdited && !message.isDeleted && <span className="chat-edited">(edited)</span>}
           {message.pinned && !message.isDeleted && (
-            <span className="chat-pinned-flag" title="Pinned"><PinIcon size={11} /> pinned</span>
+            <span className="chat-pinned-flag" title="Pinned">
+              <PinIcon size={11} /> pinned
+            </span>
           )}
 
           <div className="chat-msg-actions">
@@ -140,9 +163,13 @@ const MessageItem = ({
                 title="Add reaction"
                 aria-label="Add reaction"
                 aria-expanded={pickerOpen}
-                onClick={() => setPickerOpen(open => !open)}
+                onClick={() => setPickerOpen((open) => !open)}
               >
-                {pickerOpen ? <CloseIcon size={13} /> : <span className="chat-msg-react-plus">+</span>}
+                {pickerOpen ? (
+                  <CloseIcon size={13} />
+                ) : (
+                  <span className="chat-msg-react-plus">+</span>
+                )}
               </button>
             )}
             {canPin && (
@@ -199,17 +226,19 @@ const MessageItem = ({
           <p className="chat-message-text text-tombstone">This message was deleted</p>
         ) : null}
 
-        {Array.isArray(message.attachments) && message.attachments.length > 0 && !message.isDeleted && (
-          <div className="chat-attachments">
-            {message.attachments.map((attachment) => (
-              <AttachmentThumb
-                key={attachment._id || attachment}
-                attachment={attachment}
-                channelId={channelId}
-              />
-            ))}
-          </div>
-        )}
+        {Array.isArray(message.attachments) &&
+          message.attachments.length > 0 &&
+          !message.isDeleted && (
+            <div className="chat-attachments">
+              {message.attachments.map((attachment) => (
+                <AttachmentThumb
+                  key={attachment._id || attachment}
+                  attachment={attachment}
+                  channelId={channelId}
+                />
+              ))}
+            </div>
+          )}
 
         {canReact && pickerOpen && (
           <div className="chat-reaction-picker" role="group" aria-label="Choose a reaction">
@@ -220,7 +249,10 @@ const MessageItem = ({
                 className="chat-reaction-option"
                 title={reactionLabel(code)}
                 aria-label={`React with ${reactionLabel(code)}`}
-                onClick={() => { onReact?.(message, code); setPickerOpen(false); }}
+                onClick={() => {
+                  onReact?.(message, code);
+                  setPickerOpen(false);
+                }}
               >
                 {reactionGlyph(code)}
               </button>

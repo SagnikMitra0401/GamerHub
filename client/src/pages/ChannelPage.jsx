@@ -10,8 +10,8 @@ import SegmentedTabs from '../components/common/SegmentedTabs';
 import { ClipGridSkeleton, PostListSkeleton } from '../components/common/Skeleton';
 
 const LAYOUT_OPTIONS = [
-  { key: 'list',  label: 'List',  icon: <ListIcon size={15} /> },
-  { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> }
+  { key: 'list', label: 'List', icon: <ListIcon size={15} /> },
+  { key: 'clips', label: 'Clips', icon: <FilmIcon size={15} /> },
 ];
 
 const ChannelPage = () => {
@@ -19,12 +19,12 @@ const ChannelPage = () => {
   const { user, updateFavouriteChannels } = useAuth();
   const navigate = useNavigate();
 
-  const [posts, setPosts]           = useState([]);
-  const [layout, setLayout]         = useState('list'); // 'list' | 'clips'
-  const [loading, setLoading]       = useState(true);
-  const [showForm, setShowForm]     = useState(false);
-  const [page, setPage]             = useState(1);
-  const [hasMore, setHasMore]       = useState(true);
+  const [posts, setPosts] = useState([]);
+  const [layout, setLayout] = useState('list'); // 'list' | 'clips'
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [favLoading, setFavLoading] = useState(false);
   const LIMIT = 15;
 
@@ -34,14 +34,16 @@ const ChannelPage = () => {
     setLoading(true);
     try {
       const { data } = await axiosInstance.get(
-        `/posts?channel=${encodeURIComponent(tag)}&page=${pageVal}&limit=${LIMIT}`
+        `/posts?channel=${encodeURIComponent(tag)}&page=${pageVal}&limit=${LIMIT}`,
       );
       const list = Array.isArray(data) ? data : [];
       if (pageVal === 1) setPosts(list);
-      else setPosts(prev => [...prev, ...list]);
+      else setPosts((prev) => [...prev, ...list]);
       setHasMore(list.length === LIMIT);
-    } catch {}
-    finally { setLoading(false); }
+    } catch {
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -55,19 +57,21 @@ const ChannelPage = () => {
     setFavLoading(true);
     try {
       const { data } = await axiosInstance.post('/users/channels/favourite', {
-        channel: tag.toLowerCase()
+        channel: tag.toLowerCase(),
       });
       updateFavouriteChannels(data.favoriteChannels);
-    } catch {}
-    finally { setFavLoading(false); }
+    } catch {
+    } finally {
+      setFavLoading(false);
+    }
   };
 
-  const handlePostCreated = newPost => {
-    setPosts(prev => [newPost, ...prev]);
+  const handlePostCreated = (newPost) => {
+    setPosts((prev) => [newPost, ...prev]);
     setShowForm(false);
   };
 
-  const handleDelete = id => setPosts(prev => prev.filter(p => p._id !== id));
+  const handleDelete = (id) => setPosts((prev) => prev.filter((p) => p._id !== id));
 
   const loadMore = () => {
     const next = page + 1;
@@ -75,7 +79,7 @@ const ChannelPage = () => {
     fetchPosts(next);
   };
 
-  const mediaPosts = posts.filter(p => p.mediaUrl && p.mediaType && p.mediaType !== 'none');
+  const mediaPosts = posts.filter((p) => p.mediaUrl && p.mediaType && p.mediaType !== 'none');
 
   return (
     <main className="page">
@@ -92,7 +96,7 @@ const ChannelPage = () => {
               All posts tagged with #{tag}
             </p>
           </div>
-          
+
           <div className="feed-controls">
             <div className="feed-tabs-rail">
               <SegmentedTabs
@@ -116,22 +120,28 @@ const ChannelPage = () => {
               </button>
 
               {user && (
-                <button className="btn btn-primary btn-sm" onClick={() => setShowForm(v => !v)}>
-                  {showForm ? 'Cancel' : (<><PlusIcon size={15} /> New post</>)}
+                <button className="btn btn-primary btn-sm" onClick={() => setShowForm((v) => !v)}>
+                  {showForm ? (
+                    'Cancel'
+                  ) : (
+                    <>
+                      <PlusIcon size={15} /> New post
+                    </>
+                  )}
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {showForm && (
-          <PostForm onSuccess={handlePostCreated} onCancel={() => setShowForm(false)} />
-        )}
+        {showForm && <PostForm onSuccess={handlePostCreated} onCancel={() => setShowForm(false)} />}
 
         {loading && page === 1 ? (
-          layout === 'clips'
-            ? <ClipGridSkeleton />
-            : <PostListSkeleton count={4} />
+          layout === 'clips' ? (
+            <ClipGridSkeleton />
+          ) : (
+            <PostListSkeleton count={4} />
+          )
         ) : (
           <>
             {layout === 'clips' ? (
@@ -142,7 +152,7 @@ const ChannelPage = () => {
                 </div>
               ) : (
                 <div className="media-grid">
-                  {mediaPosts.map(post => (
+                  {mediaPosts.map((post) => (
                     <ClipCard key={post._id} post={post} />
                   ))}
                 </div>
@@ -150,10 +160,12 @@ const ChannelPage = () => {
             ) : (
               <PostList posts={posts} onDelete={handleDelete} />
             )}
-            
+
             {hasMore && !loading && (
               <div style={{ textAlign: 'center', padding: '1.5rem 0 3rem' }}>
-                <button className="btn btn-ghost" onClick={loadMore}>Load More</button>
+                <button className="btn btn-ghost" onClick={loadMore}>
+                  Load More
+                </button>
               </div>
             )}
             {loading && page > 1 && <div className="spinner" />}

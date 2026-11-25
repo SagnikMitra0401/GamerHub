@@ -15,7 +15,7 @@ const {
   listBlocked,
   exportData,
   requestDeletion,
-  cancelDeletion
+  cancelDeletion,
 } = require('../controllers/accountController');
 const {
   saveBusinessProfile,
@@ -23,13 +23,13 @@ const {
   requestBusinessVerification,
   checkBusinessVerification,
   respondToBusinessReview,
-  getBusinessAnalytics
+  getBusinessAnalytics,
 } = require('../controllers/businessController');
 const {
   getBusinessTeam,
   inviteMember,
   changeMemberRole,
-  removeMember
+  removeMember,
 } = require('../controllers/teamController');
 
 const router = express.Router();
@@ -40,7 +40,7 @@ const exportLimiter = createLimiter({
   name: 'data-export',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.EXPORT_RATE_LIMIT_MAX) || 5,
-  message: 'You can request a data export a few times an hour. Try again later.'
+  message: 'You can request a data export a few times an hour. Try again later.',
 });
 
 // Handles are public identity: a rename loop is both confusing and noisy.
@@ -48,7 +48,7 @@ const usernameLimiter = createLimiter({
   name: 'username-change',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.USERNAME_RATE_LIMIT_MAX) || 5,
-  message: 'You can change your username a few times an hour. Try again later.'
+  message: 'You can change your username a few times an hour. Try again later.',
 });
 
 // Password-confirmed actions: the limit is about bcrypt cost and guessing, not
@@ -57,21 +57,21 @@ const confirmLimiter = createLimiter({
   name: 'account-confirm',
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.ACCOUNT_CONFIRM_RATE_LIMIT_MAX) || 12,
-  message: 'Too many confirmation attempts. Please wait a few minutes.'
+  message: 'Too many confirmation attempts. Please wait a few minutes.',
 });
 
 const feedResetLimiter = createLimiter({
   name: 'feed-reset',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.FEED_RESET_RATE_LIMIT_MAX) || 10,
-  message: 'Feed reset is limited a few times an hour.'
+  message: 'Feed reset is limited a few times an hour.',
 });
 
 const dmSettingsLimiter = createLimiter({
   name: 'account-settings',
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.DM_SETTINGS_RATE_LIMIT_MAX) || 30,
-  message: 'You are changing message settings very often. Try again later.'
+  message: 'You are changing message settings very often. Try again later.',
 });
 
 router.get('/', protect, getAccount);

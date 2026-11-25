@@ -10,12 +10,26 @@
 const { cloudinary } = require('../config/cloudinary');
 
 const TRANSFORMS = Object.freeze({
-  thumb: { width: 160, height: 160, crop: 'fill', gravity: 'auto', fetch_format: 'auto', quality: 'auto' },
-  card: { width: 640, height: 360, crop: 'fill', gravity: 'auto', fetch_format: 'auto', quality: 'auto' },
+  thumb: {
+    width: 160,
+    height: 160,
+    crop: 'fill',
+    gravity: 'auto',
+    fetch_format: 'auto',
+    quality: 'auto',
+  },
+  card: {
+    width: 640,
+    height: 360,
+    crop: 'fill',
+    gravity: 'auto',
+    fetch_format: 'auto',
+    quality: 'auto',
+  },
   feed: { width: 1200, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
   full: { width: 2000, crop: 'limit', fetch_format: 'auto', quality: 'auto' },
   // Video is delivered as-is apart from a 1280px cap; no transcoding.
-  video: { width: 1280, crop: 'limit', quality: 'auto' }
+  video: { width: 1280, crop: 'limit', quality: 'auto' },
 });
 
 function deliveryUrl(publicId, variant = 'card', { resourceType = 'image', format = null } = {}) {
@@ -25,7 +39,7 @@ function deliveryUrl(publicId, variant = 'card', { resourceType = 'image', forma
     secure: true,
     resource_type: resourceType,
     transformation,
-    ...(format ? { format } : {})
+    ...(format ? { format } : {}),
   });
 }
 
@@ -36,9 +50,8 @@ function deliverySet(publicId, { resourceType = 'image', format = null } = {}) {
     card: deliveryUrl(publicId, 'card', { resourceType }),
     feed: deliveryUrl(publicId, 'feed', { resourceType }),
     full: deliveryUrl(publicId, 'full', { resourceType }),
-    video: resourceType === 'video'
-      ? deliveryUrl(publicId, 'video', { resourceType, format })
-      : null
+    video:
+      resourceType === 'video' ? deliveryUrl(publicId, 'video', { resourceType, format }) : null,
   };
 }
 

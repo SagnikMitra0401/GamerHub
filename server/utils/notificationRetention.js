@@ -17,7 +17,7 @@ const DURABLE_KIND_PREFIXES = [
   'account_deletion',
   'security_',
   'community_join_',
-  'business_team_invite'
+  'business_team_invite',
 ];
 
 function isImportantNotification(notificationOrMetadata) {
@@ -45,5 +45,5 @@ module.exports = {
   NOTIFICATION_TTL_DAYS,
   NOTIFICATION_TTL_MS,
   isImportantNotification,
-  retentionAtFor
+  retentionAtFor,
 };

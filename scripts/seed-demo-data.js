@@ -42,12 +42,12 @@ async function seed() {
     sagnik.preferences = {
       favoriteGames: ['Valorant', 'Apex Legends', 'Cyberpunk 2077', 'Overwatch 2'],
       favoriteGenres: ['Shooter', 'Battle Royale', 'RPG'],
-      platforms: ['PC', 'PlayStation']
+      platforms: ['PC', 'PlayStation'],
     };
     sagnik.presence = {
       status: 'in_game',
       activeGame: 'Valorant',
-      lastActive: new Date()
+      lastActive: new Date(),
     };
     await sagnik.save();
     console.log('✔ Updated Sagnik0401 with admin role, presence, and gaming preferences');
@@ -60,14 +60,15 @@ async function seed() {
         slug: 'valorant-champions-hub',
         description: 'Official competitive scrims, radiant lineups, and party coordination.',
         icon: '🎯',
-        banner: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        banner:
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
         ownerId: sagnik._id,
         isPrivate: false,
         members: [
           { userId: sagnik._id, role: 'owner' },
           ...(hyper ? [{ userId: hyper._id, role: 'admin' }] : []),
-          ...(steve ? [{ userId: steve._id, role: 'member' }] : [])
-        ]
+          ...(steve ? [{ userId: steve._id, role: 'member' }] : []),
+        ],
       });
 
       // Channels
@@ -78,7 +79,7 @@ async function seed() {
         type: 'text',
         position: 0,
         minRoleToRead: 'member',
-        minRoleToWrite: 'member'
+        minRoleToWrite: 'member',
       });
 
       const scrimsCh = await Channel.create({
@@ -89,7 +90,7 @@ async function seed() {
         position: 1,
         minRoleToRead: 'member',
         minRoleToWrite: 'moderator',
-        slowModeSeconds: 15
+        slowModeSeconds: 15,
       });
 
       const annCh = await Channel.create({
@@ -99,7 +100,7 @@ async function seed() {
         type: 'announcement',
         position: 2,
         minRoleToRead: 'member',
-        minRoleToWrite: 'admin'
+        minRoleToWrite: 'admin',
       });
 
       // Add realistic chat messages
@@ -109,22 +110,22 @@ async function seed() {
           communityId: valCommunity._id,
           senderId: hyper ? hyper._id : sagnik._id,
           text: 'Welcome to the hub everyone! Who is down for 5-stack competitive tonight?',
-          createdAt: new Date(Date.now() - 3600000 * 2)
+          createdAt: new Date(Date.now() - 3600000 * 2),
         },
         {
           channelId: generalCh._id,
           communityId: valCommunity._id,
           senderId: sagnik._id,
           text: 'Count me in. Playing initiator/Sova. Let us queue around 9 PM.',
-          createdAt: new Date(Date.now() - 3600000 * 1.5)
+          createdAt: new Date(Date.now() - 3600000 * 1.5),
         },
         {
           channelId: scrimsCh._id,
           communityId: valCommunity._id,
           senderId: sagnik._id,
           text: 'Tournament scrim bracket has been updated. Check #official-announcements.',
-          createdAt: new Date(Date.now() - 3600000)
-        }
+          createdAt: new Date(Date.now() - 3600000),
+        },
       ]);
       console.log('✔ Seeded "Valorant Champions Hub" with 3 channels and chat messages');
     }
@@ -134,30 +135,30 @@ async function seed() {
     await Party.create([
       {
         gameTitle: 'Valorant',
-        gameThumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80',
+        gameThumbnail:
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80',
         activity: 'Competitive 5-Stack (Diamond+)',
         leaderId: hyper ? hyper._id : sagnik._id,
         maxSlots: 5,
         members: [
           { userId: hyper ? hyper._id : sagnik._id, role: 'leader', joinedAt: new Date() },
-          ...(steve ? [{ userId: steve._id, role: 'member', joinedAt: new Date() }] : [])
+          ...(steve ? [{ userId: steve._id, role: 'member', joinedAt: new Date() }] : []),
         ],
         requirements: { minRank: 'Diamond 2', micRequired: true },
         status: 'open',
-        createdAt: new Date()
+        createdAt: new Date(),
       },
       {
         gameTitle: 'Apex Legends',
-        gameThumbnail: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=400&q=80',
+        gameThumbnail:
+          'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=400&q=80',
         activity: 'Ranked Trios Grind',
         leaderId: sagnik._id,
         maxSlots: 3,
-        members: [
-          { userId: sagnik._id, role: 'leader', joinedAt: new Date() }
-        ],
+        members: [{ userId: sagnik._id, role: 'leader', joinedAt: new Date() }],
         requirements: { minRank: 'Platinum+', micRequired: true },
         status: 'open',
-        createdAt: new Date()
+        createdAt: new Date(),
       },
       {
         gameTitle: 'Overwatch 2',
@@ -165,13 +166,11 @@ async function seed() {
         activity: 'Quick Play Fun & Leveling',
         leaderId: steve ? steve._id : sagnik._id,
         maxSlots: 5,
-        members: [
-          { userId: steve ? steve._id : sagnik._id, role: 'leader', joinedAt: new Date() }
-        ],
+        members: [{ userId: steve ? steve._id : sagnik._id, role: 'leader', joinedAt: new Date() }],
         requirements: { minRank: 'Any Rank', micRequired: false },
         status: 'open',
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+      },
     ]);
     console.log('✔ Seeded 3 fresh LFG squads on the board');
 
@@ -184,9 +183,10 @@ async function seed() {
         title: '🤖 GamerHub Bot: New Valorant Update',
         message: 'Patch breakdown and new agent reveal highlights have just been published.',
         actionUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        mediaThumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80',
+        mediaThumbnail:
+          'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80',
         read: false,
-        createdAt: new Date(Date.now() - 1000 * 60 * 15)
+        createdAt: new Date(Date.now() - 1000 * 60 * 15),
       },
       {
         userId: sagnik._id,
@@ -196,7 +196,7 @@ async function seed() {
         actionUrl: '/lfg',
         mediaThumbnail: '',
         read: false,
-        createdAt: new Date(Date.now() - 1000 * 60 * 45)
+        createdAt: new Date(Date.now() - 1000 * 60 * 45),
       },
       {
         userId: sagnik._id,
@@ -206,8 +206,8 @@ async function seed() {
         actionUrl: '/feed',
         mediaThumbnail: '',
         read: true,
-        createdAt: new Date(Date.now() - 1000 * 60 * 180)
-      }
+        createdAt: new Date(Date.now() - 1000 * 60 * 180),
+      },
     ]);
     console.log('✔ Seeded 3 notifications into Sagnik0401 notification inbox');
 

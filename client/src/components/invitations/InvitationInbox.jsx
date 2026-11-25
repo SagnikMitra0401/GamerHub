@@ -29,7 +29,7 @@ const InvitationInbox = ({ isOpen, onClose, onAccepted }) => {
     try {
       const [inbox, outbox] = await Promise.all([
         axiosInstance.get('/invitations/inbox'),
-        axiosInstance.get('/invitations/sent')
+        axiosInstance.get('/invitations/sent'),
       ]);
       setReceived(Array.isArray(inbox.data.items) ? inbox.data.items : []);
       setSent(Array.isArray(outbox.data.items) ? outbox.data.items : []);
@@ -51,7 +51,7 @@ const InvitationInbox = ({ isOpen, onClose, onAccepted }) => {
     setError('');
     try {
       const { data } = await axiosInstance.post(`/invitations/${invitation._id}/${action}`);
-      setReceived(prev => prev.filter(item => item._id !== invitation._id));
+      setReceived((prev) => prev.filter((item) => item._id !== invitation._id));
       if (action === 'accept') {
         onAccepted?.(data);
       }
@@ -76,7 +76,12 @@ const InvitationInbox = ({ isOpen, onClose, onAccepted }) => {
             <h2 className="modal-title">Invitations</h2>
             <p className="text-muted">Join only what you agree to.</p>
           </div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close invitations">
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close invitations"
+          >
             <CloseIcon />
           </button>
         </div>
@@ -89,7 +94,8 @@ const InvitationInbox = ({ isOpen, onClose, onAccepted }) => {
             className={`invite-tab${tab === 'received' ? ' active' : ''}`}
             onClick={() => setTab('received')}
           >
-            Received {received.length > 0 && <span className="invite-count">{received.length}</span>}
+            Received{' '}
+            {received.length > 0 && <span className="invite-count">{received.length}</span>}
           </button>
           <button
             type="button"
@@ -109,14 +115,22 @@ const InvitationInbox = ({ isOpen, onClose, onAccepted }) => {
         ) : rows.length === 0 ? (
           <div className="search-empty">
             <UsersIcon size={22} />
-            <p>{tab === 'received' ? 'No pending invitations.' : 'You have not sent any invitations.'}</p>
+            <p>
+              {tab === 'received'
+                ? 'No pending invitations.'
+                : 'You have not sent any invitations.'}
+            </p>
           </div>
         ) : (
           <ul className="invite-list">
-            {rows.map(invitation => (
+            {rows.map((invitation) => (
               <li key={invitation._id} className="invite-row">
                 <span className="invite-icon" aria-hidden="true">
-                  {invitation.targetType === 'squad' ? <UsersIcon size={16} /> : <ServerIcon size={16} />}
+                  {invitation.targetType === 'squad' ? (
+                    <UsersIcon size={16} />
+                  ) : (
+                    <ServerIcon size={16} />
+                  )}
                 </span>
                 <div className="invite-body">
                   <p className="invite-title">{invitation.targetName || 'Invitation'}</p>

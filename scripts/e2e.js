@@ -35,7 +35,13 @@ const app = require('../server/app');
 const { initSocket } = require('../server/config/socket');
 
 const {
-  api, check, connectSocket, registerUser, report, setBase, waitFor
+  api,
+  check,
+  connectSocket,
+  registerUser,
+  report,
+  setBase,
+  waitFor,
 } = require('./lib/e2e-harness');
 
 const register = registerUser;
@@ -74,14 +80,26 @@ async function scenarios(ctx) {
   const created = await api('/api/posts', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { title: 'First post', content: 'hello', tags: ['FPS'], linkPreview: { url: 'javascript:alert(1)' } }
+    body: {
+      title: 'First post',
+      content: 'hello',
+      tags: ['FPS'],
+      linkPreview: { url: 'javascript:alert(1)' },
+    },
   });
   check('post created', () => assert.equal(created.status, 201));
 
   const feed = await api('/api/posts?limit=1');
   check('anonymous feed is 200', () => assert.equal(feed.status, 200));
   check('feed author projection is minimal', () =>
-    assert.deepEqual(Object.keys(feed.data[0].userId).sort(), ['_id', 'level', 'profileType', 'role', 'username']));
+    assert.deepEqual(Object.keys(feed.data[0].userId).sort(), [
+      '_id',
+      'level',
+      'profileType',
+      'role',
+      'username',
+    ]),
+  );
   check('feed never leaks email or passwordHash', () => {
     const blob = JSON.stringify(feed.data);
     assert.equal(blob.includes('passwordHash'), false);
@@ -90,7 +108,8 @@ async function scenarios(ctx) {
 
   const post = await api(`/api/posts/${created.data._id}`);
   check('unsafe link preview was dropped', () =>
-    assert.equal(post.data.linkPreview?.url ?? null, null));
+    assert.equal(post.data.linkPreview?.url ?? null, null),
+  );
 
   console.log('\n[input guards]');
   const nanPage = await api('/api/posts?page=abc&limit=abc');
@@ -112,13 +131,14 @@ async function scenarios(ctx) {
   check('wildcard vercel.app origin rejected', () => assert.equal(evil.status, 403));
   const good = await api('/api/posts?limit=1', { origin: 'http://localhost:3000' });
   check('configured origin allowed', () =>
-    assert.equal(good.headers.get('access-control-allow-origin'), 'http://localhost:3000'));
+    assert.equal(good.headers.get('access-control-allow-origin'), 'http://localhost:3000'),
+  );
 
   console.log('\n[server creation]');
   const made = await api('/api/communities', {
     method: 'POST',
     cookie: alice.cookie,
-    body: { name: 'E2E Servers', description: 'test server', icon: '🎮' }
+    body: { name: 'E2E Servers', description: 'test server', icon: '🎮' },
   });
   check('server created', () => assert.equal(made.status, 201, JSON.stringify(made.data)));
   check('owner gets full permissions', () => {
@@ -131,14 +151,15 @@ async function scenarios(ctx) {
 
   const detail = await api(`/api/communities/${slug}`, { cookie: alice.cookie });
   check('general channel exists', () =>
-    assert.ok(detail.data.channels.some((c) => c.name === 'general')));
+    assert.ok(detail.data.channels.some((c) => c.name === 'general')),
+  );
   const generalId = detail.data.channels.find((c) => c.name === 'general')._id;
 
   console.log('\n[private servers]');
   const madePrivate = await api(`/api/communities/${serverId}`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { isPrivate: true }
+    body: { isPrivate: true },
   });
   check('owner can make server private', () => assert.equal(madePrivate.status, 200));
 
@@ -150,12 +171,16 @@ async function scenarios(ctx) {
   const ownerView = await api(`/api/communities/${slug}`, { cookie: alice.cookie });
   check('owner can still view private server', () => assert.equal(ownerView.status, 200));
 
-  const selfJoin = await api(`/api/communities/${serverId}/join`, { method: 'POST', cookie: bob.cookie });
+  const selfJoin = await api(`/api/communities/${serverId}/join`, {
+    method: 'POST',
+    cookie: bob.cookie,
+  });
   check('private server rejects self-join', () => assert.equal(selfJoin.status, 403));
 
   const publicProfile = await api('/api/users/alice', { cookie: bob.cookie });
-  check('profile never exposes another user\'s saved posts', () =>
-    assert.equal(publicProfile.data.savedPosts, undefined));
+  check("profile never exposes another user's saved posts", () =>
+    assert.equal(publicProfile.data.savedPosts, undefined),
+  );
   check('profile payload carries no credentials', () => {
     const blob = JSON.stringify(publicProfile.data);
     assert.equal(blob.includes('passwordHash'), false);
@@ -172,13 +197,15 @@ async function scenarios(ctx) {
   const addBob = await api(`/api/communities/${serverId}/members`, {
     method: 'POST',
     cookie: alice.cookie,
-    body: { username: 'bob', role: 'moderator' }
+    body: { username: 'bob', role: 'moderator' },
   });
-  check('owner adds bob as moderator', () => assert.equal(addBob.status, 201, JSON.stringify(addBob.data)));
+  check('owner adds bob as moderator', () =>
+    assert.equal(addBob.status, 201, JSON.stringify(addBob.data)),
+  );
 
   // Alice now belongs to a private server other people cannot see.
   const outsiderProfile = await api('/api/users/alice', { cookie: dave.cookie });
-  check('outsider cannot see a private server on someone\'s profile', () => {
+  check("outsider cannot see a private server on someone's profile", () => {
     const names = (outsiderProfile.data.communities || []).map((c) => c.name);
     assert.equal(names.includes('E2E Servers'), false, JSON.stringify(names));
   });
@@ -202,50 +229,51 @@ async function scenarios(ctx) {
   const carolAdd = await api(`/api/communities/${serverId}/members`, {
     method: 'POST',
     cookie: alice.cookie,
-    body: { username: 'carol', role: 'member' }
+    body: { username: 'carol', role: 'member' },
   });
   check('owner adds carol as member', () => assert.equal(carolAdd.status, 201));
 
   const modEscalation = await api(`/api/communities/${serverId}/members/${bobId}/role`, {
     method: 'PATCH',
     cookie: bob.cookie,
-    body: { newRole: 'admin' }
+    body: { newRole: 'admin' },
   });
   check('moderator cannot grant roles', () => assert.equal(modEscalation.status, 403));
 
   const promote = await api(`/api/communities/${serverId}/members/${bobId}/role`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { newRole: 'admin' }
+    body: { newRole: 'admin' },
   });
   check('owner promotes bob to admin', () => assert.equal(promote.status, 200));
 
   const carolView = await api(`/api/communities/${slug}`, { cookie: carol.cookie });
-  const carolId = carolView.data.community.members.find((m) => m.userId.username === 'carol').userId._id;
+  const carolId = carolView.data.community.members.find((m) => m.userId.username === 'carol').userId
+    ._id;
 
   const adminEscalation = await api(`/api/communities/${serverId}/members/${carolId}/role`, {
     method: 'PATCH',
     cookie: bob.cookie,
-    body: { newRole: 'admin' }
+    body: { newRole: 'admin' },
   });
   check('admin cannot grant admin', () => assert.equal(adminEscalation.status, 403));
 
   const adminPromote = await api(`/api/communities/${serverId}/members/${carolId}/role`, {
     method: 'PATCH',
     cookie: bob.cookie,
-    body: { newRole: 'moderator' }
+    body: { newRole: 'moderator' },
   });
   check('admin can promote to moderator', () => assert.equal(adminPromote.status, 200));
 
   const kickOwner = await api(`/api/communities/${serverId}/members/${made.data.ownerId}`, {
     method: 'DELETE',
-    cookie: bob.cookie
+    cookie: bob.cookie,
   });
   check('admin cannot kick the owner', () => assert.equal(kickOwner.status, 403));
 
   const kickCarol = await api(`/api/communities/${serverId}/members/${carolId}`, {
     method: 'DELETE',
-    cookie: bob.cookie
+    cookie: bob.cookie,
   });
   check('admin kicks a member', () => assert.equal(kickCarol.status, 200));
 
@@ -258,9 +286,11 @@ async function scenarios(ctx) {
   const channel = await api(`/api/communities/${serverId}/channels`, {
     method: 'POST',
     cookie: bob.cookie,
-    body: { name: 'Staff Only', topic: 'admin', minRoleToRead: 'admin', minRoleToWrite: 'member' }
+    body: { name: 'Staff Only', topic: 'admin', minRoleToRead: 'admin', minRoleToWrite: 'member' },
   });
-  check('admin creates a channel', () => assert.equal(channel.status, 201, JSON.stringify(channel.data)));
+  check('admin creates a channel', () =>
+    assert.equal(channel.status, 201, JSON.stringify(channel.data)),
+  );
   check('write gate is raised to the read gate', () => {
     assert.equal(channel.data.minRoleToRead, 'admin');
     assert.equal(channel.data.minRoleToWrite, 'admin');
@@ -269,19 +299,19 @@ async function scenarios(ctx) {
   const memberChannel = await api(`/api/communities/${serverId}/channels`, {
     method: 'POST',
     cookie: dave.cookie,
-    body: { name: 'nope' }
+    body: { name: 'nope' },
   });
   check('non-member cannot create channels', () => assert.equal(memberChannel.status, 403));
 
   const delChannel = await api(`/api/communities/${serverId}/channels/${channel.data._id}`, {
     method: 'DELETE',
-    cookie: alice.cookie
+    cookie: alice.cookie,
   });
   check('owner deletes a channel', () => assert.equal(delChannel.status, 200));
 
   const delLastAttempt = await api(`/api/communities/${serverId}/channels/${generalId}`, {
     method: 'DELETE',
-    cookie: alice.cookie
+    cookie: alice.cookie,
   });
   check('cannot delete the last channel', () => assert.equal(delLastAttempt.status, 400));
 
@@ -290,7 +320,14 @@ async function scenarios(ctx) {
   check('owner reads the audit log', () => assert.equal(audit.status, 200));
   check('audit contains the admin actions', () => {
     const types = new Set(audit.data.entries.map((e) => e.actionType));
-    for (const type of ['MEMBER_ADD', 'ROLE_UPDATE', 'MEMBER_KICK', 'CHANNEL_CREATE', 'CHANNEL_DELETE', 'SETTINGS_UPDATE']) {
+    for (const type of [
+      'MEMBER_ADD',
+      'ROLE_UPDATE',
+      'MEMBER_KICK',
+      'CHANNEL_CREATE',
+      'CHANNEL_DELETE',
+      'SETTINGS_UPDATE',
+    ]) {
       assert.ok(types.has(type), `missing ${type}`);
     }
   });
@@ -332,16 +369,18 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   const daveServer = await api('/api/communities', {
     method: 'POST',
     cookie: ctx.dave.cookie,
-    body: { name: 'Dave Server', description: 'other server' }
+    body: { name: 'Dave Server', description: 'other server' },
   });
-  const daveDetail = await api(`/api/communities/${daveServer.data.slug}`, { cookie: ctx.dave.cookie });
+  const daveDetail = await api(`/api/communities/${daveServer.data.slug}`, {
+    cookie: ctx.dave.cookie,
+  });
   const daveChannelId = daveDetail.data.channels[0]._id;
 
   const crossError = waitFor(aliceSocket, 'error_msg');
   aliceSocket.emit('send_message', {
     channelId: daveChannelId,
     communityId: serverId, // spoofed: claims her own server
-    text: 'cross-server injection'
+    text: 'cross-server injection',
   });
   const crossErr = await crossError;
   check('cannot post into another server channel', () => {
@@ -356,7 +395,8 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   }
   await new Promise((r) => setTimeout(r, 400));
   check('flood control kicks in after 5 messages', () =>
-    assert.ok(floodErrors.some((e) => e.code === 'FLOOD')));
+    assert.ok(floodErrors.some((e) => e.code === 'FLOOD')),
+  );
 
   const outsiderSocket = await connectSocket(ctx.dave.token);
   const outsiderError = waitFor(outsiderSocket, 'error_msg');
@@ -377,8 +417,9 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   const delErr = waitFor(bobSocket, 'error_msg');
   bobSocket.emit('delete_message', { messageId: targetMessage._id });
   const deletedEvent = await deleted;
-  check('moderator deletes another member\'s message', () =>
-    assert.ok(deletedEvent && deletedEvent.messageId === targetMessage._id));
+  check("moderator deletes another member's message", () =>
+    assert.ok(deletedEvent && deletedEvent.messageId === targetMessage._id),
+  );
   const delErrPayload = await delErr;
   check('delete succeeds without an error', () => assert.equal(delErrPayload, null));
 
@@ -391,14 +432,14 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   const addDave = await api(`/api/communities/${serverId}/members`, {
     method: 'POST',
     cookie: alice.cookie,
-    body: { username: 'dave', role: 'member' }
+    body: { username: 'dave', role: 'member' },
   });
   check('owner adds a member for the slowmode test', () => assert.equal(addDave.status, 201));
 
   const slowPatch = await api(`/api/communities/${serverId}/channels/${generalId}`, {
     method: 'PATCH',
     cookie: alice.cookie,
-    body: { slowModeSeconds: 5 }
+    body: { slowModeSeconds: 5 },
   });
   check('slowmode is enabled on the channel', () => assert.equal(slowPatch.status, 200));
 
@@ -413,7 +454,9 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   await new Promise((resolve) => setTimeout(resolve, 200));
   daveSocket.emit('send_message', { channelId: generalId, text: 'slow 2' });
   const slowPayload = await slowError;
-  check('slowmode blocks a second rapid message', () => assert.equal(slowPayload?.code, 'SLOWMODE'));
+  check('slowmode blocks a second rapid message', () =>
+    assert.equal(slowPayload?.code, 'SLOWMODE'),
+  );
 
   const ownerSlowError = waitFor(aliceSocket, 'error_msg', () => true, 1200);
   aliceSocket.emit('send_message', { channelId: generalId, text: 'owner bypass 1' });
@@ -424,8 +467,9 @@ async function socketScenarios(ctx, { serverId, generalId }) {
 
   // Dave is also the owner of his own server. A second socket, parked in one of
   // HIS channels, must survive the eviction from Alice's server.
-  const daveOwnChannelId = (await api(`/api/communities/${daveServer.data.slug}`, { cookie: ctx.dave.cookie }))
-    .data.channels[0]._id;
+  const daveOwnChannelId = (
+    await api(`/api/communities/${daveServer.data.slug}`, { cookie: ctx.dave.cookie })
+  ).data.channels[0]._id;
   const daveOtherSocket = await connectSocket(ctx.dave.token);
   const daveOwnJoin = waitFor(daveOtherSocket, 'joined_channel');
   daveOtherSocket.emit('join_channel', { channelId: daveOwnChannelId });
@@ -433,7 +477,10 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   check('second socket joins its own server channel', () => assert.ok(ownJoined));
 
   const revokedEvent = waitFor(daveSocket, 'membership_revoked', () => true, 4000);
-  const leaveRes = await api(`/api/communities/${serverId}/leave`, { method: 'POST', cookie: ctx.dave.cookie });
+  const leaveRes = await api(`/api/communities/${serverId}/leave`, {
+    method: 'POST',
+    cookie: ctx.dave.cookie,
+  });
   check('member leaves the server', () => assert.equal(leaveRes.status, 200));
   const revoked = await revokedEvent;
   check('live socket is evicted on leave', () => assert.ok(revoked));
@@ -441,14 +488,15 @@ async function socketScenarios(ctx, { serverId, generalId }) {
   const afterLeaveMessage = waitFor(daveSocket, 'new_message', () => true, 900);
   bobSocket.emit('send_message', { channelId: generalId, text: 'after you left' });
   const leaked = await afterLeaveMessage;
-  check('evicted socket stops receiving that server\'s messages', () => assert.equal(leaked, null));
+  check("evicted socket stops receiving that server's messages", () => assert.equal(leaked, null));
 
   const ownRoomEcho = waitFor(daveOtherSocket, 'new_message', (m) => m.text === 'still my room');
   daveOtherSocket.emit('send_message', { channelId: daveOwnChannelId, text: 'still my room' });
   const ownEcho = await ownRoomEcho;
-  check('eviction from one server keeps another server\'s live chat', () => assert.ok(ownEcho));
+  check("eviction from one server keeps another server's live chat", () => assert.ok(ownEcho));
 
-  for (const socket of [aliceSocket, bobSocket, outsiderSocket, daveSocket, daveOtherSocket]) socket.disconnect();
+  for (const socket of [aliceSocket, bobSocket, outsiderSocket, daveSocket, daveOtherSocket])
+    socket.disconnect();
 }
 
 run().catch((err) => {

@@ -33,9 +33,8 @@ async function redisCheck(timeoutMs) {
   if (!redis) return { ok: false, configured: true, status: 'unavailable' };
 
   try {
-    const ping = typeof redis.ping === 'function'
-      ? redis.ping()
-      : redis.get(redisKey('health:ready'));
+    const ping =
+      typeof redis.ping === 'function' ? redis.ping() : redis.get(redisKey('health:ready'));
     await withTimeout(ping, timeoutMs, 'redis ping');
     return { ok: true, configured: true, status: 'connected' };
   } catch {
@@ -48,10 +47,7 @@ async function redisCheck(timeoutMs) {
  * they can answer. `/api/health` stays the cheap Render liveness probe.
  */
 async function readinessSnapshot({ timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-  const [database, redis] = await Promise.all([
-    databaseCheck(timeoutMs),
-    redisCheck(timeoutMs)
-  ]);
+  const [database, redis] = await Promise.all([databaseCheck(timeoutMs), redisCheck(timeoutMs)]);
   const ready = database.ok && redis.ok;
 
   return {
@@ -59,7 +55,7 @@ async function readinessSnapshot({ timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
     ready,
     uptimeSeconds: Math.round(process.uptime()),
     checkedAt: new Date().toISOString(),
-    checks: { database, redis }
+    checks: { database, redis },
   };
 }
 

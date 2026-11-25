@@ -25,7 +25,11 @@ function environmentName() {
 
 function ownerSegment(ownerId) {
   if (!ownerId) return 'shared';
-  return `u_${String(ownerId).replace(/[^a-z0-9]/gi, '').slice(-16) || 'unknown'}`;
+  return `u_${
+    String(ownerId)
+      .replace(/[^a-z0-9]/gi, '')
+      .slice(-16) || 'unknown'
+  }`;
 }
 
 function mediaFolder({ surface = 'other', ownerId = null, now = new Date() } = {}) {
@@ -53,5 +57,5 @@ module.exports = {
   SURFACES,
   environmentName,
   mediaFolder,
-  mediaPublicId
+  mediaPublicId,
 };

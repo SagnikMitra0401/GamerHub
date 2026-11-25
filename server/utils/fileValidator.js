@@ -25,18 +25,12 @@ function detectImageMime(buffer) {
   if (startsWith(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
 
   // RIFF....WEBP
-  if (
-    startsWith(buffer, [0x52, 0x49, 0x46, 0x46]) &&
-    buffer.toString('ascii', 8, 12) === 'WEBP'
-  ) {
+  if (startsWith(buffer, [0x52, 0x49, 0x46, 0x46]) && buffer.toString('ascii', 8, 12) === 'WEBP') {
     return 'image/webp';
   }
 
   // GIF87a / GIF89a
-  if (
-    buffer.toString('ascii', 0, 6) === 'GIF87a' ||
-    buffer.toString('ascii', 0, 6) === 'GIF89a'
-  ) {
+  if (buffer.toString('ascii', 0, 6) === 'GIF87a' || buffer.toString('ascii', 0, 6) === 'GIF89a') {
     return 'image/gif';
   }
 
@@ -74,5 +68,5 @@ module.exports = {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_MESSAGE,
   detectImageMime,
-  validateImageUpload
+  validateImageUpload,
 };

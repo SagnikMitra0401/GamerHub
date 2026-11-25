@@ -6,7 +6,7 @@ const BACKGROUNDS = [
   { key: 'sunset', label: 'Sunset' },
   { key: 'ocean', label: 'Ocean' },
   { key: 'ember', label: 'Ember' },
-  { key: 'forest', label: 'Forest' }
+  { key: 'forest', label: 'Forest' },
 ];
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -33,7 +33,9 @@ const StoryComposer = ({ isOpen, onClose, onCreated }) => {
 
   useEffect(() => {
     if (!isOpen) return undefined;
-    const onKey = (event) => { if (event.key === 'Escape' && !loading) onClose(); };
+    const onKey = (event) => {
+      if (event.key === 'Escape' && !loading) onClose();
+    };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
@@ -43,7 +45,10 @@ const StoryComposer = ({ isOpen, onClose, onCreated }) => {
   }, [isOpen, loading, onClose]);
 
   useEffect(() => {
-    if (!file) { setPreview(null); return undefined; }
+    if (!file) {
+      setPreview(null);
+      return undefined;
+    }
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
@@ -109,7 +114,7 @@ const StoryComposer = ({ isOpen, onClose, onCreated }) => {
       if (file) formData.append('media', file);
 
       await axiosInstance.post('/stories', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       reset();
       onCreated?.();
@@ -122,12 +127,24 @@ const StoryComposer = ({ isOpen, onClose, onCreated }) => {
   };
 
   return (
-    <div className="story-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Create a story">
-      <button type="button" className="story-sheet-scrim" aria-label="Close composer" onClick={close} />
+    <div
+      className="story-sheet-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create a story"
+    >
+      <button
+        type="button"
+        className="story-sheet-scrim"
+        aria-label="Close composer"
+        onClick={close}
+      />
       <form className="story-sheet" onSubmit={submit}>
         <header className="story-sheet-head">
           <h3>New story</h3>
-          <button type="button" className="story-close" onClick={close} aria-label="Close composer">×</button>
+          <button type="button" className="story-close" onClick={close} aria-label="Close composer">
+            ×
+          </button>
         </header>
 
         {error && <div className="form-error">{error}</div>}
@@ -160,12 +177,17 @@ const StoryComposer = ({ isOpen, onClose, onCreated }) => {
             className="story-file-input"
             id="story-media"
           />
-          <label htmlFor="story-media" className="btn btn-ghost btn-sm">Photo / video</label>
+          <label htmlFor="story-media" className="btn btn-ghost btn-sm">
+            Photo / video
+          </label>
           {mode !== 'text' && (
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => { setMode('text'); setFile(null); }}
+              onClick={() => {
+                setMode('text');
+                setFile(null);
+              }}
             >
               Use text
             </button>
@@ -208,7 +230,9 @@ const StoryComposer = ({ isOpen, onClose, onCreated }) => {
         </label>
 
         <div className="story-sheet-actions">
-          <button type="button" className="btn btn-ghost" onClick={close} disabled={loading}>Cancel</button>
+          <button type="button" className="btn btn-ghost" onClick={close} disabled={loading}>
+            Cancel
+          </button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Publishing…' : 'Share story'}
           </button>

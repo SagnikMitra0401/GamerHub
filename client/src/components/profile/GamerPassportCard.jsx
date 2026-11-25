@@ -11,7 +11,9 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
 
   // Close expanded modal on Escape
   useEffect(() => {
-    const handleEsc = (e) => { if (e.key === 'Escape') setExpandedRig(null); };
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setExpandedRig(null);
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
@@ -43,7 +45,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
       '',
       '========================================',
       `Exported On:   ${new Date().toLocaleString()}`,
-      'Generated via GamingHub Gamer Passport'
+      'Generated via GamingHub Gamer Passport',
     ].join('\n');
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -62,7 +64,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
   const hardwareRigs = passport?.hardwareRigs || [];
   const customQuote = passport?.customQuote || '';
 
-  const hasAnyIds = Object.values(gameIds).some(v => v && v.trim());
+  const hasAnyIds = Object.values(gameIds).some((v) => v && v.trim());
   const hasGames = activeGames.length > 0;
   const hasRigs = hardwareRigs.length > 0;
   const currentRig = hardwareRigs[selectedRigIdx] || hardwareRigs[0];
@@ -98,14 +100,18 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
         <h4 className="passport-section-title">In-Game Accounts</h4>
         {!hasAnyIds ? (
           <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
-            {isOwnProfile ? 'No in-game IDs linked yet. Click Edit to add them.' : 'No in-game accounts listed.'}
+            {isOwnProfile
+              ? 'No in-game IDs linked yet. Click Edit to add them.'
+              : 'No in-game accounts listed.'}
           </p>
         ) : (
           <div className="game-ids-list">
             {gameIds.riotId && (
               <div className="id-badge-row">
                 <span className="id-badge-label">Riot</span>
-                <span className="id-badge-val" title={gameIds.riotId}>{gameIds.riotId}</span>
+                <span className="id-badge-val" title={gameIds.riotId}>
+                  {gameIds.riotId}
+                </span>
                 <button
                   className={`copy-btn ${copiedKey === 'riot' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.riotId, 'riot')}
@@ -119,7 +125,9 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
             {gameIds.steamId && (
               <div className="id-badge-row">
                 <span className="id-badge-label">Steam</span>
-                <span className="id-badge-val" title={gameIds.steamId}>{gameIds.steamId}</span>
+                <span className="id-badge-val" title={gameIds.steamId}>
+                  {gameIds.steamId}
+                </span>
                 <button
                   className={`copy-btn ${copiedKey === 'steam' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.steamId, 'steam')}
@@ -133,7 +141,9 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
             {gameIds.psnTag && (
               <div className="id-badge-row">
                 <span className="id-badge-label">PSN</span>
-                <span className="id-badge-val" title={gameIds.psnTag}>{gameIds.psnTag}</span>
+                <span className="id-badge-val" title={gameIds.psnTag}>
+                  {gameIds.psnTag}
+                </span>
                 <button
                   className={`copy-btn ${copiedKey === 'psn' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.psnTag, 'psn')}
@@ -147,7 +157,9 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
             {gameIds.xboxTag && (
               <div className="id-badge-row">
                 <span className="id-badge-label">Xbox</span>
-                <span className="id-badge-val" title={gameIds.xboxTag}>{gameIds.xboxTag}</span>
+                <span className="id-badge-val" title={gameIds.xboxTag}>
+                  {gameIds.xboxTag}
+                </span>
                 <button
                   className={`copy-btn ${copiedKey === 'xbox' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.xboxTag, 'xbox')}
@@ -161,7 +173,9 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
             {gameIds.discordTag && (
               <div className="id-badge-row">
                 <span className="id-badge-label">Discord</span>
-                <span className="id-badge-val" title={gameIds.discordTag}>{gameIds.discordTag}</span>
+                <span className="id-badge-val" title={gameIds.discordTag}>
+                  {gameIds.discordTag}
+                </span>
                 <button
                   className={`copy-btn ${copiedKey === 'discord' ? 'copied' : ''}`}
                   onClick={() => copyToClipboard(gameIds.discordTag, 'discord')}
@@ -177,9 +191,20 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
 
       {/* Featured Games & Ranks */}
       <div className="passport-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-          <h4 className="passport-section-title" style={{ margin: 0 }}>Active Games</h4>
-          <span className="self-report-label" title="Ranks self-reported by gamer">Self-Reported</span>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.4rem',
+          }}
+        >
+          <h4 className="passport-section-title" style={{ margin: 0 }}>
+            Active Games
+          </h4>
+          <span className="self-report-label" title="Ranks self-reported by gamer">
+            Self-Reported
+          </span>
         </div>
 
         {!hasGames ? (
@@ -190,16 +215,27 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
           <div className="active-games-grid">
             {activeGames.map((game, i) => (
               <div key={i} className="active-game-item">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    overflow: 'hidden',
+                  }}
+                >
                   <span className="game-platform">{game.platform}</span>
-                  <span className="game-item-title" title={game.gameName}>{game.gameName}</span>
+                  <span className="game-item-title" title={game.gameName}>
+                    {game.gameName}
+                  </span>
                 </div>
                 {game.rankOrLevel ? (
                   <span className="game-rank-badge" title={game.rankOrLevel}>
                     {game.rankOrLevel}
                   </span>
                 ) : (
-                  <span className="text-muted" style={{ fontSize: '0.72rem' }}>Playing</span>
+                  <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                    Playing
+                  </span>
                 )}
               </div>
             ))}
@@ -209,14 +245,30 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
 
       {/* Multi-Rig Battle Station Hardware */}
       <div className="passport-section" style={{ borderBottom: 'none' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-          <h4 className="passport-section-title" style={{ margin: 0 }}>Battle Station</h4>
-          <span className="self-report-label" title="Hardware specifications self-reported by gamer">Self-Reported</span>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.4rem',
+          }}
+        >
+          <h4 className="passport-section-title" style={{ margin: 0 }}>
+            Battle Station
+          </h4>
+          <span
+            className="self-report-label"
+            title="Hardware specifications self-reported by gamer"
+          >
+            Self-Reported
+          </span>
         </div>
 
         {!hasRigs ? (
           <p className="text-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
-            {isOwnProfile ? 'No gaming rigs configured. Click Edit to showcase your setup.' : 'No hardware setups listed.'}
+            {isOwnProfile
+              ? 'No gaming rigs configured. Click Edit to showcase your setup.'
+              : 'No hardware setups listed.'}
           </p>
         ) : (
           <div>
@@ -239,7 +291,7 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
 
             {/* Current Selected Rig Spec Card */}
             {currentRig && (
-              <div 
+              <div
                 className="rig-spec-card"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setExpandedRig(currentRig)}
@@ -257,7 +309,10 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
                       type="button"
                       className="btn btn-ghost btn-sm"
                       style={{ padding: '1px 5px', fontSize: '0.7rem', color: 'var(--accent)' }}
-                      onClick={(e) => { e.stopPropagation(); setExpandedRig(currentRig); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedRig(currentRig);
+                      }}
                       title="Expand full specifications"
                     >
                       Expand
@@ -269,31 +324,41 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
                   {currentRig.specs?.cpu && (
                     <div className="spec-row">
                       <span className="spec-key">CPU</span>
-                      <span className="spec-val" title={currentRig.specs.cpu}>{currentRig.specs.cpu}</span>
+                      <span className="spec-val" title={currentRig.specs.cpu}>
+                        {currentRig.specs.cpu}
+                      </span>
                     </div>
                   )}
                   {currentRig.specs?.gpu && (
                     <div className="spec-row">
                       <span className="spec-key">GPU</span>
-                      <span className="spec-val" title={currentRig.specs.gpu}>{currentRig.specs.gpu}</span>
+                      <span className="spec-val" title={currentRig.specs.gpu}>
+                        {currentRig.specs.gpu}
+                      </span>
                     </div>
                   )}
                   {currentRig.specs?.ram && (
                     <div className="spec-row">
                       <span className="spec-key">RAM</span>
-                      <span className="spec-val" title={currentRig.specs.ram}>{currentRig.specs.ram}</span>
+                      <span className="spec-val" title={currentRig.specs.ram}>
+                        {currentRig.specs.ram}
+                      </span>
                     </div>
                   )}
                   {currentRig.specs?.monitor && (
                     <div className="spec-row">
                       <span className="spec-key">Display</span>
-                      <span className="spec-val" title={currentRig.specs.monitor}>{currentRig.specs.monitor}</span>
+                      <span className="spec-val" title={currentRig.specs.monitor}>
+                        {currentRig.specs.monitor}
+                      </span>
                     </div>
                   )}
                   {currentRig.specs?.peripherals && (
                     <div className="spec-row">
                       <span className="spec-key">Gear</span>
-                      <span className="spec-val" title={currentRig.specs.peripherals}>{currentRig.specs.peripherals}</span>
+                      <span className="spec-val" title={currentRig.specs.peripherals}>
+                        {currentRig.specs.peripherals}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -304,93 +369,231 @@ const GamerPassportCard = ({ passport, username, isOwnProfile, onEditClick }) =>
       </div>
 
       {/* Expanded Mini Window / Rig Detail Modal */}
-      {expandedRig && ReactDOM.createPortal(
-        <div className="modal-overlay" onClick={() => setExpandedRig(null)} role="dialog" aria-modal="true">
-          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.65rem', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>{expandedRig.rigName}</h3>
-                  <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                    {expandedRig.deviceType} Setup {expandedRig.isPrimary ? '• Primary' : ''}
+      {expandedRig &&
+        ReactDOM.createPortal(
+          <div
+            className="modal-overlay"
+            onClick={() => setExpandedRig(null)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="modal-box"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '480px' }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem',
+                  paddingBottom: '0.65rem',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>
+                      {expandedRig.rigName}
+                    </h3>
+                    <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                      {expandedRig.deviceType} Setup {expandedRig.isPrimary ? '• Primary' : ''}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setExpandedRig(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  aria-label="Close"
+                >
+                  <CloseIcon size={16} />
+                </button>
+              </div>
+
+              {/* Untruncated Full Specs List */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div
+                  className="card"
+                  style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}
+                >
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      textTransform: 'uppercase',
+                      color: 'var(--text-muted)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    CPU / Processor
                   </span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setExpandedRig(null)} 
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                aria-label="Close"
-              >
-                <CloseIcon size={16} />
-              </button>
-            </div>
-
-            {/* Untruncated Full Specs List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <div className="card" style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}>
-                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>CPU / Processor</span>
-                <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                  {expandedRig.specs?.cpu || 'Not specified'}
-                </p>
-              </div>
-
-              <div className="card" style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}>
-                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>GPU / Graphics</span>
-                <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                  {expandedRig.specs?.gpu || 'Not specified'}
-                </p>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div className="card" style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}>
-                  <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>RAM / Memory</span>
-                  <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                    {expandedRig.specs?.ram || 'Not specified'}
+                  <p
+                    style={{
+                      margin: '0.2rem 0 0 0',
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {expandedRig.specs?.cpu || 'Not specified'}
                   </p>
                 </div>
 
-                <div className="card" style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}>
-                  <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Display / Monitor</span>
-                  <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                    {expandedRig.specs?.monitor || 'Not specified'}
+                <div
+                  className="card"
+                  style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}
+                >
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      textTransform: 'uppercase',
+                      color: 'var(--text-muted)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    GPU / Graphics
+                  </span>
+                  <p
+                    style={{
+                      margin: '0.2rem 0 0 0',
+                      fontWeight: 600,
+                      color: 'var(--text-primary)',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {expandedRig.specs?.gpu || 'Not specified'}
                   </p>
                 </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div
+                    className="card"
+                    style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      RAM / Memory
+                    </span>
+                    <p
+                      style={{
+                        margin: '0.2rem 0 0 0',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {expandedRig.specs?.ram || 'Not specified'}
+                    </p>
+                  </div>
+
+                  <div
+                    className="card"
+                    style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Display / Monitor
+                    </span>
+                    <p
+                      style={{
+                        margin: '0.2rem 0 0 0',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {expandedRig.specs?.monitor || 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+
+                {expandedRig.specs?.peripherals && (
+                  <div
+                    className="card"
+                    style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        textTransform: 'uppercase',
+                        color: 'var(--text-muted)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Gear & Peripherals
+                    </span>
+                    <p
+                      style={{
+                        margin: '0.2rem 0 0 0',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {expandedRig.specs.peripherals}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {expandedRig.specs?.peripherals && (
-                <div className="card" style={{ background: 'var(--bg-elevated)', padding: '0.75rem' }}>
-                  <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Gear & Peripherals</span>
-                  <p style={{ margin: '0.2rem 0 0 0', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                    {expandedRig.specs.peripherals}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer with Download Specs Button on the Lower Right Corner */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
-              <button 
-                type="button" 
-                className="btn btn-ghost btn-sm" 
-                onClick={() => setExpandedRig(null)}
+              {/* Footer with Download Specs Button on the Lower Right Corner */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: '0.75rem',
+                  borderTop: '1px solid var(--border)',
+                }}
               >
-                Close
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setExpandedRig(null)}
+                >
+                  Close
+                </button>
 
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => downloadSpecsTxt(expandedRig)}
-                title="Download this rig's specifications as a .txt file"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-              >
-                Download Specs (.txt)
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => downloadSpecsTxt(expandedRig)}
+                  title="Download this rig's specifications as a .txt file"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  Download Specs (.txt)
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

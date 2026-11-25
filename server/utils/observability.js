@@ -7,9 +7,9 @@ const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{8,80}$/;
 const releaseTag = () =>
   String(
     process.env.RELEASE_SHA ||
-    process.env.RENDER_GIT_COMMIT ||
-    process.env.GIT_COMMIT ||
-    'development'
+      process.env.RENDER_GIT_COMMIT ||
+      process.env.GIT_COMMIT ||
+      'development',
   ).slice(0, 80);
 
 /** Replace common PII or credential shapes before a log line is written. */
@@ -17,7 +17,10 @@ function redactSensitive(value) {
   return String(value || '')
     .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
-    .replace(/\b([A-Za-z0-9_-]*(?:token|password|secret|authorization|cookie))"?\s*[:=]\s*("[^"]*"|'[^']*'|[^\s&,}]+)/gi, '$1=[redacted]');
+    .replace(
+      /\b([A-Za-z0-9_-]*(?:token|password|secret|authorization|cookie))"?\s*[:=]\s*("[^"]*"|'[^']*'|[^\s&,}]+)/gi,
+      '$1=[redacted]',
+    );
 }
 
 function newRequestId() {
@@ -40,7 +43,7 @@ function logJson(level, event, fields = {}) {
     level,
     event,
     release: releaseTag(),
-    ...fields
+    ...fields,
   };
   const text = JSON.stringify(line);
   if (level === 'error') console.error(text);
@@ -54,7 +57,7 @@ function logServerError(err, req) {
     message: redactSensitive(err?.message || 'Internal server error'),
     stack: redactSensitive(err?.stack || ''),
     method: req?.method || null,
-    path: req?.path || null
+    path: req?.path || null,
   });
 }
 
@@ -64,7 +67,7 @@ function observabilityStatus() {
     structuredLogs: true,
     errorReporting: 'structured-json',
     release: releaseTag(),
-    productEventRetentionDays: PRODUCT_EVENT_TTL_DAYS
+    productEventRetentionDays: PRODUCT_EVENT_TTL_DAYS,
   };
 }
 
@@ -75,5 +78,5 @@ module.exports = {
   resolveRequestId,
   logJson,
   logServerError,
-  observabilityStatus
+  observabilityStatus,
 };

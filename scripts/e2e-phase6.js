@@ -52,13 +52,12 @@ const Message = require('../server/models/Message');
 const Notification = require('../server/models/Notification');
 const AuditLog = require('../server/models/AuditLog');
 
-const {
-  api, check, registerUser, report, setBase
-} = require('./lib/e2e-harness');
+const { api, check, registerUser, report, setBase } = require('./lib/e2e-harness');
 
 const register = registerUser;
 
-const cookieFor = (userId) => `jwt=${jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' })}`;
+const cookieFor = (userId) =>
+  `jwt=${jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' })}`;
 
 async function run() {
   await connectDB();
@@ -96,7 +95,7 @@ async function scenarios(ctx) {
   console.log('\n[auth lifecycle]');
   const reg = await api('/api/auth/register', {
     method: 'POST',
-    body: { username: 'dee', email: 'dee@example.com', password: 'password123' }
+    body: { username: 'dee', email: 'dee@example.com', password: 'password123' },
   });
   check('register returns 201 with a session cookie', () => {
     assert.equal(reg.status, 201);
@@ -105,36 +104,35 @@ async function scenarios(ctx) {
     assert.equal(reg.data.user.email, 'dee@example.com');
     assert.equal(reg.data.user.passwordHash, undefined);
   });
-  check('session cookie is HttpOnly', () =>
-    assert.match(reg.setCookie.join(';'), /HttpOnly/i));
+  check('session cookie is HttpOnly', () => assert.match(reg.setCookie.join(';'), /HttpOnly/i));
 
   const dupName = await api('/api/auth/register', {
     method: 'POST',
-    body: { username: 'ada', email: 'other@example.com', password: 'password123' }
+    body: { username: 'ada', email: 'other@example.com', password: 'password123' },
   });
   check('duplicate username is rejected', () => assert.equal(dupName.status, 409));
 
   const dupEmail = await api('/api/auth/register', {
     method: 'POST',
-    body: { username: 'zeta', email: 'ada@example.com', password: 'password123' }
+    body: { username: 'zeta', email: 'ada@example.com', password: 'password123' },
   });
   check('duplicate email is rejected', () => assert.equal(dupEmail.status, 409));
 
   const shortPw = await api('/api/auth/register', {
     method: 'POST',
-    body: { username: 'epsilon', email: 'epsilon@example.com', password: 'short' }
+    body: { username: 'epsilon', email: 'epsilon@example.com', password: 'short' },
   });
   check('short password is rejected', () => assert.equal(shortPw.status, 400));
 
   const badLogin = await api('/api/auth/login', {
     method: 'POST',
-    body: { email: 'ada@example.com', password: 'wrong-password' }
+    body: { email: 'ada@example.com', password: 'wrong-password' },
   });
   check('wrong password is 401', () => assert.equal(badLogin.status, 401));
 
   const login = await api('/api/auth/login', {
     method: 'POST',
-    body: { email: 'ADA@example.com', password: 'password123' }
+    body: { email: 'ADA@example.com', password: 'password123' },
   });
   check('login is case-insensitive on email', () => {
     assert.equal(login.status, 200);
@@ -152,14 +150,17 @@ async function scenarios(ctx) {
 
   const bearerOnly = await api('/api/auth/me', { token: ada.token });
   check('Bearer alone does not authenticate REST (cookie-only)', () =>
-    assert.equal(bearerOnly.status, 401));
+    assert.equal(bearerOnly.status, 401),
+  );
 
   const profile = await api('/api/auth/profile', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { bio: '  Main: Valorant  ', preferredPlatforms: ['PC', 'Xbox'] }
+    body: { bio: '  Main: Valorant  ', preferredPlatforms: ['PC', 'Xbox'] },
   });
-  check('profile update succeeds', () => assert.equal(profile.status, 200, JSON.stringify(profile.data)));
+  check('profile update succeeds', () =>
+    assert.equal(profile.status, 200, JSON.stringify(profile.data)),
+  );
   const meAfter = await api('/api/auth/me', { cookie: ada.cookie });
   check('bio is trimmed and platforms persist', () => {
     assert.equal(meAfter.data.user.bio, 'Main: Valorant');
@@ -169,10 +170,11 @@ async function scenarios(ctx) {
   const badPlatform = await api('/api/auth/profile', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { preferredPlatforms: ['PC', 'Dreamcast'] }
+    body: { preferredPlatforms: ['PC', 'Dreamcast'] },
   });
   check('unknown platform is rejected on profile update', () =>
-    assert.equal(badPlatform.status, 400));
+    assert.equal(badPlatform.status, 400),
+  );
 
   const logout = await api('/api/auth/logout', { method: 'POST', cookie: ada.cookie });
   check('logout clears the jwt cookie', () => {
@@ -189,20 +191,22 @@ async function scenarios(ctx) {
     body: {
       title: 'Quantum build guide',
       content: 'Frame pacing\u0000 notes for the quantum setup',
-      tags: ['FPS', '#FPS', ' fps ', 'RPG']
-    }
+      tags: ['FPS', '#FPS', ' fps ', 'RPG'],
+    },
   });
   check('post is created', () => assert.equal(created.status, 201, JSON.stringify(created.data)));
   check('tags are normalised and deduped', () =>
-    assert.deepEqual(created.data.tags, ['fps', 'rpg']));
+    assert.deepEqual(created.data.tags, ['fps', 'rpg']),
+  );
   check('control characters are stripped from the body', () =>
-    assert.equal(created.data.content, 'Frame pacing notes for the quantum setup'));
+    assert.equal(created.data.content, 'Frame pacing notes for the quantum setup'),
+  );
 
   const postId = created.data._id;
   const edited = await api(`/api/posts/${postId}`, {
     method: 'PUT',
     cookie: ada.cookie,
-    body: { title: 'Quantum build guide v2' }
+    body: { title: 'Quantum build guide v2' },
   });
   check('author edits within the 5 minute window', () => {
     assert.equal(edited.status, 200);
@@ -212,7 +216,7 @@ async function scenarios(ctx) {
   const editOther = await api(`/api/posts/${postId}`, {
     method: 'PUT',
     cookie: ben.cookie,
-    body: { title: 'hijacked' }
+    body: { title: 'hijacked' },
   });
   check('non-author cannot edit a post', () => assert.equal(editOther.status, 403));
 
@@ -223,12 +227,12 @@ async function scenarios(ctx) {
   // through the driver to simulate an old post.
   await Post.collection.updateOne(
     { _id: new mongoose.Types.ObjectId(postId) },
-    { $set: { createdAt: new Date(Date.now() - 10 * 60_000) } }
+    { $set: { createdAt: new Date(Date.now() - 10 * 60_000) } },
   );
   const lateEdit = await api(`/api/posts/${postId}`, {
     method: 'PUT',
     cookie: ada.cookie,
-    body: { title: 'too late' }
+    body: { title: 'too late' },
   });
   check('editing after 5 minutes is rejected', () => assert.equal(lateEdit.status, 403));
 
@@ -238,7 +242,9 @@ async function scenarios(ctx) {
     assert.equal(getRedis(), null);
     assert.equal(isConfigured(), false);
   });
-  check('flush worker is not started without Redis', () => assert.equal(startLikeFlushWorker(), null));
+  check('flush worker is not started without Redis', () =>
+    assert.equal(startLikeFlushWorker(), null),
+  );
   const flushed = await flushLikeBuffer();
   check('flushing an absent buffer writes nothing', () => assert.equal(flushed, 0));
 
@@ -271,7 +277,7 @@ async function scenarios(ctx) {
   check('invalid post id is a 400', () => assert.equal(badLike.status, 400));
   const missingLike = await api(`/api/posts/${new mongoose.Types.ObjectId()}/like`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('liking a missing post is a 404', () => assert.equal(missingLike.status, 404));
 
@@ -291,19 +297,19 @@ async function scenarios(ctx) {
     Array.from({ length: 10 }, (_, i) => ({
       username: `voter${i}`,
       email: `voter${i}@example.com`,
-      passwordHash: hash
-    }))
+      passwordHash: hash,
+    })),
   );
   const viralPost = await api('/api/posts', {
     method: 'POST',
     cookie: ada.cookie,
-    body: { title: 'Ten likes please', content: 'viral test', tags: ['fps'] }
+    body: { title: 'Ten likes please', content: 'viral test', tags: ['fps'] },
   });
   const xpBefore = (await User.findById(ada.id).select('xp').lean()).xp;
   for (const voter of voters) {
     const res = await api(`/api/posts/${viralPost.data._id}/like`, {
       method: 'POST',
-      cookie: cookieFor(voter._id)
+      cookie: cookieFor(voter._id),
     });
     assert.equal(res.status, 200, `voter like failed: ${JSON.stringify(res.data)}`);
   }
@@ -316,7 +322,10 @@ async function scenarios(ctx) {
   await new Promise((resolve) => setTimeout(resolve, 400));
   const adaAfter = await User.findById(ada.id).select('xp medals').lean();
   check('viral_gamer medal is awarded at ten likes', () => {
-    assert.ok(adaAfter.medals.some((m) => m.id === 'viral_gamer'), JSON.stringify(adaAfter.medals));
+    assert.ok(
+      adaAfter.medals.some((m) => m.id === 'viral_gamer'),
+      JSON.stringify(adaAfter.medals),
+    );
     assert.equal(adaAfter.xp, xpBefore + 50);
   });
 
@@ -324,7 +333,8 @@ async function scenarios(ctx) {
   console.log('\n[feed modes]');
   const emptyFollowing = await api('/api/posts?feed=following', { cookie: cody.cookie });
   check('following feed is empty before following anyone', () =>
-    assert.deepEqual(emptyFollowing.data, []));
+    assert.deepEqual(emptyFollowing.data, []),
+  );
 
   await api(`/api/users/${ada.username}/follow`, { method: 'POST', cookie: cody.cookie });
   const followingFeed = await api('/api/posts?feed=following', { cookie: cody.cookie });
@@ -335,7 +345,8 @@ async function scenarios(ctx) {
 
   const channelFeed = await api('/api/posts?channel=FPS');
   check('channel filter is case-insensitive', () =>
-    assert.ok(channelFeed.data.every((p) => p.tags.includes('fps'))));
+    assert.ok(channelFeed.data.every((p) => p.tags.includes('fps'))),
+  );
 
   const page1 = await api('/api/posts?limit=1&page=1');
   const page2 = await api('/api/posts?limit=1&page=2');
@@ -350,7 +361,7 @@ async function scenarios(ctx) {
   const comment = await api(`/api/posts/${postId}/comments`, {
     method: 'POST',
     cookie: cody.cookie,
-    body: { text: 'Great guide' }
+    body: { text: 'Great guide' },
   });
   check('comment is created and populated', () => {
     assert.equal(comment.status, 201);
@@ -365,14 +376,14 @@ async function scenarios(ctx) {
   const emptyComment = await api(`/api/posts/${postId}/comments`, {
     method: 'POST',
     cookie: cody.cookie,
-    body: { text: '   ' }
+    body: { text: '   ' },
   });
   check('empty comment is rejected', () => assert.equal(emptyComment.status, 400));
 
   const ghostComment = await api(`/api/posts/${new mongoose.Types.ObjectId()}/comments`, {
     method: 'POST',
     cookie: cody.cookie,
-    body: { text: 'ghost' }
+    body: { text: 'ghost' },
   });
   check('comment on a missing post is a 404', () => assert.equal(ghostComment.status, 404));
 
@@ -385,14 +396,14 @@ async function scenarios(ctx) {
   const editComment = await api(`/api/posts/${postId}/comments/${commentId}`, {
     method: 'PUT',
     cookie: ben.cookie,
-    body: { text: 'hijack' }
+    body: { text: 'hijack' },
   });
   check('only the comment author can edit it', () => assert.equal(editComment.status, 403));
 
   const ownEdit = await api(`/api/posts/${postId}/comments/${commentId}`, {
     method: 'PUT',
     cookie: cody.cookie,
-    body: { text: 'Great guide, thanks!' }
+    body: { text: 'Great guide, thanks!' },
   });
   check('comment author can edit', () => assert.equal(ownEdit.status, 200));
 
@@ -419,7 +430,7 @@ async function scenarios(ctx) {
   const fav = await api('/api/users/channels/favourite', {
     method: 'POST',
     cookie: ben.cookie,
-    body: { channel: ' FPS ' }
+    body: { channel: ' FPS ' },
   });
   check('favourite channel is normalised', () => {
     assert.equal(fav.status, 200);
@@ -429,7 +440,7 @@ async function scenarios(ctx) {
   const favBad = await api('/api/users/channels/favourite', {
     method: 'POST',
     cookie: ben.cookie,
-    body: {}
+    body: {},
   });
   check('favourite channel without a name is a 400', () => assert.equal(favBad.status, 400));
 
@@ -437,7 +448,7 @@ async function scenarios(ctx) {
   console.log('\n[follow graph]');
   const follow = await api(`/api/users/${ada.username}/follow`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('follow toggles on', () => {
     assert.equal(follow.status, 200);
@@ -447,7 +458,7 @@ async function scenarios(ctx) {
 
   const selfFollow = await api(`/api/users/${ben.username}/follow`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('following yourself is rejected', () => assert.equal(selfFollow.status, 400));
 
@@ -457,20 +468,26 @@ async function scenarios(ctx) {
     assert.equal(adaProfile.data.postCount >= 2, true);
   });
   check('public profile hides private collections and credentials', () => {
-    for (const field of ['savedPosts', 'favoriteChannels', 'preferences', 'email', 'passwordHash']) {
+    for (const field of [
+      'savedPosts',
+      'favoriteChannels',
+      'preferences',
+      'email',
+      'passwordHash',
+    ]) {
       assert.equal(adaProfile.data[field], undefined, `${field} leaked`);
     }
   });
 
   const unfollow = await api(`/api/users/${ada.username}/follow`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('follow toggles off', () => assert.equal(unfollow.data.following, false));
 
   const followMissing = await api('/api/users/nobody/follow', {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('following a missing user is a 404', () => assert.equal(followMissing.status, 404));
 
@@ -484,21 +501,24 @@ async function scenarios(ctx) {
       gameIds: { riotId: 'Ada#EUW', steamId: ' 7656119 ' },
       activeGames: [
         { gameName: 'Valorant', platform: 'PC', rankOrLevel: 'Immortal' },
-        { gameName: 'Halo', platform: 'Atari', rankOrLevel: '1' }
+        { gameName: 'Halo', platform: 'Atari', rankOrLevel: '1' },
       ],
       hardwareRigs: [
         { rigName: 'Main', deviceType: 'PC', specs: { cpu: 'Ryzen 7', gpu: 'RTX 4070' } },
-        { rigName: 'Backup', deviceType: 'Laptop', isPrimary: true }
-      ]
-    }
+        { rigName: 'Backup', deviceType: 'Laptop', isPrimary: true },
+      ],
+    },
   });
-  check('passport update succeeds', () => assert.equal(passport.status, 200, JSON.stringify(passport.data)));
+  check('passport update succeeds', () =>
+    assert.equal(passport.status, 200, JSON.stringify(passport.data)),
+  );
   check('quote is capped at 120 characters', () =>
-    assert.equal(passport.data.customQuote.length, 120));
-  check('game ids are trimmed', () =>
-    assert.equal(passport.data.gameIds.steamId, '7656119'));
+    assert.equal(passport.data.customQuote.length, 120),
+  );
+  check('game ids are trimmed', () => assert.equal(passport.data.gameIds.steamId, '7656119'));
   check('unknown platforms fall back to PC', () =>
-    assert.equal(passport.data.activeGames[1].platform, 'PC'));
+    assert.equal(passport.data.activeGames[1].platform, 'PC'),
+  );
   check('exactly one rig is primary', () => {
     const primaries = passport.data.hardwareRigs.filter((r) => r.isPrimary);
     assert.equal(primaries.length, 1);
@@ -508,18 +528,20 @@ async function scenarios(ctx) {
   const manyGames = await api('/api/users/me/passport', {
     method: 'PUT',
     cookie: ben.cookie,
-    body: { activeGames: Array.from({ length: 14 }, (_, i) => ({ gameName: `Game ${i}` })) }
+    body: { activeGames: Array.from({ length: 14 }, (_, i) => ({ gameName: `Game ${i}` })) },
   });
   check('active games are capped at ten', () =>
-    assert.equal(manyGames.data.activeGames.length, 10));
+    assert.equal(manyGames.data.activeGames.length, 10),
+  );
 
   const noPrimary = await api('/api/users/me/passport', {
     method: 'PUT',
     cookie: cody.cookie,
-    body: { hardwareRigs: [{ rigName: 'Only' }, { rigName: 'Second' }] }
+    body: { hardwareRigs: [{ rigName: 'Only' }, { rigName: 'Second' }] },
   });
   check('first rig becomes primary when none is flagged', () =>
-    assert.equal(noPrimary.data.hardwareRigs[0].isPrimary, true));
+    assert.equal(noPrimary.data.hardwareRigs[0].isPrimary, true),
+  );
 
   // ── preferences & presence ────────────────────────────────────────────────
   console.log('\n[preferences & presence]');
@@ -529,8 +551,8 @@ async function scenarios(ctx) {
     body: {
       favoriteGames: ['Elden Ring', 'Elden Ring', 'Halo'],
       favoriteGenres: ['Soulslike'],
-      platforms: ['PC', 'Xbox']
-    }
+      platforms: ['PC', 'Xbox'],
+    },
   });
   check('preferences save and dedupe', () => {
     assert.equal(prefs.status, 200);
@@ -540,35 +562,35 @@ async function scenarios(ctx) {
   const badPrefs = await api('/api/users/me/preferences', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { platforms: ['PC', 'Dreamcast'] }
+    body: { platforms: ['PC', 'Dreamcast'] },
   });
   check('unknown platform is rejected', () => assert.equal(badPrefs.status, 400));
 
   const emptyPrefs = await api('/api/users/me/preferences', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: {}
+    body: {},
   });
   check('empty preference payload is rejected', () => assert.equal(emptyPrefs.status, 400));
 
   const badPresence = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { status: 'sleeping' }
+    body: { status: 'sleeping' },
   });
   check('unknown presence status is rejected', () => assert.equal(badPresence.status, 400));
 
   const gameMissing = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { status: 'in_game' }
+    body: { status: 'in_game' },
   });
   check('in_game requires an active game', () => assert.equal(gameMissing.status, 400));
 
   const inGame = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { status: 'in_game', activeGame: 'Valorant' }
+    body: { status: 'in_game', activeGame: 'Valorant' },
   });
   check('in_game presence is stored', () => {
     assert.equal(inGame.status, 200);
@@ -578,17 +600,19 @@ async function scenarios(ctx) {
   const invisible = await api('/api/users/presence', {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { status: 'invisible' }
+    body: { status: 'invisible' },
   });
   check('invisible presence is accepted', () => assert.equal(invisible.status, 200));
   const adaAsBen = await api(`/api/users/${ada.username}`, { cookie: ben.cookie });
   check('invisible is projected as offline to other users', () =>
-    assert.equal(adaAsBen.data.presence.status, 'offline'));
+    assert.equal(adaAsBen.data.presence.status, 'offline'),
+  );
   // The public profile endpoint masks presence for every viewer; the owner's
   // own raw choice travels on the session document instead.
   const mePresence = await api('/api/auth/me', { cookie: ada.cookie });
-  check('the session carries the owner\'s raw presence', () =>
-    assert.equal(mePresence.data.user.presence.status, 'invisible'));
+  check("the session carries the owner's raw presence", () =>
+    assert.equal(mePresence.data.user.presence.status, 'invisible'),
+  );
 
   // ── search ────────────────────────────────────────────────────────────────
   console.log('\n[search]');
@@ -603,13 +627,16 @@ async function scenarios(ctx) {
 
   const userSearch = await api('/api/users/search?q=ad');
   check('username prefix search finds the user', () =>
-    assert.ok(userSearch.data.users.some((u) => u.username === 'ada')));
+    assert.ok(userSearch.data.users.some((u) => u.username === 'ada')),
+  );
   check('user search leaks no email', () =>
-    assert.equal(JSON.stringify(userSearch.data.users).includes('@example.com'), false));
+    assert.equal(JSON.stringify(userSearch.data.users).includes('@example.com'), false),
+  );
 
   const tagSuggest = await api('/api/posts/tags/suggest?q=fp');
   check('tag autocomplete matches the prefix', () =>
-    assert.ok(tagSuggest.data.some((t) => t.tag === 'fps' && t.count >= 1)));
+    assert.ok(tagSuggest.data.some((t) => t.tag === 'fps' && t.count >= 1)),
+  );
 
   const tagEmpty = await api('/api/posts/tags/suggest?q=');
   check('empty tag query returns an empty list', () => assert.deepEqual(tagEmpty.data, []));
@@ -622,7 +649,7 @@ async function scenarios(ctx) {
   const communityRes = await api('/api/communities', {
     method: 'POST',
     cookie: ada.cookie,
-    body: { name: 'Phase6 Guild', description: 'testing', icon: '🛠️' }
+    body: { name: 'Phase6 Guild', description: 'testing', icon: '🛠️' },
   });
   check('community is created with an owner role', () => {
     assert.equal(communityRes.status, 201, JSON.stringify(communityRes.data));
@@ -647,7 +674,7 @@ async function scenarios(ctx) {
 
   const join = await api(`/api/communities/${communityId}/join`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('public community can be joined', () => {
     assert.equal(join.status, 200);
@@ -656,14 +683,14 @@ async function scenarios(ctx) {
 
   const joinAgain = await api(`/api/communities/${communityId}/join`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('joining twice is a 400', () => assert.equal(joinAgain.status, 400));
 
   const channel = await api(`/api/communities/${communityId}/channels`, {
     method: 'POST',
     cookie: ada.cookie,
-    body: { name: 'lounge', topic: 'chill' }
+    body: { name: 'lounge', topic: 'chill' },
   });
   check('channel is created', () => assert.equal(channel.status, 201));
   const channelId = channel.data._id;
@@ -671,7 +698,7 @@ async function scenarios(ctx) {
   const retopic = await api(`/api/communities/${communityId}/channels/${channelId}`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { topic: 'chill & hang out' }
+    body: { topic: 'chill & hang out' },
   });
   check('channel topic can be updated', () => {
     assert.equal(retopic.status, 200);
@@ -681,29 +708,26 @@ async function scenarios(ctx) {
   const noFields = await api(`/api/communities/${communityId}/channels/${channelId}`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { name: 'ignored' }
+    body: { name: 'ignored' },
   });
   check('an update with no known fields is a 400', () => assert.equal(noFields.status, 400));
 
   const slowBad = await api(`/api/communities/${communityId}/channels/${channelId}`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { slowModeSeconds: 999 }
+    body: { slowModeSeconds: 999 },
   });
   check('slowmode above the cap is rejected', () => assert.equal(slowBad.status, 400));
 
   const slowOk = await api(`/api/communities/${communityId}/channels/${channelId}`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { slowModeSeconds: 30 }
+    body: { slowModeSeconds: 30 },
   });
   const afterSlow = await api(`/api/communities/${slug}`, { cookie: ada.cookie });
   check('slowmode accepts a valid value', () => {
     assert.equal(slowOk.status, 200);
-    assert.equal(
-      afterSlow.data.channels.find((c) => c._id === channelId).slowModeSeconds,
-      30
-    );
+    assert.equal(afterSlow.data.channels.find((c) => c._id === channelId).slowModeSeconds, 30);
   });
 
   await Message.insertMany(
@@ -711,11 +735,11 @@ async function scenarios(ctx) {
       channelId,
       communityId,
       senderId: ada.id,
-      text: `history ${i}`
-    }))
+      text: `history ${i}`,
+    })),
   );
   const history1 = await api(`/api/communities/channels/${channelId}/messages?limit=2`, {
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('channel history is cursor-paginated', () => {
     assert.equal(history1.status, 200);
@@ -726,21 +750,20 @@ async function scenarios(ctx) {
   const oldest = history1.data.messages[0]._id;
   const history2 = await api(
     `/api/communities/channels/${channelId}/messages?limit=2&before=${oldest}`,
-    { cookie: ben.cookie }
+    { cookie: ben.cookie },
   );
   check('older messages load from the cursor', () => {
     assert.equal(history2.data.messages.length, 1);
     assert.equal(history2.data.messages[0].text, 'history 0');
     assert.equal(history2.data.hasMore, false);
   });
-  const badCursor = await api(
-    `/api/communities/channels/${channelId}/messages?before=not-an-id`,
-    { cookie: ben.cookie }
-  );
+  const badCursor = await api(`/api/communities/channels/${channelId}/messages?before=not-an-id`, {
+    cookie: ben.cookie,
+  });
   check('invalid history cursor is a 400', () => assert.equal(badCursor.status, 400));
 
   const outsiderHistory = await api(`/api/communities/channels/${channelId}/messages`, {
-    cookie: cody.cookie
+    cookie: cody.cookie,
   });
   check('non-members cannot read channel history', () => assert.equal(outsiderHistory.status, 403));
 
@@ -753,26 +776,26 @@ async function scenarios(ctx) {
   const auditWrite = await api(`/api/communities/${communityId}/audit`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { actionType: 'FORGED' }
+    body: { actionType: 'FORGED' },
   });
   check('audit log has no write route', () => assert.equal(auditWrite.status, 404));
 
   const forbiddenChannel = await api(`/api/communities/${communityId}/channels`, {
     method: 'POST',
     cookie: cody.cookie,
-    body: { name: 'intruder' }
+    body: { name: 'intruder' },
   });
   check('non-members cannot create channels', () => assert.equal(forbiddenChannel.status, 403));
 
   const leave = await api(`/api/communities/${communityId}/leave`, {
     method: 'POST',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('member can leave', () => assert.equal(leave.status, 200));
 
   const deleteByMember = await api(`/api/communities/${communityId}`, {
     method: 'DELETE',
-    cookie: cody.cookie
+    cookie: cody.cookie,
   });
   check('only the owner can delete a community', () => assert.equal(deleteByMember.status, 403));
 
@@ -794,8 +817,8 @@ async function scenarios(ctx) {
       userId: ada.id,
       title,
       message: title,
-      createdAt: new Date(Date.now() - i * 1000)
-    }))
+      createdAt: new Date(Date.now() - i * 1000),
+    })),
   );
 
   const pageOne = await api('/api/notifications?limit=2', { cookie: ada.cookie });
@@ -806,12 +829,15 @@ async function scenarios(ctx) {
   });
   const pageTwo = await api(
     `/api/notifications?limit=2&before=${encodeURIComponent(pageOne.data.nextCursor)}`,
-    { cookie: ada.cookie }
+    { cookie: ada.cookie },
   );
   check('second page continues without overlap', () => {
     const firstIds = new Set(pageOne.data.items.map((n) => String(n._id)));
     assert.equal(pageTwo.data.items.length >= 1, true);
-    assert.equal(pageTwo.data.items.some((n) => firstIds.has(String(n._id))), false);
+    assert.equal(
+      pageTwo.data.items.some((n) => firstIds.has(String(n._id))),
+      false,
+    );
   });
 
   const badCursorNotif = await api('/api/notifications?before=garbage', { cookie: ada.cookie });
@@ -819,19 +845,21 @@ async function scenarios(ctx) {
 
   const unreadOnly = await api('/api/notifications?unread=1&limit=50', { cookie: ada.cookie });
   check('unread filter returns only unread pings', () =>
-    assert.ok(unreadOnly.data.items.every((n) => n.read === false)));
+    assert.ok(unreadOnly.data.items.every((n) => n.read === false)),
+  );
 
   const target = unreadOnly.data.items[0];
   const readOne = await api(`/api/notifications/${target._id}/read`, {
     method: 'PATCH',
-    cookie: ada.cookie
+    cookie: ada.cookie,
   });
   check('marking one notification read lowers the badge', () =>
-    assert.equal(readOne.data.unreadCount, unreadOnly.data.unreadCount - 1));
+    assert.equal(readOne.data.unreadCount, unreadOnly.data.unreadCount - 1),
+  );
 
   const foreignRead = await api(`/api/notifications/${target._id}/read`, {
     method: 'PATCH',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('another user cannot mark my notification', () => assert.equal(foreignRead.status, 404));
 
@@ -847,8 +875,8 @@ async function scenarios(ctx) {
       gameTitle: 'Valorant',
       activity: 'Ranked climb',
       maxSlots: 2,
-      requirements: { minRank: 'Gold', micRequired: true }
-    }
+      requirements: { minRank: 'Gold', micRequired: true },
+    },
   });
   check('squad is created', () => assert.equal(party.status, 201, JSON.stringify(party.data)));
   check('expiry is six hours out', () => {
@@ -864,38 +892,39 @@ async function scenarios(ctx) {
   const badSlots = await api('/api/lfg', {
     method: 'POST',
     cookie: ada.cookie,
-    body: { gameTitle: 'Valorant', maxSlots: 9 }
+    body: { gameTitle: 'Valorant', maxSlots: 9 },
   });
   check('out-of-range squad size is rejected', () => assert.equal(badSlots.status, 400));
 
   const missingGame = await api('/api/lfg', {
     method: 'POST',
     cookie: ada.cookie,
-    body: { maxSlots: 4 }
+    body: { maxSlots: 4 },
   });
   check('squad without a game is rejected', () => assert.equal(missingGame.status, 400));
 
   const board = await api('/api/lfg?game=valo&mic=1&openSlots=1');
   check('board filters by game, mic and open slots', () =>
-    assert.ok(board.data.items.some((p) => p._id === partyId)));
+    assert.ok(board.data.items.some((p) => p._id === partyId)),
+  );
 
   const request = await api(`/api/lfg/${partyId}/request`, {
     method: 'POST',
     cookie: ben.cookie,
-    body: { message: 'I can play' }
+    body: { message: 'I can play' },
   });
   check('join request is accepted', () => assert.equal(request.status, 200));
 
   const duplicateRequest = await api(`/api/lfg/${partyId}/request`, {
     method: 'POST',
     cookie: ben.cookie,
-    body: {}
+    body: {},
   });
   check('duplicate join request is a 409', () => assert.equal(duplicateRequest.status, 409));
 
   const leaderRequest = await api(`/api/lfg/${partyId}/request`, {
     method: 'POST',
-    cookie: ada.cookie
+    cookie: ada.cookie,
   });
   check('the leader cannot request their own squad', () => assert.equal(leaderRequest.status, 409));
 
@@ -906,21 +935,23 @@ async function scenarios(ctx) {
   });
   const applicantView = await api(`/api/lfg/${partyId}`, { cookie: ben.cookie });
   check('applicants cannot see the request queue', () =>
-    assert.equal(applicantView.data.requests, undefined));
+    assert.equal(applicantView.data.requests, undefined),
+  );
 
   const benId = ben.id;
   const respondByApplicant = await api(`/api/lfg/${partyId}/respond`, {
     method: 'PATCH',
     cookie: ben.cookie,
-    body: { userId: benId, action: 'accept' }
+    body: { userId: benId, action: 'accept' },
   });
   check('only the leader can respond to requests', () =>
-    assert.equal(respondByApplicant.status, 403));
+    assert.equal(respondByApplicant.status, 403),
+  );
 
   const accepted = await api(`/api/lfg/${partyId}/respond`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { userId: benId, action: 'accept' }
+    body: { userId: benId, action: 'accept' },
   });
   check('leader accepts the request', () => {
     assert.equal(accepted.status, 200);
@@ -929,27 +960,31 @@ async function scenarios(ctx) {
   });
   const fullBoard = await api('/api/lfg?openSlots=1&limit=50');
   check('a full squad leaves the open board', () =>
-    assert.equal(fullBoard.data.items.some((p) => p._id === partyId), false));
+    assert.equal(
+      fullBoard.data.items.some((p) => p._id === partyId),
+      false,
+    ),
+  );
 
   const acceptNotif = await Notification.findOne({
     userId: ben.id,
-    type: 'lfg_accepted'
+    type: 'lfg_accepted',
   }).lean();
   check('acceptance notifies the applicant', () => assert.ok(acceptNotif));
 
   const rejectParty = await api('/api/lfg', {
     method: 'POST',
     cookie: ada.cookie,
-    body: { gameTitle: 'Apex Legends', maxSlots: 3 }
+    body: { gameTitle: 'Apex Legends', maxSlots: 3 },
   });
   await api(`/api/lfg/${rejectParty.data._id}/request`, {
     method: 'POST',
-    cookie: cody.cookie
+    cookie: cody.cookie,
   });
   const rejected = await api(`/api/lfg/${rejectParty.data._id}/respond`, {
     method: 'PATCH',
     cookie: ada.cookie,
-    body: { userId: cody.id, action: 'reject' }
+    body: { userId: cody.id, action: 'reject' },
   });
   check('leader rejects a request', () => {
     assert.equal(rejected.status, 200);
@@ -958,7 +993,7 @@ async function scenarios(ctx) {
 
   const closeByOther = await api(`/api/lfg/${partyId}`, {
     method: 'DELETE',
-    cookie: ben.cookie
+    cookie: ben.cookie,
   });
   check('only the leader can close a squad', () => assert.equal(closeByOther.status, 403));
 
@@ -967,13 +1002,18 @@ async function scenarios(ctx) {
 
   const mine = await api('/api/lfg/mine', { cookie: ada.cookie });
   check('closed squads are excluded from "my squads"', () =>
-    assert.equal(mine.data.items.some((p) => p._id === partyId), false));
+    assert.equal(
+      mine.data.items.some((p) => p._id === partyId),
+      false,
+    ),
+  );
 
   // ── game catalog ──────────────────────────────────────────────────────────
   console.log('\n[game catalog]');
   const catalog = await api('/api/games?limit=5');
   check('catalog responds or degrades cleanly', () =>
-    assert.ok([200, 503].includes(catalog.status), `got ${catalog.status}`));
+    assert.ok([200, 503].includes(catalog.status), `got ${catalog.status}`),
+  );
   if (catalog.status === 200) {
     check('catalog payload is normalised', () => {
       assert.ok(Array.isArray(catalog.data.games));
@@ -994,11 +1034,14 @@ async function scenarios(ctx) {
       assert.match(catalog.data.message, /temporarily unavailable/i);
     });
     check('catalog never leaks upstream error details', () =>
-      assert.equal(JSON.stringify(catalog.data).includes('FreeToGame'), false));
+      assert.equal(JSON.stringify(catalog.data).includes('FreeToGame'), false),
+    );
   }
   const badGame = await api('/api/games/not-a-real-id');
   // Slug routes (phase 15) answer unknown titles with 404; ids are still rejected.
-  check('invalid game id is rejected', () => assert.ok([400, 404].includes(badGame.status), String(badGame.status)));
+  check('invalid game id is rejected', () =>
+    assert.ok([400, 404].includes(badGame.status), String(badGame.status)),
+  );
 
   // ── admin ─────────────────────────────────────────────────────────────────
   console.log('\n[admin observability]');
@@ -1010,13 +1053,15 @@ async function scenarios(ctx) {
   const health = await api('/api/admin/system-health', { cookie: ada.cookie });
   check('admin reads system health', () => assert.equal(health.status, 200));
   check('database is reported connected', () =>
-    assert.equal(health.data.health.database.connected, true));
+    assert.equal(health.data.health.database.connected, true),
+  );
   check('Redis is reported disabled, not faked', () =>
     assert.deepEqual(health.data.health.services.redis, {
       configured: false,
       cache: 'memory',
-      likeBuffer: 'off'
-    }));
+      likeBuffer: 'off',
+    }),
+  );
   check('secret audit never returns values', () => {
     for (const key of health.data.security.secretIsolation.keys) {
       assert.equal(key.value, undefined, `${key.name} leaked a value`);
@@ -1025,7 +1070,8 @@ async function scenarios(ctx) {
     assert.equal(JSON.stringify(health.data).includes(process.env.JWT_SECRET), false);
   });
   check('collection counts are reported', () =>
-    assert.equal(health.data.database.counts.users >= 4, true));
+    assert.equal(health.data.database.counts.users >= 4, true),
+  );
 
   const metrics = await api('/api/admin/metrics', { cookie: ada.cookie });
   check('metrics endpoint returns a snapshot', () => {
@@ -1035,7 +1081,8 @@ async function scenarios(ctx) {
 
   const secondHealth = await api('/api/admin/system-health', { cookie: ada.cookie });
   check('cached health is still correct', () =>
-    assert.equal(secondHealth.data.database.counts.posts, health.data.database.counts.posts));
+    assert.equal(secondHealth.data.database.counts.posts, health.data.database.counts.posts),
+  );
 
   // ── hardening ─────────────────────────────────────────────────────────────
   console.log('\n[hardening]');
@@ -1048,21 +1095,22 @@ async function scenarios(ctx) {
   const noSql = await api('/api/posts', {
     method: 'POST',
     cookie: ada.cookie,
-    body: { title: { $gt: '' }, content: 'injection attempt' }
+    body: { title: { $gt: '' }, content: 'injection attempt' },
   });
   check('NoSQL operator in a body field is a 400, not a 500', () =>
-    assert.equal(noSql.status, 400));
+    assert.equal(noSql.status, 400),
+  );
 
   const malformed = await api('/api/auth/login', {
     method: 'POST',
-    body: '{"email":'
+    body: '{"email":',
   });
   check('malformed JSON is a 400', () => assert.equal(malformed.status, 400));
 
   const huge = await api('/api/posts', {
     method: 'POST',
     cookie: ada.cookie,
-    body: JSON.stringify({ title: 'huge', content: 'x'.repeat(200_000) })
+    body: JSON.stringify({ title: 'huge', content: 'x'.repeat(200_000) }),
   });
   check('oversized body is a 413', () => assert.equal(huge.status, 413));
 
@@ -1071,7 +1119,8 @@ async function scenarios(ctx) {
 
   const goodOrigin = await api('/api/posts?limit=1', { origin: 'http://localhost:3000' });
   check('allow-listed origin is echoed', () =>
-    assert.equal(goodOrigin.headers.get('access-control-allow-origin'), 'http://localhost:3000'));
+    assert.equal(goodOrigin.headers.get('access-control-allow-origin'), 'http://localhost:3000'),
+  );
 
   const healthHeaders = await api('/api/health');
   check('health endpoint reports ok', () => {
@@ -1079,7 +1128,8 @@ async function scenarios(ctx) {
     assert.equal(healthHeaders.data.status, 'ok');
   });
   check('rate limit headers are present', () => {
-    const limit = healthHeaders.headers.get('ratelimit-limit') || healthHeaders.headers.get('ratelimit');
+    const limit =
+      healthHeaders.headers.get('ratelimit-limit') || healthHeaders.headers.get('ratelimit');
     assert.ok(limit, 'no RateLimit header');
   });
 
@@ -1092,7 +1142,7 @@ async function scenarios(ctx) {
     ['POST', '/api/lfg', { gameTitle: 'x', maxSlots: 3 }],
     ['POST', '/api/communities', { name: 'x' }],
     ['PATCH', '/api/notifications/507f1f77bcf86cd799439011/read'],
-    ['GET', '/api/admin/system-health']
+    ['GET', '/api/admin/system-health'],
   ];
   const unauth = [];
   for (const [method, path, body] of protectedMutations) {
@@ -1112,12 +1162,16 @@ async function scenarios(ctx) {
   check('comments are deleted with the post', () => assert.equal(commentsAfter, 0));
   const savedAfterDelete = await api('/api/users/me/saved', { cookie: ben.cookie });
   check('deleted posts vanish from saved lists', () =>
-    assert.equal(savedAfterDelete.data.some((p) => p._id === postId), false));
+    assert.equal(
+      savedAfterDelete.data.some((p) => p._id === postId),
+      false,
+    ),
+  );
 
   // ── community teardown ────────────────────────────────────────────────────
   const delCommunity = await api(`/api/communities/${communityId}`, {
     method: 'DELETE',
-    cookie: ada.cookie
+    cookie: ada.cookie,
   });
   check('owner deletes the community', () => assert.equal(delCommunity.status, 200));
   const gone = await api(`/api/communities/${slug}`);
@@ -1146,28 +1200,40 @@ async function scenarios(ctx) {
   let concurrentLoads = 0;
   await Promise.all(
     Array.from({ length: 5 }, () =>
-      cacheWrap('probe:two', async () => {
-        concurrentLoads += 1;
-        await new Promise((r) => setTimeout(r, 20));
-        return { ok: true };
-      }, 60)
-    )
+      cacheWrap(
+        'probe:two',
+        async () => {
+          concurrentLoads += 1;
+          await new Promise((r) => setTimeout(r, 20));
+          return { ok: true };
+        },
+        60,
+      ),
+    ),
   );
   check('concurrent misses collapse into one load', () => assert.equal(concurrentLoads, 1));
 
   resetCacheLayer();
   let failing = 0;
   await assert.rejects(
-    cacheWrap('probe:three', async () => {
-      failing += 1;
-      throw new Error('loader failed');
-    }, 60),
-    /loader failed/
+    cacheWrap(
+      'probe:three',
+      async () => {
+        failing += 1;
+        throw new Error('loader failed');
+      },
+      60,
+    ),
+    /loader failed/,
   );
-  await cacheWrap('probe:three', async () => {
-    failing += 1;
-    return 'recovered';
-  }, 60);
+  await cacheWrap(
+    'probe:three',
+    async () => {
+      failing += 1;
+      return 'recovered';
+    },
+    60,
+  );
   check('a failed load is never cached', () => assert.equal(failing, 2));
 
   const connected = await Community.findById(communityId).lean();

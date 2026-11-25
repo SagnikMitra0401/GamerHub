@@ -19,21 +19,20 @@ function newInviteCode() {
 function normalizeInviteOptions(body = {}) {
   const errors = [];
 
-  const role = String(body.role ?? 'member').trim().toLowerCase();
+  const role = String(body.role ?? 'member')
+    .trim()
+    .toLowerCase();
   if (role !== 'member') {
     errors.push('Invite links can only grant the member role.');
   }
 
-  const maxUses = body.maxUses === undefined || body.maxUses === ''
-    ? 0
-    : Number(body.maxUses);
+  const maxUses = body.maxUses === undefined || body.maxUses === '' ? 0 : Number(body.maxUses);
   if (!Number.isInteger(maxUses) || maxUses < 0 || maxUses > MAX_USES_LIMIT) {
     errors.push(`Use limit must be a whole number between 0 and ${MAX_USES_LIMIT}.`);
   }
 
-  const expiresInDays = body.expiresInDays === undefined || body.expiresInDays === ''
-    ? 0
-    : Number(body.expiresInDays);
+  const expiresInDays =
+    body.expiresInDays === undefined || body.expiresInDays === '' ? 0 : Number(body.expiresInDays);
   if (!Number.isInteger(expiresInDays) || expiresInDays < 0 || expiresInDays > MAX_EXPIRY_DAYS) {
     errors.push(`Expiry must be a whole number of days between 0 and ${MAX_EXPIRY_DAYS}.`);
   }
@@ -43,7 +42,7 @@ function normalizeInviteOptions(body = {}) {
   return {
     ok: errors.length === 0,
     errors,
-    value: { role: 'member', maxUses, expiresInDays, requiresApproval }
+    value: { role: 'member', maxUses, expiresInDays, requiresApproval },
   };
 }
 
@@ -62,7 +61,7 @@ const INVITE_STATUS_MESSAGES = Object.freeze({
   missing: 'That invite link does not exist.',
   revoked: 'That invite link was revoked.',
   expired: 'That invite link has expired.',
-  used_up: 'That invite link has reached its use limit.'
+  used_up: 'That invite link has reached its use limit.',
 });
 
 module.exports = {
@@ -71,5 +70,5 @@ module.exports = {
   newInviteCode,
   normalizeInviteOptions,
   inviteStatus,
-  INVITE_STATUS_MESSAGES
+  INVITE_STATUS_MESSAGES,
 };

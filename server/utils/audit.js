@@ -10,7 +10,7 @@ async function recordAudit({
   actionType,
   targetId = null,
   targetModel = null,
-  metadata = {}
+  metadata = {},
 }) {
   try {
     // Platform entries deliberately carry no community; only the actor is mandatory.
@@ -21,7 +21,7 @@ async function recordAudit({
       actionType,
       targetId,
       targetModel,
-      metadata
+      metadata,
     });
   } catch (err) {
     console.error('[AuditLog] write failed:', err.message);

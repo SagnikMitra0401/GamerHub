@@ -23,7 +23,7 @@ function summarizeFunnelRows(rows = []) {
     onboardingCompleted: 0,
     onboardingSkipped: 0,
     firstConnection: 0,
-    firstContribution: 0
+    firstContribution: 0,
   };
 
   for (const row of rows) {
@@ -38,7 +38,8 @@ function summarizeFunnelRows(rows = []) {
     if (!names.has('first_join') && !names.has('first_follow')) continue;
     counts.firstConnection += 1;
 
-    if (!names.has('first_post') && !names.has('first_comment') && !names.has('first_message')) continue;
+    if (!names.has('first_post') && !names.has('first_comment') && !names.has('first_message'))
+      continue;
     counts.firstContribution += 1;
   }
 
@@ -59,7 +60,7 @@ function buildFunnel({
   firstConnection = 0,
   firstContribution = 0,
   day7Returned = 0,
-  day7Cohort = 0
+  day7Cohort = 0,
 } = {}) {
   const steps = [
     {
@@ -67,28 +68,28 @@ function buildFunnel({
       label: 'Signed up',
       users: signups,
       rateFromPrevious: percent(signups, signups),
-      rateFromSignup: percent(signups, signups)
+      rateFromSignup: percent(signups, signups),
     },
     {
       key: 'onboarding_completed',
       label: 'Completed onboarding',
       users: onboardingCompleted,
       rateFromPrevious: percent(onboardingCompleted, signups),
-      rateFromSignup: percent(onboardingCompleted, signups)
+      rateFromSignup: percent(onboardingCompleted, signups),
     },
     {
       key: 'first_connection',
       label: 'Joined a server or followed a player',
       users: firstConnection,
       rateFromPrevious: percent(firstConnection, onboardingCompleted),
-      rateFromSignup: percent(firstConnection, signups)
+      rateFromSignup: percent(firstConnection, signups),
     },
     {
       key: 'first_contribution',
       label: 'Posted, commented or messaged',
       users: firstContribution,
       rateFromPrevious: percent(firstContribution, firstConnection),
-      rateFromSignup: percent(firstContribution, signups)
+      rateFromSignup: percent(firstContribution, signups),
     },
     {
       key: 'day_7_return',
@@ -97,8 +98,8 @@ function buildFunnel({
       eligibleUsers: day7Cohort,
       rateFromPrevious: null,
       rateFromSignup: percent(day7Returned, signups),
-      rateFromEligible: percent(day7Returned, day7Cohort)
-    }
+      rateFromEligible: percent(day7Returned, day7Cohort),
+    },
   ];
 
   return {
@@ -108,8 +109,8 @@ function buildFunnel({
       approximate: true,
       returned: day7Returned,
       cohort: day7Cohort,
-      rate: percent(day7Returned, day7Cohort)
-    }
+      rate: percent(day7Returned, day7Cohort),
+    },
   };
 }
 

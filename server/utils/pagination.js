@@ -6,7 +6,10 @@ const DEFAULT_MAX_LIMIT = 50;
 /**
  * @returns {{page: number, limit: number, skip: number}}
  */
-function parsePagination(query = {}, { defaultLimit = DEFAULT_LIMIT, maxLimit = DEFAULT_MAX_LIMIT } = {}) {
+function parsePagination(
+  query = {},
+  { defaultLimit = DEFAULT_LIMIT, maxLimit = DEFAULT_MAX_LIMIT } = {},
+) {
   const rawPage = Number(query.page);
   const rawLimit = Number(query.limit);
 

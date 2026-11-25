@@ -14,7 +14,8 @@ const idOf = (value) => {
   return String(value);
 };
 
-const toIdSet = (values) => new Set((Array.isArray(values) ? values : []).map(idOf).filter(Boolean));
+const toIdSet = (values) =>
+  new Set((Array.isArray(values) ? values : []).map(idOf).filter(Boolean));
 
 function canViewStory({ story, viewerId, followingIds = [], blockedIds = [] }) {
   if (!story) return false;
@@ -56,11 +57,11 @@ function groupStories({ stories = [], seenIds = [], viewerId = null }) {
           username: author?.username || 'unknown',
           level: author?.level || 1,
           role: author?.role || 'user',
-          avatarUrl: author?.avatarUrl || null
+          avatarUrl: author?.avatarUrl || null,
         },
         stories: [],
         seen: true,
-        latestAt: story.createdAt || new Date(0)
+        latestAt: story.createdAt || new Date(0),
       });
     }
 
@@ -77,7 +78,7 @@ function groupStories({ stories = [], seenIds = [], viewerId = null }) {
       createdAt: story.createdAt,
       expiresAt: story.expiresAt,
       viewCount: story.viewCount || 0,
-      seen: hasSeen
+      seen: hasSeen,
     });
     if (!hasSeen) group.seen = false;
     if (story.createdAt > group.latestAt) group.latestAt = story.createdAt;
@@ -87,9 +88,9 @@ function groupStories({ stories = [], seenIds = [], viewerId = null }) {
     .map((group) => ({
       ...group,
       stories: group.stories.sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       ),
-      isOwn: idOf(group.author._id) === viewer
+      isOwn: idOf(group.author._id) === viewer,
     }))
     .sort((a, b) => {
       if (a.isOwn !== b.isOwn) return a.isOwn ? -1 : 1;

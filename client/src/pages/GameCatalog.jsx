@@ -11,7 +11,7 @@ const PAGE_SIZE = 24;
 const SORTS = [
   { key: 'trending', label: 'Trending' },
   { key: 'new', label: 'Newest' },
-  { key: 'az', label: 'A–Z' }
+  { key: 'az', label: 'A–Z' },
 ];
 
 const GameCard = ({ game, following, busy, onFollow, onActivate, user }) => (
@@ -23,20 +23,30 @@ const GameCard = ({ game, following, busy, onFollow, onActivate, user }) => (
           src={game.cover}
           alt=""
           loading="lazy"
-          fallback={<span className="game-cover-fallback" aria-hidden="true">{game.title.slice(0, 2).toUpperCase()}</span>}
+          fallback={
+            <span className="game-cover-fallback" aria-hidden="true">
+              {game.title.slice(0, 2).toUpperCase()}
+            </span>
+          }
         />
       </div>
       <div className="catalog-body">
         <h3 className="catalog-title">{game.title}</h3>
         <div className="lfg-tags">
-          {(game.genres || []).slice(0, 2).map((genre) => <span key={genre} className="lfg-tag">{genre}</span>)}
+          {(game.genres || []).slice(0, 2).map((genre) => (
+            <span key={genre} className="lfg-tag">
+              {genre}
+            </span>
+          ))}
           {game.releaseYear && <span className="lfg-tag">{game.releaseYear}</span>}
         </div>
         {game.summary && <p className="catalog-desc">{game.summary}</p>}
       </div>
     </Link>
     <div className="catalog-actions game-card-actions">
-      <Link to={`/games/${game.slug}`} className="btn btn-ghost btn-sm">Details</Link>
+      <Link to={`/games/${game.slug}`} className="btn btn-ghost btn-sm">
+        Details
+      </Link>
       {user && (
         <>
           <button
@@ -102,36 +112,39 @@ const GameCatalog = () => {
   const glowRef = useCursorGlow();
 
   const favourites = new Set(
-    (user?.preferences?.favoriteGames || []).map((title) => String(title).toLowerCase())
+    (user?.preferences?.favoriteGames || []).map((title) => String(title).toLowerCase()),
   );
   const hasFilters = Boolean(q.trim() || genre || platform) || sort !== 'trending';
 
-  const load = useCallback(async (next = {}) => {
-    const params = new URLSearchParams({ limit: String(PAGE_SIZE), sort: next.sort ?? sort });
-    const query = next.q ?? q;
-    const genreValue = next.genre ?? genre;
-    const platformValue = next.platform ?? platform;
-    if (query.trim()) params.set('q', query.trim());
-    if (genreValue) params.set('genre', genreValue);
-    if (platformValue) params.set('platform', platformValue);
+  const load = useCallback(
+    async (next = {}) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), sort: next.sort ?? sort });
+      const query = next.q ?? q;
+      const genreValue = next.genre ?? genre;
+      const platformValue = next.platform ?? platform;
+      if (query.trim()) params.set('q', query.trim());
+      if (genreValue) params.set('genre', genreValue);
+      if (platformValue) params.set('platform', platformValue);
 
-    setLoading(true);
-    setError('');
-    try {
-      const { data } = await axiosInstance.get(`/games?${params.toString()}`);
-      setGames(Array.isArray(data.games) ? data.games : []);
-      setCursor(data.nextCursor || null);
-      setTotal(data.total || 0);
-      setFacets(data.facets || { genres: [], platforms: [] });
-      setProvider(data.provider || null);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Could not load the catalog.');
-      setGames([]);
-      setCursor(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [q, genre, platform, sort]);
+      setLoading(true);
+      setError('');
+      try {
+        const { data } = await axiosInstance.get(`/games?${params.toString()}`);
+        setGames(Array.isArray(data.games) ? data.games : []);
+        setCursor(data.nextCursor || null);
+        setTotal(data.total || 0);
+        setFacets(data.facets || { genres: [], platforms: [] });
+        setProvider(data.provider || null);
+      } catch (err) {
+        setError(err.response?.data?.message || 'Could not load the catalog.');
+        setGames([]);
+        setCursor(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [q, genre, platform, sort],
+  );
 
   const loadRails = useCallback(async () => {
     try {
@@ -183,7 +196,10 @@ const GameCatalog = () => {
     if (!user) return;
     const current = user.preferences?.favoriteGames || [];
     const next = following
-      ? [...current.filter((title) => String(title).toLowerCase() !== game.title.toLowerCase()), game.title]
+      ? [
+          ...current.filter((title) => String(title).toLowerCase() !== game.title.toLowerCase()),
+          game.title,
+        ]
       : current.filter((title) => String(title).toLowerCase() !== game.title.toLowerCase());
     updateUser({ preferences: { ...(user.preferences || {}), favoriteGames: next } });
   };
@@ -208,7 +224,7 @@ const GameCatalog = () => {
     try {
       const { data } = await axiosInstance.patch('/users/presence', {
         status: 'in_game',
-        activeGame: game.title
+        activeGame: game.title,
       });
       updateUser({ presence: data.presence });
       setToast(`You are now playing ${game.title}.`);
@@ -223,7 +239,7 @@ const GameCatalog = () => {
     user,
     busy,
     onFollow: toggleFollow,
-    onActivate: setActiveGame
+    onActivate: setActiveGame,
   };
 
   return (
@@ -233,8 +249,8 @@ const GameCatalog = () => {
           <span className="settings-eyebrow">The catalog</span>
           <h1 className="page-title">Every game worth showing up for.</h1>
           <p className="page-subtitle">
-            {total ? `${total.toLocaleString()} games` : 'Games'} in the GamerHub catalog — search one,
-            follow it, and jump into the squads and servers already playing it.
+            {total ? `${total.toLocaleString()} games` : 'Games'} in the GamerHub catalog — search
+            one, follow it, and jump into the squads and servers already playing it.
           </p>
           <div className="games-search-row">
             <input
@@ -251,22 +267,54 @@ const GameCatalog = () => {
         {error && <div className="notice notice-error">{error}</div>}
 
         <div className="catalog-filters games-filters">
-          <select className="form-input" value={genre} aria-label="Filter by genre" onChange={(e) => setGenre(e.target.value)}>
+          <select
+            className="form-input"
+            value={genre}
+            aria-label="Filter by genre"
+            onChange={(e) => setGenre(e.target.value)}
+          >
             <option value="">All genres</option>
-            {(facets.genres || []).map((name) => <option key={name} value={name}>{name}</option>)}
+            {(facets.genres || []).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
           </select>
-          <select className="form-input" value={platform} aria-label="Filter by platform" onChange={(e) => setPlatform(e.target.value)}>
+          <select
+            className="form-input"
+            value={platform}
+            aria-label="Filter by platform"
+            onChange={(e) => setPlatform(e.target.value)}
+          >
             <option value="">All platforms</option>
-            {(facets.platforms || []).map((name) => <option key={name} value={name}>{name}</option>)}
+            {(facets.platforms || []).map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
           </select>
-          <select className="form-input" value={sort} aria-label="Sort games" onChange={(e) => setSort(e.target.value)}>
-            {SORTS.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+          <select
+            className="form-input"
+            value={sort}
+            aria-label="Sort games"
+            onChange={(e) => setSort(e.target.value)}
+          >
+            {SORTS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
           </select>
           {(q || genre || platform || sort !== 'trending') && (
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => { setQ(''); setGenre(''); setPlatform(''); setSort('trending'); }}
+              onClick={() => {
+                setQ('');
+                setGenre('');
+                setPlatform('');
+                setSort('trending');
+              }}
             >
               Clear
             </button>
@@ -290,7 +338,9 @@ const GameCatalog = () => {
         <section className="games-grid-section" aria-labelledby="all-games-title">
           <div className="game-rail-head">
             <h2 id="all-games-title">{hasFilters ? 'Results' : 'Browse the catalog'}</h2>
-            {total > 0 && <span className="admin-stat-hint">{total.toLocaleString()} matching</span>}
+            {total > 0 && (
+              <span className="admin-stat-hint">{total.toLocaleString()} matching</span>
+            )}
           </div>
 
           {loading ? (
@@ -317,7 +367,12 @@ const GameCatalog = () => {
               </div>
               {cursor && (
                 <div className="games-more">
-                  <button type="button" className="btn btn-ghost" onClick={loadMore} disabled={loadingMore}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
                     {loadingMore ? 'Loading…' : 'Load more games'}
                   </button>
                 </div>

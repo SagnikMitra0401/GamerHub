@@ -21,7 +21,7 @@ const DM_CONTEXTS = Object.freeze([
   'community',
   'squad',
   'business',
-  'stranger'
+  'stranger',
 ]);
 
 const DM_ACTIONS = Object.freeze(['inbox', 'request', 'verified', 'none']);
@@ -32,7 +32,7 @@ const DM_REPORT_REASONS = Object.freeze([
   'harassment',
   'hate_speech',
   'sexual_content',
-  'other'
+  'other',
 ]);
 
 const DEFAULT_POLICY = Object.freeze({
@@ -42,7 +42,7 @@ const DEFAULT_POLICY = Object.freeze({
   community: 'request',
   squad: 'request',
   business: 'request',
-  stranger: 'request'
+  stranger: 'request',
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -56,20 +56,25 @@ const REQUEST_LIMITS = Object.freeze({
   perWeek: 20,
   perRecipientDays: 30,
   newAccountDays: 7,
-  newAccountPerDay: 1
+  newAccountPerDay: 1,
 });
 
 const MESSAGE_LIMITS = Object.freeze({
   maxLength: 2000,
-  maxLines: 40
+  maxLines: 40,
 });
 
 const BUSINESS_REQUEST_LIMITS = Object.freeze({
   maxLength: 600,
-  maxLines: 10
+  maxLines: 10,
 });
 const BUSINESS_INTENTS = Object.freeze([
-  'collab', 'sponsorship', 'support', 'press', 'partnership', 'other'
+  'collab',
+  'sponsorship',
+  'support',
+  'press',
+  'partnership',
+  'other',
 ]);
 const BUSINESS_BUDGETS = Object.freeze(['under_500', '500_2000', '2000_plus']);
 
@@ -84,7 +89,8 @@ const DM_AVAILABILITY = Object.freeze(['open', 'away', 'paused']);
 // First messages are text-only. The scheme check catches explicit URLs; the
 // domain check catches the usual "discord.gg/…" workaround without rejecting
 // ordinary sentences ("8 p.m." has no matching TLD).
-const LINK_PATTERN = /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.(?:com|net|org|io|gg|tv|co|me|app|dev|xyz|link|site|club|live)(?:\b|[/?#])/i;
+const LINK_PATTERN =
+  /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.(?:com|net|org|io|gg|tv|co|me|app|dev|xyz|link|site|club|live)(?:\b|[/?#])/i;
 
 function idOf(value) {
   if (!value) return '';
@@ -101,7 +107,7 @@ function defaultDmSettings() {
     availability: 'open',
     awayMessage: '',
     quickReplies: [],
-    savedFilters: []
+    savedFilters: [],
   };
 }
 
@@ -126,7 +132,10 @@ function normalizeClock(value, fallback) {
 }
 
 function normalizeTimezone(value) {
-  const timezone = String(value || '').trim().slice(0, 60) || 'UTC';
+  const timezone =
+    String(value || '')
+      .trim()
+      .slice(0, 60) || 'UTC';
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format();
     return timezone;
@@ -141,7 +150,7 @@ function normalizeQuietHours(raw) {
     enabled: source.enabled === true,
     start: normalizeClock(source.start, '22:00'),
     end: normalizeClock(source.end, '07:00'),
-    timezone: normalizeTimezone(source.timezone)
+    timezone: normalizeTimezone(source.timezone),
   };
 }
 
@@ -164,7 +173,7 @@ function normalizeSavedFilters(raw) {
       name,
       folder: entry.folder,
       scope: SAVED_FILTER_SCOPES.includes(entry.scope) ? entry.scope : 'all',
-      unreadOnly: entry.unreadOnly === true
+      unreadOnly: entry.unreadOnly === true,
     });
     if (out.length >= MAX_SAVED_FILTERS) break;
   }
@@ -207,7 +216,7 @@ function normalizeDmSettings(raw) {
     availability: DM_AVAILABILITY.includes(source.availability) ? source.availability : 'open',
     awayMessage: sanitizeLine(String(source.awayMessage || ''), 200),
     quickReplies: normalizeQuickReplies(source.quickReplies),
-    savedFilters: normalizeSavedFilters(source.savedFilters)
+    savedFilters: normalizeSavedFilters(source.savedFilters),
   };
 }
 
@@ -251,7 +260,8 @@ function sanitizeDmSettingsPatch(body) {
     } else {
       const next = {};
       if (body.quietHours.enabled !== undefined) {
-        if (typeof body.quietHours.enabled !== 'boolean') errors.push('quietHours.enabled must be true or false.');
+        if (typeof body.quietHours.enabled !== 'boolean')
+          errors.push('quietHours.enabled must be true or false.');
         else next.enabled = body.quietHours.enabled;
       }
       for (const key of ['start', 'end']) {
@@ -263,7 +273,8 @@ function sanitizeDmSettingsPatch(body) {
         }
       }
       if (body.quietHours.timezone !== undefined) {
-        if (typeof body.quietHours.timezone !== 'string') errors.push('quietHours.timezone must be text.');
+        if (typeof body.quietHours.timezone !== 'string')
+          errors.push('quietHours.timezone must be text.');
         else next.timezone = normalizeTimezone(body.quietHours.timezone);
       }
       if (Object.keys(next).length > 0) value.quietHours = next;
@@ -345,8 +356,10 @@ function sanitizeDmSettingsPatch(body) {
 function isVerifiedIdentity(user) {
   return Boolean(
     user &&
-      Array.isArray(user.authIdentities) &&
-      user.authIdentities.some(identity => identity.provider === 'google' && identity.emailVerified === true)
+    Array.isArray(user.authIdentities) &&
+    user.authIdentities.some(
+      (identity) => identity.provider === 'google' && identity.emailVerified === true,
+    ),
   );
 }
 
@@ -359,8 +372,8 @@ function isVerifiedIdentity(user) {
 function relationshipFor({ sender, recipient }) {
   const senderId = idOf(sender);
   const recipientId = idOf(recipient);
-  const senderFollows = (sender?.following || []).some(entry => idOf(entry) === recipientId);
-  const recipientFollows = (recipient?.following || []).some(entry => idOf(entry) === senderId);
+  const senderFollows = (sender?.following || []).some((entry) => idOf(entry) === recipientId);
+  const recipientFollows = (recipient?.following || []).some((entry) => idOf(entry) === senderId);
   if (senderFollows && recipientFollows) return 'mutual';
   if (senderFollows) return 'follower';
   if (recipientFollows) return 'following';
@@ -411,15 +424,25 @@ function evaluateDmPermission({
   settings,
   contextType = 'profile',
   relationship,
-  senderIsBusiness = false
+  senderIsBusiness = false,
 }) {
   const senderId = idOf(sender);
   const recipientId = idOf(recipient);
   if (!senderId || !recipientId) {
-    return { allowed: false, mode: 'none', code: 'DM_UNAVAILABLE', reason: 'This player is not available.' };
+    return {
+      allowed: false,
+      mode: 'none',
+      code: 'DM_UNAVAILABLE',
+      reason: 'This player is not available.',
+    };
   }
   if (senderId === recipientId) {
-    return { allowed: false, mode: 'none', code: 'DM_SELF', reason: 'You cannot message yourself.' };
+    return {
+      allowed: false,
+      mode: 'none',
+      code: 'DM_SELF',
+      reason: 'You cannot message yourself.',
+    };
   }
 
   const relation = relationship || relationshipFor({ sender, recipient });
@@ -441,7 +464,7 @@ function evaluateDmPermission({
       contextKey,
       relationship: relation,
       code: 'DM_VERIFIED_ONLY',
-      reason: 'This player only accepts messages from verified accounts.'
+      reason: 'This player only accepts messages from verified accounts.',
     };
   }
 
@@ -451,7 +474,7 @@ function evaluateDmPermission({
     contextKey,
     relationship: relation,
     code: 'DM_POLICY_NONE',
-    reason: 'This player is not accepting messages.'
+    reason: 'This player is not accepting messages.',
   };
 }
 
@@ -470,7 +493,7 @@ function describeDmPolicy({ recipient, viewer, viewerIsBusiness = false }) {
       label: 'This is you',
       relationship: 'self',
       allowed: false,
-      availability: settings.availability
+      availability: settings.availability,
     };
   }
 
@@ -490,14 +513,12 @@ function describeDmPolicy({ recipient, viewer, viewerIsBusiness = false }) {
       relationship,
       allowed: false,
       availability: 'paused',
-      awayMessage: settings.awayMessage
+      awayMessage: settings.awayMessage,
     };
   }
 
   const allowed =
-    mode === 'inbox' ||
-    mode === 'request' ||
-    (mode === 'verified' && isVerifiedIdentity(viewer));
+    mode === 'inbox' || mode === 'request' || (mode === 'verified' && isVerifiedIdentity(viewer));
 
   return {
     mode,
@@ -505,7 +526,7 @@ function describeDmPolicy({ recipient, viewer, viewerIsBusiness = false }) {
     relationship,
     allowed,
     availability: settings.availability,
-    awayMessage: settings.availability === 'away' ? settings.awayMessage : ''
+    awayMessage: settings.availability === 'away' ? settings.awayMessage : '',
   };
 }
 
@@ -524,14 +545,14 @@ function isQuietHours(settings, now = new Date()) {
       timeZone: quiet.timezone,
       hour: '2-digit',
       minute: '2-digit',
-      hourCycle: 'h23'
+      hourCycle: 'h23',
     }).formatToParts(now);
   } catch {
     parts = new Intl.DateTimeFormat('en-US', {
       timeZone: 'UTC',
       hour: '2-digit',
       minute: '2-digit',
-      hourCycle: 'h23'
+      hourCycle: 'h23',
     }).formatToParts(now);
   }
 
@@ -542,9 +563,7 @@ function isQuietHours(settings, now = new Date()) {
   const end = Number(quiet.end.slice(0, 2)) * 60 + Number(quiet.end.slice(3, 5));
 
   if (start === end) return true;
-  return start < end
-    ? current >= start && current < end
-    : current >= start || current < end;
+  return start < end ? current >= start && current < end : current >= start || current < end;
 }
 
 /**
@@ -554,7 +573,7 @@ function isQuietHours(settings, now = new Date()) {
  */
 function validateRequestText(raw, limits = REQUEST_LIMITS) {
   const result = normalizeMessageText(raw, {
-    message: { minLength: 1, maxLength: limits.maxLength, maxLines: limits.maxLines }
+    message: { minLength: 1, maxLength: limits.maxLength, maxLines: limits.maxLines },
   });
   if (!result.ok) return result;
 
@@ -585,7 +604,7 @@ function validateBusinessRequest({
   website,
   budgetBand,
   timeline,
-  business
+  business,
 } = {}) {
   const normalized = validateRequestText(text, BUSINESS_REQUEST_LIMITS);
   if (normalized.ok === false) return { ok: false, reason: normalized.reason };
@@ -624,14 +643,18 @@ function validateBusinessRequest({
       company: safeCompany,
       website: safeWebsite,
       budgetBand: budgetBand || null,
-      timeline: sanitizeLine(String(timeline || ''), 40)
-    }
+      timeline: sanitizeLine(String(timeline || ''), 40),
+    },
   };
 }
 
 function normalizeDmMessage(raw) {
   return normalizeMessageText(raw, {
-    message: { minLength: 1, maxLength: MESSAGE_LIMITS.maxLength, maxLines: MESSAGE_LIMITS.maxLines }
+    message: {
+      minLength: 1,
+      maxLength: MESSAGE_LIMITS.maxLength,
+      maxLines: MESSAGE_LIMITS.maxLines,
+    },
   });
 }
 
@@ -654,7 +677,7 @@ function quotaState({
   lastRequestAt = null,
   accountCreatedAt = null,
   now = Date.now(),
-  limits = {}
+  limits = {},
 }) {
   const config = { ...REQUEST_LIMITS, ...limits };
   const nowMs = new Date(now).getTime();
@@ -668,21 +691,24 @@ function quotaState({
       code: 'DM_QUOTA_DAY',
       reason: newAccount
         ? 'New accounts can send one message request per day.'
-        : 'You have reached your daily message-request limit.'
+        : 'You have reached your daily message-request limit.',
     };
   }
   if (sentThisWeek >= config.perWeek) {
     return {
       allowed: false,
       code: 'DM_QUOTA_WEEK',
-      reason: 'You have reached your weekly message-request limit.'
+      reason: 'You have reached your weekly message-request limit.',
     };
   }
-  if (lastRequestAt && nowMs - new Date(lastRequestAt).getTime() < config.perRecipientDays * DAY_MS) {
+  if (
+    lastRequestAt &&
+    nowMs - new Date(lastRequestAt).getTime() < config.perRecipientDays * DAY_MS
+  ) {
     return {
       allowed: false,
       code: 'DM_RECIPIENT_COOLDOWN',
-      reason: 'You already contacted this player recently. Give them space.'
+      reason: 'You already contacted this player recently. Give them space.',
     };
   }
   return { allowed: true };
@@ -721,7 +747,10 @@ function sanitizeLabels(raw) {
 
 /** Stable fingerprint for identical-text campaign detection, never reversible. */
 function requestFingerprint(text) {
-  const normalized = String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const normalized = String(text || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
   return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
@@ -729,7 +758,9 @@ function requestFingerprint(text) {
 function matchHiddenWord(text, hiddenWords = []) {
   const haystack = String(text || '').toLowerCase();
   for (const entry of Array.isArray(hiddenWords) ? hiddenWords : []) {
-    const word = String(entry || '').trim().toLowerCase();
+    const word = String(entry || '')
+      .trim()
+      .toLowerCase();
     if (!word) continue;
     if (word.includes(' ')) {
       if (haystack.includes(word)) return entry;
@@ -764,7 +795,7 @@ function chooseRequestFilter({
   text,
   hiddenWords = [],
   reputationTier: tier = 'standard',
-  campaignCount = 0
+  campaignCount = 0,
 } = {}) {
   const matched = matchHiddenWord(text, hiddenWords);
   if (matched) return { reason: 'hidden_word', matched };
@@ -820,5 +851,5 @@ module.exports = {
   validateBusinessRequest,
   normalizeDmMessage,
   quotaState,
-  cooldownActive
+  cooldownActive,
 };

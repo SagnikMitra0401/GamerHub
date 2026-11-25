@@ -11,12 +11,12 @@
 const NOTICE_COPY = Object.freeze({
   expired: {
     title: 'Business verification request expired',
-    action: 'expired'
+    action: 'expired',
   },
   purged: {
     title: 'Business review evidence deleted',
-    action: 'purged'
-  }
+    action: 'purged',
+  },
 });
 
 /** Calendar day only: the notice is about a policy window, not a timestamp. */
@@ -47,7 +47,7 @@ function retentionNotice(kind, claim = {}) {
       dedupeKey: `business-verification-expired:${claim.id || 'unknown'}:${day(claim.verificationRequestedAt)}`,
       // An account-status notice must outlive the 15-day ordinary TTL: losing it
       // makes the change look unexplained.
-      metadata: { businessProfileId: claim.id || null, important: true }
+      metadata: { businessProfileId: claim.id || null, important: true },
     };
   }
 
@@ -58,7 +58,7 @@ function retentionNotice(kind, claim = {}) {
       'were deleted under the 24-month retention policy. The decision and its reason stay on record.',
     actionUrl: '/settings?tab=business',
     dedupeKey: `business-evidence-purged:${claim.id || 'unknown'}:${day(claim.reviewDecidedAt)}`,
-    metadata: { businessProfileId: claim.id || null, important: true }
+    metadata: { businessProfileId: claim.id || null, important: true },
   };
 }
 
@@ -67,12 +67,10 @@ function retentionNotice(kind, claim = {}) {
  * @param {{kind: 'expired'|'purged', notifyUser?: Function, sendEmail?: Function, log?: Function}} options
  * @returns {Promise<{notified: number, emailed: number, failed: number}>}
  */
-async function notifyBusinessRetention(claims, {
-  kind,
-  notifyUser,
-  sendEmail,
-  log = console.error
-}) {
+async function notifyBusinessRetention(
+  claims,
+  { kind, notifyUser, sendEmail, log = console.error },
+) {
   const notify = notifyUser || require('./notify').notifyUser;
   const email = sendEmail || require('./email').sendBusinessRetentionEmail;
 
@@ -97,7 +95,7 @@ async function notifyBusinessRetention(claims, {
         to,
         displayName: claim.displayName,
         kind,
-        decidedAt: claim.reviewDecidedAt
+        decidedAt: claim.reviewDecidedAt,
       });
       emailed += 1;
     } catch (err) {

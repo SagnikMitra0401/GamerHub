@@ -38,13 +38,18 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
   const story = group?.stories?.[storyIndex];
   const isOwn = Boolean(group?.isOwn);
 
-  useEffect(() => { progressRef.current = progress; }, [progress]);
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
 
   const goNext = useCallback(() => {
     setPaused(false);
     setViewers(null);
     setProgress(0);
-    if (!groups.length) { onClose(); return; }
+    if (!groups.length) {
+      onClose();
+      return;
+    }
     const current = groups[groupIndex];
     if (current && storyIndex + 1 < current.stories.length) {
       setStoryIndex(storyIndex + 1);
@@ -62,7 +67,10 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
     setPaused(false);
     setViewers(null);
     setProgress(0);
-    if (storyIndex > 0) { setStoryIndex(storyIndex - 1); return; }
+    if (storyIndex > 0) {
+      setStoryIndex(storyIndex - 1);
+      return;
+    }
     if (groupIndex > 0) {
       const previous = groups[groupIndex - 1];
       setGroupIndex(groupIndex - 1);
@@ -74,16 +82,32 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previous; };
+    return () => {
+      document.body.style.overflow = previous;
+    };
   }, []);
 
   // Keyboard control.
   useEffect(() => {
     const onKey = (event) => {
-      if (event.key === 'Escape') { onClose(); return; }
-      if (event.key === 'ArrowRight') { event.preventDefault(); goNext(); return; }
-      if (event.key === 'ArrowLeft') { event.preventDefault(); goPrev(); return; }
-      if (event.key === ' ') { event.preventDefault(); setPaused((value) => !value); }
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goNext();
+        return;
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goPrev();
+        return;
+      }
+      if (event.key === ' ') {
+        event.preventDefault();
+        setPaused((value) => !value);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -121,7 +145,10 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
 
   const loadViewers = async () => {
     if (!story) return;
-    if (viewers) { setViewers(null); return; }
+    if (viewers) {
+      setViewers(null);
+      return;
+    }
     setViewersLoading(true);
     try {
       const { data } = await axiosInstance.get(`/stories/${story._id}/viewers`);
@@ -150,7 +177,7 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
             <span className="story-viewer-bar" key={item._id}>
               <span
                 style={{
-                  width: index < storyIndex ? '100%' : index === storyIndex ? `${progress}%` : '0%'
+                  width: index < storyIndex ? '100%' : index === storyIndex ? `${progress}%` : '0%',
                 }}
               />
             </span>
@@ -169,11 +196,23 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
           </Link>
           <div className="story-viewer-head-actions">
             {isOwn && (
-              <button type="button" className="story-chip" onClick={loadViewers} disabled={viewersLoading}>
+              <button
+                type="button"
+                className="story-chip"
+                onClick={loadViewers}
+                disabled={viewersLoading}
+              >
                 {viewersLoading ? 'Loading…' : `${story.viewCount || 0} views`}
               </button>
             )}
-            <button type="button" className="story-close" onClick={onClose} aria-label="Close story">×</button>
+            <button
+              type="button"
+              className="story-close"
+              onClick={onClose}
+              aria-label="Close story"
+            >
+              ×
+            </button>
           </div>
         </header>
 
@@ -210,10 +249,16 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
           type="button"
           className="story-nav-zone story-nav-prev"
           onClick={() => {
-            if (suppressClick.current) { suppressClick.current = false; return; }
+            if (suppressClick.current) {
+              suppressClick.current = false;
+              return;
+            }
             goPrev();
           }}
-          onPointerDown={() => { pressStartedAt.current = Date.now(); setPaused(true); }}
+          onPointerDown={() => {
+            pressStartedAt.current = Date.now();
+            setPaused(true);
+          }}
           onPointerUp={() => {
             suppressClick.current = Date.now() - pressStartedAt.current > 250;
             setPaused(false);
@@ -225,10 +270,16 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
           type="button"
           className="story-nav-zone story-nav-next"
           onClick={() => {
-            if (suppressClick.current) { suppressClick.current = false; return; }
+            if (suppressClick.current) {
+              suppressClick.current = false;
+              return;
+            }
             goNext();
           }}
-          onPointerDown={() => { pressStartedAt.current = Date.now(); setPaused(true); }}
+          onPointerDown={() => {
+            pressStartedAt.current = Date.now();
+            setPaused(true);
+          }}
           onPointerUp={() => {
             suppressClick.current = Date.now() - pressStartedAt.current > 250;
             setPaused(false);
@@ -253,7 +304,14 @@ const StoryViewer = ({ groups = [], startGroup = 0, startStory = 0, onClose }) =
         <aside className="story-viewers" aria-label="Who viewed this story">
           <header>
             <h4>Viewed by</h4>
-            <button type="button" className="story-close" onClick={() => setViewers(null)} aria-label="Close viewer list">×</button>
+            <button
+              type="button"
+              className="story-close"
+              onClick={() => setViewers(null)}
+              aria-label="Close viewer list"
+            >
+              ×
+            </button>
           </header>
           {viewers.length === 0 ? (
             <p className="story-viewers-empty">No views yet.</p>

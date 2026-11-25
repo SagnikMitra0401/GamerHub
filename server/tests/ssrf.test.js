@@ -16,7 +16,7 @@ test('private and reserved IPv4 ranges are blocked', () => {
     '192.0.2.1',
     '198.18.0.1',
     '224.0.0.1',
-    '255.255.255.255'
+    '255.255.255.255',
   ];
   for (const ip of blocked) assert.equal(isPrivateIp(ip), true, `${ip} should be blocked`);
 
@@ -36,10 +36,16 @@ test('assertPublicHttpUrl rejects dangerous URLs without network access', async 
   await assert.rejects(() => assertPublicHttpUrl('file:///etc/passwd'), /http and https/i);
   await assert.rejects(() => assertPublicHttpUrl('javascript:alert(1)'), /http and https/i);
   await assert.rejects(() => assertPublicHttpUrl('http://127.0.0.1:5000/api'), /not allowed/i);
-  await assert.rejects(() => assertPublicHttpUrl('http://169.254.169.254/latest/meta-data'), /not allowed/i);
+  await assert.rejects(
+    () => assertPublicHttpUrl('http://169.254.169.254/latest/meta-data'),
+    /not allowed/i,
+  );
   await assert.rejects(() => assertPublicHttpUrl('http://[::1]/'), /not allowed/i);
   await assert.rejects(() => assertPublicHttpUrl('http://localhost:5000/'), /not allowed/i);
-  await assert.rejects(() => assertPublicHttpUrl('http://metadata.google.internal/'), /not allowed/i);
+  await assert.rejects(
+    () => assertPublicHttpUrl('http://metadata.google.internal/'),
+    /not allowed/i,
+  );
   await assert.rejects(() => assertPublicHttpUrl('http://user:pass@1.1.1.1/'), /credentials/i);
   await assert.rejects(() => assertPublicHttpUrl('not a url'), /Invalid URL/i);
 });

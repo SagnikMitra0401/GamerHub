@@ -11,7 +11,14 @@ import SecurityPanel from '../components/settings/SecurityPanel';
 import DangerPanel from '../components/settings/DangerPanel';
 import { SettingsSkeleton } from '../components/common/Skeleton';
 import {
-  AlertIcon, BellIcon, BriefcaseIcon, CompassIcon, CloseIcon, LockIcon, PencilIcon, UsersIcon
+  AlertIcon,
+  BellIcon,
+  BriefcaseIcon,
+  CompassIcon,
+  CloseIcon,
+  LockIcon,
+  PencilIcon,
+  UsersIcon,
 } from '../components/common/icons';
 
 const TABS = [
@@ -19,44 +26,44 @@ const TABS = [
     key: 'profile',
     label: 'Profile & identity',
     hint: 'Handle, bio, passport',
-    icon: PencilIcon
+    icon: PencilIcon,
   },
   {
     key: 'business',
     label: 'Business account',
     hint: 'Disclosure and verification',
-    icon: BriefcaseIcon
+    icon: BriefcaseIcon,
   },
   {
     key: 'feed',
     label: 'Feed algorithm',
     hint: 'Recommendations and reset',
-    icon: CompassIcon
+    icon: CompassIcon,
   },
   {
     key: 'privacy',
     label: 'Privacy & safety',
     hint: 'Invites, blocks, export',
-    icon: UsersIcon
+    icon: UsersIcon,
   },
   {
     key: 'notifications',
     label: 'Notifications',
     hint: 'Activity and squads',
-    icon: BellIcon
+    icon: BellIcon,
   },
   {
     key: 'security',
     label: 'Security & auth',
     hint: 'Google, sessions',
-    icon: LockIcon
+    icon: LockIcon,
   },
   {
     key: 'danger',
     label: 'Danger zone',
     hint: 'Freeze and deletion',
-    icon: AlertIcon
-  }
+    icon: AlertIcon,
+  },
 ];
 
 const TAB_KEYS = new Set(TABS.map((tab) => tab.key));
@@ -92,7 +99,9 @@ const SettingsPage = () => {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -131,7 +140,7 @@ const SettingsPage = () => {
       const btnRect = active.getBoundingClientRect();
       const pad = 8;
       let next = rail.scrollLeft;
-      if (btnRect.left < railRect.left + pad) next -= (railRect.left + pad) - btnRect.left;
+      if (btnRect.left < railRect.left + pad) next -= railRect.left + pad - btnRect.left;
       else if (btnRect.right > railRect.right - pad) next += btnRect.right - (railRect.right - pad);
       const max = rail.scrollWidth - rail.clientWidth;
       rail.scrollLeft = Math.min(Math.max(0, next), max);
@@ -149,7 +158,7 @@ const SettingsPage = () => {
     updateUser,
     fetchMe,
     refresh,
-    notify
+    notify,
   };
 
   return (
@@ -159,8 +168,8 @@ const SettingsPage = () => {
           <span className="settings-eyebrow">Account control</span>
           <h1 className="settings-title">Settings</h1>
           <p className="settings-subtitle">
-            One place for your handle, how the feed finds posts for you, who can reach you,
-            every signed-in session, and the irreversible switches.
+            One place for your handle, how the feed finds posts for you, who can reach you, every
+            signed-in session, and the irreversible switches.
           </p>
           <Link to="/welcome" className="btn btn-ghost btn-sm settings-tune-link">
             {user?.onboardingCompletedAt === null ? 'Finish setting up' : 'Tune my feed'}
@@ -208,7 +217,9 @@ const SettingsPage = () => {
                     aria-current={isActive ? 'page' : undefined}
                     onClick={() => selectTab(tab.key)}
                   >
-                    <span className="settings-rail-icon"><Icon size={17} /></span>
+                    <span className="settings-rail-icon">
+                      <Icon size={17} />
+                    </span>
                     <span className="settings-rail-text">
                       <strong>{tab.label}</strong>
                       <small>{tab.hint}</small>

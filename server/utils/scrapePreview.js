@@ -42,11 +42,11 @@ function getMetaContent(html, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rA = new RegExp(
     `<meta[^>]*(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']+)["']`,
-    'i'
+    'i',
   );
   const rB = new RegExp(
     `<meta[^>]*content=["']([^"']+)["'][^>]*(?:property|name)=["']${escaped}["']`,
-    'i'
+    'i',
   );
   const mA = html.match(rA);
   if (mA) return mA[1];
@@ -89,10 +89,7 @@ async function scrapeUrl(rawUrl, timeoutMs = 6000) {
 
   const { html, finalUrl } = page;
 
-  let title =
-    getMetaContent(html, 'og:title') ||
-    getMetaContent(html, 'twitter:title') ||
-    '';
+  let title = getMetaContent(html, 'og:title') || getMetaContent(html, 'twitter:title') || '';
   if (!title) {
     const t = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     if (t) title = t[1];
@@ -113,9 +110,7 @@ async function scrapeUrl(rawUrl, timeoutMs = 6000) {
   image = resolveImage(image, finalUrl);
 
   const siteName =
-    getMetaContent(html, 'og:site_name') ||
-    getMetaContent(html, 'twitter:site') ||
-    '';
+    getMetaContent(html, 'og:site_name') || getMetaContent(html, 'twitter:site') || '';
 
   if (!title && !description) return null;
 
@@ -124,7 +119,7 @@ async function scrapeUrl(rawUrl, timeoutMs = 6000) {
     title: sanitizeLine(decode(title), 200),
     description: sanitizeLine(decode(description), 500),
     image: /^https?:\/\//i.test(image) ? image.slice(0, 2048) : '',
-    siteName: sanitizeLine(decode(siteName).replace(/^@/, ''), 80)
+    siteName: sanitizeLine(decode(siteName).replace(/^@/, ''), 80),
   };
 }
 

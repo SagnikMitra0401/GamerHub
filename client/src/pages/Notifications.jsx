@@ -3,30 +3,27 @@ import { Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { connectSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
-import {
-  announceNotificationState,
-  subscribeNotificationState
-} from '../utils/notificationEvents';
+import { announceNotificationState, subscribeNotificationState } from '../utils/notificationEvents';
 import { AlertIcon, BellIcon } from '../components/common/icons';
 import SafeImage from '../components/common/SafeImage';
 
 const PAGE_SIZE = 25;
 
 const TYPE_META = {
-  lfg_request:  { label: 'Squad request' },
+  lfg_request: { label: 'Squad request' },
   lfg_accepted: { label: 'Squad' },
-  gaming_bot:   { label: 'Gaming bot' },
-  social:       { label: 'Update' },
-  broadcast:    { label: 'Channel post' }
+  gaming_bot: { label: 'Gaming bot' },
+  social: { label: 'Update' },
+  broadcast: { label: 'Channel post' },
 };
 
 const KIND_META = {
-  comment:          'Comment',
-  reply:            'Reply',
-  follow:           'New follower',
-  follow_request:   'Follow request',
-  like:             'Like',
-  like_milestone:   'Like milestone'
+  comment: 'Comment',
+  reply: 'Reply',
+  follow: 'New follower',
+  follow_request: 'Follow request',
+  like: 'Like',
+  like_milestone: 'Like milestone',
 };
 
 function metaFor(notification) {
@@ -45,7 +42,11 @@ function timeAgo(value) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 const Notifications = () => {
@@ -85,7 +86,9 @@ const Notifications = () => {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
     axiosInstance.post('/notifications/opened', { surface: 'page' }).catch(() => {});
@@ -98,41 +101,48 @@ const Notifications = () => {
 
     const onNotification = (notification) => {
       if (!notification?._id) return;
-      setItems((previous) => (
+      setItems((previous) =>
         previous.some((item) => item._id === notification._id)
           ? previous
-          : [notification, ...previous]
-      ));
+          : [notification, ...previous],
+      );
       setUnread((count) => count + 1);
     };
 
     socket.on('notification', onNotification);
-    return () => { socket.off('notification', onNotification); };
+    return () => {
+      socket.off('notification', onNotification);
+    };
   }, [token]);
 
-  useEffect(() => subscribeNotificationState((detail) => {
-    if (detail.type === 'read-all') {
-      setItems((previous) => previous.map((item) => ({ ...item, read: true })));
-    } else if (detail.type === 'read' && detail.id) {
-      setItems((previous) => previous.map((item) => (
-        item._id === detail.id ? { ...item, read: true } : item
-      )));
-    }
-    if (detail.unreadCount !== undefined) {
-      setUnread(Math.max(0, Number(detail.unreadCount) || 0));
-    }
-  }), []);
+  useEffect(
+    () =>
+      subscribeNotificationState((detail) => {
+        if (detail.type === 'read-all') {
+          setItems((previous) => previous.map((item) => ({ ...item, read: true })));
+        } else if (detail.type === 'read' && detail.id) {
+          setItems((previous) =>
+            previous.map((item) => (item._id === detail.id ? { ...item, read: true } : item)),
+          );
+        }
+        if (detail.unreadCount !== undefined) {
+          setUnread(Math.max(0, Number(detail.unreadCount) || 0));
+        }
+      }),
+    [],
+  );
 
   const trackClick = (notification) => {
-    axiosInstance.post(`/notifications/${notification._id}/clicked`, { surface: 'page' })
+    axiosInstance
+      .post(`/notifications/${notification._id}/clicked`, { surface: 'page' })
       .catch(() => {});
   };
 
   const markRead = async (notification) => {
     if (notification.read) return;
-    setItems((previous) => previous.map((item) => (
-      item._id === notification._id ? { ...item, read: true } : item
-    )));
+    setItems((previous) =>
+      previous.map((item) => (item._id === notification._id ? { ...item, read: true } : item)),
+    );
     setUnread((count) => Math.max(0, count - 1));
 
     try {
@@ -140,7 +150,7 @@ const Notifications = () => {
       announceNotificationState({
         type: 'read',
         id: notification._id,
-        unreadCount: data?.unreadCount
+        unreadCount: data?.unreadCount,
       });
     } catch {
       load();
@@ -158,9 +168,9 @@ const Notifications = () => {
     }
   };
 
-  const firstReadAfterUnread = items.findIndex((item, index) => (
-    item.read && items.slice(0, index).some((previous) => !previous.read)
-  ));
+  const firstReadAfterUnread = items.findIndex(
+    (item, index) => item.read && items.slice(0, index).some((previous) => !previous.read),
+  );
 
   return (
     <main className="page notif-page">
@@ -193,18 +203,24 @@ const Notifications = () => {
 
         {error && (
           <div className="notice notice-error" role="alert">
-            <span className="settings-inline-error"><AlertIcon size={14} /> {error}</span>
+            <span className="settings-inline-error">
+              <AlertIcon size={14} /> {error}
+            </span>
           </div>
         )}
 
         {loading ? (
-          <div className="notif-page-empty" role="status">Loading your notifications…</div>
+          <div className="notif-page-empty" role="status">
+            Loading your notifications…
+          </div>
         ) : items.length === 0 ? (
           <div className="notif-page-empty">
             <BellIcon size={28} />
             <h2>Nothing here yet</h2>
             <p>When someone comments, follows you or asks to join a squad, it will show up here.</p>
-            <Link to="/discover" className="btn btn-ghost btn-sm">Find people to play with</Link>
+            <Link to="/discover" className="btn btn-ghost btn-sm">
+              Find people to play with
+            </Link>
           </div>
         ) : (
           <>
@@ -220,12 +236,16 @@ const Notifications = () => {
                         src={notification.mediaThumbnail}
                         alt=""
                         loading="lazy"
-                        fallback={<span className={`notif-dot ${notification.type}`} aria-hidden="true" />}
+                        fallback={
+                          <span className={`notif-dot ${notification.type}`} aria-hidden="true" />
+                        }
                       />
                       <span className="notif-body">
                         <span className="notif-type">{meta.label}</span>
                         <span className="notif-title">{notification.title}</span>
-                        {notification.message && <span className="notif-msg">{notification.message}</span>}
+                        {notification.message && (
+                          <span className="notif-msg">{notification.message}</span>
+                        )}
                         <span className="notif-meta">
                           {timeAgo(notification.createdAt)}
                           {!notification.read && <span className="notif-page-unread">Unread</span>}
@@ -241,7 +261,10 @@ const Notifications = () => {
                         href={notification.actionUrl}
                         target="_blank"
                         rel="noreferrer noopener"
-                        onClick={() => { trackClick(notification); markRead(notification); }}
+                        onClick={() => {
+                          trackClick(notification);
+                          markRead(notification);
+                        }}
                       >
                         {body}
                       </a>
@@ -249,7 +272,10 @@ const Notifications = () => {
                       <Link
                         className="notif-row"
                         to={notification.actionUrl}
-                        onClick={() => { trackClick(notification); markRead(notification); }}
+                        onClick={() => {
+                          trackClick(notification);
+                          markRead(notification);
+                        }}
                       >
                         {body}
                       </Link>
@@ -259,7 +285,10 @@ const Notifications = () => {
                       className="notif-row"
                       role="button"
                       tabIndex={0}
-                      onClick={() => { trackClick(notification); markRead(notification); }}
+                      onClick={() => {
+                        trackClick(notification);
+                        markRead(notification);
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           trackClick(notification);
@@ -278,9 +307,7 @@ const Notifications = () => {
                           <span>Earlier</span>
                         </div>
                       )}
-                      <div className={`notif-item${notification.read ? '' : ' unread'}`}>
-                        {row}
-                      </div>
+                      <div className={`notif-item${notification.read ? '' : ' unread'}`}>{row}</div>
                     </React.Fragment>
                   );
                 })}

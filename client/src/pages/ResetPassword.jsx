@@ -34,7 +34,7 @@ const ResetPassword = () => {
     try {
       await axiosInstance.post('/auth/reset-password', {
         token,
-        password: form.password
+        password: form.password,
       });
       setDone(true);
     } catch (err) {
@@ -55,8 +55,8 @@ const ResetPassword = () => {
         {done ? (
           <>
             <div className="notice notice-success" role="status">
-              Your password has been changed. Sign in with the new password; every other
-              session has been signed out.
+              Your password has been changed. Sign in with the new password; every other session has
+              been signed out.
             </div>
             <p className="auth-footer">
               <Link to="/login">Sign in</Link>
@@ -66,7 +66,9 @@ const ResetPassword = () => {
           <form onSubmit={handleSubmit}>
             {error && <div className="form-error">{error}</div>}
             <div className="form-group">
-              <label className="form-label" htmlFor="reset-password">New password</label>
+              <label className="form-label" htmlFor="reset-password">
+                New password
+              </label>
               <input
                 id="reset-password"
                 className="form-input"
@@ -80,7 +82,9 @@ const ResetPassword = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="reset-confirm">Confirm password</label>
+              <label className="form-label" htmlFor="reset-confirm">
+                Confirm password
+              </label>
               <input
                 id="reset-confirm"
                 className="form-input"

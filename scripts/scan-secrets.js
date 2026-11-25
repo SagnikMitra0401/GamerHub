@@ -63,7 +63,7 @@ function main() {
           file: path.relative(ROOT, file),
           line: hit.line,
           name: hit.name,
-          excerpt: hit.excerpt
+          excerpt: hit.excerpt,
         });
       }
     }

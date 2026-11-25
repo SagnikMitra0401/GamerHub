@@ -46,7 +46,10 @@ const check = (name, fn) => {
  * One HTTP call. Returns the parsed body plus the cookies the response set, so
  * callers can act as a signed-in user without a cookie jar.
  */
-const api = async (path, { method = 'GET', body, cookie, token, origin, headers: extra, raw } = {}) => {
+const api = async (
+  path,
+  { method = 'GET', body, cookie, token, origin, headers: extra, raw } = {},
+) => {
   const headers = { ...(extra || {}) };
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (cookie) headers.cookie = cookie;
@@ -56,7 +59,7 @@ const api = async (path, { method = 'GET', body, cookie, token, origin, headers:
   const res = await fetch(`${base}${path}`, {
     method,
     headers,
-    body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body)
+    body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
   });
 
   const setCookie = res.headers.getSetCookie?.() || [];
@@ -93,7 +96,7 @@ const connectSocket = (token) =>
     const socket = ioClient(base, {
       auth: { token },
       transports: ['websocket'],
-      reconnection: false
+      reconnection: false,
     });
     socket.on('connect', () => resolve(socket));
     socket.on('connect_error', reject);
@@ -108,7 +111,7 @@ const connectSocket = (token) =>
 const registerUser = async (username, { probeId = false } = {}) => {
   const res = await api('/api/auth/register', {
     method: 'POST',
-    body: { username, email: `${username}@example.com`, password: 'password123' }
+    body: { username, email: `${username}@example.com`, password: 'password123' },
   });
   assert.equal(res.status, 201, `register ${username}: ${JSON.stringify(res.data)}`);
 
@@ -116,7 +119,7 @@ const registerUser = async (username, { probeId = false } = {}) => {
     username,
     cookie: res.cookie,
     token: res.data.token,
-    id: res.data.user?.id || res.data.user?._id
+    id: res.data.user?.id || res.data.user?._id,
   };
 
   if (probeId) {
@@ -142,5 +145,5 @@ module.exports = {
   report,
   waitFor,
   connectSocket,
-  registerUser
+  registerUser,
 };

@@ -70,7 +70,7 @@ function canInvite({ targetType, recipient, inviter, inviterFollowsRecipient = f
     return {
       ok: false,
       code: 'ACCOUNT_FROZEN',
-      reason: 'Unfreeze your account before inviting players.'
+      reason: 'Unfreeze your account before inviting players.',
     };
   }
 
@@ -84,23 +84,24 @@ function canInvite({ targetType, recipient, inviter, inviterFollowsRecipient = f
     return { ok: false, code: 'BLOCKED', reason: 'This player cannot be invited.' };
   }
 
-  const setting = targetType === 'community_server'
-    ? recipient.privacySettings?.allowServerInvites ?? 'anyone'
-    : recipient.privacySettings?.allowSquadInvites ?? 'anyone';
+  const setting =
+    targetType === 'community_server'
+      ? (recipient.privacySettings?.allowServerInvites ?? 'anyone')
+      : (recipient.privacySettings?.allowSquadInvites ?? 'anyone');
 
   if (setting === 'none') {
     const noun = targetType === 'community_server' ? 'server' : 'squad';
     return {
       ok: false,
       code: 'PRIVACY',
-      reason: `This player does not accept ${noun} invitations.`
+      reason: `This player does not accept ${noun} invitations.`,
     };
   }
   if (setting === 'followers' && !inviterFollowsRecipient) {
     return {
       ok: false,
       code: 'PRIVACY',
-      reason: 'This player only accepts invitations from people they follow.'
+      reason: 'This player only accepts invitations from people they follow.',
     };
   }
 
@@ -157,7 +158,7 @@ function canParticipate(user) {
     return {
       ok: false,
       code: 'ACCOUNT_FROZEN',
-      reason: 'Your account is frozen. Unfreeze it in Settings to take part.'
+      reason: 'Your account is frozen. Unfreeze it in Settings to take part.',
     };
   }
   if (user.status === 'suspended') {
@@ -229,8 +230,8 @@ function erasurePatch(user) {
       'preferences.platforms': [],
       'presence.status': 'offline',
       'presence.activeGame': '',
-      'privacySettings.discoverableInSearch': false
-    }
+      'privacySettings.discoverableInSearch': false,
+    },
   };
 }
 
@@ -246,5 +247,5 @@ module.exports = {
   accountGate,
   canParticipate,
   isDiscoverable,
-  erasurePatch
+  erasurePatch,
 };

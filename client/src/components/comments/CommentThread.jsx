@@ -12,14 +12,14 @@ const CommentThread = ({ comments, setComments }) => {
     const { id, postId } = deletingComment;
     try {
       await axiosInstance.delete(`/posts/${postId}/comments/${id}`);
-      setComments(prev => prev.filter(c => c._id !== id));
-    } catch {}
-    finally {
+      setComments((prev) => prev.filter((c) => c._id !== id));
+    } catch {
+    } finally {
       setDeletingComment(null);
     }
   };
 
-  const timeAgo = ts => {
+  const timeAgo = (ts) => {
     const s = Math.floor((Date.now() - new Date(ts)) / 1000);
     if (s < 60) return `${s}s ago`;
     if (s < 3600) return `${Math.floor(s / 60)}m ago`;
@@ -37,11 +37,10 @@ const CommentThread = ({ comments, setComments }) => {
 
   return (
     <div>
-      {comments.map(comment => {
+      {comments.map((comment) => {
         const isOwner =
           user &&
-          (comment.userId?._id || comment.userId)?.toString() ===
-            (user._id || user.id)?.toString();
+          (comment.userId?._id || comment.userId)?.toString() === (user._id || user.id)?.toString();
 
         const initial = (comment.userId?.username || 'U')[0].toUpperCase();
 
@@ -50,9 +49,7 @@ const CommentThread = ({ comments, setComments }) => {
             <div className="post-avatar">{initial}</div>
             <div className="comment-body">
               <div className="comment-meta">
-                <span className="comment-username">
-                  {comment.userId?.username || 'Unknown'}
-                </span>
+                <span className="comment-username">{comment.userId?.username || 'Unknown'}</span>
                 <span className="comment-date">· {timeAgo(comment.createdAt)}</span>
                 {isOwner && (
                   <button

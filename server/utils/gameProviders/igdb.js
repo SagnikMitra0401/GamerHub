@@ -16,7 +16,10 @@ const MIN_INTERVAL_MS = 260; // ~4 requests/second, with headroom
 const TOKEN_SAFETY_MS = 60 * 1000;
 
 const configured = () =>
-  Boolean(String(process.env.IGDB_CLIENT_ID || '').trim() && String(process.env.IGDB_CLIENT_SECRET || '').trim());
+  Boolean(
+    String(process.env.IGDB_CLIENT_ID || '').trim() &&
+    String(process.env.IGDB_CLIENT_SECRET || '').trim(),
+  );
 
 let token = null;
 let tokenExpiresAt = 0;
@@ -34,7 +37,7 @@ async function getAccessToken({ fetchImpl = fetch, now = Date.now } = {}) {
   const params = new URLSearchParams({
     client_id: String(process.env.IGDB_CLIENT_ID || '').trim(),
     client_secret: String(process.env.IGDB_CLIENT_SECRET || '').trim(),
-    grant_type: 'client_credentials'
+    grant_type: 'client_credentials',
   });
 
   const res = await fetchImpl(`${TOKEN_URL}?${params.toString()}`, { method: 'POST' });
@@ -66,9 +69,9 @@ async function query(endpoint, body, { fetchImpl = fetch } = {}) {
       'Client-ID': String(process.env.IGDB_CLIENT_ID || '').trim(),
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
-      'Content-Type': 'text/plain'
+      'Content-Type': 'text/plain',
     },
-    body
+    body,
   });
 
   if (res.status === 429) throw new Error('IGDB rate limit reached');
@@ -92,9 +95,14 @@ function mapIgdbGame(raw = {}) {
 
   return {
     id: Number(raw.id) || null,
-    title: String(raw.name || '').trim().slice(0, 160),
+    title: String(raw.name || '')
+      .trim()
+      .slice(0, 160),
     summary: String(raw.summary || '').slice(0, 4000),
-    cover: { url: imageUrl(raw.cover?.image_id, 't_cover_big'), imageId: raw.cover?.image_id || null },
+    cover: {
+      url: imageUrl(raw.cover?.image_id, 't_cover_big'),
+      imageId: raw.cover?.image_id || null,
+    },
     screenshots: (Array.isArray(raw.screenshots) ? raw.screenshots : [])
       .map((shot) => imageUrl(shot?.image_id, 't_screenshot_big'))
       .filter(Boolean)
@@ -102,7 +110,7 @@ function mapIgdbGame(raw = {}) {
     genres,
     platforms,
     releaseYear: RELEASE_YEAR(raw.first_release_date),
-    rating: Number.isFinite(raw.rating) ? Math.round(raw.rating) : null
+    rating: Number.isFinite(raw.rating) ? Math.round(raw.rating) : null,
   };
 }
 
@@ -112,13 +120,16 @@ const GAME_FIELDS =
 /** Search IGDB by title. Returns [] when unconfigured instead of throwing. */
 async function searchGames(term, { limit = 8, fetchImpl = fetch } = {}) {
   if (!configured()) return [];
-  const safeTerm = String(term || '').replace(/["\\]/g, ' ').trim().slice(0, 80);
+  const safeTerm = String(term || '')
+    .replace(/["\\]/g, ' ')
+    .trim()
+    .slice(0, 80);
   if (!safeTerm) return [];
 
   const rows = await query(
     'games',
     `search "${safeTerm}"; ${GAME_FIELDS} limit ${Math.min(Math.max(Number(limit) || 8, 1), 20)};`,
-    { fetchImpl }
+    { fetchImpl },
   );
   return rows.map(mapIgdbGame).filter((game) => game.id && game.title);
 }
@@ -129,7 +140,9 @@ async function getGame(id, { fetchImpl = fetch } = {}) {
   const numeric = Number(id);
   if (!Number.isInteger(numeric) || numeric <= 0) return null;
 
-  const rows = await query('games', `where id = ${numeric}; ${GAME_FIELDS} limit 1;`, { fetchImpl });
+  const rows = await query('games', `where id = ${numeric}; ${GAME_FIELDS} limit 1;`, {
+    fetchImpl,
+  });
   return rows.length ? mapIgdbGame(rows[0]) : null;
 }
 
@@ -149,5 +162,5 @@ module.exports = {
   getGame,
   imageUrl,
   resetTokenCache,
-  MIN_INTERVAL_MS
+  MIN_INTERVAL_MS,
 };

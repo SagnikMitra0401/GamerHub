@@ -30,7 +30,9 @@ const StoriesRail = () => {
     }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const ownIndex = groups.findIndex((group) => group.isOwn);
   const ownGroup = ownIndex === -1 ? null : groups[ownIndex];
@@ -50,27 +52,35 @@ const StoriesRail = () => {
   return (
     <>
       <section className="stories-rail" aria-label="Stories">
-        {user && <button
-          type="button"
-          className={`story-tile story-tile-own ${ownGroup && !ownGroup.seen ? 'is-unseen' : ''}`}
-          onClick={() => (ownGroup ? openGroup(ownGroup) : setComposerOpen(true))}
-          aria-label={ownGroup ? 'Play your story' : 'Add your story'}
-        >
-          <span className={`story-avatar ${ownGroup && !ownGroup.seen ? 'story-ring' : ''}`}>
-            {user.avatarUrl ? (
-              <SafeImage src={user.avatarUrl} alt="" className="story-avatar-img" />
-            ) : (
-              <span className="avatar-initials" aria-hidden="true">
-                {user.username?.[0]?.toUpperCase() || '?'}
-              </span>
-            )}
-            {!ownGroup && <span className="story-add-badge" aria-hidden="true">+</span>}
-          </span>
-          <span className="story-tile-name">Your story</span>
-        </button>}
+        {user && (
+          <button
+            type="button"
+            className={`story-tile story-tile-own ${ownGroup && !ownGroup.seen ? 'is-unseen' : ''}`}
+            onClick={() => (ownGroup ? openGroup(ownGroup) : setComposerOpen(true))}
+            aria-label={ownGroup ? 'Play your story' : 'Add your story'}
+          >
+            <span className={`story-avatar ${ownGroup && !ownGroup.seen ? 'story-ring' : ''}`}>
+              {user.avatarUrl ? (
+                <SafeImage src={user.avatarUrl} alt="" className="story-avatar-img" />
+              ) : (
+                <span className="avatar-initials" aria-hidden="true">
+                  {user.username?.[0]?.toUpperCase() || '?'}
+                </span>
+              )}
+              {!ownGroup && (
+                <span className="story-add-badge" aria-hidden="true">
+                  +
+                </span>
+              )}
+            </span>
+            <span className="story-tile-name">Your story</span>
+          </button>
+        )}
 
         {loading && !groups.length && (
-          <span className="stories-loading" aria-hidden="true">Loading stories…</span>
+          <span className="stories-loading" aria-hidden="true">
+            Loading stories…
+          </span>
         )}
 
         {otherGroups.map((group) => (

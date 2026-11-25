@@ -7,17 +7,17 @@
  */
 
 const REACTIONS = Object.freeze([
-  { code: 'gg',     glyph: '🎮', label: 'GG' },
-  { code: 'fire',   glyph: '🔥', label: 'Fire' },
-  { code: 'heart',  glyph: '💜', label: 'Love' },
-  { code: 'laugh',  glyph: '😄', label: 'Laugh' },
-  { code: 'wow',    glyph: '😮', label: 'Wow' },
-  { code: 'skull',  glyph: '💀', label: 'RIP' },
-  { code: 'clap',   glyph: '👏', label: 'Clap' },
-  { code: 'target', glyph: '🎯', label: "Bullseye" }
+  { code: 'gg', glyph: '🎮', label: 'GG' },
+  { code: 'fire', glyph: '🔥', label: 'Fire' },
+  { code: 'heart', glyph: '💜', label: 'Love' },
+  { code: 'laugh', glyph: '😄', label: 'Laugh' },
+  { code: 'wow', glyph: '😮', label: 'Wow' },
+  { code: 'skull', glyph: '💀', label: 'RIP' },
+  { code: 'clap', glyph: '👏', label: 'Clap' },
+  { code: 'target', glyph: '🎯', label: 'Bullseye' },
 ]);
 
-const BY_CODE = new Map(REACTIONS.map(reaction => [reaction.code, reaction]));
+const BY_CODE = new Map(REACTIONS.map((reaction) => [reaction.code, reaction]));
 
 export const QUICK_REACTIONS = Object.freeze(['gg', 'fire', 'heart', 'laugh', 'skull']);
 

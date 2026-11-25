@@ -11,9 +11,8 @@ const baseProps = { likeCount: 4, commentCount: 2 };
  * prefixed native event name and never listens for plain `animationend`.
  * Dispatching the wrong one silently passes a broken cleanup.
  */
-const animationEnd = 'WebkitAnimation' in document.createElement('div').style
-  ? 'webkitAnimationEnd'
-  : 'animationend';
+const animationEnd =
+  'WebkitAnimation' in document.createElement('div').style ? 'webkitAnimationEnd' : 'animationend';
 
 describe('PostActions', () => {
   it('exposes the like state to assistive tech', () => {
@@ -98,7 +97,10 @@ describe('PostActions', () => {
     expect(onSave).toHaveBeenCalledTimes(1);
 
     rerender(<PostActions {...baseProps} onSave={onSave} saved />);
-    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('disables a control while its request is in flight', () => {
@@ -113,7 +115,7 @@ describe('PostActions', () => {
     render(
       <div onClick={onCardClick}>
         <PostActions {...baseProps} onComment={() => {}} />
-      </div>
+      </div>,
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'View 2 comments' }));

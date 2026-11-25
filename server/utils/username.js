@@ -25,7 +25,7 @@ const RESERVED_USERNAMES = new Set([
   'gaminghub',
   'settings',
   'api',
-  'root'
+  'root',
 ]);
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -46,7 +46,7 @@ function normalizeUsername(input) {
   if (value.length < USERNAME_MIN || value.length > USERNAME_MAX) {
     return {
       ok: false,
-      reason: `Usernames are ${USERNAME_MIN} to ${USERNAME_MAX} characters long.`
+      reason: `Usernames are ${USERNAME_MIN} to ${USERNAME_MAX} characters long.`,
     };
   }
   if (!USERNAME_PATTERN.test(value)) {
@@ -75,5 +75,5 @@ module.exports = {
   USERNAME_MAX,
   RESERVED_USERNAMES,
   normalizeUsername,
-  usernameFilter
+  usernameFilter,
 };

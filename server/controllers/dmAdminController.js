@@ -12,7 +12,7 @@ const STATUSES = ['reviewed', 'actioned', 'dismissed'];
 const publicMessage = (message) => ({
   _id: String(message._id),
   text: message.text,
-  createdAt: message.createdAt
+  createdAt: message.createdAt,
 });
 
 /** GET /api/admin/dm-reports?status=open|reviewed|actioned|dismissed|all */
@@ -37,7 +37,7 @@ const getDmReports = async (req, res, next) => {
           .lean()
       : [];
     const messagesById = new Map(
-      messages.map((message) => /** @type {[string, any]} */ ([String(message._id), message]))
+      messages.map((message) => /** @type {[string, any]} */ ([String(message._id), message])),
     );
 
     res.status(200).json({
@@ -59,8 +59,8 @@ const getDmReports = async (req, res, next) => {
         messages: (report.messageIds || [])
           .map((id) => messagesById.get(String(id)))
           .filter(Boolean)
-          .map(publicMessage)
-      }))
+          .map(publicMessage),
+      })),
     });
   } catch (err) {
     next(err);
@@ -88,7 +88,7 @@ const resolveDmReport = async (req, res, next) => {
       reportId: report._id,
       actorId: req.user._id,
       status,
-      note
+      note,
     });
 
     res.status(200).json({
@@ -96,13 +96,13 @@ const resolveDmReport = async (req, res, next) => {
         _id: String(report._id),
         status: report.status,
         reviewedAt: report.reviewedAt,
-        reviewNote: report.reviewNote
+        reviewNote: report.reviewNote,
       },
       audit: {
         _id: String(audit._id),
         status: audit.status,
-        createdAt: audit.createdAt
-      }
+        createdAt: audit.createdAt,
+      },
     });
   } catch (err) {
     next(err);

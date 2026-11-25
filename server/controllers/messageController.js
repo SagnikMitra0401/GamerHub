@@ -13,7 +13,11 @@ const Channel = require('../models/Channel');
 const Community = require('../models/Community');
 
 const { CAP, communityPermissions, roleAtLeast } = require('../utils/permissions');
-const { serializeReactions, normalizeReaction, MAX_REACTIONS_PER_MESSAGE } = require('../utils/reactions');
+const {
+  serializeReactions,
+  normalizeReaction,
+  MAX_REACTIONS_PER_MESSAGE,
+} = require('../utils/reactions');
 const { loadChannelAccess } = require('../utils/channelAccess');
 const { sanitizeLine } = require('../utils/sanitize');
 const { recordAudit } = require('../utils/audit');
@@ -35,7 +39,7 @@ const toggleReaction = async (req, res, next) => {
     const { channel } = await loadChannelAccess({
       channelId: req.params.channelId,
       userId: req.user._id,
-      capability: CAP.ADD_REACTIONS
+      capability: CAP.ADD_REACTIONS,
     });
 
     const emoji = normalizeReaction(req.body.emoji);
@@ -46,8 +50,10 @@ const toggleReaction = async (req, res, next) => {
 
     const message = await Message.findOne({
       _id: req.params.messageId,
-      channelId: channel._id
-    }).select('reactions isDeleted channelId').lean();
+      channelId: channel._id,
+    })
+      .select('reactions isDeleted channelId')
+      .lean();
 
     if (!message || message.isDeleted) throw notFound('Message not found.');
 
@@ -60,7 +66,7 @@ const toggleReaction = async (req, res, next) => {
         { _id: message._id, 'reactions.emoji': emoji },
         alreadyReacted
           ? { $pull: { 'reactions.$.users': userId } }
-          : { $addToSet: { 'reactions.$.users': userId } }
+          : { $addToSet: { 'reactions.$.users': userId } },
       );
     } else {
       if ((message.reactions || []).length >= MAX_REACTIONS_PER_MESSAGE) {
@@ -70,7 +76,7 @@ const toggleReaction = async (req, res, next) => {
       // request created the slot first, this update simply matches nothing.
       await Message.updateOne(
         { _id: message._id, 'reactions.emoji': { $ne: emoji } },
-        { $push: { reactions: { emoji, users: [userId] } } }
+        { $push: { reactions: { emoji, users: [userId] } } },
       );
     }
 
@@ -82,7 +88,7 @@ const toggleReaction = async (req, res, next) => {
       messageId: String(message._id),
       reactions: serializeReactions(updated?.reactions),
       actorId: String(userId),
-      emoji
+      emoji,
     });
 
     res.status(200).json({ messageId: String(message._id), reactions: summary });
@@ -97,7 +103,7 @@ const togglePin = async (req, res, next) => {
     const { channel, community } = await loadChannelAccess({
       channelId: req.params.channelId,
       userId: req.user._id,
-      capability: CAP.PIN_MESSAGES
+      capability: CAP.PIN_MESSAGES,
     });
 
     if (!mongoose.Types.ObjectId.isValid(String(req.params.messageId))) {
@@ -106,8 +112,10 @@ const togglePin = async (req, res, next) => {
 
     const message = await Message.findOne({
       _id: req.params.messageId,
-      channelId: channel._id
-    }).select('pinned isDeleted channelId').lean();
+      channelId: channel._id,
+    })
+      .select('pinned isDeleted channelId')
+      .lean();
 
     if (!message || message.isDeleted) throw notFound('Message not found.');
 
@@ -120,12 +128,12 @@ const togglePin = async (req, res, next) => {
       actionType: pinned ? 'MESSAGE_PIN' : 'MESSAGE_UNPIN',
       targetId: message._id,
       targetModel: 'Message',
-      metadata: { channelId: String(channel._id) }
+      metadata: { channelId: String(channel._id) },
     });
 
     emitToChannel(channel._id, pinned ? 'message_pinned' : 'message_unpinned', {
       channelId: String(channel._id),
-      messageId: String(message._id)
+      messageId: String(message._id),
     });
 
     res.status(200).json({ messageId: String(message._id), pinned });
@@ -139,7 +147,7 @@ const getPinnedMessages = async (req, res, next) => {
   try {
     const { channel } = await loadChannelAccess({
       channelId: req.params.channelId,
-      userId: req.user._id
+      userId: req.user._id,
     });
 
     const { limit } = parsePagination(req.query, { defaultLimit: 25, maxLimit: 50 });
@@ -147,7 +155,7 @@ const getPinnedMessages = async (req, res, next) => {
     const messages = await Message.find({
       channelId: channel._id,
       pinned: true,
-      isDeleted: false
+      isDeleted: false,
     })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -157,8 +165,8 @@ const getPinnedMessages = async (req, res, next) => {
     res.status(200).json({
       messages: messages.map((message) => ({
         ...message,
-        reactions: serializeReactions(message.reactions)
-      }))
+        reactions: serializeReactions(message.reactions),
+      })),
     });
   } catch (err) {
     next(err);
@@ -186,7 +194,9 @@ const searchMessages = async (req, res, next) => {
     let accessible = allChannels.filter((channel) => roleAtLeast(role, channel.minRoleToRead));
 
     if (req.query.channelId) {
-      accessible = accessible.filter((channel) => String(channel._id) === String(req.query.channelId));
+      accessible = accessible.filter(
+        (channel) => String(channel._id) === String(req.query.channelId),
+      );
       if (!accessible.length) throw forbidden('You cannot search that channel.');
     }
 
@@ -195,13 +205,13 @@ const searchMessages = async (req, res, next) => {
 
     const messages = channelIds.length
       ? await Message.find(
-        { channelId: { $in: channelIds }, isDeleted: false, $text: { $search: q } },
-        { score: { $meta: 'textScore' } }
-      )
-        .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
-        .limit(limit)
-        .populate('senderId', 'username level')
-        .lean()
+          { channelId: { $in: channelIds }, isDeleted: false, $text: { $search: q } },
+          { score: { $meta: 'textScore' } },
+        )
+          .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
+          .limit(limit)
+          .populate('senderId', 'username level')
+          .lean()
       : [];
 
     const forumChannelIds = accessible
@@ -210,17 +220,19 @@ const searchMessages = async (req, res, next) => {
 
     const forumPosts = forumChannelIds.length
       ? await ForumPost.find(
-        { channelId: { $in: forumChannelIds }, isDeleted: false, $text: { $search: q } },
-        { score: { $meta: 'textScore' } }
-      )
-        .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
-        .limit(limit)
-        .populate('authorId', 'username level')
-        .select('title tags status channelId authorId createdAt replyCount')
-        .lean()
+          { channelId: { $in: forumChannelIds }, isDeleted: false, $text: { $search: q } },
+          { score: { $meta: 'textScore' } },
+        )
+          .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
+          .limit(limit)
+          .populate('authorId', 'username level')
+          .select('title tags status channelId authorId createdAt replyCount')
+          .lean()
       : [];
 
-    const channelNameById = new Map(allChannels.map((channel) => [String(channel._id), channel.name]));
+    const channelNameById = new Map(
+      allChannels.map((channel) => [String(channel._id), channel.name]),
+    );
 
     res.status(200).json({
       query: q,
@@ -231,8 +243,12 @@ const searchMessages = async (req, res, next) => {
         text: message.text,
         createdAt: message.createdAt,
         sender: message.senderId
-          ? { _id: message.senderId._id, username: message.senderId.username, level: message.senderId.level }
-          : null
+          ? {
+              _id: message.senderId._id,
+              username: message.senderId.username,
+              level: message.senderId.level,
+            }
+          : null,
       })),
       forumPosts: forumPosts.map((post) => ({
         _id: post._id,
@@ -243,10 +259,8 @@ const searchMessages = async (req, res, next) => {
         status: post.status,
         replyCount: post.replyCount,
         createdAt: post.createdAt,
-        author: post.authorId
-          ? { _id: post.authorId._id, username: post.authorId.username }
-          : null
-      }))
+        author: post.authorId ? { _id: post.authorId._id, username: post.authorId.username } : null,
+      })),
     });
   } catch (err) {
     next(err);
@@ -257,5 +271,5 @@ module.exports = {
   toggleReaction,
   togglePin,
   getPinnedMessages,
-  searchMessages
+  searchMessages,
 };

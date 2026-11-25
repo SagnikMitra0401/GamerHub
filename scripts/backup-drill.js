@@ -40,8 +40,11 @@ async function run() {
   const targetUri = process.env.BACKUP_DRILL_URI || sourceUri;
   const targetUrl = new URL(targetUri);
   const requestedTargetDb = databaseName(targetUrl);
-  const targetDbName = process.env.BACKUP_DRILL_DB
-    || (targetUri === sourceUri ? `gamerhub_restore_drill_${Date.now().toString(36)}` : requestedTargetDb);
+  const targetDbName =
+    process.env.BACKUP_DRILL_DB ||
+    (targetUri === sourceUri
+      ? `gamerhub_restore_drill_${Date.now().toString(36)}`
+      : requestedTargetDb);
 
   if (targetDbName === sourceDbName) {
     throw new Error('Refusing to restore into the source database. Use a separate drill database.');
@@ -55,9 +58,10 @@ async function run() {
 
   const sourceClient = new MongoClient(sourceUri, { serverSelectionTimeoutMS: 10_000 });
   await sourceClient.connect();
-  const targetClient = targetUri === sourceUri
-    ? sourceClient
-    : new MongoClient(targetUri, { serverSelectionTimeoutMS: 10_000 });
+  const targetClient =
+    targetUri === sourceUri
+      ? sourceClient
+      : new MongoClient(targetUri, { serverSelectionTimeoutMS: 10_000 });
 
   if (targetClient !== sourceClient) await targetClient.connect();
 
@@ -82,7 +86,11 @@ async function run() {
         documents += rows.length;
       }
 
-      const specs = await source.collection(name).listIndexes().toArray().catch(() => []);
+      const specs = await source
+        .collection(name)
+        .listIndexes()
+        .toArray()
+        .catch(() => []);
       for (const spec of specs) {
         if (spec.name === '_id_') continue;
         await target.collection(name).createIndex(spec.key, indexOptions(spec));
@@ -95,7 +103,7 @@ async function run() {
       }
 
       const restoredIndexes = new Set(
-        (await target.collection(name).listIndexes().toArray()).map((spec) => spec.name)
+        (await target.collection(name).listIndexes().toArray()).map((spec) => spec.name),
       );
       for (const spec of specs) {
         if (!restoredIndexes.has(spec.name)) {
@@ -108,7 +116,7 @@ async function run() {
     }
 
     console.log(
-      `\nRestore drill passed: ${collections} collections, ${documents} sample documents, ${indexes} indexes.`
+      `\nRestore drill passed: ${collections} collections, ${documents} sample documents, ${indexes} indexes.`,
     );
     console.log(`Target database: ${targetDbName}`);
   } finally {

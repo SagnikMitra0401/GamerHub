@@ -15,7 +15,8 @@ import ConfirmModal from '../common/ConfirmModal';
 const time = (value) => (value ? new Date(value).toLocaleString() : '—');
 
 const failure = (err) =>
-  err.response?.data?.message || (err.response ? `Request failed (HTTP ${err.response.status}).` : 'The API did not answer.');
+  err.response?.data?.message ||
+  (err.response ? `Request failed (HTTP ${err.response.status}).` : 'The API did not answer.');
 
 const Panel = ({ title, badge, children, toolbar }) => (
   <section className="admin-card admin-panel">
@@ -30,17 +31,23 @@ const Panel = ({ title, badge, children, toolbar }) => (
 
 const Toolbar = ({ children }) => <div className="admin-panel-toolbar">{children}</div>;
 
-const LoadMore = ({ show, busy, onClick }) => (
+const LoadMore = ({ show, busy, onClick }) =>
   show ? (
     <div className="admin-panel-more">
       <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={onClick}>
         {busy ? 'Loading…' : 'Load more'}
       </button>
     </div>
-  ) : null
-);
+  ) : null;
 
-const STATUS_OPTIONS = ['active', 'restricted', 'frozen', 'suspended', 'deletion_pending', 'deleted'];
+const STATUS_OPTIONS = [
+  'active',
+  'restricted',
+  'frozen',
+  'suspended',
+  'deletion_pending',
+  'deleted',
+];
 const ROLE_OPTIONS = ['user', 'moderator', 'admin'];
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -64,30 +71,35 @@ export const UsersPanel = () => {
   const [until, setUntil] = useState('');
   const [pendingAction, setPendingAction] = useState(null);
 
-  const load = useCallback(async ({ append = false } = {}) => {
-    setLoading(!append);
-    setBusy(append);
-    setError('');
-    try {
-      const params = new URLSearchParams({ limit: '25' });
-      if (q.trim()) params.set('q', q.trim());
-      if (status) params.set('status', status);
-      if (role) params.set('role', role);
-      if (verified) params.set('verified', verified);
-      if (append && before) params.set('before', before);
-      const { data } = await axiosInstance.get(`/admin/users?${params.toString()}`);
-      setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
-      setBefore(data.nextBefore || null);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setLoading(false);
-      setBusy(false);
-    }
-  }, [q, status, role, verified, before]);
+  const load = useCallback(
+    async ({ append = false } = {}) => {
+      setLoading(!append);
+      setBusy(append);
+      setError('');
+      try {
+        const params = new URLSearchParams({ limit: '25' });
+        if (q.trim()) params.set('q', q.trim());
+        if (status) params.set('status', status);
+        if (role) params.set('role', role);
+        if (verified) params.set('verified', verified);
+        if (append && before) params.set('before', before);
+        const { data } = await axiosInstance.get(`/admin/users?${params.toString()}`);
+        setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
+        setBefore(data.nextBefore || null);
+        setTotal(data.total || 0);
+      } catch (err) {
+        setError(failure(err));
+      } finally {
+        setLoading(false);
+        setBusy(false);
+      }
+    },
+    [q, status, role, verified, before],
+  );
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   const open = async (user) => {
     setSelected(user);
@@ -141,11 +153,13 @@ export const UsersPanel = () => {
 
   const confirmStatus = () => {
     setPendingAction(null);
-    run(() => axiosInstance.patch(`/admin/users/${selected._id}/status`, {
-      action: actionStatus,
-      reason,
-      ...(actionStatus === 'suspend' && until ? { until: new Date(until).toISOString() } : {})
-    }));
+    run(() =>
+      axiosInstance.patch(`/admin/users/${selected._id}/status`, {
+        action: actionStatus,
+        reason,
+        ...(actionStatus === 'suspend' && until ? { until: new Date(until).toISOString() } : {}),
+      }),
+    );
   };
 
   return (
@@ -153,7 +167,7 @@ export const UsersPanel = () => {
       <Panel
         title="Accounts"
         badge={`${total.toLocaleString()} matching`}
-        toolbar={(
+        toolbar={
           <Toolbar>
             <input
               className="form-input"
@@ -162,22 +176,52 @@ export const UsersPanel = () => {
               value={q}
               onChange={(event) => setQ(event.target.value)}
             />
-            <select className="form-input" aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select
+              className="form-input"
+              aria-label="Filter by status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
               <option value="">Any status</option>
-              {STATUS_OPTIONS.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}
+              {STATUS_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value.replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
-            <select className="form-input" aria-label="Filter by role" value={role} onChange={(e) => setRole(e.target.value)}>
+            <select
+              className="form-input"
+              aria-label="Filter by role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
               <option value="">Any role</option>
-              {ROLE_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+              {ROLE_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
             </select>
-            <select className="form-input" aria-label="Filter by verification" value={verified} onChange={(e) => setVerified(e.target.value)}>
+            <select
+              className="form-input"
+              aria-label="Filter by verification"
+              value={verified}
+              onChange={(e) => setVerified(e.target.value)}
+            >
               <option value="">Any verification</option>
               <option value="yes">Verified</option>
               <option value="no">Unverified</option>
             </select>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => load()} disabled={loading}>Search</button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => load()}
+              disabled={loading}
+            >
+              Search
+            </button>
           </Toolbar>
-        )}
+        }
       >
         {error && <p className="admin-warn">{error}</p>}
         {loading ? (
@@ -187,7 +231,14 @@ export const UsersPanel = () => {
         ) : (
           <table className="admin-table">
             <thead>
-              <tr><th>Account</th><th>Role</th><th>Status</th><th>Verified</th><th>Joined</th><th /></tr>
+              <tr>
+                <th>Account</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Verified</th>
+                <th>Joined</th>
+                <th />
+              </tr>
             </thead>
             <tbody>
               {items.map((user) => (
@@ -198,12 +249,18 @@ export const UsersPanel = () => {
                   </td>
                   <td>{user.role}</td>
                   <td>
-                    <span className={`admin-badge ${user.status === 'active' ? 'ok' : 'warn'}`}>{user.status}</span>
+                    <span className={`admin-badge ${user.status === 'active' ? 'ok' : 'warn'}`}>
+                      {user.status}
+                    </span>
                   </td>
                   <td>{user.emailVerified ? 'yes' : 'no'}</td>
                   <td>{time(user.createdAt)}</td>
                   <td>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => open(user)}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => open(user)}
+                    >
                       Review
                     </button>
                   </td>
@@ -228,9 +285,11 @@ export const UsersPanel = () => {
       <ConfirmModal
         isOpen={pendingAction === 'status'}
         title={`${actionStatus[0].toUpperCase()}${actionStatus.slice(1)} account?`}
-        message={selected
-          ? `${actionStatus} @${selected.username}? Their live sessions will be revoked.`
-          : ''}
+        message={
+          selected
+            ? `${actionStatus} @${selected.username}? Their live sessions will be revoked.`
+            : ''
+        }
         confirmText="Apply"
         isDanger={actionStatus !== 'reinstate'}
         busy={busy}
@@ -242,7 +301,14 @@ export const UsersPanel = () => {
         <section className="admin-card admin-panel admin-detail">
           <div className="admin-card-head">
             <h2>@{selected.username}</h2>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setSelected(null); setDetail(null); }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                setSelected(null);
+                setDetail(null);
+              }}
+            >
               Close
             </button>
           </div>
@@ -251,16 +317,33 @@ export const UsersPanel = () => {
           ) : (
             <>
               <div className="admin-stats">
-                <div className="admin-stat"><span className="admin-stat-label">Posts</span><span className="admin-stat-value">{detail.activity.posts}</span></div>
-                <div className="admin-stat"><span className="admin-stat-label">Comments</span><span className="admin-stat-value">{detail.activity.comments}</span></div>
-                <div className="admin-stat"><span className="admin-stat-label">Messages</span><span className="admin-stat-value">{detail.activity.messages}</span></div>
-                <div className="admin-stat"><span className="admin-stat-label">Reports against</span><span className="admin-stat-value">{detail.activity.reportsAgainst + detail.activity.dmReportsAgainst}</span></div>
+                <div className="admin-stat">
+                  <span className="admin-stat-label">Posts</span>
+                  <span className="admin-stat-value">{detail.activity.posts}</span>
+                </div>
+                <div className="admin-stat">
+                  <span className="admin-stat-label">Comments</span>
+                  <span className="admin-stat-value">{detail.activity.comments}</span>
+                </div>
+                <div className="admin-stat">
+                  <span className="admin-stat-label">Messages</span>
+                  <span className="admin-stat-value">{detail.activity.messages}</span>
+                </div>
+                <div className="admin-stat">
+                  <span className="admin-stat-label">Reports against</span>
+                  <span className="admin-stat-value">
+                    {detail.activity.reportsAgainst + detail.activity.dmReportsAgainst}
+                  </span>
+                </div>
               </div>
 
               {detail.user.moderation?.reason && (
                 <p className="admin-warn">
-                  Last moderation: {detail.user.moderation.reason} · {time(detail.user.moderation.at)}
-                  {detail.user.moderation.until ? ` · until ${time(detail.user.moderation.until)}` : ''}
+                  Last moderation: {detail.user.moderation.reason} ·{' '}
+                  {time(detail.user.moderation.at)}
+                  {detail.user.moderation.until
+                    ? ` · until ${time(detail.user.moderation.until)}`
+                    : ''}
                 </p>
               )}
 
@@ -268,17 +351,38 @@ export const UsersPanel = () => {
                 <div className="admin-detail-block">
                   <h3 className="admin-subhead">Platform role</h3>
                   <div className="admin-inline-form">
-                    <select className="form-input" aria-label="Platform role" value={actionRole} onChange={(e) => setActionRole(e.target.value)}>
-                      {ROLE_OPTIONS.map((value) => <option key={value} value={value}>{value}</option>)}
+                    <select
+                      className="form-input"
+                      aria-label="Platform role"
+                      value={actionRole}
+                      onChange={(e) => setActionRole(e.target.value)}
+                    >
+                      {ROLE_OPTIONS.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
                     </select>
-                    <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={applyRole}>Apply role</button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={busy}
+                      onClick={applyRole}
+                    >
+                      Apply role
+                    </button>
                   </div>
                 </div>
 
                 <div className="admin-detail-block">
                   <h3 className="admin-subhead">Account state</h3>
                   <div className="admin-inline-form">
-                    <select className="form-input" aria-label="Account action" value={actionStatus} onChange={(e) => setActionStatus(e.target.value)}>
+                    <select
+                      className="form-input"
+                      aria-label="Account action"
+                      value={actionStatus}
+                      onChange={(e) => setActionStatus(e.target.value)}
+                    >
                       <option value="restrict">Restrict</option>
                       <option value="suspend">Suspend</option>
                       <option value="reinstate">Reinstate</option>
@@ -300,7 +404,12 @@ export const UsersPanel = () => {
                         onChange={(e) => setUntil(e.target.value)}
                       />
                     )}
-                    <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={applyStatus}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={busy}
+                      onClick={applyStatus}
+                    >
                       Apply
                     </button>
                   </div>
@@ -309,13 +418,38 @@ export const UsersPanel = () => {
                 <div className="admin-detail-block">
                   <h3 className="admin-subhead">Sessions & email</h3>
                   <div className="admin-report-actions">
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => axiosInstance.post(`/admin/users/${selected._id}/logout-all`))}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={busy}
+                      onClick={() =>
+                        run(() => axiosInstance.post(`/admin/users/${selected._id}/logout-all`))
+                      }
+                    >
                       Sign out everywhere
                     </button>
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy || detail.user.emailVerified} onClick={() => run(() => axiosInstance.post(`/admin/users/${selected._id}/resend-verification`))}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={busy || detail.user.emailVerified}
+                      onClick={() =>
+                        run(() =>
+                          axiosInstance.post(`/admin/users/${selected._id}/resend-verification`),
+                        )
+                      }
+                    >
                       Resend verification
                     </button>
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => axiosInstance.post(`/admin/users/${selected._id}/send-password-reset`))}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={busy}
+                      onClick={() =>
+                        run(() =>
+                          axiosInstance.post(`/admin/users/${selected._id}/send-password-reset`),
+                        )
+                      }
+                    >
                       Send password reset
                     </button>
                   </div>
@@ -356,31 +490,39 @@ export const ModerationPanel = () => {
   const [error, setError] = useState('');
   const [notes, setNotes] = useState({});
 
-  const load = useCallback(async ({ append = false } = {}) => {
-    setLoading(!append);
-    setError('');
-    try {
-      const params = new URLSearchParams({ status, source, limit: '20' });
-      if (append && before) params.set('before', before);
-      const { data } = await axiosInstance.get(`/admin/cases?${params.toString()}`);
-      setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
-      setBefore(data.nextBefore || null);
-      setCounts(data.counts || { dm: 0, community: 0 });
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [status, source, before]);
+  const load = useCallback(
+    async ({ append = false } = {}) => {
+      setLoading(!append);
+      setError('');
+      try {
+        const params = new URLSearchParams({ status, source, limit: '20' });
+        if (append && before) params.set('before', before);
+        const { data } = await axiosInstance.get(`/admin/cases?${params.toString()}`);
+        setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
+        setBefore(data.nextBefore || null);
+        setCounts(data.counts || { dm: 0, community: 0 });
+      } catch (err) {
+        setError(failure(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [status, source, before],
+  );
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [status, source]);
+  useEffect(() => {
+    load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [status, source]);
 
   const resolve = async (item, decision) => {
     const note = notes[`${item.source}:${item.id}`] || '';
     setBusy(`${item.source}:${item.id}`);
     setError('');
     try {
-      await axiosInstance.post(`/admin/cases/${item.source}/${item.id}/resolve`, { decision, note });
+      await axiosInstance.post(`/admin/cases/${item.source}/${item.id}/resolve`, {
+        decision,
+        note,
+      });
       setNotes((prev) => ({ ...prev, [`${item.source}:${item.id}`]: '' }));
       await load();
     } catch (err) {
@@ -394,22 +536,34 @@ export const ModerationPanel = () => {
     <Panel
       title="Moderation queue"
       badge={`${counts.dm + counts.community} open`}
-      toolbar={(
+      toolbar={
         <Toolbar>
-          <select className="form-input" aria-label="Case status" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select
+            className="form-input"
+            aria-label="Case status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
             <option value="open">Open</option>
             <option value="reviewed">Reviewed</option>
             <option value="actioned">Actioned</option>
             <option value="dismissed">Dismissed</option>
           </select>
-          <select className="form-input" aria-label="Case source" value={source} onChange={(e) => setSource(e.target.value)}>
+          <select
+            className="form-input"
+            aria-label="Case source"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          >
             <option value="all">All sources</option>
             <option value="dm">Direct messages</option>
             <option value="community">Servers</option>
           </select>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => load()}>Refresh</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => load()}>
+            Refresh
+          </button>
         </Toolbar>
-      )}
+      }
     >
       {error && <p className="admin-warn">{error}</p>}
       {loading ? (
@@ -426,13 +580,25 @@ export const ModerationPanel = () => {
                   <span className={`admin-badge ${item.source === 'dm' ? 'warn' : 'muted'}`}>
                     {item.source === 'dm' ? 'Direct message' : 'Server'}
                   </span>
-                  <span className="admin-case-reason">{String(item.reason || '').replace(/_/g, ' ')}</span>
+                  <span className="admin-case-reason">
+                    {String(item.reason || '').replace(/_/g, ' ')}
+                  </span>
                   <span className="admin-stat-hint">{time(item.createdAt)}</span>
                 </div>
                 <p className="admin-report-note">
                   Reporter <strong>@{item.reporter?.username || 'deleted'}</strong>
-                  {item.reported?.username ? <> · reported <strong>@{item.reported.username}</strong></> : null}
-                  {item.community ? <> · in <strong>{item.community.name}</strong></> : null}
+                  {item.reported?.username ? (
+                    <>
+                      {' '}
+                      · reported <strong>@{item.reported.username}</strong>
+                    </>
+                  ) : null}
+                  {item.community ? (
+                    <>
+                      {' '}
+                      · in <strong>{item.community.name}</strong>
+                    </>
+                  ) : null}
                 </p>
                 {item.note && <p className="admin-report-note">{item.note}</p>}
                 {item.preview?.map((preview, index) => (
@@ -448,20 +614,42 @@ export const ModerationPanel = () => {
                     aria-label={`Note for case ${item.id}`}
                     value={notes[key] || ''}
                     maxLength={500}
-                    onChange={(event) => setNotes((prev) => ({ ...prev, [key]: event.target.value }))}
+                    onChange={(event) =>
+                      setNotes((prev) => ({ ...prev, [key]: event.target.value }))
+                    }
                   />
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy === key} onClick={() => resolve(item, 'dismiss')}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy === key}
+                    onClick={() => resolve(item, 'dismiss')}
+                  >
                     Dismiss
                   </button>
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy === key} onClick={() => resolve(item, 'review')}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy === key}
+                    onClick={() => resolve(item, 'review')}
+                  >
                     Mark reviewed
                   </button>
                   {item.source === 'community' && item.targetType !== 'member' && (
-                    <button type="button" className="btn btn-primary btn-sm" disabled={busy === key} onClick={() => resolve(item, 'remove_content')}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={busy === key}
+                      onClick={() => resolve(item, 'remove_content')}
+                    >
                       Remove content
                     </button>
                   )}
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy === key} onClick={() => resolve(item, 'suspend_author')}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={busy === key}
+                    onClick={() => resolve(item, 'suspend_author')}
+                  >
                     Suspend author
                   </button>
                 </div>
@@ -480,7 +668,7 @@ export const ModerationPanel = () => {
 const CONTENT_TYPES = [
   { key: 'posts', label: 'Posts' },
   { key: 'comments', label: 'Comments' },
-  { key: 'messages', label: 'Messages' }
+  { key: 'messages', label: 'Messages' },
 ];
 
 export const ContentPanel = () => {
@@ -494,23 +682,26 @@ export const ContentPanel = () => {
   const [error, setError] = useState('');
   const [visibilityPrompt, setVisibilityPrompt] = useState(null);
 
-  const load = useCallback(async ({ append = false } = {}) => {
-    setLoading(!append);
-    setError('');
-    try {
-      const params = new URLSearchParams({ limit: '20' });
-      if (q.trim()) params.set('q', q.trim());
-      if (visibility) params.set('visibility', visibility);
-      if (append && before) params.set('before', before);
-      const { data } = await axiosInstance.get(`/admin/content/${type}?${params.toString()}`);
-      setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
-      setBefore(data.nextBefore || null);
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [type, q, visibility, before]);
+  const load = useCallback(
+    async ({ append = false } = {}) => {
+      setLoading(!append);
+      setError('');
+      try {
+        const params = new URLSearchParams({ limit: '20' });
+        if (q.trim()) params.set('q', q.trim());
+        if (visibility) params.set('visibility', visibility);
+        if (append && before) params.set('before', before);
+        const { data } = await axiosInstance.get(`/admin/content/${type}?${params.toString()}`);
+        setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
+        setBefore(data.nextBefore || null);
+      } catch (err) {
+        setError(failure(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [type, q, visibility, before],
+  );
 
   useEffect(() => {
     setItems([]);
@@ -535,10 +726,10 @@ export const ContentPanel = () => {
     setBusy(pending.item._id);
     setError('');
     try {
-      await axiosInstance.patch(
-        `/admin/content/${type}/${pending.item._id}/visibility`,
-        { hidden: !hidden, reason }
-      );
+      await axiosInstance.patch(`/admin/content/${type}/${pending.item._id}/visibility`, {
+        hidden: !hidden,
+        reason,
+      });
       await load();
     } catch (err) {
       setError(failure(err));
@@ -551,7 +742,7 @@ export const ContentPanel = () => {
     <Panel
       title="Content"
       badge={`${items.length} loaded`}
-      toolbar={(
+      toolbar={
         <Toolbar>
           <SegmentedTabs
             ariaLabel="Content type"
@@ -566,16 +757,25 @@ export const ContentPanel = () => {
             aria-label="Search content"
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') load(); }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') load();
+            }}
           />
-          <select className="form-input" aria-label="Visibility" value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+          <select
+            className="form-input"
+            aria-label="Visibility"
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value)}
+          >
             <option value="">Any state</option>
             <option value="visible">Visible</option>
             <option value="hidden">Hidden</option>
           </select>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => load()}>Search</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => load()}>
+            Search
+          </button>
         </Toolbar>
-      )}
+      }
     >
       {error && <p className="admin-warn">{error}</p>}
       {loading ? (
@@ -585,16 +785,23 @@ export const ContentPanel = () => {
       ) : (
         <table className="admin-table">
           <thead>
-            <tr><th>Content</th><th>Author</th><th>Where</th><th>State</th><th>Created</th><th /></tr>
+            <tr>
+              <th>Content</th>
+              <th>Author</th>
+              <th>Where</th>
+              <th>State</th>
+              <th>Created</th>
+              <th />
+            </tr>
           </thead>
           <tbody>
             {items.map((item) => (
               <tr key={item._id}>
-                <td className="admin-report-note">
-                  {item.title || item.text || '(empty)'}
-                </td>
+                <td className="admin-report-note">{item.title || item.text || '(empty)'}</td>
                 <td>@{item.author || 'deleted'}</td>
-                <td>{item.community?.name || item.postId || (item.tags || []).join(', ') || '—'}</td>
+                <td>
+                  {item.community?.name || item.postId || (item.tags || []).join(', ') || '—'}
+                </td>
                 <td>
                   <span className={`admin-badge ${hiddenFor(item) ? 'warn' : 'ok'}`}>
                     {hiddenFor(item) ? 'hidden' : 'visible'}
@@ -602,7 +809,12 @@ export const ContentPanel = () => {
                 </td>
                 <td>{time(item.createdAt)}</td>
                 <td>
-                  <button type="button" className="btn btn-ghost btn-sm" disabled={busy === item._id} onClick={() => openVisibility(item)}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy === item._id}
+                    onClick={() => openVisibility(item)}
+                  >
                     {hiddenFor(item) ? 'Restore' : 'Hide'}
                   </button>
                 </td>
@@ -615,7 +827,11 @@ export const ContentPanel = () => {
 
       <ConfirmModal
         isOpen={Boolean(visibilityPrompt)}
-        title={visibilityPrompt && hiddenFor(visibilityPrompt.item) ? 'Restore content?' : 'Hide content?'}
+        title={
+          visibilityPrompt && hiddenFor(visibilityPrompt.item)
+            ? 'Restore content?'
+            : 'Hide content?'
+        }
         message="The reason is stored in the moderation audit trail."
         confirmText={visibilityPrompt && hiddenFor(visibilityPrompt.item) ? 'Restore' : 'Hide'}
         isDanger={Boolean(visibilityPrompt && !hiddenFor(visibilityPrompt.item))}
@@ -631,9 +847,11 @@ export const ContentPanel = () => {
             className="form-textarea"
             value={visibilityPrompt?.reason || ''}
             maxLength={300}
-            onChange={(event) => setVisibilityPrompt((current) => (
-              current ? { ...current, reason: event.target.value } : current
-            ))}
+            onChange={(event) =>
+              setVisibilityPrompt((current) =>
+                current ? { ...current, reason: event.target.value } : current,
+              )
+            }
             autoFocus
           />
         </label>
@@ -657,27 +875,32 @@ export const CatalogPanel = () => {
   const [error, setError] = useState('');
   const [mergePrompt, setMergePrompt] = useState(null);
 
-  const load = useCallback(async ({ append = false } = {}) => {
-    setLoading(!append);
-    setError('');
-    try {
-      const params = new URLSearchParams({ limit: '25' });
-      if (q.trim()) params.set('q', q.trim());
-      if (status) params.set('status', status);
-      if (append && before) params.set('before', before);
-      const { data } = await axiosInstance.get(`/admin/games?${params.toString()}`);
-      setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
-      setBefore(data.nextBefore || null);
-      setCounts(data.counts || {});
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [q, status, before]);
+  const load = useCallback(
+    async ({ append = false } = {}) => {
+      setLoading(!append);
+      setError('');
+      try {
+        const params = new URLSearchParams({ limit: '25' });
+        if (q.trim()) params.set('q', q.trim());
+        if (status) params.set('status', status);
+        if (append && before) params.set('before', before);
+        const { data } = await axiosInstance.get(`/admin/games?${params.toString()}`);
+        setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
+        setBefore(data.nextBefore || null);
+        setCounts(data.counts || {});
+        setTotal(data.total || 0);
+      } catch (err) {
+        setError(failure(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [q, status, before],
+  );
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   const sync = async () => {
     setBusy(true);
@@ -731,7 +954,7 @@ export const CatalogPanel = () => {
     <Panel
       title="Game catalog"
       badge={`${total.toLocaleString()} games`}
-      toolbar={(
+      toolbar={
         <Toolbar>
           <input
             className="form-input"
@@ -739,26 +962,37 @@ export const CatalogPanel = () => {
             aria-label="Search catalog"
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') load(); }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') load();
+            }}
           />
-          <select className="form-input" aria-label="Catalog status" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select
+            className="form-input"
+            aria-label="Catalog status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
             <option value="">Any status</option>
             <option value="published">Published</option>
             <option value="provisional">Provisional</option>
             <option value="hidden">Hidden</option>
             <option value="merged">Merged</option>
           </select>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => load()}>Search</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => load()}>
+            Search
+          </button>
           <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={sync}>
             {busy ? 'Working…' : 'Sync FreeToGame'}
           </button>
         </Toolbar>
-      )}
+      }
     >
       {message && <p className="admin-note">{message}</p>}
       {error && <p className="admin-warn">{error}</p>}
       <p className="admin-note">
-        {Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'No catalog rows yet.'}
+        {Object.entries(counts)
+          .map(([key, value]) => `${key}: ${value}`)
+          .join(' · ') || 'No catalog rows yet.'}
       </p>
       {loading ? (
         <p className="admin-note">Loading catalog…</p>
@@ -767,7 +1001,14 @@ export const CatalogPanel = () => {
       ) : (
         <table className="admin-table">
           <thead>
-            <tr><th>Game</th><th>Genre</th><th>Followers</th><th>Status</th><th>Id</th><th /></tr>
+            <tr>
+              <th>Game</th>
+              <th>Genre</th>
+              <th>Followers</th>
+              <th>Status</th>
+              <th>Id</th>
+              <th />
+            </tr>
           </thead>
           <tbody>
             {items.map((game) => (
@@ -778,16 +1019,41 @@ export const CatalogPanel = () => {
                 </td>
                 <td>{(game.genres || []).slice(0, 2).join(', ') || '—'}</td>
                 <td>{game.stats?.favoriteCount || 0}</td>
-                <td><span className={`admin-badge ${game.status === 'published' ? 'ok' : 'warn'}`}>{game.status}</span></td>
+                <td>
+                  <span className={`admin-badge ${game.status === 'published' ? 'ok' : 'warn'}`}>
+                    {game.status}
+                  </span>
+                </td>
                 <td className="mono">{String(game._id).slice(-8)}</td>
                 <td>
                   <div className="admin-report-actions">
                     {game.status !== 'hidden' ? (
-                      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setGameStatus(game, 'hidden')}>Hide</button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        disabled={busy}
+                        onClick={() => setGameStatus(game, 'hidden')}
+                      >
+                        Hide
+                      </button>
                     ) : (
-                      <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setGameStatus(game, 'published')}>Publish</button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        disabled={busy}
+                        onClick={() => setGameStatus(game, 'published')}
+                      >
+                        Publish
+                      </button>
                     )}
-                    <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => openMerge(game)}>Merge</button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      disabled={busy}
+                      onClick={() => openMerge(game)}
+                    >
+                      Merge
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -800,9 +1066,11 @@ export const CatalogPanel = () => {
       <ConfirmModal
         isOpen={Boolean(mergePrompt)}
         title="Merge duplicate game"
-        message={mergePrompt
-          ? `Merge "${mergePrompt.game.title}" into another catalog row. The target id survives; this row becomes an alias.`
-          : ''}
+        message={
+          mergePrompt
+            ? `Merge "${mergePrompt.game.title}" into another catalog row. The target id survives; this row becomes an alias.`
+            : ''
+        }
         confirmText="Merge game"
         isDanger
         busy={busy}
@@ -817,9 +1085,11 @@ export const CatalogPanel = () => {
             className="form-input"
             value={mergePrompt?.intoId || ''}
             maxLength={80}
-            onChange={(event) => setMergePrompt((current) => (
-              current ? { ...current, intoId: event.target.value } : current
-            ))}
+            onChange={(event) =>
+              setMergePrompt((current) =>
+                current ? { ...current, intoId: event.target.value } : current,
+              )
+            }
             autoFocus
           />
         </label>
@@ -840,41 +1110,72 @@ export const AuditPanel = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = useCallback(async ({ append = false } = {}) => {
-    setLoading(!append);
-    setError('');
-    try {
-      const params = new URLSearchParams({ limit: '30' });
-      if (action.trim()) params.set('action', action.trim().toUpperCase());
-      if (actor.trim()) params.set('actor', actor.trim());
-      if (from) params.set('from', new Date(from).toISOString());
-      if (to) params.set('to', new Date(to).toISOString());
-      if (append && before) params.set('before', before);
-      const { data } = await axiosInstance.get(`/admin/audit?${params.toString()}`);
-      setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
-      setBefore(data.nextBefore || null);
-    } catch (err) {
-      setError(failure(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [action, actor, from, to, before]);
+  const load = useCallback(
+    async ({ append = false } = {}) => {
+      setLoading(!append);
+      setError('');
+      try {
+        const params = new URLSearchParams({ limit: '30' });
+        if (action.trim()) params.set('action', action.trim().toUpperCase());
+        if (actor.trim()) params.set('actor', actor.trim());
+        if (from) params.set('from', new Date(from).toISOString());
+        if (to) params.set('to', new Date(to).toISOString());
+        if (append && before) params.set('before', before);
+        const { data } = await axiosInstance.get(`/admin/audit?${params.toString()}`);
+        setItems((prev) => (append ? [...prev, ...(data.items || [])] : data.items || []));
+        setBefore(data.nextBefore || null);
+      } catch (err) {
+        setError(failure(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [action, actor, from, to, before],
+  );
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
 
   return (
     <Panel
       title="Audit log"
       badge={`${items.length} loaded`}
-      toolbar={(
+      toolbar={
         <Toolbar>
-          <input className="form-input" placeholder="Action (e.g. PLATFORM_STATUS_UPDATE)" aria-label="Filter by action" value={action} onChange={(e) => setAction(e.target.value)} />
-          <input className="form-input" placeholder="Actor username" aria-label="Filter by actor" value={actor} onChange={(e) => setActor(e.target.value)} />
-          <input className="form-input" type="date" aria-label="From date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <input className="form-input" type="date" aria-label="To date" value={to} onChange={(e) => setTo(e.target.value)} />
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => load()}>Filter</button>
+          <input
+            className="form-input"
+            placeholder="Action (e.g. PLATFORM_STATUS_UPDATE)"
+            aria-label="Filter by action"
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+          />
+          <input
+            className="form-input"
+            placeholder="Actor username"
+            aria-label="Filter by actor"
+            value={actor}
+            onChange={(e) => setActor(e.target.value)}
+          />
+          <input
+            className="form-input"
+            type="date"
+            aria-label="From date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <input
+            className="form-input"
+            type="date"
+            aria-label="To date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => load()}>
+            Filter
+          </button>
         </Toolbar>
-      )}
+      }
     >
       {error && <p className="admin-warn">{error}</p>}
       {loading ? (
@@ -884,15 +1185,27 @@ export const AuditPanel = () => {
       ) : (
         <table className="admin-table">
           <thead>
-            <tr><th>Action</th><th>Actor</th><th>Scope</th><th>Target</th><th>When</th></tr>
+            <tr>
+              <th>Action</th>
+              <th>Actor</th>
+              <th>Scope</th>
+              <th>Target</th>
+              <th>When</th>
+            </tr>
           </thead>
           <tbody>
             {items.map((entry) => (
               <tr key={entry._id}>
                 <td className="mono">{entry.actionType}</td>
-                <td>@{entry.actor}{entry.actorRole ? ` (${entry.actorRole})` : ''}</td>
+                <td>
+                  @{entry.actor}
+                  {entry.actorRole ? ` (${entry.actorRole})` : ''}
+                </td>
                 <td>{entry.community || 'platform'}</td>
-                <td className="mono">{entry.targetModel || '—'}{entry.targetId ? ` · ${entry.targetId.slice(-6)}` : ''}</td>
+                <td className="mono">
+                  {entry.targetModel || '—'}
+                  {entry.targetId ? ` · ${entry.targetId.slice(-6)}` : ''}
+                </td>
                 <td>{time(entry.createdAt)}</td>
               </tr>
             ))}
@@ -932,7 +1245,7 @@ const SURFACE_LABELS = {
   chat: 'Chat',
   avatar: 'Avatars',
   game: 'Game media',
-  other: 'Other'
+  other: 'Other',
 };
 
 export const StoragePanel = () => {
@@ -953,7 +1266,9 @@ export const StoragePanel = () => {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const totals = data?.totals || { assets: 0, bytes: 0 };
   const rows = data?.bySurface || [];
@@ -963,19 +1278,23 @@ export const StoragePanel = () => {
     <Panel
       title="Media ledger"
       badge={`${totals.assets} asset${totals.assets === 1 ? '' : 's'}`}
-      toolbar={(
+      toolbar={
         <Toolbar>
           <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={load}>
             {loading ? 'Refreshing…' : 'Refresh'}
           </button>
         </Toolbar>
-      )}
+      }
     >
       {error && <p className="admin-warn">{error}</p>}
 
       <div className="admin-stats">
         <LedgerStat label="Total assets" value={totals.assets} hint="ledger rows" />
-        <LedgerStat label="Stored size" value={formatBytes(totals.bytes)} hint="across every surface" />
+        <LedgerStat
+          label="Stored size"
+          value={formatBytes(totals.bytes)}
+          hint="across every surface"
+        />
         <LedgerStat label="Ready" value={statuses.ready || 0} hint="deliverable" />
         <LedgerStat label="Pending" value={statuses.pending || 0} hint="awaiting validation" />
       </div>
@@ -987,7 +1306,11 @@ export const StoragePanel = () => {
       ) : (
         <table className="admin-table">
           <thead>
-            <tr><th>Surface</th><th>Assets</th><th>Size</th></tr>
+            <tr>
+              <th>Surface</th>
+              <th>Assets</th>
+              <th>Size</th>
+            </tr>
           </thead>
           <tbody>
             {rows.map((row) => (

@@ -50,6 +50,8 @@ for (const file of walk(path.resolve('client/src'), [])) {
 
 console.log(hits.join('\n'));
 if (allowedHits) {
-  console.log(`\n${allowedHits} reaction glyph line(s) in the allowlisted reaction catalogue (content, not chrome).`);
+  console.log(
+    `\n${allowedHits} reaction glyph line(s) in the allowlisted reaction catalogue (content, not chrome).`,
+  );
 }
 console.log(`\n${hits.length} line(s)`);

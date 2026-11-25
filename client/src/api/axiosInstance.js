@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const axiosInstance = axios.create({
   baseURL: '/api',
-  withCredentials: true
+  withCredentials: true,
 });
 
 /**
@@ -14,7 +14,7 @@ const axiosInstance = axios.create({
  */
 axiosInstance.interceptors.response.use(
   (res) => res,
-  (err) => Promise.reject(err)
+  (err) => Promise.reject(err),
 );
 
 export default axiosInstance;

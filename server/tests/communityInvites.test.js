@@ -5,7 +5,7 @@ const {
   normalizeInviteOptions,
   inviteStatus,
   newInviteCode,
-  MAX_USES_LIMIT
+  MAX_USES_LIMIT,
 } = require('../utils/invites');
 
 const HOUR = 3_600_000;
@@ -14,7 +14,12 @@ const NOW = Date.parse('2026-11-09T12:00:00.000Z');
 test('invite options default to a permanent, unlimited member link', () => {
   const { ok, value } = normalizeInviteOptions({});
   assert.equal(ok, true);
-  assert.deepEqual(value, { role: 'member', maxUses: 0, expiresInDays: 0, requiresApproval: false });
+  assert.deepEqual(value, {
+    role: 'member',
+    maxUses: 0,
+    expiresInDays: 0,
+    requiresApproval: false,
+  });
 });
 
 test('approval can be required per link', () => {
@@ -46,14 +51,8 @@ test('use limits and expiry stay inside their bounds', () => {
 test('status reports active, expired, used up, revoked and missing links', () => {
   assert.equal(inviteStatus(null, NOW), 'missing');
   assert.equal(inviteStatus({}, NOW), 'active');
-  assert.equal(
-    inviteStatus({ expiresAt: new Date(NOW - HOUR).toISOString() }, NOW),
-    'expired'
-  );
-  assert.equal(
-    inviteStatus({ expiresAt: new Date(NOW + HOUR).toISOString() }, NOW),
-    'active'
-  );
+  assert.equal(inviteStatus({ expiresAt: new Date(NOW - HOUR).toISOString() }, NOW), 'expired');
+  assert.equal(inviteStatus({ expiresAt: new Date(NOW + HOUR).toISOString() }, NOW), 'active');
   assert.equal(inviteStatus({ maxUses: 2, uses: 2 }, NOW), 'used_up');
   assert.equal(inviteStatus({ maxUses: 2, uses: 1 }, NOW), 'active');
   assert.equal(inviteStatus({ maxUses: 0, uses: 999 }, NOW), 'active');

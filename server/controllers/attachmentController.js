@@ -34,7 +34,11 @@ function loadSharp() {
 }
 
 const uploadsConfigured = () =>
-  Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+  Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET,
+  );
 
 /** Strip EXIF (GPS!) and cap the pixel dimensions before anything is stored. */
 async function normaliseImage(buffer, mimeType) {
@@ -69,9 +73,9 @@ function uploadBuffer(buffer, ownerId) {
         public_id: mediaPublicId({ surface: 'chat', ownerId }),
         resource_type: 'image',
         // Cloudinary keeps no metadata block for chat images.
-        image_metadata: false
+        image_metadata: false,
       },
-      (error, result) => (error ? reject(error) : resolve(result))
+      (error, result) => (error ? reject(error) : resolve(result)),
     );
     stream.end(buffer);
   });
@@ -88,7 +92,7 @@ const uploadAttachment = async (req, res, next) => {
     const { channel, community } = await loadChannelAccess({
       channelId: req.params.channelId,
       userId: req.user._id,
-      capability: CAP.ATTACH_FILES
+      capability: CAP.ATTACH_FILES,
     });
 
     if (channel.type === 'forum') {
@@ -103,7 +107,7 @@ const uploadAttachment = async (req, res, next) => {
     const validated = validateImageUpload({
       buffer: req.file.buffer,
       claimedMime: req.file.mimetype,
-      sizeBytes: req.file.size
+      sizeBytes: req.file.size,
     });
     if (!validated.ok) throw badRequest(validated.reason);
 
@@ -119,7 +123,7 @@ const uploadAttachment = async (req, res, next) => {
       sizeBytes: normalised.buffer.length,
       width: normalised.width,
       height: normalised.height,
-      status: 'pending'
+      status: 'pending',
     });
 
     const result = await uploadBuffer(normalised.buffer, req.user._id);
@@ -138,7 +142,7 @@ const uploadAttachment = async (req, res, next) => {
       derivatives: deliverySet(result.public_id, { resourceType: 'image' }),
       status: 'ready',
       refType: 'Message',
-      refId: null
+      refId: null,
     });
 
     attachment.cloudinaryId = result.public_id;
@@ -154,8 +158,8 @@ const uploadAttachment = async (req, res, next) => {
         mimeType: attachment.mimeType,
         sizeBytes: attachment.sizeBytes,
         width: attachment.width,
-        height: attachment.height
-      }
+        height: attachment.height,
+      },
     });
   } catch (err) {
     // Never leave a half-registered row behind.
@@ -176,14 +180,14 @@ const getAttachmentUrl = async (req, res, next) => {
 
     const { channel, community } = await loadChannelAccess({
       channelId: req.params.channelId,
-      userId: req.user._id
+      userId: req.user._id,
     });
 
     const attachment = await Attachment.findOne({
       _id: req.params.attachmentId,
       channelId: channel._id,
       communityId: community._id,
-      status: 'ready'
+      status: 'ready',
     }).lean();
 
     if (!attachment) throw notFound('Attachment not found.');
@@ -193,7 +197,7 @@ const getAttachmentUrl = async (req, res, next) => {
       sign_url: true,
       secure: true,
       expires_at: expiresAt,
-      resource_type: 'image'
+      resource_type: 'image',
     });
 
     res.set('Cache-Control', 'private, no-store');
@@ -208,13 +212,13 @@ const deleteAttachment = async (req, res, next) => {
   try {
     const { channel, community, permissions } = await loadChannelAccess({
       channelId: req.params.channelId,
-      userId: req.user._id
+      userId: req.user._id,
     });
 
     const attachment = await Attachment.findOne({
       _id: req.params.attachmentId,
       channelId: channel._id,
-      communityId: community._id
+      communityId: community._id,
     });
 
     if (!attachment) throw notFound('Attachment not found.');
@@ -224,7 +228,8 @@ const deleteAttachment = async (req, res, next) => {
       throw forbidden('Only the uploader or a moderator can delete this attachment.');
     }
 
-    await cloudinary.uploader.destroy(attachment.cloudinaryId, { resource_type: 'image' })
+    await cloudinary.uploader
+      .destroy(attachment.cloudinaryId, { resource_type: 'image' })
       .catch(() => {}); // a missing remote file must not block the local delete
 
     if (attachment.assetId) {
@@ -235,7 +240,7 @@ const deleteAttachment = async (req, res, next) => {
 
     emitToChannel(channel._id, 'attachment_deleted', {
       channelId: String(channel._id),
-      attachmentId: String(attachment._id)
+      attachmentId: String(attachment._id),
     });
 
     res.status(200).json({ message: 'Attachment deleted.', attachmentId: String(attachment._id) });
@@ -248,5 +253,5 @@ module.exports = {
   uploadAttachment,
   getAttachmentUrl,
   deleteAttachment,
-  SIGNED_URL_TTL_SECONDS
+  SIGNED_URL_TTL_SECONDS,
 };

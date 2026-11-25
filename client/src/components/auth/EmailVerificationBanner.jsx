@@ -9,7 +9,7 @@ const HIDDEN_PREFIXES = [
   '/register',
   '/forgot-password',
   '/reset-password',
-  '/verify-email'
+  '/verify-email',
 ];
 
 const readDismissed = (userId) => {
@@ -56,7 +56,9 @@ const EmailVerificationBanner = () => {
   return (
     <div className="verify-banner" role="status">
       <div className="container verify-banner-inner">
-        <span className="verify-banner-icon"><MailIcon size={17} /></span>
+        <span className="verify-banner-icon">
+          <MailIcon size={17} />
+        </span>
         <p>
           <strong>Confirm your email.</strong>{' '}
           {notice || 'It keeps your account recoverable and unlocks password changes.'}
@@ -70,7 +72,9 @@ const EmailVerificationBanner = () => {
           >
             {sending ? 'Sending…' : 'Resend'}
           </button>
-          <Link to="/settings?tab=security" className="btn btn-ghost btn-sm">Settings</Link>
+          <Link to="/settings?tab=security" className="btn btn-ghost btn-sm">
+            Settings
+          </Link>
           <button
             type="button"
             className="icon-btn verify-banner-close"

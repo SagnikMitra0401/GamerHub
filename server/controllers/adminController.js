@@ -2,18 +2,23 @@ const path = require('path');
 const fs = require('fs/promises');
 const mongoose = require('mongoose');
 
-const AuditLog  = require('../models/AuditLog');
-const User      = require('../models/User');
-const Post      = require('../models/Post');
-const Comment   = require('../models/Comment');
+const AuditLog = require('../models/AuditLog');
+const User = require('../models/User');
+const Post = require('../models/Post');
+const Comment = require('../models/Comment');
 const Community = require('../models/Community');
-const Message   = require('../models/Message');
-const Party     = require('../models/Party');
+const Message = require('../models/Message');
+const Party = require('../models/Party');
 const Notification = require('../models/Notification');
 const ProductEvent = require('../models/ProductEvent');
 
 const { snapshot } = require('../utils/metrics');
-const { DAY_MS, DAY7_IGNORED_EVENTS, buildFunnel, summarizeFunnelRows } = require('../utils/funnel');
+const {
+  DAY_MS,
+  DAY7_IGNORED_EVENTS,
+  buildFunnel,
+  summarizeFunnelRows,
+} = require('../utils/funnel');
 const { observabilityStatus } = require('../utils/observability');
 const { errorReportingStatus } = require('../utils/errorReporting');
 const { rateLimitStoreStatus } = require('../utils/rateLimitStore');
@@ -32,14 +37,24 @@ const MAX_SCAN_BYTES = 15 * 1024 * 1024;
  * design and must not be flagged as weak.
  */
 const SECRETS = [
-  { name: 'JWT_SECRET',            required: true,  minLength: 32, usedBy: 'Session cookies & socket handshakes' },
-  { name: 'MONGO_URI',             required: true,  minLength: 20, usedBy: 'MongoDB Atlas connection' },
-  { name: 'CLOUDINARY_CLOUD_NAME', required: false, minLength: 1,  usedBy: 'Media CDN' },
-  { name: 'CLOUDINARY_API_KEY',    required: false, minLength: 1,  usedBy: 'Media uploads' },
+  {
+    name: 'JWT_SECRET',
+    required: true,
+    minLength: 32,
+    usedBy: 'Session cookies & socket handshakes',
+  },
+  { name: 'MONGO_URI', required: true, minLength: 20, usedBy: 'MongoDB Atlas connection' },
+  { name: 'CLOUDINARY_CLOUD_NAME', required: false, minLength: 1, usedBy: 'Media CDN' },
+  { name: 'CLOUDINARY_API_KEY', required: false, minLength: 1, usedBy: 'Media uploads' },
   { name: 'CLOUDINARY_API_SECRET', required: false, minLength: 16, usedBy: 'Media uploads' },
-  { name: 'YOUTUBE_API_KEY',       required: false, minLength: 16, usedBy: 'Gaming bot video search' },
-  { name: 'GMAIL_BRIDGE_SECRET',   required: false, minLength: 16, usedBy: 'Transactional email bridge' },
-  { name: 'SENTRY_DSN',            required: false, minLength: 20, usedBy: 'Hosted error reporting' }
+  { name: 'YOUTUBE_API_KEY', required: false, minLength: 16, usedBy: 'Gaming bot video search' },
+  {
+    name: 'GMAIL_BRIDGE_SECRET',
+    required: false,
+    minLength: 16,
+    usedBy: 'Transactional email bridge',
+  },
+  { name: 'SENTRY_DSN', required: false, minLength: 20, usedBy: 'Hosted error reporting' },
 ];
 
 const present = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -51,7 +66,7 @@ function auditedSecret({ name, minLength = 1 }) {
     name,
     configured,
     // Bucket only — never the value, never the exact length.
-    strength: configured ? (value.trim().length >= minLength ? 'strong' : 'short') : 'unset'
+    strength: configured ? (value.trim().length >= minLength ? 'strong' : 'short') : 'unset',
   };
 }
 
@@ -64,11 +79,19 @@ async function scanClientBundle() {
   try {
     files = await fs.readdir(BUILD_ASSETS_DIR);
   } catch {
-    return { scanned: false, reason: 'No production build (client/dist) found', files: 0, leakedKeys: [] };
+    return {
+      scanned: false,
+      reason: 'No production build (client/dist) found',
+      files: 0,
+      leakedKeys: [],
+    };
   }
 
   const secrets = Object.entries(process.env)
-    .filter(([name, value]) => present(value) && value.length >= 8 && /KEY|SECRET|TOKEN|URI|DSN|PASSWORD/i.test(name))
+    .filter(
+      ([name, value]) =>
+        present(value) && value.length >= 8 && /KEY|SECRET|TOKEN|URI|DSN|PASSWORD/i.test(name),
+    )
     .map(([name, value]) => [name, value]);
 
   const leakedKeys = new Set();
@@ -95,22 +118,38 @@ async function scanClientBundle() {
 }
 
 async function countCollections() {
-  const [users, posts, comments, communities, messages, auditEvents, parties, notifications, productEvents] =
-    await Promise.all([
-      User.countDocuments(),
-      Post.countDocuments(),
-      Comment.countDocuments(),
-      Community.countDocuments(),
-      Message.countDocuments(),
-      AuditLog.countDocuments(),
-      Party.countDocuments({ status: { $ne: 'closed' } }),
-      Notification.countDocuments(),
-      ProductEvent.countDocuments()
-    ]);
+  const [
+    users,
+    posts,
+    comments,
+    communities,
+    messages,
+    auditEvents,
+    parties,
+    notifications,
+    productEvents,
+  ] = await Promise.all([
+    User.countDocuments(),
+    Post.countDocuments(),
+    Comment.countDocuments(),
+    Community.countDocuments(),
+    Message.countDocuments(),
+    AuditLog.countDocuments(),
+    Party.countDocuments({ status: { $ne: 'closed' } }),
+    Notification.countDocuments(),
+    ProductEvent.countDocuments(),
+  ]);
 
   return {
-    users, posts, comments, communities, messages, auditEvents,
-    activeParties: parties, notifications, productEvents
+    users,
+    posts,
+    comments,
+    communities,
+    messages,
+    auditEvents,
+    activeParties: parties,
+    notifications,
+    productEvents,
   };
 }
 
@@ -129,13 +168,13 @@ const getSystemHealth = async (req, res, next) => {
         .limit(20)
         .populate('actorId', 'username role')
         .populate('communityId', 'name slug')
-        .lean()
+        .lean(),
     ]);
 
     const keys = SECRETS.map((secret) => ({
       ...auditedSecret(secret),
       required: secret.required,
-      usedBy: secret.usedBy
+      usedBy: secret.usedBy,
     }));
 
     const missingRequired = keys.filter((k) => k.required && !k.configured).map((k) => k.name);
@@ -150,45 +189,52 @@ const getSystemHealth = async (req, res, next) => {
           ok: missingRequired.length === 0 && leaked.length === 0,
           missingRequired,
           weakSecrets: shortSecrets,
-          keys
+          keys,
         },
         clientBundle: {
           scanned: bundle.scanned,
           reason: bundle.reason || null,
           files: bundle.files || 0,
-          leakedKeys: leaked
-        }
+          leakedKeys: leaked,
+        },
       },
       health: {
         uptimeSeconds: Math.round(process.uptime()),
         node: process.version,
         database: {
           connected: mongoose.connection.readyState === 1,
-          state: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+          state:
+            ['disconnected', 'connected', 'connecting', 'disconnecting'][
+              mongoose.connection.readyState
+            ] || 'unknown',
         },
         traffic: snapshot(),
         services: {
           youtube: youtubeBot.getStatus(),
           cloudinary: {
-            configured: present(process.env.CLOUDINARY_CLOUD_NAME) &&
-                        present(process.env.CLOUDINARY_API_KEY) &&
-                        present(process.env.CLOUDINARY_API_SECRET)
+            configured:
+              present(process.env.CLOUDINARY_CLOUD_NAME) &&
+              present(process.env.CLOUDINARY_API_KEY) &&
+              present(process.env.CLOUDINARY_API_SECRET),
           },
-          gameCatalog: { provider: 'FreeToGame', cacheMinutes: Math.round(GAME_CACHE_TTL_MS / 60_000) },
+          gameCatalog: {
+            provider: 'FreeToGame',
+            cacheMinutes: Math.round(GAME_CACHE_TTL_MS / 60_000),
+          },
           // Reported from the live switch rather than hardcoded, so the
           // dashboard cannot claim Redis is off while it is serving traffic.
           redis: {
             configured: redisConfigured(),
             cache: redisConfigured() ? 'redis' : 'memory',
-            likeBuffer: isLikeWorkerRunning() ? 'redis' : 'off'
-          }
-        }
+            likeBuffer: isLikeWorkerRunning() ? 'redis' : 'off',
+          },
+        },
       },
       database: { counts },
       observability: {
         ...observabilityStatus(),
         errorReporting: errorReporting.provider,
-        errorReportingConfigured: errorReporting.configured
+        errorReportingConfigured: errorReporting.configured,
       },
       rateLimits: rateLimitStoreStatus(),
       audit: audit.map((entry) => ({
@@ -199,8 +245,8 @@ const getSystemHealth = async (req, res, next) => {
         community: entry.communityId?.name || null,
         targetModel: entry.targetModel,
         metadata: entry.metadata,
-        createdAt: entry.createdAt
-      }))
+        createdAt: entry.createdAt,
+      })),
     });
   } catch (err) {
     next(err);
@@ -212,7 +258,7 @@ const getMetrics = async (req, res, next) => {
   try {
     res.status(200).json({
       ...snapshot(),
-      database: { connected: mongoose.connection.readyState === 1 }
+      database: { connected: mongoose.connection.readyState === 1 },
     });
   } catch (err) {
     next(err);
@@ -229,7 +275,7 @@ const FUNNEL_EVENT_NAMES = [
   'first_follow',
   'first_post',
   'first_comment',
-  'first_message'
+  'first_message',
 ];
 
 /**
@@ -243,22 +289,22 @@ async function funnelRows(since, now) {
       $match: {
         userId: { $ne: null },
         name: { $in: FUNNEL_EVENT_NAMES },
-        createdAt: { $gte: since, $lte: now }
-      }
+        createdAt: { $gte: since, $lte: now },
+      },
     },
     {
       $group: {
         _id: '$userId',
         signupAt: {
           $min: {
-            $cond: [{ $eq: ['$name', 'signup'] }, '$createdAt', null]
-          }
+            $cond: [{ $eq: ['$name', 'signup'] }, '$createdAt', null],
+          },
         },
-        names: { $addToSet: '$name' }
-      }
+        names: { $addToSet: '$name' },
+      },
     },
     { $match: { signupAt: { $gte: since, $lte: now } } },
-    { $project: { _id: 1, names: 1 } }
+    { $project: { _id: 1, names: 1 } },
   ]);
 }
 
@@ -275,8 +321,8 @@ async function day7Counts(since, now) {
       $match: {
         name: 'signup',
         userId: { $ne: null },
-        createdAt: { $gte: since, $lte: eligibleBefore }
-      }
+        createdAt: { $gte: since, $lte: eligibleBefore },
+      },
     },
     { $sort: { createdAt: 1 } },
     { $group: { _id: '$userId', signedAt: { $first: '$createdAt' } } },
@@ -300,36 +346,33 @@ async function day7Counts(since, now) {
                         { $ne: ['$name', 'signup'] },
                         { $eq: [{ $in: ['$name', DAY7_IGNORED_EVENTS] }, false] },
                         { $gte: ['$createdAt', { $add: ['$$signedAt', 7 * DAY_MS] }] },
-                        { $lt: ['$createdAt', { $add: ['$$signedAt', 8 * DAY_MS] }] }
-                      ]
-                    }
-                  }
+                        { $lt: ['$createdAt', { $add: ['$$signedAt', 8 * DAY_MS] }] },
+                      ],
+                    },
+                  },
                 },
-                { $limit: 1 }
+                { $limit: 1 },
               ],
-              as: 'day7Activity'
-            }
+              as: 'day7Activity',
+            },
           },
           { $match: { 'day7Activity.0': { $exists: true } } },
-          { $count: 'count' }
-        ]
-      }
-    }
+          { $count: 'count' },
+        ],
+      },
+    },
   ]);
 
   return {
     cohort: result?.cohort[0]?.count || 0,
-    returned: result?.returned[0]?.count || 0
+    returned: result?.returned[0]?.count || 0,
   };
 }
 
 async function loadFunnel(days) {
   const now = new Date();
   const since = new Date(now.getTime() - days * DAY_MS);
-  const [rows, day7] = await Promise.all([
-    funnelRows(since, now),
-    day7Counts(since, now)
-  ]);
+  const [rows, day7] = await Promise.all([funnelRows(since, now), day7Counts(since, now)]);
   const counts = summarizeFunnelRows(rows);
 
   return {
@@ -344,8 +387,8 @@ async function loadFunnel(days) {
       firstConnection: counts.firstConnection,
       firstContribution: counts.firstContribution,
       day7Returned: day7.returned,
-      day7Cohort: day7.cohort
-    })
+      day7Cohort: day7.cohort,
+    }),
   };
 }
 
@@ -353,13 +396,11 @@ async function loadFunnel(days) {
 const getFunnel = async (req, res, next) => {
   try {
     const requested = Number(req.query.days);
-    const days = Number.isInteger(requested) && requested >= 1 && requested <= 180
-      ? requested
-      : 28;
+    const days = Number.isInteger(requested) && requested >= 1 && requested <= 180 ? requested : 28;
     const payload = await cacheWrap(
       `admin:activation-funnel:${days}`,
       () => loadFunnel(days),
-      FUNNEL_CACHE_SECONDS
+      FUNNEL_CACHE_SECONDS,
     );
     res.status(200).json(payload);
   } catch (err) {
@@ -372,5 +413,5 @@ module.exports = {
   getMetrics,
   getFunnel,
   scanClientBundle,
-  auditedSecret
+  auditedSecret,
 };

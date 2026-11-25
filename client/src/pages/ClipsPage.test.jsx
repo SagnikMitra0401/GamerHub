@@ -13,15 +13,15 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   updateSavedPosts: vi.fn(),
-  auth: { user: null, updateSavedPosts: null }
+  auth: { user: null, updateSavedPosts: null },
 }));
 
 vi.mock('../api/axiosInstance', () => ({
-  default: { get: mocks.get, post: mocks.post }
+  default: { get: mocks.get, post: mocks.post },
 }));
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => mocks.auth
+  useAuth: () => mocks.auth,
 }));
 
 const clip = {
@@ -32,7 +32,7 @@ const clip = {
   likes: ['u1'],
   likeCount: 1,
   commentCount: 0,
-  tags: ['valorant']
+  tags: ['valorant'],
 };
 
 class MockIntersectionObserver {
@@ -41,11 +41,12 @@ class MockIntersectionObserver {
   disconnect() {}
 }
 
-const renderPage = () => render(
-  <MemoryRouter>
-    <ClipsPage />
-  </MemoryRouter>
-);
+const renderPage = () =>
+  render(
+    <MemoryRouter>
+      <ClipsPage />
+    </MemoryRouter>,
+  );
 
 beforeEach(() => {
   mocks.auth = { user: null, updateSavedPosts: null };
@@ -64,20 +65,29 @@ describe('ClipsPage reaction hydration', () => {
     const view = renderPage();
 
     await screen.findByRole('heading', { name: 'Already liked' });
-    expect(screen.getByRole('button', { name: 'Like clip' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Save clip' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Like clip' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: 'Save clip' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
 
     mocks.auth.user = { _id: 'u1', savedPosts: ['p1'] };
     view.rerender(
       <MemoryRouter>
         <ClipsPage />
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     const unlike = await screen.findByRole('button', { name: 'Unlike clip' });
     expect(unlike).toHaveAttribute('aria-pressed', 'true');
     expect(unlike).toHaveTextContent('1');
-    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('lets a hydrated clip unlike without falling back to the stale signed-out view', async () => {
@@ -88,7 +98,10 @@ describe('ClipsPage reaction hydration', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Unlike clip' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Like clip' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('button', { name: 'Like clip' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      );
     });
     expect(screen.getByRole('button', { name: 'Like clip' })).toHaveTextContent('0');
     expect(mocks.post).toHaveBeenCalledWith('/posts/p1/like');

@@ -25,14 +25,14 @@ function withEnv(env, fn) {
 
 const fakeRequest = ({ origin, host = 'localhost:5000', protocol = 'http' } = {}) => ({
   protocol,
-  get: (name) => (name === 'origin' ? origin : name === 'host' ? host : undefined)
+  get: (name) => (name === 'origin' ? origin : name === 'host' ? host : undefined),
 });
 
 test('a hosted deployment links to its declared public origin, never localhost', () => {
   withEnv({ CLIENT_URL: 'https://gamerhub.app', EXTRA_ALLOWED_ORIGINS: '' }, () => {
     assert.equal(
       publicBaseUrl(fakeRequest({ origin: 'http://localhost:3000' })),
-      'https://gamerhub.app'
+      'https://gamerhub.app',
     );
   });
 });
@@ -41,7 +41,7 @@ test('local development links use the vite origin, not the API host', () => {
   withEnv({ CLIENT_URL: 'http://localhost:3000', EXTRA_ALLOWED_ORIGINS: '' }, () => {
     assert.equal(
       publicBaseUrl(fakeRequest({ origin: 'http://localhost:3000' })),
-      'http://localhost:3000'
+      'http://localhost:3000',
     );
     // Non-browser callers (scripts) still get the client origin.
     assert.equal(publicBaseUrl(fakeRequest({})), 'http://localhost:3000');
@@ -49,16 +49,19 @@ test('local development links use the vite origin, not the API host', () => {
 });
 
 test('the first non-loopback entry wins when CLIENT_URL is a list', () => {
-  withEnv({ CLIENT_URL: 'http://localhost:3000, https://gamerhub.app/', EXTRA_ALLOWED_ORIGINS: '' }, () => {
-    assert.equal(publicBaseUrl(fakeRequest({})), 'https://gamerhub.app');
-  });
+  withEnv(
+    { CLIENT_URL: 'http://localhost:3000, https://gamerhub.app/', EXTRA_ALLOWED_ORIGINS: '' },
+    () => {
+      assert.equal(publicBaseUrl(fakeRequest({})), 'https://gamerhub.app');
+    },
+  );
 });
 
 test('with no configuration at all the request host is the last resort', () => {
   withEnv({ CLIENT_URL: undefined, EXTRA_ALLOWED_ORIGINS: '' }, () => {
     assert.equal(
       publicBaseUrl(fakeRequest({ host: 'gaminghub.example', protocol: 'https' })),
-      'https://gaminghub.example'
+      'https://gaminghub.example',
     );
   });
 });

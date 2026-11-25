@@ -7,16 +7,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  normalizeUsername,
-  usernameFilter,
-  USERNAME_MAX
-} = require('../utils/username');
+const { normalizeUsername, usernameFilter, USERNAME_MAX } = require('../utils/username');
 const { canParticipate, accountGate, canInvite } = require('../utils/privacy');
 const {
   orderSuccessors,
   chooseCommunitySuccessor,
-  chooseSquadSuccessor
+  chooseSquadSuccessor,
 } = require('../utils/succession');
 
 const id = (suffix) => `507f1f77bcf86cd7994390${suffix}`;
@@ -29,7 +25,14 @@ test('a valid handle is trimmed and kept as typed', () => {
 });
 
 test('short, long and malformed handles are refused with a reason', () => {
-  for (const input of ['ab', 'a'.repeat(USERNAME_MAX + 1), 'no spaces', 'dash-name', 'dot.name', 'emoji_🎮']) {
+  for (const input of [
+    'ab',
+    'a'.repeat(USERNAME_MAX + 1),
+    'no spaces',
+    'dash-name',
+    'dot.name',
+    'emoji_🎮',
+  ]) {
     const result = normalizeUsername(input);
     assert.equal(result.ok, false, `${input} should be refused`);
     assert.ok(result.reason.length > 10);
@@ -83,8 +86,14 @@ test('a frozen account is not an invitable recipient, and cannot invite', () => 
   const frozenInviter = { _id: id('33'), status: 'frozen', blockedUsers: [] };
   const activeRecipient = { _id: id('44'), status: 'active', blockedUsers: [] };
 
-  assert.equal(canInvite({ targetType: 'squad', recipient: frozenRecipient, inviter }).code, 'UNAVAILABLE');
-  assert.equal(canInvite({ targetType: 'squad', recipient: activeRecipient, inviter: frozenInviter }).code, 'ACCOUNT_FROZEN');
+  assert.equal(
+    canInvite({ targetType: 'squad', recipient: frozenRecipient, inviter }).code,
+    'UNAVAILABLE',
+  );
+  assert.equal(
+    canInvite({ targetType: 'squad', recipient: activeRecipient, inviter: frozenInviter }).code,
+    'ACCOUNT_FROZEN',
+  );
   assert.equal(canInvite({ targetType: 'squad', recipient: activeRecipient, inviter }).ok, true);
 });
 
@@ -93,51 +102,70 @@ test('a frozen account is not an invitable recipient, and cannot invite', () => 
 const community = (members) => ({ _id: id('99'), ownerId: id('11'), members });
 
 test('an admin inherits before a longer-serving moderator or member', () => {
-  const successor = chooseCommunitySuccessor(community([
-    { userId: id('11'), role: 'owner', joinedAt: joined(1) },
-    { userId: id('22'), role: 'member', joinedAt: joined(2) },
-    { userId: id('33'), role: 'moderator', joinedAt: joined(3) },
-    { userId: id('44'), role: 'admin', joinedAt: joined(9) }
-  ]), id('11'));
+  const successor = chooseCommunitySuccessor(
+    community([
+      { userId: id('11'), role: 'owner', joinedAt: joined(1) },
+      { userId: id('22'), role: 'member', joinedAt: joined(2) },
+      { userId: id('33'), role: 'moderator', joinedAt: joined(3) },
+      { userId: id('44'), role: 'admin', joinedAt: joined(9) },
+    ]),
+    id('11'),
+  );
 
   assert.equal(successor.userId, id('44'));
   assert.equal(successor.role, 'admin');
 });
 
 test('the earliest-joined admin wins when authority is equal', () => {
-  const successor = chooseCommunitySuccessor(community([
-    { userId: id('11'), role: 'owner', joinedAt: joined(1) },
-    { userId: id('22'), role: 'admin', joinedAt: joined(5) },
-    { userId: id('33'), role: 'admin', joinedAt: joined(2) }
-  ]), id('11'));
+  const successor = chooseCommunitySuccessor(
+    community([
+      { userId: id('11'), role: 'owner', joinedAt: joined(1) },
+      { userId: id('22'), role: 'admin', joinedAt: joined(5) },
+      { userId: id('33'), role: 'admin', joinedAt: joined(2) },
+    ]),
+    id('11'),
+  );
 
   assert.equal(successor.userId, id('33'));
 });
 
 test('a veteran member inherits when no staff remain', () => {
-  const successor = chooseCommunitySuccessor(community([
-    { userId: id('11'), role: 'owner', joinedAt: joined(1) },
-    { userId: id('22'), role: 'member', joinedAt: joined(7) },
-    { userId: id('33'), role: 'member', joinedAt: joined(4) }
-  ]), id('11'));
+  const successor = chooseCommunitySuccessor(
+    community([
+      { userId: id('11'), role: 'owner', joinedAt: joined(1) },
+      { userId: id('22'), role: 'member', joinedAt: joined(7) },
+      { userId: id('33'), role: 'member', joinedAt: joined(4) },
+    ]),
+    id('11'),
+  );
 
   assert.equal(successor.userId, id('33'));
 });
 
 test('the departing owner is never chosen, and an empty server has no successor', () => {
-  assert.equal(chooseCommunitySuccessor(community([
-    { userId: id('11'), role: 'owner', joinedAt: joined(1) }
-  ]), id('11')), null);
+  assert.equal(
+    chooseCommunitySuccessor(
+      community([{ userId: id('11'), role: 'owner', joinedAt: joined(1) }]),
+      id('11'),
+    ),
+    null,
+  );
 
   assert.equal(chooseCommunitySuccessor(community([]), id('11')), null);
 });
 
 test('tied members fall back to a stable id order', () => {
-  const ordered = orderSuccessors([
-    { userId: id('33'), role: 'member', joinedAt: joined(2) },
-    { userId: id('22'), role: 'member', joinedAt: joined(2) }
-  ], id('11'));
-  assert.deepEqual(ordered.map((entry) => entry.userId), [id('22'), id('33')]);
+  const ordered = orderSuccessors(
+    [
+      { userId: id('33'), role: 'member', joinedAt: joined(2) },
+      { userId: id('22'), role: 'member', joinedAt: joined(2) },
+    ],
+    id('11'),
+  );
+  assert.deepEqual(
+    ordered.map((entry) => entry.userId),
+    [id('22'), id('33')],
+  );
 });
 
 test('squad leadership goes to the earliest member and skips the leader', () => {
@@ -147,18 +175,22 @@ test('squad leadership goes to the earliest member and skips the leader', () => 
     members: [
       { userId: id('11'), role: 'leader', joinedAt: joined(1) },
       { userId: id('44'), role: 'member', joinedAt: joined(6) },
-      { userId: id('22'), role: 'member', joinedAt: joined(3) }
-    ]
+      { userId: id('22'), role: 'member', joinedAt: joined(3) },
+    ],
   };
 
   assert.equal(chooseSquadSuccessor(party, id('11')).userId, id('22'));
-  assert.equal(chooseSquadSuccessor(party, id('22')).userId, id('11'), 'the current leader is eligible while not departing');
+  assert.equal(
+    chooseSquadSuccessor(party, id('22')).userId,
+    id('11'),
+    'the current leader is eligible while not departing',
+  );
 });
 
 test('a squad with only the departing leader has no successor', () => {
   const party = {
     leaderId: id('11'),
-    members: [{ userId: id('11'), role: 'leader', joinedAt: joined(1) }]
+    members: [{ userId: id('11'), role: 'leader', joinedAt: joined(1) }],
   };
   assert.equal(chooseSquadSuccessor(party, id('11')), null);
 });

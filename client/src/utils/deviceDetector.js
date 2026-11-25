@@ -12,8 +12,8 @@ export const detectCurrentDevice = () => {
       gpu: '',
       ram: '',
       monitor: '',
-      peripherals: ''
-    }
+      peripherals: '',
+    },
   };
 
   try {

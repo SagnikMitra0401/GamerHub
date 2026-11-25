@@ -15,28 +15,28 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
 
   const [likeCount, setLikeCount] = useState(post.likeCount ?? post.likes?.length ?? 0);
   const [liked, setLiked] = useState(
-    post.likes?.some(id => id === user?._id || id?.toString?.() === user?._id?.toString?.())
+    post.likes?.some((id) => id === user?._id || id?.toString?.() === user?._id?.toString?.()),
   );
   const [likeLoading, setLikeLoading] = useState(false);
   const [saved, setSaved] = useState(
-    user?.savedPosts?.some(id => id === post._id || id?.toString?.() === post._id?.toString?.())
+    user?.savedPosts?.some((id) => id === post._id || id?.toString?.() === post._id?.toString?.()),
   );
   const [saveLoading, setSaveLoading] = useState(false);
 
   // Re-sync reaction state once the async session (`fetchMe`) hydrates.
   useEffect(() => {
-    setLiked(post.likes?.some(id => id?.toString?.() === user?._id?.toString?.()) ?? false);
-    setSaved(user?.savedPosts?.some(id => id?.toString?.() === post._id?.toString?.()) ?? false);
+    setLiked(post.likes?.some((id) => id?.toString?.() === user?._id?.toString?.()) ?? false);
+    setSaved(user?.savedPosts?.some((id) => id?.toString?.() === post._id?.toString?.()) ?? false);
   }, [user?._id, user?.savedPosts, post._id, post.likes]);
 
   // Normalise both sides to plain hex strings before comparing
-  const normalId = v => (v?._id ?? v)?.toString?.() ?? '';
+  const normalId = (v) => (v?._id ?? v)?.toString?.() ?? '';
   const isOwner = !!user && normalId(post.userId) === normalId(user);
   const isStaff = user?.role === 'admin' || user?.role === 'moderator';
-  const canEdit = isOwner && (Date.now() - new Date(post.createdAt).getTime()) < 5 * 60 * 1000;
+  const canEdit = isOwner && Date.now() - new Date(post.createdAt).getTime() < 5 * 60 * 1000;
   const canDelete = isOwner || isStaff;
 
-  const handleLike = async e => {
+  const handleLike = async (e) => {
     e.stopPropagation();
     if (!user) return navigate('/login');
     if (likeLoading) return;
@@ -46,11 +46,13 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
       setLikeCount(data.likeCount);
       setLiked(data.liked);
       onLikeToggle?.(post._id, data);
-    } catch {}
-    finally { setLikeLoading(false); }
+    } catch {
+    } finally {
+      setLikeLoading(false);
+    }
   };
 
-  const handleSave = async e => {
+  const handleSave = async (e) => {
     e.stopPropagation();
     if (!user) return navigate('/login');
     if (saveLoading) return;
@@ -59,11 +61,13 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
       const { data } = await axiosInstance.post(`/users/saved/${post._id}`);
       setSaved(data.saved);
       updateSavedPosts(post._id, data.saved);
-    } catch {}
-    finally { setSaveLoading(false); }
+    } catch {
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
-  const handleDelete = e => {
+  const handleDelete = (e) => {
     e.stopPropagation();
     setShowDeleteConfirm(true);
   };
@@ -72,8 +76,8 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
     try {
       await axiosInstance.delete(`/posts/${post._id}`);
       onDelete?.(post._id);
-    } catch {}
-    finally {
+    } catch {
+    } finally {
       setShowDeleteConfirm(false);
     }
   };
@@ -84,12 +88,12 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
   };
 
   const initial = (post.userId?.username || 'U')[0].toUpperCase();
-  const timeAgo = ts => {
+  const timeAgo = (ts) => {
     const s = Math.floor((Date.now() - new Date(ts)) / 1000);
     if (s < 60) return `${s}s ago`;
-    if (s < 3600) return `${Math.floor(s/60)}m ago`;
-    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-    return `${Math.floor(s/86400)}d ago`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
   };
 
   return (
@@ -97,7 +101,10 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
       <div className="post-card-meta">
         <div
           className="post-avatar"
-          onClick={e => { e.stopPropagation(); navigate(`/u/${post.userId?.username}`); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/u/${post.userId?.username}`);
+          }}
           style={{ cursor: 'pointer' }}
           title={`View ${post.userId?.username}'s profile`}
         >
@@ -105,7 +112,10 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         </div>
         <span
           className="post-username"
-          onClick={e => { e.stopPropagation(); navigate(`/u/${post.userId?.username}`); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/u/${post.userId?.username}`);
+          }}
           style={{ cursor: 'pointer' }}
         >
           {post.userId?.username || 'Unknown'}
@@ -125,20 +135,34 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         <span>{timeAgo(post.createdAt)}</span>
       </div>
 
-      <h2 className="post-card-title"><HashtagText text={post.title} /></h2>
-      {post.content && <p className="post-card-content"><HashtagText text={post.content} /></p>}
+      <h2 className="post-card-title">
+        <HashtagText text={post.title} />
+      </h2>
+      {post.content && (
+        <p className="post-card-content">
+          <HashtagText text={post.content} />
+        </p>
+      )}
 
       {/* For You only: name the interest that surfaced this post. */}
       {post.matchedTags?.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.35rem', marginBottom: '0.6rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.35rem',
+            marginBottom: '0.6rem',
+          }}
+        >
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Because you like</span>
-          {post.matchedTags.slice(0, 3).map(tag => (
+          {post.matchedTags.slice(0, 3).map((tag) => (
             <button
               key={tag}
               type="button"
               className="tag"
               style={{ cursor: 'pointer', fontSize: '0.68rem' }}
-              onClick={e => handleTagClick(e, tag)}
+              onClick={(e) => handleTagClick(e, tag)}
               title={`Browse #${tag}`}
             >
               #{tag}
@@ -149,18 +173,18 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
 
       {/* Media Rendering */}
       {post.mediaUrl && post.mediaType && post.mediaType !== 'none' && (
-        <div 
-          style={{ 
-            marginBottom: '1rem', 
-            borderRadius: 'var(--radius-md)', 
-            overflow: 'hidden', 
-            background: 'black', 
-            display: 'flex', 
+        <div
+          style={{
+            marginBottom: '1rem',
+            borderRadius: 'var(--radius-md)',
+            overflow: 'hidden',
+            background: 'black',
+            display: 'flex',
             justifyContent: 'center',
             maxHeight: '380px',
-            border: '1px solid var(--glass-border)'
+            border: '1px solid var(--glass-border)',
           }}
-          onClick={e => e.stopPropagation()} // Prevent clicking video from triggering card click
+          onClick={(e) => e.stopPropagation()} // Prevent clicking video from triggering card click
         >
           {post.mediaType === 'video' ? (
             <video
@@ -190,12 +214,12 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
 
       {post.tags?.length > 0 && (
         <div className="post-tags">
-          {post.tags.map(tag => (
+          {post.tags.map((tag) => (
             <span
               key={tag}
               className="tag"
               style={{ cursor: 'pointer' }}
-              onClick={e => handleTagClick(e, tag)}
+              onClick={(e) => handleTagClick(e, tag)}
               title={`Browse #${tag}`}
             >
               #{tag}
@@ -218,19 +242,22 @@ const PostCard = ({ post, onDelete, onLikeToggle }) => {
         />
 
         {(canDelete || (isOwner && canEdit)) && (
-          <div className="post-card-owner-actions" onClick={e => e.stopPropagation()}>
+          <div className="post-card-owner-actions" onClick={(e) => e.stopPropagation()}>
             {isOwner && canEdit && (
               <button
                 className="btn btn-ghost btn-sm"
-                onClick={e => { e.stopPropagation(); navigate(`/posts/${post._id}?edit=1`); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/posts/${post._id}?edit=1`);
+                }}
                 title="Edit post (available for 5 min after posting)"
               >
                 Edit
               </button>
             )}
             {canDelete && (
-              <button 
-                className="btn btn-ghost btn-sm btn-danger" 
+              <button
+                className="btn btn-ghost btn-sm btn-danger"
                 onClick={handleDelete}
                 title={isOwner ? 'Delete your post' : 'Moderate/Delete this post'}
               >

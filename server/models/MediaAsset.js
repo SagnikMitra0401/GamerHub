@@ -18,12 +18,12 @@ const MediaAssetSchema = new mongoose.Schema(
       type: String,
       enum: ['post', 'chat', 'avatar', 'game', 'story', 'broadcast', 'other'],
       required: true,
-      index: true
+      index: true,
     },
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null
+      default: null,
     },
 
     provider: { type: String, enum: ['cloudinary'], default: 'cloudinary' },
@@ -43,27 +43,27 @@ const MediaAssetSchema = new mongoose.Schema(
       card: { type: String, default: null },
       feed: { type: String, default: null },
       full: { type: String, default: null },
-      video: { type: String, default: null }
+      video: { type: String, default: null },
     },
 
     status: {
       type: String,
       enum: ['pending', 'ready', 'rejected', 'quarantined', 'orphaned', 'deleted'],
       default: 'pending',
-      index: true
+      index: true,
     },
     refType: {
       type: String,
       enum: ['Post', 'Story', 'Broadcast', 'Message', 'Game', 'User', null],
-      default: null
+      default: null,
     },
     refId: { type: mongoose.Schema.Types.ObjectId, default: null },
 
     // Rows imported from the pre-ledger era; they are never re-uploaded.
     legacy: { type: Boolean, default: false },
-    schemaVersion: { type: Number, default: 1 }
+    schemaVersion: { type: Number, default: 1 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 MediaAssetSchema.index({ surface: 1, createdAt: -1 });

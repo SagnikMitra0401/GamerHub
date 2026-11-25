@@ -11,8 +11,8 @@ const { initErrorReporting, captureServerError } = require('./utils/errorReporti
 // covered. No DSN means no-op; structured logs remain the default.
 initErrorReporting();
 
-const app        = require('./app');
-const connectDB  = require('./config/db');
+const app = require('./app');
+const connectDB = require('./config/db');
 const { initSocket } = require('./config/socket');
 const { startRetentionWorker } = require('./jobs/retention');
 const { startLikeFlushWorker } = require('./utils/likeBuffer');

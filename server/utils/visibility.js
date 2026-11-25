@@ -55,5 +55,5 @@ module.exports = {
   CACHE_TTL_MS,
   blockedIdsFor,
   hiddenAccountIds,
-  invalidateVisibility
+  invalidateVisibility,
 };

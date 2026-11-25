@@ -14,11 +14,7 @@ const MAX_ONBOARDING_GAMES = 3;
 
 /** Turn an array or comma-separated string into unique, display-cased games. */
 function normalizeGames(input, { limit = MAX_GAMES, maxLength = 60 } = {}) {
-  const list = Array.isArray(input)
-    ? input
-    : typeof input === 'string'
-      ? input.split(',')
-      : [];
+  const list = Array.isArray(input) ? input : typeof input === 'string' ? input.split(',') : [];
 
   const seen = new Set();
   const games = [];
@@ -35,11 +31,7 @@ function normalizeGames(input, { limit = MAX_GAMES, maxLength = 60 } = {}) {
 
 /** Turn an array or comma-separated string into unique allowed platforms. */
 function normalizePlatforms(input) {
-  const list = Array.isArray(input)
-    ? input
-    : typeof input === 'string'
-      ? input.split(',')
-      : [];
+  const list = Array.isArray(input) ? input : typeof input === 'string' ? input.split(',') : [];
   const seen = new Set();
   const platforms = [];
   for (const raw of list) {
@@ -97,7 +89,7 @@ function sharedGamesFor(player, games = []) {
     ...(Array.isArray(player.preferences?.favoriteGames) ? player.preferences.favoriteGames : []),
     ...(Array.isArray(player.gamerPassport?.activeGames)
       ? player.gamerPassport.activeGames.map((entry) => entry?.gameName)
-      : [])
+      : []),
   ];
   return games.filter((game) => source.some((candidate) => gameMatches(game, candidate)));
 }
@@ -112,7 +104,7 @@ function publicSuggestionPlayer(player, games = []) {
     username: player.username,
     level: player.level || 1,
     presence: player.presence || null,
-    sharedGames: sharedGamesFor(player, games)
+    sharedGames: sharedGamesFor(player, games),
   };
 }
 
@@ -129,7 +121,10 @@ function countMatchingTags(posts = [], games = []) {
     for (const tag of post?.tags || []) {
       const key = tagKey(tag);
       if (!key) continue;
-      if (gameKeys.length && !gameKeys.some((game) => key === game || key.startsWith(game) || game.startsWith(key))) {
+      if (
+        gameKeys.length &&
+        !gameKeys.some((game) => key === game || key.startsWith(game) || game.startsWith(key))
+      ) {
         continue;
       }
       counts.set(key, (counts.get(key) || 0) + 1);
@@ -154,5 +149,5 @@ module.exports = {
   communityScore,
   sharedGamesFor,
   publicSuggestionPlayer,
-  countMatchingTags
+  countMatchingTags,
 };

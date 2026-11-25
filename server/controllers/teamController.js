@@ -5,7 +5,7 @@ const {
   updateTeamRole,
   removeTeamMember,
   listWorkspaces,
-  requireTeamAccess
+  requireTeamAccess,
 } = require('../utils/businessTeam');
 const {
   listTeamConversations,
@@ -13,12 +13,14 @@ const {
   postTeamMessage,
   acceptTeamRequest,
   declineTeamRequest,
-  markTeamRead
+  markTeamRead,
 } = require('../utils/dmService');
 const { getIO, evictUserFromBusinessThreads } = require('../config/socket');
 
 const emitToParticipants = (conversationId, event, payload) => {
-  getIO()?.to(`dm:${String(conversationId)}`).emit(event, payload);
+  getIO()
+    ?.to(`dm:${String(conversationId)}`)
+    .emit(event, payload);
 };
 
 /** GET /api/account/business/team */
@@ -36,7 +38,7 @@ const inviteMember = async (req, res, next) => {
     const item = await inviteTeamMember({
       ownerId: req.user._id,
       username: req.body?.username,
-      role: req.body?.role
+      role: req.body?.role,
     });
     res.status(201).json({ item });
   } catch (err) {
@@ -47,11 +49,13 @@ const inviteMember = async (req, res, next) => {
 /** PATCH /api/account/business/team/:memberId */
 const changeMemberRole = async (req, res, next) => {
   try {
-    res.status(200).json(await updateTeamRole({
-      ownerId: req.user._id,
-      memberId: req.params.memberId,
-      role: req.body?.role
-    }));
+    res.status(200).json(
+      await updateTeamRole({
+        ownerId: req.user._id,
+        memberId: req.params.memberId,
+        role: req.body?.role,
+      }),
+    );
   } catch (err) {
     next(err);
   }
@@ -63,10 +67,11 @@ const removeMember = async (req, res, next) => {
     const result = await removeTeamMember({
       ownerId: req.user._id,
       memberId: req.params.memberId,
-      actorId: req.user._id
+      actorId: req.user._id,
     });
-    await evictUserFromBusinessThreads(req.params.memberId, req.user._id)
-      .catch((err) => console.error('[Team] socket eviction failed:', err.message));
+    await evictUserFromBusinessThreads(req.params.memberId, req.user._id).catch((err) =>
+      console.error('[Team] socket eviction failed:', err.message),
+    );
     res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -85,11 +90,13 @@ const getWorkspaces = async (req, res, next) => {
 /** POST /api/messages/team/:ownerId/respond */
 const respondInvite = async (req, res, next) => {
   try {
-    res.status(200).json(await respondToInvite({
-      ownerId: req.params.ownerId,
-      memberId: req.user._id,
-      accept: req.body?.accept
-    }));
+    res.status(200).json(
+      await respondToInvite({
+        ownerId: req.params.ownerId,
+        memberId: req.user._id,
+        accept: req.body?.accept,
+      }),
+    );
   } catch (err) {
     next(err);
   }
@@ -101,10 +108,11 @@ const leaveTeam = async (req, res, next) => {
     const result = await removeTeamMember({
       ownerId: req.params.ownerId,
       memberId: req.user._id,
-      actorId: req.user._id
+      actorId: req.user._id,
     });
-    await evictUserFromBusinessThreads(req.user._id, req.params.ownerId)
-      .catch((err) => console.error('[Team] socket eviction failed:', err.message));
+    await evictUserFromBusinessThreads(req.user._id, req.params.ownerId).catch((err) =>
+      console.error('[Team] socket eviction failed:', err.message),
+    );
     res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -116,7 +124,7 @@ const getConversations = async (req, res, next) => {
   try {
     const access = await requireTeamAccess({
       ownerId: req.params.ownerId,
-      memberId: req.user._id
+      memberId: req.user._id,
     });
     const result = await listTeamConversations({
       ownerId: access.owner._id,
@@ -125,7 +133,7 @@ const getConversations = async (req, res, next) => {
       folder: req.query.folder || 'inbox',
       unreadOnly: req.query.unread === '1',
       before: req.query.before || null,
-      limit: req.query.limit
+      limit: req.query.limit,
     });
     res.status(200).json(result);
   } catch (err) {
@@ -138,14 +146,16 @@ const getThread = async (req, res, next) => {
   try {
     const access = await requireTeamAccess({
       ownerId: req.params.ownerId,
-      memberId: req.user._id
-    });
-    res.status(200).json(await getTeamConversation({
-      conversationId: req.params.id,
-      ownerId: access.owner._id,
       memberId: req.user._id,
-      role: access.role
-    }));
+    });
+    res.status(200).json(
+      await getTeamConversation({
+        conversationId: req.params.id,
+        ownerId: access.owner._id,
+        memberId: req.user._id,
+        role: access.role,
+      }),
+    );
   } catch (err) {
     next(err);
   }
@@ -157,7 +167,7 @@ const sendMessage = async (req, res, next) => {
     const access = await requireTeamAccess({
       ownerId: req.params.ownerId,
       memberId: req.user._id,
-      write: true
+      write: true,
     });
     const result = await postTeamMessage({
       conversationId: req.params.id,
@@ -165,13 +175,13 @@ const sendMessage = async (req, res, next) => {
       memberId: req.user._id,
       role: access.role,
       sender: req.user,
-      text: req.body?.text
+      text: req.body?.text,
     });
     emitToParticipants(req.params.id, 'dm_message', result);
     if (result.autoReply) {
       emitToParticipants(req.params.id, 'dm_message', {
         message: result.autoReply,
-        conversation: result.conversation
+        conversation: result.conversation,
       });
     }
     res.status(201).json(result);
@@ -186,16 +196,16 @@ const accept = async (req, res, next) => {
     const access = await requireTeamAccess({
       ownerId: req.params.ownerId,
       memberId: req.user._id,
-      write: true
+      write: true,
     });
     const result = await acceptTeamRequest({
       conversationId: req.params.id,
       ownerId: access.owner._id,
-      role: access.role
+      role: access.role,
     });
     emitToParticipants(req.params.id, 'dm_accepted', {
       conversationId: String(req.params.id),
-      conversation: result.conversation
+      conversation: result.conversation,
     });
     res.status(200).json(result);
   } catch (err) {
@@ -209,12 +219,12 @@ const decline = async (req, res, next) => {
     const access = await requireTeamAccess({
       ownerId: req.params.ownerId,
       memberId: req.user._id,
-      write: true
+      write: true,
     });
     const result = await declineTeamRequest({
       conversationId: req.params.id,
       ownerId: access.owner._id,
-      role: access.role
+      role: access.role,
     });
     emitToParticipants(req.params.id, 'dm_declined', { conversationId: String(req.params.id) });
     res.status(200).json(result);
@@ -228,15 +238,15 @@ const read = async (req, res, next) => {
   try {
     const access = await requireTeamAccess({
       ownerId: req.params.ownerId,
-      memberId: req.user._id
+      memberId: req.user._id,
     });
     const result = await markTeamRead({
       conversationId: req.params.id,
-      ownerId: access.owner._id
+      ownerId: access.owner._id,
     });
     emitToParticipants(req.params.id, 'dm_read', {
       conversationId: String(req.params.id),
-      userId: String(access.owner._id)
+      userId: String(access.owner._id),
     });
     res.status(200).json(result);
   } catch (err) {
@@ -257,5 +267,5 @@ module.exports = {
   sendMessage,
   accept,
   decline,
-  read
+  read,
 };

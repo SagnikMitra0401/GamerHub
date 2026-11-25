@@ -15,7 +15,7 @@ const {
   sanitizePrivacyPatch,
   accountGate,
   isDiscoverable,
-  erasurePatch
+  erasurePatch,
 } = require('../utils/privacy');
 
 const id = (suffix) => `507f1f77bcf86cd7994390${suffix}`;
@@ -28,10 +28,10 @@ const user = (suffix, extra = {}) => ({
     allowServerInvites: 'anyone',
     allowDirectMessages: 'mutual_follows',
     discoverableInSearch: true,
-    showActivityStatus: true
+    showActivityStatus: true,
   },
   blockedUsers: [],
-  ...extra
+  ...extra,
 });
 
 const inviter = user('11');
@@ -42,7 +42,9 @@ test('anyone may be invited when the setting is anyone', () => {
 });
 
 test('a recipient who accepts nobody cannot be invited', () => {
-  const recipient = user('22', { privacySettings: { allowSquadInvites: 'none', allowServerInvites: 'anyone' } });
+  const recipient = user('22', {
+    privacySettings: { allowSquadInvites: 'none', allowServerInvites: 'anyone' },
+  });
   const squad = canInvite({ targetType: 'squad', recipient, inviter });
   assert.equal(squad.ok, false);
   assert.equal(squad.code, 'PRIVACY');
@@ -55,11 +57,21 @@ test('a recipient who accepts nobody cannot be invited', () => {
 test('followers-only requires the inviter to follow the recipient', () => {
   const recipient = user('22', { privacySettings: { allowSquadInvites: 'followers' } });
 
-  const stranger = canInvite({ targetType: 'squad', recipient, inviter, inviterFollowsRecipient: false });
+  const stranger = canInvite({
+    targetType: 'squad',
+    recipient,
+    inviter,
+    inviterFollowsRecipient: false,
+  });
   assert.equal(stranger.ok, false);
   assert.equal(stranger.code, 'PRIVACY');
 
-  const follower = canInvite({ targetType: 'squad', recipient, inviter, inviterFollowsRecipient: true });
+  const follower = canInvite({
+    targetType: 'squad',
+    recipient,
+    inviter,
+    inviterFollowsRecipient: true,
+  });
   assert.equal(follower.ok, true);
 });
 
@@ -75,8 +87,9 @@ test('blocking hides the reason and works in both directions', () => {
   const inviterWhoBlocked = user('11', { blockedUsers: [blockedByInviter._id] });
   assert.equal(isBlockedBetween(inviterWhoBlocked, blockedByInviter), true);
   assert.equal(
-    canInvite({ targetType: 'squad', recipient: blockedByInviter, inviter: inviterWhoBlocked }).code,
-    'BLOCKED'
+    canInvite({ targetType: 'squad', recipient: blockedByInviter, inviter: inviterWhoBlocked })
+      .code,
+    'BLOCKED',
   );
 });
 
@@ -91,7 +104,7 @@ test('deleted and suspended accounts cannot be invited', () => {
 test('a self invite is refused', () => {
   assert.equal(
     canInvite({ targetType: 'squad', recipient: user('11'), inviter }).code,
-    'SELF_INVITE'
+    'SELF_INVITE',
   );
 });
 

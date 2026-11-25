@@ -22,8 +22,12 @@ const PREFIXED = redisKey(KEY);
 let logged = [];
 const realConsoleError = console.error;
 
-before(() => { console.error = (...args) => logged.push(args.join(' ')); });
-after(() => { console.error = realConsoleError; });
+before(() => {
+  console.error = (...args) => logged.push(args.join(' '));
+});
+after(() => {
+  console.error = realConsoleError;
+});
 
 beforeEach(() => {
   redisStore.reset();
@@ -44,7 +48,10 @@ test('without Redis everything still works, from memory alone', async () => {
 
 test('a read-through only calls the loader once', async () => {
   let loads = 0;
-  const loader = async () => { loads += 1; return ['a', 'b']; };
+  const loader = async () => {
+    loads += 1;
+    return ['a', 'b'];
+  };
 
   assert.deepEqual(await cache.cacheWrap(KEY, loader), ['a', 'b']);
   assert.deepEqual(await cache.cacheWrap(KEY, loader), ['a', 'b']);
@@ -72,9 +79,12 @@ test('a cold L1 is served by L2 without calling the loader', async () => {
   enableRedis();
   await cache.cacheSet(KEY, 'warm');
 
-  cache.resetCacheLayer();          // simulate a fresh process; Redis keeps the value
+  cache.resetCacheLayer(); // simulate a fresh process; Redis keeps the value
   let loads = 0;
-  const value = await cache.cacheWrap(KEY, async () => { loads += 1; return 'loaded'; });
+  const value = await cache.cacheWrap(KEY, async () => {
+    loads += 1;
+    return 'loaded';
+  });
 
   assert.equal(value, 'warm');
   assert.equal(loads, 0);
@@ -147,14 +157,14 @@ test('concurrent misses collapse into a single load', async () => {
   let loads = 0;
   const loader = async () => {
     loads += 1;
-    await new Promise(resolve => setTimeout(resolve, 5));
+    await new Promise((resolve) => setTimeout(resolve, 5));
     return 'once';
   };
 
   const results = await Promise.all([
     cache.cacheWrap(KEY, loader),
     cache.cacheWrap(KEY, loader),
-    cache.cacheWrap(KEY, loader)
+    cache.cacheWrap(KEY, loader),
   ]);
 
   assert.deepEqual(results, ['once', 'once', 'once']);
@@ -183,7 +193,10 @@ test('a null result is treated as a miss, not a cache hit', async () => {
   // nothing to return — it will be asked again rather than serving a stale null.
   enableRedis();
   let loads = 0;
-  const loader = async () => { loads += 1; return null; };
+  const loader = async () => {
+    loads += 1;
+    return null;
+  };
 
   await cache.cacheWrap(KEY, loader);
   await cache.cacheWrap(KEY, loader);

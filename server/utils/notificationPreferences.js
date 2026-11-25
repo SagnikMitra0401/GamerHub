@@ -14,7 +14,7 @@ const DEFAULT_NOTIFICATION_SETTINGS = Object.freeze({
   likes: true,
   lfg: true,
   bot: true,
-  broadcast: true
+  broadcast: true,
 });
 
 function normalizeNotificationSettings(raw) {
@@ -86,5 +86,5 @@ module.exports = {
   normalizeNotificationSettings,
   sanitizeNotificationSettingsPatch,
   notificationCategory,
-  isNotificationCategoryEnabled
+  isNotificationCategoryEnabled,
 };

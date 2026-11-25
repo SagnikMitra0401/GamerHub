@@ -8,18 +8,18 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   updateUser: vi.fn(),
-  user: { _id: 'u1', username: 'new_player', preferences: {} }
+  user: { _id: 'u1', username: 'new_player', preferences: {} },
 }));
 
 vi.mock('../api/axiosInstance', () => ({
-  default: { get: mocks.get, post: mocks.post }
+  default: { get: mocks.get, post: mocks.post },
 }));
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
     user: mocks.user,
-    updateUser: mocks.updateUser
-  })
+    updateUser: mocks.updateUser,
+  }),
 }));
 
 const DISCOVERY = {
@@ -34,8 +34,8 @@ const DISCOVERY = {
       maxSlots: 5,
       micRequired: true,
       leader: { id: 'owner1', username: 'owner', level: 4, presence: { status: 'online' } },
-      popular: false
-    }
+      popular: false,
+    },
   ],
   communities: [
     {
@@ -46,8 +46,8 @@ const DISCOVERY = {
       icon: 'V',
       memberCount: 3,
       games: ['Valorant'],
-      popular: false
-    }
+      popular: false,
+    },
   ],
   players: [
     {
@@ -56,18 +56,18 @@ const DISCOVERY = {
       level: 4,
       presence: { status: 'online' },
       sharedGames: ['Valorant'],
-      following: false
-    }
+      following: false,
+    },
   ],
   tags: [{ tag: 'valorant', postCount: 2 }],
-  fallback: { squads: false, communities: false }
+  fallback: { squads: false, communities: false },
 };
 
 const renderWelcome = () =>
   render(
     <MemoryRouter initialEntries={['/welcome']}>
       <Welcome />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
 beforeEach(() => {
@@ -77,8 +77,8 @@ beforeEach(() => {
       return Promise.resolve({
         data: {
           onboardingCompletedAt: '2026-11-15T00:00:00.000Z',
-          preferences: { favoriteGames: ['Valorant'], platforms: ['PC'] }
-        }
+          preferences: { favoriteGames: ['Valorant'], platforms: ['PC'] },
+        },
       });
     }
     return Promise.resolve({ data: { message: 'ok' } });
@@ -124,11 +124,11 @@ describe('game-first onboarding', () => {
     expect(mocks.post).toHaveBeenCalledWith('/discover/onboarding/complete', {
       games: ['Valorant'],
       platforms: ['PC'],
-      skipped: false
+      skipped: false,
     });
     expect(mocks.updateUser).toHaveBeenCalledWith({
       onboardingCompletedAt: '2026-11-15T00:00:00.000Z',
-      preferences: { favoriteGames: ['Valorant'], platforms: ['PC'] }
+      preferences: { favoriteGames: ['Valorant'], platforms: ['PC'] },
     });
   });
 });
