@@ -265,8 +265,9 @@ committed tree.
   mongoose types them as ids.
 
 Measured after the reformat: `npm test` 367/367, `npm test --prefix client`
-51/51, `npm run build --prefix client` 179.23 kB CSS and 792.35 kB JS
-(211.62 kB gzip), with lint, format check and typecheck all exit 0.
+51/51, `npm run test:e2e` 852/852 across the fifteen suites, `npm run build
+--prefix client` 179.23 kB CSS and 792.35 kB JS (211.62 kB gzip), with lint,
+format check and typecheck all exit 0.
 
 `npm run test:responsive` passed 63/63 after the reformat, which renders nine
 surfaces at seven viewports and measures overflow on each.
