@@ -9,7 +9,7 @@ const {
 const router = express.Router();
 
 // A story upload is the most expensive write in the app; keep it rare.
-const storyWriteLimiter = rateLimit({
+const storyWriteLimiter = /** @type {any} */ (rateLimit)({
   windowMs: 10 * 60 * 1000,
   max: Number(process.env.STORY_RATE_LIMIT_MAX) || 20,
   standardHeaders: true,

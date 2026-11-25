@@ -11,6 +11,9 @@ const path = require('path');
 const ALLOWED = new Set(['client/src/utils/reactions.js']);
 
 const EMOJI =
+  // The variation selector is listed alone on purpose: a glyph followed by it
+  // is still one glyph to a reader, and both halves have to match.
+  // eslint-disable-next-line no-misleading-character-class
   /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2713}\u{2714}\u{2716}\u{2718}\u{FE0F}]/u;
 
 function walk(dir, out) {

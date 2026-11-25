@@ -180,7 +180,7 @@ const updateNotificationSettings = async (req, res, next) => {
 const changeUsername = async (req, res, next) => {
   try {
     const parsed = normalizeUsername(req.body?.username);
-    if (!parsed.ok) throw badRequest(parsed.reason);
+    if (parsed.ok === false) throw badRequest(parsed.reason);
 
     const me = await User.findById(req.user._id).select('username').lean();
     if (!me) throw notFound('User not found');

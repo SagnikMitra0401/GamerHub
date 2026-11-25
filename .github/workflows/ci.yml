@@ -34,6 +34,17 @@ jobs:
       - name: Install client dependencies
         run: npm ci --prefix client
 
+      # Mechanically checks 319 files. The warning ceiling is the ratchet: it
+      # matches the count recorded in docs/TEST_LEDGER.md and only goes down.
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Type check the server
+        run: npm run typecheck
+
       # 74 checks: permissions, sanitizers, SSRF, origins, LFG, feed ranking,
       # cache, bot security, like buffer, redis cache. No database needed.
       - name: Server unit tests

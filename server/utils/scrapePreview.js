@@ -133,7 +133,7 @@ async function scrapeUrl(rawUrl, timeoutMs = 6000) {
  *
  * @param {string} text   - Free-form text that may contain a URL
  * @param {number} timeoutMs
- * @returns {object|null} preview object or null
+ * @returns {Promise<object|null>} preview object or null
  */
 const scrapePreview = async (text, timeoutMs = 6000) => {
   const raw = extractUrl(text);

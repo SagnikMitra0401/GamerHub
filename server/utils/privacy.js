@@ -45,6 +45,13 @@ function isBlockedBetween(a, b) {
  * @param {boolean} input.inviterFollowsRecipient
  * @returns {{ok: boolean, reason?: string, code?: string}}
  */
+/**
+ * @param {object} input
+ * @param {string} input.targetType `squad` or `community_server`
+ * @param {object} input.recipient
+ * @param {object} input.inviter
+ * @param {boolean} [input.inviterFollowsRecipient]
+ */
 function canInvite({ targetType, recipient, inviter, inviterFollowsRecipient = false }) {
   if (!recipient || !inviter) {
     return { ok: false, code: 'NOT_FOUND', reason: 'That player could not be found.' };

@@ -87,7 +87,7 @@ async function usernameFromGoogle({ email, name }) {
 const register = async (req, res, next) => {
   try {
     const parsedUsername = normalizeUsername(req.body.username);
-    if (!parsedUsername.ok) {
+    if (parsedUsername.ok === false) {
       return res.status(400).json({ message: parsedUsername.reason });
     }
     const username = parsedUsername.value;
@@ -301,13 +301,13 @@ const googleLogin = async (req, res, next) => {
         return res.status(401).json({ message: 'Google credential could not be verified' });
       }
 
-      if (tokenInfo.aud && tokenInfo.aud !== clientId && tokenInfo.issued_to !== clientId) {
+      if (tokenInfo.aud && tokenInfo.aud !== clientId && /** @type {any} */ (tokenInfo).issued_to !== clientId) {
         return res.status(401).json({ message: 'Google token audience mismatch' });
       }
 
       subject = tokenInfo.sub || tokenInfo.user_id;
       email = sanitizeLine(tokenInfo.email, 254).toLowerCase();
-      if (tokenInfo.email_verified === false || tokenInfo.verified_email === false) {
+      if (tokenInfo.email_verified === false || /** @type {any} */ (tokenInfo).verified_email === false) {
         return res.status(403).json({ message: 'That Google account has no verified email.' });
       }
 
@@ -396,7 +396,7 @@ const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select('-passwordHash');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    const payload = user.toObject();
+    const payload = /** @type {any} */ (user.toObject());
     payload.emailVerified = Boolean(payload.emailVerifiedAt);
     const token = req.cookies.jwt;
     res.status(200).json({ user: payload, token });
@@ -933,13 +933,13 @@ const linkGoogle = async (req, res, next) => {
         return res.status(401).json({ message: 'Google credential could not be verified' });
       }
 
-      if (tokenInfo.aud && tokenInfo.aud !== clientId && tokenInfo.issued_to !== clientId) {
+      if (tokenInfo.aud && tokenInfo.aud !== clientId && /** @type {any} */ (tokenInfo).issued_to !== clientId) {
         return res.status(401).json({ message: 'Google token audience mismatch' });
       }
 
       subject = tokenInfo.sub || tokenInfo.user_id;
       email = sanitizeLine(tokenInfo.email, 254).toLowerCase();
-      if (tokenInfo.email_verified === false || tokenInfo.verified_email === false) {
+      if (tokenInfo.email_verified === false || /** @type {any} */ (tokenInfo).verified_email === false) {
         return res.status(403).json({ message: 'That Google account has no verified email.' });
       }
     }

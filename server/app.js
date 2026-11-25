@@ -42,7 +42,7 @@ app.disable('x-powered-by');
 // the same correlation key. Response bodies never contain request bodies.
 app.use(requestContext);
 
-app.use(helmet());
+app.use(/** @type {any} */ (helmet)());
 
 app.use(cors({
   origin: corsOrigin, // exact allow-list, see utils/origins.js
@@ -59,7 +59,7 @@ app.use(mongoSanitize());
 app.use(metricsMiddleware);
 
 // Coarse global limiter. Route-specific limits (auth, previews) are stricter.
-const globalLimiter = rateLimit({
+const globalLimiter = /** @type {any} */ (rateLimit)({
   windowMs: 5 * 60 * 1000,
   max: Number(process.env.RATE_LIMIT_MAX) || 1000,
   standardHeaders: true,

@@ -209,6 +209,7 @@ const getPosts = async (req, res, next) => {
         : { $literal: 0 }
     };
 
+    /** @type {Record<string, 1|-1>} */
     const sortStage = forYou
       ? { createdAt: -1 }
       : req.query.sort === 'most_liked'

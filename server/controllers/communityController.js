@@ -327,8 +327,10 @@ const leaveCommunity = async (req, res, next) => {
       throw badRequest('The owner cannot leave. Transfer ownership or delete the server.');
     }
 
-    community.members = community.members.filter(
-      (m) => String(m.userId?._id ?? m.userId) !== String(req.user._id)
+    community.members = /** @type {any} */ (
+      community.members.filter(
+        (m) => String(m.userId?._id ?? m.userId) !== String(req.user._id)
+      )
     );
     await community.save();
 
@@ -420,7 +422,7 @@ const updateMemberRole = async (req, res, next) => {
     if (!assignment.ok) throw forbidden(assignment.reason);
 
     const previousRole = targetEntry.role;
-    targetEntry.role = newRole;
+    targetEntry.role = /** @type {any} */ (newRole);
     await community.save();
 
     recordAudit({
@@ -468,8 +470,8 @@ const kickMember = async (req, res, next) => {
     });
     if (!permission.ok) throw forbidden(permission.reason);
 
-    community.members = community.members.filter(
-      (m) => String(m.userId?._id ?? m.userId) !== targetId
+    community.members = /** @type {any} */ (
+      community.members.filter((m) => String(m.userId?._id ?? m.userId) !== targetId)
     );
     await community.save();
 
@@ -695,7 +697,7 @@ const updateChannel = async (req, res, next) => {
     if (req.body.forumConfig !== undefined && req.body.forumConfig !== null) {
       const incoming = req.body.forumConfig || {};
       updates.forumConfig = {
-        ...(channel.forumConfig?.toObject?.() ?? channel.forumConfig ?? {}),
+        ...(/** @type {any} */ (channel.forumConfig)?.toObject?.() ?? channel.forumConfig ?? {}),
         ...(Array.isArray(incoming.allowedTags)
           ? { allowedTags: incoming.allowedTags.map((tag) => sanitizeLine(tag, 24).toLowerCase()).filter(Boolean).slice(0, 20) }
           : {}),
@@ -857,7 +859,9 @@ const getChannelMessages = async (req, res, next) => {
 
     // Attach each sender's server role (platform role stays on senderId.role).
     const roleByUser = new Map(
-      (community.members || []).map((m) => [String(m.userId?._id ?? m.userId), m.role])
+      (community.members || []).map((m) =>
+        /** @type {[string, string]} */ ([String(m.userId?._id ?? m.userId), m.role])
+      )
     );
     const decorated = messages.reverse().map((message) => ({
       ...message,

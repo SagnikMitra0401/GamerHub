@@ -49,7 +49,24 @@ function yearFrom(value) {
   return Number.isInteger(year) && year >= 1950 && year <= 2100 ? year : null;
 }
 
-/** Shape a row without touching the database. */
+/**
+ * Shape a row without touching the database.
+ *
+ * @param {object} [input]
+ * @param {string} [input.title]
+ * @param {string} [input.source]
+ * @param {string} [input.status]
+ * @param {string} [input.summary]
+ * @param {object|null} [input.cover]
+ * @param {string[]} [input.screenshots]
+ * @param {string[]} [input.genres]
+ * @param {string[]} [input.platforms]
+ * @param {string|Date|null} [input.releaseDate]
+ * @param {object|null} [input.requirements]
+ * @param {object} [input.externalIds]
+ * @param {object|null} [input.stats]
+ * @param {Date} [input.now]
+ */
 function buildGameRecord({
   title,
   source = 'user',

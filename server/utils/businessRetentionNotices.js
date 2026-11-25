@@ -72,7 +72,7 @@ async function notifyBusinessRetention(claims, {
   notifyUser,
   sendEmail,
   log = console.error
-} = {}) {
+}) {
   const notify = notifyUser || require('./notify').notifyUser;
   const email = sendEmail || require('./email').sendBusinessRetentionEmail;
 

@@ -504,7 +504,7 @@ function initSocket(httpServer) {
         // 5. Normalise text (control chars, bidi overrides, zero-width, length).
         //    An image-only message is allowed when the upload succeeded.
         const normalized = normalizeMessageText(payload.text ?? '', CHAT_POLICY);
-        if (!normalized.ok && !attachmentIds.length) {
+        if (normalized.ok === false && !attachmentIds.length) {
           return fail(socket, normalized.reason, 'INVALID_MESSAGE');
         }
         const text = normalized.ok ? normalized.text : '';
@@ -637,7 +637,7 @@ function initSocket(httpServer) {
 
         message.isDeleted = true;
         message.deletedAt = new Date();
-        message.deletedBy = userId;
+        message.deletedBy = /** @type {any} */ (userId);
         message.text = 'This message was deleted';
         await message.save();
 

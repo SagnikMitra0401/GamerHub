@@ -36,7 +36,9 @@ const getDmReports = async (req, res, next) => {
           .select('_id text createdAt')
           .lean()
       : [];
-    const messagesById = new Map(messages.map((message) => [String(message._id), message]));
+    const messagesById = new Map(
+      messages.map((message) => /** @type {[string, any]} */ ([String(message._id), message]))
+    );
 
     res.status(200).json({
       items: reports.map((report) => ({
@@ -76,7 +78,7 @@ const resolveDmReport = async (req, res, next) => {
     const report = await DmReport.findById(req.params.id);
     if (!report) throw notFound('Report not found.');
 
-    report.status = status;
+    report.status = /** @type {any} */ (status);
     report.reviewedBy = req.user._id;
     report.reviewedAt = new Date();
     report.reviewNote = note;

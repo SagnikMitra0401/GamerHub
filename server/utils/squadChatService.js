@@ -113,7 +113,7 @@ async function postSquadMessage({ chat, user, text }) {
   }
 
   const normalized = normalizeMessageText(text ?? '', CHAT_POLICY);
-  if (!normalized.ok) throw badRequest(normalized.reason);
+  if (normalized.ok === false) throw badRequest(normalized.reason);
 
   const message = await SquadChatMessage.create({
     chatId: chat._id,
@@ -153,7 +153,12 @@ async function refreshSquadChat(chatId, userId) {
   return chat;
 }
 
-/** Cursor-paginated history, newest page first but returned oldest-first. */
+/**
+ * Cursor-paginated history, newest page first but returned oldest-first.
+ *
+ * @param {any} chatId
+ * @param {{before?: string, limit?: number}} [options]
+ */
 async function listSquadMessages(chatId, { before, limit = 50 } = {}) {
   const cap = Math.min(Math.max(Number(limit) || 50, 1), CHAT_POLICY.history.maxLimit);
   const query = { chatId, isDeleted: false };

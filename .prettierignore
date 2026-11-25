@@ -1,0 +1,9 @@
+node_modules/
+client/node_modules/
+client/dist/
+coverage/
+client/coverage/
+responsive-artifacts/
+package-lock.json
+client/package-lock.json
+*.md

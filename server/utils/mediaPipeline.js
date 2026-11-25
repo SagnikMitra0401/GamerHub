@@ -18,7 +18,7 @@ const MAX_IMAGE_DIMENSION = 2400;
 function loadSharp() {
   try {
     // eslint-disable-next-line global-require
-    return require('sharp');
+    return /** @type {any} */ (require('sharp'));
   } catch {
     return null;
   }
@@ -42,6 +42,10 @@ async function normaliseImage(buffer, mimeType) {
   }
 }
 
+/**
+ * @param {Buffer} buffer
+ * @param {{publicId: string, resourceType?: 'image'|'video'|'raw'|'auto'}} options
+ */
 function uploadBuffer(buffer, { publicId, resourceType = 'image' }) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(

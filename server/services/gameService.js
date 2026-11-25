@@ -134,7 +134,7 @@ async function syncFreeToPlay({ limit = 240 } = {}) {
 
   let result;
   try {
-    result = await Game.bulkWrite(operations, { ordered: false });
+    result = await Game.bulkWrite(/** @type {any} */ (operations), { ordered: false });
   } catch (err) {
     // A slug collision on a rare title must not fail the whole sync.
     if (err?.code !== 11000 && !Array.isArray(err?.writeErrors)) throw err;
@@ -219,6 +219,7 @@ async function listGames({ q = '', genre = '', platform = '', sort = 'trending',
     filter.$and = [...(filter.$and || []), constraint];
   }
 
+  /** @type {Record<string, 1|-1>} */
   const sortSpec = safeSort === 'az'
     ? { title: 1, _id: 1 }
     : safeSort === 'new'
@@ -420,7 +421,7 @@ async function getGameDetail(slugOrId) {
       name: community.name,
       slug: community.slug,
       icon: community.icon,
-      memberCount: community.memberCount || 0,
+      memberCount: /** @type {any} */ (community).memberCount || 0,
       isPrivate: Boolean(community.isPrivate)
     })),
     recentPosts: recentPosts.map((post) => ({
@@ -565,7 +566,7 @@ async function syncIgdbSearch(term, { limit = 12 } = {}) {
 
   let result;
   try {
-    result = await Game.bulkWrite(operations, { ordered: false });
+    result = await Game.bulkWrite(/** @type {any} */ (operations), { ordered: false });
   } catch (err) {
     if (err?.code !== 11000 && !Array.isArray(err?.writeErrors)) throw err;
     result = { upsertedCount: err.result?.upsertedCount || 0, modifiedCount: 0 };

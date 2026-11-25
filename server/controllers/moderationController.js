@@ -161,9 +161,15 @@ const listReports = async (req, res, next) => {
         : []
     ]);
 
-    const messageById = new Map(messages.map((row) => [String(row._id), row]));
-    const postById = new Map(posts.map((row) => [String(row._id), row]));
-    const memberById = new Map(members.map((row) => [String(row._id), row]));
+    const messageById = new Map(
+      messages.map((row) => /** @type {[string, any]} */ ([String(row._id), row]))
+    );
+    const postById = new Map(
+      posts.map((row) => /** @type {[string, any]} */ ([String(row._id), row]))
+    );
+    const memberById = new Map(
+      members.map((row) => /** @type {[string, any]} */ ([String(row._id), row]))
+    );
 
     res.set('Cache-Control', 'private, no-store');
     res.status(200).json({
@@ -215,7 +221,7 @@ const reviewReport = async (req, res, next) => {
     const report = await Report.findOne({ _id: req.params.reportId, communityId: community._id });
     if (!report) throw notFound('Report not found.');
 
-    report.status = status;
+    report.status = /** @type {any} */ (status);
     report.reviewedBy = req.user._id;
     report.reviewedAt = new Date();
     report.reviewNote = sanitizeLine(req.body.note, 300);

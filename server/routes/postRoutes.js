@@ -11,7 +11,7 @@ const {
 const router = express.Router();
 
 // Link previews make the server fetch a remote URL: authenticated + throttled.
-const previewLimiter = rateLimit({
+const previewLimiter = /** @type {any} */ (rateLimit)({
   windowMs: 15 * 60 * 1000,
   max: Number(process.env.PREVIEW_RATE_LIMIT_MAX) || 60,
   standardHeaders: true,

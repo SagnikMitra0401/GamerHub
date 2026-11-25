@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Invitations are cheap rows but expensive socially: a low ceiling per hour
 // makes invite-spam pointless without getting in the way of normal use.
-const inviteLimiter = rateLimit({
+const inviteLimiter = /** @type {any} */ (rateLimit)({
   windowMs: 60 * 60 * 1000,
   max: Number(process.env.INVITE_RATE_LIMIT_MAX) || 30,
   standardHeaders: true,

@@ -9,7 +9,7 @@ const {
 
 const router = express.Router();
 
-const publishLimiter = rateLimit({
+const publishLimiter = /** @type {any} */ (rateLimit)({
   windowMs: 10 * 60 * 1000,
   max: Number(process.env.BROADCAST_RATE_LIMIT_MAX) || 30,
   standardHeaders: true,

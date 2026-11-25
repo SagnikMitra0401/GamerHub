@@ -31,6 +31,11 @@ const STATUS_AUDIT = {
 };
 
 /** Forum channel gate: members-only, and the channel must actually be a forum. */
+/**
+ * @param {string} channelId
+ * @param {string} userId
+ * @param {string} [capability] capability required on top of membership
+ */
 async function loadForumChannel(channelId, userId, capability = CAP.VIEW_CHANNEL) {
   const access = await loadChannelAccess({ channelId, userId, capability });
   if (access.channel.type !== 'forum') {

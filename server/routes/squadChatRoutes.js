@@ -11,7 +11,7 @@ const {
 
 const router = express.Router();
 
-const chatLimiter = rateLimit({
+const chatLimiter = /** @type {any} */ (rateLimit)({
   windowMs: 60 * 1000,
   max: Number(process.env.SQUAD_CHAT_RATE_LIMIT_MAX) || 120,
   standardHeaders: true,

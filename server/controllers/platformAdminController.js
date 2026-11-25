@@ -372,9 +372,9 @@ async function communityPreviews(reports) {
   ]);
 
   return {
-    message: new Map(messages.map((item) => [String(item._id), item])),
-    forumPost: new Map(forums.map((item) => [String(item._id), item])),
-    member: new Map(members.map((item) => [String(item._id), item]))
+    message: new Map(messages.map((item) => /** @type {[string, any]} */ ([String(item._id), item]))),
+    forumPost: new Map(forums.map((item) => /** @type {[string, any]} */ ([String(item._id), item]))),
+    member: new Map(members.map((item) => /** @type {[string, any]} */ ([String(item._id), item])))
   };
 }
 
@@ -450,7 +450,7 @@ const listCases = async (req, res, next) => {
             : []
         };
       })
-    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, limit);
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
 
     res.status(200).json({
       items,
@@ -608,6 +608,7 @@ const resolveCase = async (req, res, next) => {
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
+/** @returns {Record<string, any>} */
 const visibilityFilter = (raw) => {
   if (raw === 'hidden') return { hiddenAt: { $ne: null } };
   if (raw === 'visible') return { hiddenAt: null };
@@ -820,6 +821,7 @@ const setMessageVisibility = async (req, res, next) => {
 const listAudit = async (req, res, next) => {
   try {
     const limit = clampLimit(req.query.limit, 30, 100);
+    /** @type {Record<string, any>} */
     const filter = {};
 
     const action = sanitizeLine(req.query.action, 40);

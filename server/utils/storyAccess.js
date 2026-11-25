@@ -86,13 +86,15 @@ function groupStories({ stories = [], seenIds = [], viewerId = null }) {
   return [...groups.values()]
     .map((group) => ({
       ...group,
-      stories: group.stories.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+      stories: group.stories.sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      ),
       isOwn: idOf(group.author._id) === viewer
     }))
     .sort((a, b) => {
       if (a.isOwn !== b.isOwn) return a.isOwn ? -1 : 1;
       if (a.seen !== b.seen) return a.seen ? 1 : -1;
-      return new Date(b.latestAt) - new Date(a.latestAt);
+      return new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime();
     });
 }
 

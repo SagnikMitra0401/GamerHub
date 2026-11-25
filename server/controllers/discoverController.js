@@ -68,7 +68,7 @@ const getOnboardingSuggestions = async (req, res, next) => {
       })
       .sort((a, b) => {
         if (Boolean(a.matchedGame) !== Boolean(b.matchedGame)) return a.matchedGame ? -1 : 1;
-        return new Date(b.party.createdAt) - new Date(a.party.createdAt);
+        return new Date(b.party.createdAt).getTime() - new Date(a.party.createdAt).getTime();
       });
 
     const seenSquads = new Set();
@@ -120,7 +120,7 @@ const getOnboardingSuggestions = async (req, res, next) => {
       .sort((a, b) =>
         b.score - a.score ||
         b.memberCount - a.memberCount ||
-        new Date(b.community.createdAt) - new Date(a.community.createdAt)
+        new Date(b.community.createdAt).getTime() - new Date(a.community.createdAt).getTime()
       )
       .slice(0, 5);
 

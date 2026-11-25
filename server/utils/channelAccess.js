@@ -34,7 +34,7 @@ async function loadChannelAccess({
   capability = CAP.VIEW_CHANNEL,
   mode = 'read',
   optionalUser = false
-} = {}) {
+}) {
   if (!isObjectId(channelId)) throw badRequest('Invalid channel id');
 
   const channel = await Channel.findById(channelId).lean();

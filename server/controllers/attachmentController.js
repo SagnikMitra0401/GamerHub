@@ -48,7 +48,7 @@ async function normaliseImage(buffer, mimeType) {
   if (!sharp) return { buffer, width: null, height: null };
 
   try {
-    const pipeline = sharp(buffer, { failOn: 'error' })
+    const pipeline = /** @type {any} */ (sharp)(buffer, { failOn: 'error' })
       .rotate() // honour, then drop, the EXIF orientation tag
       .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true });
 

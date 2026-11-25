@@ -35,7 +35,7 @@ function clientKey(req) {
  * @param {string} [options.name] metric bucket for this limiter
  */
 function createLimiter({ windowMs, max, message, name = 'rate-limit' }) {
-  return rateLimit({
+  return /** @type {any} */ (rateLimit)({
     windowMs,
     max,
     standardHeaders: true,

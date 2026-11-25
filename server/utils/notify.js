@@ -32,9 +32,15 @@ const safeThumbnail = (value) => {
  *
  * @param {object} input
  * @param {string|import('mongoose').Types.ObjectId} input.userId
- * @param {'lfg_request'|'lfg_accepted'|'gaming_bot'|'social'} [input.type]
+ * @param {'lfg_request'|'lfg_accepted'|'gaming_bot'|'social'|'broadcast'} [input.type]
  * @param {string} [input.actorId] the account that caused the ping, for block checks
+ * @param {string} input.title folded to one line and capped at 120 characters
+ * @param {string} [input.message] folded to one line and capped at 300 characters
+ * @param {string} [input.actionUrl] internal route or https URL
+ * @param {string} [input.mediaThumbnail] https URL
+ * @param {object} [input.metadata] category hints and payload, never rendered raw
  * @param {string} [input.dedupeKey] when set, the same ping is never stored twice
+ * @param {boolean} [input.silent] skip the live push, keep the stored row
  * @returns {Promise<object|null>} the created notification, or null
  */
 async function notifyUser({

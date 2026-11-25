@@ -384,7 +384,7 @@ async function createRequest({
     }
   }
 
-  const pairKey = Conversation.pairKeyFor(sender._id, recipient._id);
+  const pairKey = /** @type {any} */ (Conversation).pairKeyFor(sender._id, recipient._id);
   let conversation = await Conversation.findOne({ pairKey });
   const now = new Date();
 
@@ -404,7 +404,7 @@ async function createRequest({
       );
       if (retryAfter > now) {
         conversation.state = 'expired';
-        conversation.retryAfter = retryAfter;
+        conversation.retryAfter = /** @type {any} */ (retryAfter);
         await conversation.save();
         throw forbidden('That request expired without a reply.', {
           code: 'DM_COOLDOWN',
@@ -414,7 +414,7 @@ async function createRequest({
       // The request cooled down while nobody looked; the reuse branch below
       // starts a fresh one instead of throwing forever.
       conversation.state = 'expired';
-      conversation.retryAfter = retryAfter;
+      conversation.retryAfter = /** @type {any} */ (retryAfter);
     }
     if (conversation.state === 'blocked') {
       if (cooldownActive(conversation.retryAfter, now)) {
@@ -436,7 +436,7 @@ async function createRequest({
   // else is a request with a single plain-text opener.
   if (gate.mode === 'inbox') {
     const normalized = normalizeDmMessage(text);
-    if (!normalized.ok) throw badRequest(normalized.reason);
+    if (normalized.ok === false) throw badRequest(normalized.reason);
 
     if (conversation) {
       conversation.state = 'active';
@@ -478,10 +478,9 @@ async function createRequest({
     conversation.lastMessageAt = now;
     conversation.lastMessagePreview = sanitizeLine(normalized.text, 120);
     conversation.lastRequestAt = conversation.lastRequestAt || null;
-    conversation.unreadCounts = {
-      [String(recipient._id)]: 1,
-      [String(sender._id)]: 0
-    };
+        conversation.unreadCounts = /** @type {any} */ (
+      { [String(recipient._id)]: 1, [String(sender._id)]: 0 }
+    );
     await conversation.save();
 
     const message = await createMessage({
@@ -512,12 +511,12 @@ async function createRequest({
       timeline,
       business: businessProfile
     });
-    if (!parsed.ok) throw badRequest(parsed.reason);
+    if (parsed.ok === false) throw badRequest(parsed.reason);
     normalized = { ok: true, text: parsed.value.text };
     businessBrief = parsed.value;
   } else {
     normalized = validateRequestText(text);
-    if (!normalized.ok) throw badRequest(normalized.reason);
+    if (normalized.ok === false) throw badRequest(normalized.reason);
   }
 
   const counts = await requestCounts(sender._id);
@@ -574,7 +573,9 @@ async function createRequest({
     conversation.filterReason = filter?.reason || null;
     conversation.filterMatched = filter?.matched || '';
     conversation.requestFingerprint = fingerprint;
-    conversation.unreadCounts = { [String(recipient._id)]: 0, [String(sender._id)]: 0 };
+    conversation.unreadCounts = /** @type {any} */ (
+    { [String(recipient._id)]: 0, [String(sender._id)]: 0 }
+  );
   } else {
     conversation = new Conversation({
       pairKey,
@@ -660,6 +661,7 @@ async function listConversations({ userId, folder = 'inbox', scope = 'all', unre
   const take = Math.min(Math.max(Number(limit) || 30, 1), 50);
   if (!['all', 'personal', 'business'].includes(scope)) throw badRequest('Unknown conversation scope.');
   const query = {};
+  /** @type {Record<string, 1|-1>} */
   let sort = { lastMessageAt: -1, createdAt: -1 };
   let cursorField = 'lastMessageAt';
 
@@ -790,6 +792,7 @@ async function listTeamConversations({
     participantIds: ownerId,
     businessThread: true
   };
+  /** @type {Record<string, 1|-1>} */
   let sort = { lastMessageAt: -1, createdAt: -1 };
   let cursorField = 'lastMessageAt';
 
@@ -904,7 +907,7 @@ async function postTeamMessage({ conversationId, ownerId, memberId, role, sender
   if (role !== 'agent') throw forbidden('Viewer access is read-only.', { code: 'TEAM_READ_ONLY' });
 
   const normalized = normalizeDmMessage(text);
-  if (!normalized.ok) throw badRequest(normalized.reason);
+  if (normalized.ok === false) throw badRequest(normalized.reason);
 
   const owner = await User.findById(ownerId).select('_id username').lean();
   if (!owner) throw notFound('Business not found.');
@@ -1070,7 +1073,9 @@ async function acceptRequest({ conversationId, userId }) {
   conversation.requestExpiresAt = null;
   conversation.retryAfter = null;
   conversation.declinedAt = null;
-  conversation.unreadCounts = { [String(conversation.recipientId)]: 0, [String(conversation.initiatorId)]: 0 };
+  conversation.unreadCounts = /** @type {any} */ (
+    { [String(conversation.recipientId)]: 0, [String(conversation.initiatorId)]: 0 }
+  );
 
   if (requestText) {
     conversation.lastMessageAt = conversation.createdAt;
@@ -1122,7 +1127,9 @@ async function declineRequest({ conversationId, userId }) {
   conversation.state = 'declined';
   conversation.declinedAt = new Date();
   conversation.retryAfter = new Date(conversation.declinedAt.getTime() + COOLDOWN_MS);
-  conversation.unreadCounts = { [String(conversation.recipientId)]: 0, [String(conversation.initiatorId)]: 0 };
+  conversation.unreadCounts = /** @type {any} */ (
+    { [String(conversation.recipientId)]: 0, [String(conversation.initiatorId)]: 0 }
+  );
   await conversation.save();
 
   await bumpReputation(conversation.initiatorId, { declined: 1 });
@@ -1169,7 +1176,7 @@ async function setLabels({ conversationId, userId, labels }) {
     .concat(parsed.value.map((value) => ({ ownerId: userId, value })));
 
   await Conversation.updateOne({ _id: conversation._id }, { $set: { labels: next } });
-  conversation.labels = next;
+  conversation.labels = /** @type {any} */ (next);
 
   return {
     labels: parsed.value,
@@ -1184,7 +1191,7 @@ async function postMessage({ conversationId, sender, text }) {
   }
 
   const normalized = normalizeDmMessage(text);
-  if (!normalized.ok) throw badRequest(normalized.reason);
+  if (normalized.ok === false) throw badRequest(normalized.reason);
 
   const now = new Date();
   const message = await createMessage({

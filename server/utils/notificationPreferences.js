@@ -57,6 +57,12 @@ function sanitizeNotificationSettingsPatch(body) {
  * intentionally uncategorised; they are not part of the five preference rows
  * and must keep working when all five are off.
  */
+/**
+ * @param {object} [input]
+ * @param {string} [input.type] persisted notification kind
+ * @param {{kind?: string}} [input.metadata] category hint written with the ping
+ * @returns {string|null}
+ */
 function notificationCategory({ type, metadata } = {}) {
   if (type === 'lfg_request' || type === 'lfg_accepted') return 'lfg';
   if (type === 'gaming_bot') return 'bot';

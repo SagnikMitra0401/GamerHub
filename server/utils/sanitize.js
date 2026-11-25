@@ -9,6 +9,8 @@
  *   - overly long runs of blank lines / total length
  */
 
+// The C0/C1 ranges are the point: they are what gets stripped.
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g;
 const BIDI_OVERRIDES = /[\u202A-\u202E\u2066-\u2069]/g;
 const ZERO_WIDTH = /[\u200B-\u200D\uFEFF]/g;
@@ -16,7 +18,7 @@ const BLANK_LINE_RUN = /\n{3,}/g;
 
 /**
  * Normalise a chat message.
- * @returns {{ok: boolean, text?: string, reason?: string}}
+ * @returns {{ok: true, text: string} | {ok: false, reason: string}}
  */
 function normalizeMessageText(raw, policy) {
   const { minLength, maxLength, maxLines } = policy.message;

@@ -88,7 +88,7 @@ async function listOwnerTeam(ownerId) {
 async function inviteTeamMember({ ownerId, username, role }) {
   const { owner, profile } = await requireBusinessOwner(ownerId);
   const parsedName = normalizeUsername(username);
-  if (!parsedName.ok) throw badRequest(parsedName.reason);
+  if (parsedName.ok === false) throw badRequest(parsedName.reason);
   const normalizedRole = normalizeTeamRole(role);
   if (!normalizedRole) throw badRequest('Choose the viewer or agent role.');
 

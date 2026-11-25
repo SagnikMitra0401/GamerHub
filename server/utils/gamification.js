@@ -35,7 +35,7 @@ const calcLevel = (xp) => Math.floor(Math.max(0, xp) / 25) + 1;
  * Award XP to a user and optionally unlock a medal.
  * Silently fails so gamification never blocks critical request paths.
  *
- * @param {ObjectId|string} userId
+ * @param {import('mongoose').Types.ObjectId|string} userId
  * @param {number}          xpGained
  * @param {string|null}     medalId  — key in MEDALS dict, or null
  */

@@ -2,7 +2,7 @@ const ProductEvent = require('../models/ProductEvent');
 const {
   PRODUCT_EVENT_NAMES,
   FIRST_EVENT_NAMES
-} = ProductEvent;
+} = /** @type {any} */ (ProductEvent);
 
 const EVENT_NAMES = new Set(PRODUCT_EVENT_NAMES);
 const FIRST_EVENTS = new Set(FIRST_EVENT_NAMES);

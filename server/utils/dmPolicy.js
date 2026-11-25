@@ -547,6 +547,11 @@ function isQuietHours(settings, now = new Date()) {
     : current >= start || current < end;
 }
 
+/**
+ * @param {string} raw
+ * @param {{maxLength: number, maxLines: number}} [limits]
+ * @returns {{ok: true, text: string} | {ok: false, reason: string}}
+ */
 function validateRequestText(raw, limits = REQUEST_LIMITS) {
   const result = normalizeMessageText(raw, {
     message: { minLength: 1, maxLength: limits.maxLength, maxLines: limits.maxLines }
@@ -563,6 +568,15 @@ function validateRequestText(raw, limits = REQUEST_LIMITS) {
  * A verified business first contact is a structured brief, not a longer cold
  * DM. The website is carried by the verified profile; if the sender supplies
  * one in the brief it must match the verified domain.
+ *
+ * @param {object} [input]
+ * @param {string} [input.text]
+ * @param {string} [input.intent]
+ * @param {string} [input.company]
+ * @param {string} [input.website]
+ * @param {string} [input.budgetBand]
+ * @param {string} [input.timeline]
+ * @param {{displayName?: string, website?: string}} [input.business] the sender's verified profile
  */
 function validateBusinessRequest({
   text,
@@ -574,7 +588,7 @@ function validateBusinessRequest({
   business
 } = {}) {
   const normalized = validateRequestText(text, BUSINESS_REQUEST_LIMITS);
-  if (!normalized.ok) return normalized;
+  if (normalized.ok === false) return { ok: false, reason: normalized.reason };
 
   if (!BUSINESS_INTENTS.includes(intent)) {
     return { ok: false, reason: 'Choose a business intent.' };
@@ -625,6 +639,15 @@ function normalizeDmMessage(raw) {
  * Pure quota calculation, so the service can feed it counts and tests can
  * exercise every branch without a database.
  */
+/**
+ * @param {object} input
+ * @param {number} [input.sentToday]
+ * @param {number} [input.sentThisWeek]
+ * @param {Date|string|number|null} [input.lastRequestAt]
+ * @param {Date|string|null} [input.accountCreatedAt]
+ * @param {Date|string|number} [input.now]
+ * @param {object} [input.limits]
+ */
 function quotaState({
   sentToday = 0,
   sentThisWeek = 0,
@@ -665,6 +688,10 @@ function quotaState({
   return { allowed: true };
 }
 
+/**
+ * @param {Date|string|number|null} retryAfter
+ * @param {Date|string|number} [now]
+ */
 function cooldownActive(retryAfter, now = Date.now()) {
   return Boolean(retryAfter && new Date(retryAfter).getTime() > new Date(now).getTime());
 }
@@ -726,6 +753,12 @@ function reputationTier({ reports = 0, blocks = 0 } = {}) {
  * Decide whether a pending request belongs in the Filtered lane. Hidden words
  * are an explicit recipient rule and win over inferred signals; campaign and
  * reputation are deliberately silent to the sender.
+ *
+ * @param {object} [input]
+ * @param {string} [input.text] the first message
+ * @param {string[]} [input.hiddenWords] the recipient's own filter words
+ * @param {string} [input.reputationTier] `restricted`, `limited` or `standard`
+ * @param {number} [input.campaignCount] prior cold requests from this sender
  */
 function chooseRequestFilter({
   text,
