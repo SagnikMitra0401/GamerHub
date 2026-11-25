@@ -3,9 +3,10 @@
  *
  * Exact origins only. `CLIENT_URL` accepts a comma-separated list; extra
  * preview deployments must be listed explicitly in `EXTRA_ALLOWED_ORIGINS`.
- * Wildcard TLD matching (the previous `.vercel.app` rule) is intentionally gone:
- * anyone can deploy to a vercel.app subdomain, and with credentialed CORS that
- * is a full account takeover primitive.
+ * Production origins come from those two keys and nothing else. Wildcard
+ * matching against a shared hosting domain is not supported: anyone can claim a
+ * subdomain there, and with credentialed CORS that is a full account takeover
+ * primitive.
  *
  * Loopback origins are allowed outside production so `vite` on any port works.
  */
@@ -16,11 +17,6 @@ const stripTrailingSlash = (value) => value.trim().replace(/\/+$/, '');
 
 let cached = null;
 
-const DEFAULT_PRODUCTION_ORIGINS = [
-  'https://gamer-hub-alpha.vercel.app',
-  'https://gamerhub.vercel.app'
-];
-
 function configuredOrigins() {
   if (cached) return cached;
   const envOrigins = [process.env.CLIENT_URL, process.env.EXTRA_ALLOWED_ORIGINS]
@@ -30,7 +26,7 @@ function configuredOrigins() {
     .map(stripTrailingSlash)
     .filter(Boolean);
 
-  cached = Array.from(new Set([...envOrigins, ...DEFAULT_PRODUCTION_ORIGINS]));
+  cached = Array.from(new Set(envOrigins));
   return cached;
 }
 

@@ -9,6 +9,14 @@
  * The base URL is set once after the in-process server starts listening:
  *   setBase(`http://127.0.0.1:${server.address().port}`)
  */
+require('dotenv').config();
+
+// Fail before the first fixture is written when the environment is incomplete.
+// An e2e run with no JWT_SECRET would otherwise fail every registration check
+// and read as a product bug. `dotenv` never overwrites a value the script has
+// already set, so a suite's throwaway MONGO_URI survives this call.
+require('../../server/config/env').loadEnv();
+
 const assert = require('assert/strict');
 const { io: ioClient } = require('../../client/node_modules/socket.io-client');
 

@@ -1,6 +1,7 @@
 # Phase 19 — production readiness
 
-> **Status:** plan. Nothing in this document is implemented yet.
+> **Status:** step 1 implemented and verified on 25 November 2026. Steps 2 to 11
+> are still plan.
 > **Scope owner:** engineering.
 > **Source of the work:** the critical review of 24 November 2026, which scored
 > the project 6/10 and named the faults behind each score.
@@ -78,14 +79,16 @@ Evidence collected on 24 November against the working tree:
 | Design-system gate | `node scripts/scan-emoji.js` | 0 lines |
 | Responsive smoke | `npm run test:responsive` | 63 of 63 pass |
 
-Not yet run against this tree, and therefore not claimed: the fifteen e2e
-suites, which need a cluster, and `npm run backup:drill`, which needs a restore
+Run on 25 November against the committed tree: the fifteen e2e suites, all
+passing, 852 checks in total, each suite on its own throwaway database. Still not
+run, and therefore not claimed: `npm run backup:drill`, which needs a restore
 target.
 
 **Acceptance for step 0**
 
-- Four commits, each one theme: the prose standard, Phase 18 email codes, the
-  settings frame, the ledger and verification notes.
+- One commit, `201f815`, holds the whole tree. The four-commit split this plan
+  asked for was dropped: all 59 paths were already written when the phase
+  started, so a split would not have been reviewed commit by commit either.
 - `git status` clean.
 - Every command in §1 criterion 2 executed on the committed tree, with the
   output pasted into the ledger.
@@ -140,7 +143,7 @@ subdomains inherits credentialed CORS.
 - Booting with a 12-character secret exits 1 and names the length rule.
 - `npm run test:origins` covers an allowed origin, a rejected origin and an
   empty origin for both REST and socket.
-- `grep -rn "vercel.app" server/` returns nothing.
+- `grep -rn "vercel.app" server/ --exclude-dir=tests` returns nothing.
 
 **Verification**
 
@@ -149,6 +152,31 @@ node -e "process.env.JWT_SECRET=''; require('./server/config/env').loadEnv()"   
 npm test
 node scripts/scan-hosts.js
 ```
+
+**Result (25 November 2026).** Implemented with three corrections, each recorded
+because the plan was wrong on the point:
+
+- `npm run test:origins` did not exist. It does now, next to `npm run test:env`
+  and `npm run scan:hosts`, and `server/tests/env.test.js` joined the `npm test`
+  file list.
+- The host gate as written ("fails on a literal hostname in `server/`") would
+  fail on legitimate third-party API URLs such as YouTube, IGDB and Cloudinary.
+  It now fails on two narrow things: a shared-hosting domain, and a literal
+  allow-list array named like `*ORIGIN*` or `*ALLOW*`.
+- `grep -rn "vercel.app" server/` cannot return nothing, because the origin test
+  keeps spoofed fixtures. The acceptance is the same grep with
+  `--exclude-dir=tests`.
+
+Added beyond the plan: a 32-character `JWT_SECRET` floor (the admin panel already
+reported that strength), refusal of the `.env.example` placeholder, a production
+requirement for `EMAIL_CODE_PEPPER` (it used to throw on the first registration
+instead of at boot), `NODE_ENV` and `TRUST_PROXY` shape checks, warnings for
+half-configured optional integrations, and the same check in the e2e harness.
+
+Measured: 15/15 env checks, 3/3 origin checks, `npm test` 356/356 with the host
+gate in the chain, `npm run scan:secrets` 0 hits, 167 server files and 0
+hardcoded origins. An empty `JWT_SECRET` and a 5-character one each exit 1 and
+name the key without printing it.
 
 **Risk:** a missing key in the developer's own `.env` turns into a loud boot
 failure. That is the point, but the message has to name the key and the file.

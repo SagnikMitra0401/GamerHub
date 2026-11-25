@@ -1,4 +1,9 @@
 require('dotenv').config();
+
+// Fail at boot, not on the first sign-in: a missing or malformed key names
+// itself here and stops the process before any listener opens.
+require('./config/env').loadEnv();
+
 const http = require('http');
 const { initErrorReporting, captureServerError } = require('./utils/errorReporting');
 

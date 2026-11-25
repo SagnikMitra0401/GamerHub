@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 24 November 2026 · **Branch:** `main` · **Head:** Phase 18 email codes, recovery email and account recovery, the prose scanner and the settings frame rebuild (uncommitted)
+**Last updated:** 25 November 2026 · **Branch:** `main` · **Head:** `201f815` Phase 18 email codes, recovery email and account recovery, the prose scanner and the settings frame rebuild
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,24 +14,28 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **341 / 341 pass** | 24 Nov |
+| Unit / contract — server | `npm test` | **356 / 356 pass** | 25 Nov |
 | Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 24 Nov |
-| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 21 Nov |
-| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 21 Nov |
-| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 21 Nov |
-| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 21 Nov |
-| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 21 Nov |
-| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **64 / 64 pass** | 21 Nov |
-| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 21 Nov |
-| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 21 Nov |
-| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 21 Nov |
-| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 21 Nov |
-| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **83 / 83 pass** | 24 Nov |
-| E2E — 8-digit email codes, recovery email, account recovery | `scripts/e2e-phase18.js` | **30 / 30 pass** | 24 Nov |
-| E2E — catalog, admin console, media ledger | `scripts/e2e-phase15.js` | **41 / 41 pass** | 21 Nov |
-| E2E — stories, clips filter, upload limit, broadcast channels | `scripts/e2e-phase16.js` | **36 / 36 pass** | 21 Nov |
+| E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 25 Nov |
+| E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 25 Nov |
+| E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 25 Nov |
+| E2E — reactions, forums, moderation | `scripts/e2e-phase7.js` | **80 / 80 pass** | 25 Nov |
+| E2E — identity, consent, squad chat, data rights | `scripts/e2e-phase8.js` | **70 / 70 pass** | 25 Nov |
+| E2E — settings hub, freeze, succession, erasure | `scripts/e2e-phase9.js` | **64 / 64 pass** | 25 Nov |
+| E2E — search budget, presence privacy, socket caps | `scripts/e2e-phase10.js` | **13 / 13 pass** | 25 Nov |
+| E2E — DM consent core | `scripts/e2e-phase11.js` | **44 / 44 pass** | 25 Nov |
+| E2E — DM creator-scale core | `scripts/e2e-phase12.js` | **30 / 30 pass** | 25 Nov |
+| E2E — DM business accounts and team inbox | `scripts/e2e-phase13.js` | **46 / 46 pass** | 25 Nov |
+| E2E — recovery, onboarding, notifications, social triggers, retention, activation telemetry, cohort/day-7 funnel, readiness and request IDs | `scripts/e2e-phase14.js` | **83 / 83 pass** | 25 Nov |
+| E2E — 8-digit email codes, recovery email, account recovery | `scripts/e2e-phase18.js` | **30 / 30 pass** | 25 Nov |
+| E2E — catalog, admin console, media ledger | `scripts/e2e-phase15.js` | **41 / 41 pass** | 25 Nov |
+| E2E — stories, clips filter, upload limit, broadcast channels | `scripts/e2e-phase16.js` | **36 / 36 pass** | 25 Nov |
+| E2E — business review lifecycle and retention | `scripts/e2e-phase17.js` | **31 / 31 pass** | 25 Nov |
 | Client production build | `npm run build --prefix client` | **pass** — 179.13 kB CSS / 792.29 kB JS (211.60 kB gzip), with Vite's chunk-size warning above 500 kB | 24 Nov |
 | Secret-leak gate | `npm run scan:secrets` | **0 hits** | 24 Nov |
+| Boot configuration | `npm run test:env` | **15 / 15 pass** — missing and short keys named, placeholder refused, origin shapes, exit 1 path | 25 Nov |
+| Origin policy | `npm run test:origins` | **3 / 3 pass** — exact allow-list, comma-separated list, loopback only outside production | 25 Nov |
+| Hardcoded-origin gate | `npm run scan:hosts` | **0 hits** — 167 server files, no shared-hosting domain and no literal origin array | 25 Nov |
 | Dependency audit (including dev) | `npm audit` (root and `client/`) | **0 advisories** | 21 Nov |
 | Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 24 Nov |
 | UI smoke — pass 10 | browser + live API: registration landed on `/verify-email` → wrong code refused with tries left → right code confirmed → security panel showed verified → recovery email added with a code to the backup address → confirmed row with a masked address and a 12 Dec eligibility date → recovery start sent a code → new password accepted at sign-in | **pass** — throwaway database; code found in the DOM, cookies and both web storages during the wait returned `false` | 24 Nov |
@@ -51,9 +55,38 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**1,134 automated checks defined** (293 server + 51 client + 790 e2e across thirteen suites), plus 63 responsive checks and the secret/design-system gates.
+**1,259 automated checks defined** (356 server + 51 client + 852 e2e across fifteen suites), plus 63 responsive checks and the secret/design-system gates.
+Every figure was measured on 25 November. Phase 19 step 1 adds 15 server checks
+and two gates; `npm run ledger:counts` in step 11 keeps the totals from drifting.
 Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
 YouTube facade tests; Phase 15 re-ran clean at 41/41.
+
+### Pass 23 (25 Nov) — boot configuration and origin policy
+
+Step 1 of [Phase 19](PHASE19_PRODUCTION_READINESS.md). The server now validates
+its environment before it listens, and the CORS allow-list no longer ships with
+two hosting-provider origins.
+
+- **New:** `server/config/env.js`. Required keys are `MONGO_URI` and
+  `JWT_SECRET` (32-character floor, example placeholder refused). `CLIENT_URL`
+  is required in production and must be an exact origin; a wildcard, a path or a
+  missing scheme is reported by position. `NODE_ENV`, `TRUST_PROXY` and the
+  production-only `EMAIL_CODE_PEPPER` are checked too, and a half-configured
+  optional integration warns without blocking. Failures print every offending
+  key by name, never a value, and exit 1. `server/server.js` calls it right
+  after `dotenv`; `scripts/lib/e2e-harness.js` calls it before the first
+  fixture.
+- **Removed:** `DEFAULT_PRODUCTION_ORIGINS` from `server/utils/origins.js`.
+  Production origins come from `CLIENT_URL` and `EXTRA_ALLOWED_ORIGINS` only.
+- **New gate:** `scripts/scan-hosts.js` fails on a shared-hosting domain or a
+  literal `*ORIGIN*` / `*ALLOW*` array in `server/` outside tests. It runs as
+  the last step of `npm test`.
+- **Verified:** 15 env checks, 3 origin checks, 356/356 server tests, 852/852 e2e
+  checks across fifteen suites, 0 secret hits, 167 server files with 0 hardcoded
+  origin. An empty `JWT_SECRET` and a 5-character one each exit 1 and name the
+  key.
+- **Not verified:** the client was not touched, so its unit and build gates were
+  not re-run for this step.
 
 ### Pass 22 (19 Nov) — Phase 16 media: tiles, reels/watch, stories, broadcasts
 
@@ -1123,6 +1156,9 @@ npm test                      # server units, 175 checks, no database
 npm test --prefix client      # client components, 31 checks, jsdom
 npm run test:e2e              # nine suites, 581 checks, throwaway DB
 npm run scan:secrets           # must print "0 hit(s)"
+npm run test:env               # boot configuration, 15 checks
+npm run test:origins           # origin allow-list, 3 checks
+npm run scan:hosts             # no shared-hosting domain or literal origin array in server/
 npm run build --prefix client
 npm run test:unslop            # prose rule cases, 36 checks
 npm run scan:prose             # prose gate, 0 P0/P1; --strict exits 1 on any P0/P1
