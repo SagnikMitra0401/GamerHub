@@ -1,7 +1,7 @@
 # Phase 19 — production readiness
 
-> **Status:** step 1 implemented and verified on 25 November 2026. Steps 2 to 11
-> are still plan.
+> **Status:** steps 1 and 2 implemented and verified on 25 November 2026. Steps 3
+> to 11 are still plan.
 > **Scope owner:** engineering.
 > **Source of the work:** the critical review of 24 November 2026, which scored
 > the project 6/10 and named the faults behind each score.
@@ -47,6 +47,7 @@ all eight hold.
 
 1. A test exists that fails without the change and passes with it.
 2. `npm test`, `npm test --prefix client`, `npm run build --prefix client`,
+   `npm run lint`, `npm run format:check`, `npm run typecheck`,
    `npm run test:unslop`, `npm run scan:prose`, `npm run scan:secrets` and
    `node scripts/scan-emoji.js` all exit 0.
 3. Any database change has a migration that runs forward and backward on a
@@ -232,6 +233,47 @@ npm run format:check
 npm run typecheck
 npm test
 ```
+
+**Result (25 November 2026).** Implemented, with the numbers measured on the
+committed tree.
+
+- `eslint.config.js` is one flat config: Node globals and CommonJS for `server/`
+  and `scripts/`, browser globals and React for `client/src`, plus the
+  `react-hooks` rules. `npm run lint` reads 319 files and exits 0 with 62
+  warnings and no errors. It runs with `--max-warnings 62`, so a new warning
+  fails the command. That is how the plan's unused-variable check works, because
+  `no-unused-vars` is a warning here rather than an error: adding
+  `const unusedProbe = 1;` to `server/utils/mediaPaths.js` made the command exit
+  1, and removing it returned it to 0.
+- The 62 warnings, recorded as the ceiling: 22 `react-hooks/exhaustive-deps`, 21
+  `react/no-unescaped-entities`, 15 `no-unused-vars`, and 4 stale
+  eslint-disable directives.
+- `.prettierrc.json` sets single quotes and 100 columns; `.prettierignore` keeps
+  dependencies, build output and Markdown out. The reformat is `fa27815` over 359
+  files, and its hash is in `.git-blame-ignore-revs`. Its only non-whitespace
+  change is a JSDoc cast moved out of an optional chain, which the line breaking
+  required for the type checker to read it.
+- `tsconfig.json` enables `allowJs` and `checkJs` for `server/**/*.js` with
+  `server/tests` excluded, and two declaration files under `server/types/`
+  describe what the socket handshake attaches and what `populate()` returns.
+  `npm run typecheck` exits 0 with 0 errors.
+- The first type pass reported 194 errors. Three were defects
+  rather than inference noise: `notifyUser`'s JSDoc declared four of its ten
+  options, its type union omitted `broadcast`, and two `!result.ok` checks did
+  not narrow under this compiler setting. The rest described what the code
+  already does, mostly populated references that arrive as documents while
+  mongoose types them as ids.
+
+Measured after the reformat: `npm test` 367/367, `npm test --prefix client`
+51/51, `npm run build --prefix client` 179.23 kB CSS and 792.35 kB JS
+(211.62 kB gzip), with lint, format check and typecheck all exit 0.
+
+`npm run test:responsive` passed 63/63 after the reformat, which renders nine
+surfaces at seven viewports and measures overflow on each.
+
+**Not verified:** no click-through of a flow against a live API. The reformat
+changes neither copy nor a rule, so rendering and layout were the parts a browser
+pass could add.
 
 **Risk:** the reformat commit makes `git blame` noisy. Land it alone, and add the
 hash to `.git-blame-ignore-revs`.
@@ -568,7 +610,8 @@ git log --oneline -20
 | Migrations | `npm run migration:lint` | exit 0 |
 | Indexes | `npm run db:indexes` | no drift |
 | Backups | `npm run backup:drill` | restore verified |
-| Lint (from step 2) | `npm run lint` | exit 0 |
+| Lint (from step 2) | `npm run lint` | exit 0 at the recorded warning ceiling |
+| Format (from step 2) | `npm run format:check` | exit 0 |
 | Types (from step 2) | `npm run typecheck` | 0 errors |
 | Coverage (from step 9) | `npm run coverage` | thresholds met |
 | Container (from step 10) | `docker build` | health returns 200 |

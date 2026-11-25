@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 25 November 2026 · **Branch:** `main` · **Head:** `201f815` Phase 18 email codes, recovery email and account recovery, the prose scanner and the settings frame rebuild
+**Last updated:** 25 November 2026 · **Branch:** `main` · **Head:** `fa27815` Phase 19 steps 1 and 2: boot configuration, origin policy, and the lint, format and type baseline
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,7 +14,10 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **356 / 356 pass** | 25 Nov |
+| Unit / contract — server | `npm test` | **367 / 367 pass** | 25 Nov |
+| Lint — server, scripts and client | `npm run lint` | **0 errors, 62 warnings** across 319 files; `--max-warnings 62` makes a new warning a failure | 25 Nov |
+| Format — Prettier | `npm run format:check` | **pass** — one config, single quotes at 100 columns | 25 Nov |
+| Types — server JavaScript | `npm run typecheck` | **0 errors** — `allowJs` and `checkJs`, `server/tests` excluded | 25 Nov |
 | Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 24 Nov |
 | E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 25 Nov |
 | E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 25 Nov |
@@ -35,9 +38,9 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | Secret-leak gate | `npm run scan:secrets` | **0 hits** | 24 Nov |
 | Boot configuration | `npm run test:env` | **15 / 15 pass** — missing and short keys named, placeholder refused, origin shapes, exit 1 path | 25 Nov |
 | Origin policy | `npm run test:origins` | **3 / 3 pass** — exact allow-list, comma-separated list, loopback only outside production | 25 Nov |
-| Hardcoded-origin gate | `npm run scan:hosts` | **0 hits** — 167 server files, no shared-hosting domain and no literal origin array | 25 Nov |
+| Hardcoded-origin gate | `npm run scan:hosts` | **0 hits** — 167 server files, no shared-hosting domain and no literal origin array; an unrelated `ALLOWED_METHODS` list is accepted, `ALLOWED_ORIGINS` is refused | 25 Nov |
 | Dependency audit (including dev) | `npm audit` (root and `client/`) | **0 advisories** | 21 Nov |
-| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications` | 24 Nov |
+| Responsive smoke | `npm run test:responsive` | **63 / 63 pass** — 9 surfaces × 7 viewports, including `/welcome`, `/discover` and `/notifications`; re-run after the reformat | 25 Nov |
 | UI smoke — pass 10 | browser + live API: registration landed on `/verify-email` → wrong code refused with tries left → right code confirmed → security panel showed verified → recovery email added with a code to the backup address → confirmed row with a masked address and a 12 Dec eligibility date → recovery start sent a code → new password accepted at sign-in | **pass** — throwaway database; code found in the DOM, cookies and both web storages during the wait returned `false` | 24 Nov |
 | UI smoke — pass 9 | browser + live API: registration → onboarding → story post/view → anonymous public story → channel create/publish with no auto-read → account deletion removed the story and channel | **pass** — temporary account, story and channel deleted at the end | 21 Nov |
 | UI smoke — pass 7 | browser + live API: admin notification bell → open/click, `/admin` activation funnel and Refresh | **pass** — temporary admin/actor accounts and their data deleted afterwards | 16 Nov |
@@ -55,11 +58,48 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**1,259 automated checks defined** (356 server + 51 client + 852 e2e across fifteen suites), plus 63 responsive checks and the secret/design-system gates.
-Every figure was measured on 25 November. Phase 19 step 1 adds 15 server checks
-and two gates; `npm run ledger:counts` in step 11 keeps the totals from drifting.
+**1,270 automated checks defined** (367 server + 51 client + 852 e2e across fifteen suites), plus 63 responsive checks and the secret, origin and design-system gates.
+Every figure was measured on 25 November. Phase 19 step 1 adds 19 boot and gate
+checks and two scripts; step 2 adds no checks, only a warning ceiling.
+`npm run ledger:counts` in step 11 keeps the totals from drifting.
 Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
 YouTube facade tests; Phase 15 re-ran clean at 41/41.
+
+### Pass 24 (25 Nov) — lint, format and type baseline
+
+Step 2 of [Phase 19](PHASE19_PRODUCTION_READINESS.md), plus a tightening of the
+step 1 host gate. The repository had no linter, no formatter and no type check
+over 60,000 lines, and its one eslint-disable comment named a rule from a linter
+that was not installed.
+
+- **Lint:** `eslint.config.js`, one flat config for `server/`, `scripts/` and
+  `client/src`. 319 files, 0 errors, 62 warnings. The command runs with
+  `--max-warnings 62`, so the recorded count is a ceiling: `const unusedProbe = 1;`
+  added to a server file made `npm run lint` exit 1, and removing it returned it
+  to 0. Warning split: 22 `react-hooks/exhaustive-deps`, 21
+  `react/no-unescaped-entities`, 15 `no-unused-vars`, 4 stale disable directives.
+- **Format:** `.prettierrc.json` and `.prettierignore` at the root. The reformat
+  is commit `fa27815` over 359 files, with its hash in `.git-blame-ignore-revs`.
+  `npm run format:check` passes. The only non-whitespace change in that commit is
+  a JSDoc cast moved out of an optional chain.
+- **Types:** `tsconfig.json` with `allowJs` and `checkJs` on `server/**/*.js`,
+  `server/tests` excluded, plus `server/types/socket.d.ts` and
+  `server/types/mongoose.d.ts`. `npm run typecheck` exits 0. The first pass found
+  194 errors; three were defects (four undeclared `notifyUser` options, a
+  `broadcast` type missing from the notification union, and two non-narrowing
+  `!result.ok` checks), and the rest were populated references typed as ids.
+- **Host gate follow-up:** the array rule now matches only origin and allow-list
+  names, so an unrelated `ALLOWED_METHODS` constant passes, and a plain-http
+  origin is refused in production. Seven gate checks and four environment checks
+  cover both rules; `server/tests/hostGate.test.js` is in the `npm test` list.
+- **Verified after the reformat:** `npm test` 367/367, `npm test --prefix client`
+  51/51, `npm run build --prefix client` 179.23 kB CSS and 792.35 kB JS
+  (211.62 kB gzip), and the three new commands exit 0.
+- **Browser check:** `npm run test:responsive` 63/63 after the reformat, which
+  renders nine surfaces at seven viewports and measures overflow on each.
+- **Not verified:** no click-through of a flow against a live API. The reformat
+  changes no rule and no copy, so rendering and layout are what a browser pass
+  would add.
 
 ### Pass 23 (25 Nov) — boot configuration and origin policy
 

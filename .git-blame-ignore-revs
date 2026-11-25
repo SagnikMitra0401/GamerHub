@@ -1,0 +1,6 @@
+# Formatting-only commits. `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+# makes `git blame` treat them as if they had not touched the files they
+# reformatted.
+
+# One Prettier pass over server, client/src and scripts (25 November 2026).
+fa278154db1dce3c0ca76d0ab7cc54d6f9d4f8a0
