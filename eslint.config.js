@@ -20,8 +20,7 @@ module.exports = [
       '**/node_modules/**',
       '**/dist/**',
       'client/coverage/**',
-      'responsive-artifacts/**',
-      'server/tests/**'
+      'responsive-artifacts/**'
     ]
   },
   js.configs.recommended,

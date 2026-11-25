@@ -13,7 +13,7 @@
     "test:e2e": "node scripts/e2e.js && node scripts/e2e-phase4.js && node scripts/e2e-phase6.js && node scripts/e2e-phase7.js && node scripts/e2e-phase8.js && node scripts/e2e-phase9.js && node scripts/e2e-phase10.js && node scripts/e2e-phase11.js && node scripts/e2e-phase12.js && node scripts/e2e-phase13.js && node scripts/e2e-phase14.js && node scripts/e2e-phase15.js && node scripts/e2e-phase16.js && node scripts/e2e-phase17.js && node scripts/e2e-phase18.js",
     "scan:secrets": "node scripts/scan-secrets.js",
     "scan:hosts": "node scripts/scan-hosts.js",
-    "lint": "eslint server scripts client/src --max-warnings 62",
+    "lint": "eslint server scripts client/src --max-warnings 67",
     "format": "prettier --write \"server/**/*.js\" \"client/src/**/*.{js,jsx,css}\" \"scripts/**/*.js\"",
     "format:check": "prettier --check \"server/**/*.js\" \"client/src/**/*.{js,jsx,css}\" \"scripts/**/*.js\"",
     "typecheck": "tsc -p tsconfig.json",

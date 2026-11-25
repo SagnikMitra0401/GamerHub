@@ -15,7 +15,7 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | Tier | Command | Result | Last run |
 |---|---|---|---|
 | Unit / contract — server | `npm test` | **367 / 367 pass** | 25 Nov |
-| Lint — server, scripts and client | `npm run lint` | **0 errors, 62 warnings** across 319 files; `--max-warnings 62` makes a new warning a failure | 25 Nov |
+| Lint — server, scripts and client | `npm run lint` | **0 errors, 67 warnings** across 368 files; `--max-warnings 67` makes a new warning a failure | 25 Nov |
 | Format — Prettier | `npm run format:check` | **pass** — one config, single quotes at 100 columns | 25 Nov |
 | Types — server JavaScript | `npm run typecheck` | **0 errors** — `allowJs` and `checkJs`, `server/tests` excluded | 25 Nov |
 | Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 24 Nov |
@@ -73,11 +73,12 @@ over 60,000 lines, and its one eslint-disable comment named a rule from a linter
 that was not installed.
 
 - **Lint:** `eslint.config.js`, one flat config for `server/`, `scripts/` and
-  `client/src`. 319 files, 0 errors, 62 warnings. The command runs with
-  `--max-warnings 62`, so the recorded count is a ceiling: `const unusedProbe = 1;`
-  added to a server file made `npm run lint` exit 1, and removing it returned it
-  to 0. Warning split: 22 `react-hooks/exhaustive-deps`, 21
-  `react/no-unescaped-entities`, 15 `no-unused-vars`, 4 stale disable directives.
+  `client/src`, test files included. 368 files, 0 errors, 67 warnings. The
+  command runs with `--max-warnings 67`, so the recorded count is a ceiling:
+  `const unusedProbe = 1;` added to a server file made `npm run lint` exit 1, and
+  removing it returned it to 0. Warning split: 22 `react-hooks/exhaustive-deps`,
+  21 `react/no-unescaped-entities`, 20 `no-unused-vars`, 4 stale disable
+  directives.
 - **Format:** `.prettierrc.json` and `.prettierignore` at the root. The reformat
   is commit `fa27815` over 359 files, with its hash in `.git-blame-ignore-revs`.
   `npm run format:check` passes. The only non-whitespace change in that commit is

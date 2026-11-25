@@ -239,14 +239,14 @@ committed tree.
 
 - `eslint.config.js` is one flat config: Node globals and CommonJS for `server/`
   and `scripts/`, browser globals and React for `client/src`, plus the
-  `react-hooks` rules. `npm run lint` reads 319 files and exits 0 with 62
-  warnings and no errors. It runs with `--max-warnings 62`, so a new warning
-  fails the command. That is how the plan's unused-variable check works, because
+  `react-hooks` rules. `npm run lint` reads 368 files, test files included, and
+  exits 0 with 67 warnings and no errors. It runs with `--max-warnings 67`, so a
+  new warning fails the command. That is how the plan's unused-variable check works, because
   `no-unused-vars` is a warning here rather than an error: adding
   `const unusedProbe = 1;` to `server/utils/mediaPaths.js` made the command exit
   1, and removing it returned it to 0.
-- The 62 warnings, recorded as the ceiling: 22 `react-hooks/exhaustive-deps`, 21
-  `react/no-unescaped-entities`, 15 `no-unused-vars`, and 4 stale
+- The 67 warnings, recorded as the ceiling: 22 `react-hooks/exhaustive-deps`, 21
+  `react/no-unescaped-entities`, 20 `no-unused-vars`, and 4 stale
   eslint-disable directives.
 - `.prettierrc.json` sets single quotes and 100 columns; `.prettierignore` keeps
   dependencies, build output and Markdown out. The reformat is `fa27815` over 359
