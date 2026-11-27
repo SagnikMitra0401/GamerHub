@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { getIO } = require('../config/socket');
 const { sanitizeLine, isHttpUrl } = require('./sanitize');
 const relations = require('./relations');
+const { sessionOptions } = require('./transaction');
 const {
   notificationCategory,
   isNotificationCategoryEnabled,
@@ -41,6 +42,7 @@ const safeThumbnail = (value) => {
  * @param {object} [input.metadata] category hints and payload, never rendered raw
  * @param {string} [input.dedupeKey] when set, the same ping is never stored twice
  * @param {boolean} [input.silent] skip the live push, keep the stored row
+ * @param {import('mongoose').ClientSession | null} [input.session] the commit this row belongs to
  * @returns {Promise<object|null>} the created notification, or null
  */
 async function notifyUser({
@@ -54,6 +56,7 @@ async function notifyUser({
   metadata = {},
   dedupeKey,
   silent = false,
+  session = null,
 }) {
   try {
     if (!userId) return null;
@@ -105,7 +108,12 @@ async function notifyUser({
       doc.dedupeKey = key;
     }
 
-    const notification = await Notification.create(doc);
+    // `create` only accepts options alongside an array of documents, so the
+    // plain path stays a single-document call.
+    const noticeSession = sessionOptions(Notification, session).session;
+    const [notification] = noticeSession
+      ? await Notification.create([doc], { session: noticeSession })
+      : [await Notification.create(doc)];
 
     if (!silent) {
       getIO()

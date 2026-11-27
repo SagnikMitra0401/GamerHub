@@ -24,6 +24,7 @@ const { sanitizeLine } = require('./sanitize');
 const { notifyUser } = require('./notify');
 const { recordFirstEvent } = require('./productEvents');
 const { invalidateVisibility } = require('./visibility');
+const { withTransaction, sessionOptions } = require('./transaction');
 const {
   DM_CONTEXT_TYPES,
   DM_REPORT_REASONS,
@@ -297,23 +298,28 @@ async function bumpReputation(userId, increments) {
   }
 }
 
-async function createMessage({ conversation, authorId, text, createdAt }) {
-  const message = await DirectMessage.create({
+async function createMessage({ conversation, authorId, text, createdAt, session = null }) {
+  const doc = {
     conversationId: conversation._id,
     authorId,
     text,
     ...(createdAt ? { createdAt } : {}),
-  });
+  };
+  const messageSession = sessionOptions(DirectMessage, session).session;
+  const [message] = messageSession
+    ? await DirectMessage.create([doc], { session: messageSession })
+    : [await DirectMessage.create(doc)];
   return message;
 }
 
-async function notifyMessage({ conversation, author, message }) {
+async function notifyMessage({ conversation, author, message, session = null }) {
   const other = otherParticipant(conversation, author._id);
   if (!other) return;
   if (hasUser(conversation.mutedBy, other)) return;
 
   const recipient = await User.findById(other).select('dmSettings').lean();
   await notifyUser({
+    session,
     userId: other,
     type: 'social',
     title: `New message from @${author.username}`,
@@ -490,16 +496,21 @@ async function createRequest({
       [String(recipient._id)]: 1,
       [String(sender._id)]: 0,
     });
-    await conversation.save();
-
-    const message = await createMessage({
-      conversation,
-      authorId: sender._id,
-      text: normalized.text,
-      createdAt: now,
+    // The thread and its opener are one fact: a conversation that is visible
+    // but has lost its first message cannot be repaired from the client.
+    const message = await withTransaction(async (session) => {
+      await conversation.save(session ? { session } : {});
+      const first = await createMessage({
+        conversation,
+        authorId: sender._id,
+        text: normalized.text,
+        createdAt: now,
+        session,
+      });
+      await notifyMessage({ conversation, author: sender, message: first, session });
+      return first;
     });
     recordFirstEvent('first_message', sender._id, { surface: 'dm' });
-    await notifyMessage({ conversation, author: sender, message });
 
     return {
       conversation: toConversationView(conversation, sender._id, recipient),
@@ -1106,30 +1117,36 @@ async function acceptRequest({ conversationId, userId }) {
     conversation.lastMessageAt = conversation.createdAt;
     conversation.lastMessagePreview = sanitizeLine(requestText, 120);
   }
-  await conversation.save();
-
   let message = null;
-  if (requestText) {
-    message = await createMessage({
-      conversation,
-      authorId: conversation.initiatorId,
-      text: requestText,
-      createdAt: conversation.createdAt,
-    });
-  }
+  // Accepting turns the request text into the thread's first message. The
+  // status change and that message commit together.
+  await withTransaction(async (session) => {
+    await conversation.save(session ? { session } : {});
 
-  const initiator = await User.findById(conversation.initiatorId).select('_id username').lean();
-  if (initiator) {
-    await notifyUser({
-      userId: initiator._id,
-      type: 'social',
-      title: 'Your message request was accepted',
-      message: 'You can reply now.',
-      actionUrl: `/messages?thread=${conversation._id}`,
-      metadata: { conversationId: String(conversation._id), kind: 'dm_accepted' },
-      dedupeKey: `dm-accepted:${conversation._id}`,
-    });
-  }
+    if (requestText) {
+      message = await createMessage({
+        conversation,
+        authorId: conversation.initiatorId,
+        text: requestText,
+        createdAt: conversation.createdAt,
+        session,
+      });
+    }
+
+    const initiator = await User.findById(conversation.initiatorId).select('_id username').lean();
+    if (initiator) {
+      await notifyUser({
+        session,
+        userId: initiator._id,
+        type: 'social',
+        title: 'Your message request was accepted',
+        message: 'You can reply now.',
+        actionUrl: `/messages?thread=${conversation._id}`,
+        metadata: { conversationId: String(conversation._id), kind: 'dm_accepted' },
+        dedupeKey: `dm-accepted:${conversation._id}`,
+      });
+    }
+  });
 
   await bumpReputation(conversation.initiatorId, { accepted: 1 });
 

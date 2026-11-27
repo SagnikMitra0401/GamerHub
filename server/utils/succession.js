@@ -184,9 +184,12 @@ async function transferSquadLeadership(partyOrId, departingUserId) {
         $pull: { members: { userId: departingUserId } },
       },
     );
+    // Squad chat may live on a second driver connection; a session from the
+    // main client is refused there, so this write names none.
     await SquadChat.updateMany(
       { squadId: party._id, state: { $ne: 'expired' } },
       { $set: { state: 'closed' } },
+      { session: null },
     );
     return {
       partyId: idOf(party._id),
@@ -212,6 +215,7 @@ async function transferSquadLeadership(partyOrId, departingUserId) {
         ownerUsername: nextLeader?.username || '',
       },
     },
+    { session: null },
   );
 
   return {

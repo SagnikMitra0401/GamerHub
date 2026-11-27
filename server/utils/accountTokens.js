@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const AccountToken = require('../models/AccountToken');
+const { sessionOptions } = require('./transaction');
 
 const PURPOSES = Object.freeze({
   VERIFY_EMAIL: 'verify_email',
@@ -63,10 +64,11 @@ async function consumeAccountToken(token, purpose) {
   ).lean();
 }
 
-async function invalidateAccountTokens(userId, purpose) {
+async function invalidateAccountTokens(userId, purpose, session = null) {
   await AccountToken.updateMany(
     { userId, purpose, usedAt: null },
     { $set: { usedAt: new Date() } },
+    sessionOptions(AccountToken, session),
   );
 }
 

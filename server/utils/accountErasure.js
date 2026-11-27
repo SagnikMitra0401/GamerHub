@@ -37,6 +37,7 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const CommunityJoinRequest = require('../models/CommunityJoinRequest');
 const AccountToken = require('../models/AccountToken');
+const SessionToken = require('../models/SessionToken');
 const DmSenderReputation = require('../models/DmSenderReputation');
 const Report = require('../models/Report');
 const AuditLog = require('../models/AuditLog');
@@ -48,6 +49,7 @@ const { deleteFromCloudinary } = require('../config/cloudinary');
 const { erasurePatch } = require('./privacy');
 const { transferAllForUser } = require('./succession');
 const { tombstoneUserDm } = require('./dmService');
+const { withTransaction } = require('./transaction');
 
 const idOf = (value) => String(value?._id || value || '');
 
@@ -59,10 +61,38 @@ async function eraseAccount(user) {
   const userId = idOf(user);
   if (!userId) return { erased: false, reason: 'no-user' };
 
+  let mediaRows = [];
+  // `fallbackOnLimit`: an account with years of content can outgrow one
+  // transaction. The claim is written first and every purge is a delete or an
+  // overwrite, so repeating the flow outside the transaction finishes the job
+  // instead of refusing to erase the account at all.
+  const { outcome } = await withTransaction(
+    async (session, defer) => {
+      const erased = await eraseAccountRows(userId, defer);
+      mediaRows = erased.mediaRows;
+      return erased;
+    },
+    { fallbackOnLimit: true },
+  );
+
+  // Remote objects cannot join the transaction. They are deleted only after the
+  // commit, so a failed erasure never leaves rows pointing at missing files.
+  await Promise.allSettled(
+    mediaRows.map((row) => deleteFromCloudinary(row.publicId, row.resourceType || 'image')),
+  );
+
+  return outcome;
+}
+
+/**
+ * Everything one erasure writes, in one transaction. Succession runs first: a
+ * server or squad must never be left pointing at a deleted owner.
+ */
+async function eraseAccountRows(userId, defer) {
   // Re-read: the caller's snapshot may be stale (e.g. a cancellation race).
   const fresh = await User.findById(userId).select('_id status sessionVersion username').lean();
   if (!fresh || fresh.status === 'deleted') {
-    return { erased: false, reason: 'already-erased' };
+    return { outcome: { erased: false, reason: 'already-erased' }, mediaRows: [] };
   }
 
   const succession = await transferAllForUser(userId);
@@ -73,7 +103,9 @@ async function eraseAccount(user) {
     { _id: userId, status: { $ne: 'deleted' } },
     erasurePatch(fresh),
   );
-  if (!claim.modifiedCount) return { erased: false, reason: 'claim-lost' };
+  if (!claim.modifiedCount) {
+    return { outcome: { erased: false, reason: 'claim-lost' }, mediaRows: [] };
+  }
 
   // The tombstone must not linger in a cached visibility set.
   invalidateVisibility();
@@ -129,13 +161,14 @@ async function eraseAccount(user) {
     .select('_id publicId resourceType')
     .lean();
 
-  // Remote objects are best-effort: a Cloudinary outage must not leave the
-  // account half-erased in the database.
-  await Promise.allSettled(
-    mediaRows.map((row) => deleteFromCloudinary(row.publicId, row.resourceType || 'image')),
-  );
-
   const objectId = new mongoose.Types.ObjectId(userId);
+
+  // Squad chat may live on another client, which cannot join this session, and
+  // its rows must not change unless this commit succeeds: a rolled-back erasure
+  // that had already pulled the membership would leave a squad one member short
+  // with nothing to blame. Both writes wait for the commit.
+  defer(() => SquadChatMessage.deleteMany({ authorUserId: userId }));
+  defer(() => SquadChat.updateMany({ memberIds: userId }, { $pull: { memberIds: userId } }));
 
   await Promise.all([
     Post.updateMany({ likes: objectId }, [
@@ -225,6 +258,9 @@ async function eraseAccount(user) {
     Notification.deleteMany({ $or: notificationRefs }),
     CommunityJoinRequest.deleteMany({ userId }),
     AccountToken.deleteMany({ userId }),
+    // Signed-in browsers of an erased account: the row is the last personal
+    // trace of a device that used it.
+    SessionToken.deleteMany({ userId }),
     DmSenderReputation.deleteMany({ userId }),
     Report.deleteMany({
       $or: [
@@ -246,7 +282,6 @@ async function eraseAccount(user) {
         ]
       : []),
     ProductEvent.deleteMany({ userId }),
-    SquadChatMessage.deleteMany({ authorUserId: userId }),
     Invitation.deleteMany({ $or: [{ inviterUserId: userId }, { recipientUserId: userId }] }),
     ForumPost.deleteMany({ authorId: userId }),
     ForumReply.deleteMany({ authorId: userId }),
@@ -255,7 +290,6 @@ async function eraseAccount(user) {
     Community.updateMany({ 'members.userId': userId }, { $pull: { members: { userId } } }),
     Party.updateMany({ 'members.userId': userId }, { $pull: { members: { userId } } }),
     Party.updateMany({ 'requests.userId': userId }, { $pull: { requests: { userId } } }),
-    SquadChat.updateMany({ memberIds: userId }, { $pull: { memberIds: userId } }),
     // Keep the other participant's thread shape, but never their private copy
     // of this person's words after erasure.
     tombstoneUserDm(userId),
@@ -264,7 +298,7 @@ async function eraseAccount(user) {
     ...(postIds.length ? [relations.removeSavedForPosts(postIds)] : []),
   ]);
 
-  return { erased: true, succession };
+  return { outcome: { erased: true, succession }, mediaRows };
 }
 
 module.exports = { eraseAccount };

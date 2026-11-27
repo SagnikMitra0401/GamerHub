@@ -21,6 +21,7 @@ const {
 const { checkDnsToken, normalizeDomain } = require('../utils/domainVerification');
 const relations = require('../utils/relations');
 const { recordPlatformAudit } = require('../utils/audit');
+const { withTransaction, sessionOptions } = require('../utils/transaction');
 const { sendBusinessReviewEmail } = require('../utils/email');
 
 const isId = (value) => /^[a-f0-9]{24}$/i.test(String(value || ''));
@@ -383,13 +384,21 @@ const resolveBusinessVerification = async (req, res, next) => {
     profile.reviewDecidedAt = new Date();
     if (status === 'verified') profile.outreachPaused = false;
     if (status === 'rejected') profile.verificationToken = '';
-    await profile.save();
 
-    await BusinessVerificationAudit.create({
-      businessProfileId: profile._id,
-      actorId: req.user._id,
-      status,
-      note,
+    // The decision and the audit row that records it are one fact. A decision
+    // with no audit trail cannot be defended later, and an audit row for a
+    // decision that did not stick is worse.
+    await withTransaction(async (session) => {
+      await profile.save(session ? { session } : {});
+      const audit = {
+        businessProfileId: profile._id,
+        actorId: req.user._id,
+        status,
+        note,
+      };
+      const auditSession = sessionOptions(BusinessVerificationAudit, session).session;
+      if (auditSession) await BusinessVerificationAudit.create([audit], { session: auditSession });
+      else await BusinessVerificationAudit.create(audit);
     });
 
     res.status(200).json({

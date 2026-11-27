@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const EmailChallenge = require('../models/EmailChallenge');
+const { sessionOptions } = require('./transaction');
 
 const PURPOSES = Object.freeze({
   VERIFY_EMAIL: 'verify_email',
@@ -152,10 +153,11 @@ async function consumeEmailChallenge(userId, purpose, code) {
 }
 
 /** Retire every live challenge for a purpose, for example after a password reset. */
-async function invalidateEmailChallenges(userId, purpose) {
+async function invalidateEmailChallenges(userId, purpose, session = null) {
   await EmailChallenge.updateMany(
     { userId, purpose, consumedAt: null },
     { $set: { consumedAt: new Date() } },
+    sessionOptions(EmailChallenge, session),
   );
 }
 

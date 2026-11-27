@@ -15,6 +15,7 @@ const { communityPermissions, CAP } = require('../utils/permissions');
 const { isOpen } = require('../utils/squadLifecycle');
 const { sanitizeLine } = require('../utils/sanitize');
 const { HttpError, badRequest, notFound, forbidden, conflict } = require('../utils/httpError');
+const { withTransaction, sessionOptions } = require('../utils/transaction');
 
 const TARGET_TYPES = ['squad', 'community_server'];
 const TTL_DAYS = 7;
@@ -200,11 +201,20 @@ async function loadOwnInvitation(req) {
   return invitation;
 }
 
-async function acceptSquadInvite(invitation, userId) {
+async function acceptSquadInvite(
+  invitation,
+  userId,
+  session = null,
+  defer = (task) => {
+    task().catch((err) =>
+      console.error('[invitations] squad chat write failed after the commit:', err.message),
+    );
+  },
+) {
   const party = await Party.findById(invitation.targetId);
   if (!party || party.status === 'closed') {
     invitation.status = 'expired';
-    await invitation.save();
+    await invitation.save(session ? { session } : {});
     throw conflict('This squad is no longer available.');
   }
 
@@ -214,21 +224,33 @@ async function acceptSquadInvite(invitation, userId) {
       // A full squad can still honour an explicit invitation, but only when the
       // leader already opened the temporary chat — otherwise there is nowhere
       // to put the player.
-      const chat = await SquadChat.findOne({ squadId: party._id, state: 'active' }).lean();
+      // The squad-chat collection may sit on another client; a plain read here
+      // would borrow the transaction's session and be refused.
+      const chat = await SquadChat.findOne({ squadId: party._id, state: 'active' })
+        .session(null)
+        .lean();
       if (!isOpen(chat)) throw conflict('This squad is full.');
-      await SquadChat.updateOne({ _id: chat._id }, { $addToSet: { memberIds: userId } });
+      // The chat cannot join this client's session, so the write waits for the
+      // commit: an acceptance that rolls back must not leave a member in a chat
+      // whose membership was never written.
+      defer(() => SquadChat.updateOne({ _id: chat._id }, { $addToSet: { memberIds: userId } }));
     } else {
       const joined = await Party.findOneAndUpdate(
         { _id: party._id, 'members.userId': { $ne: userId }, status: { $ne: 'closed' } },
         { $push: { members: { userId, role: 'member', joinedAt: new Date() } } },
-        { new: true },
+        { new: true, ...sessionOptions(Party, session) },
       );
       if (!joined) throw conflict('That squad changed while you were accepting. Try again.');
       if (joined.members.length >= joined.maxSlots && joined.status === 'open') {
         joined.status = 'full';
-        await joined.save();
+        await joined.save(session ? { session } : {});
       }
-      await SquadChat.updateOne({ squadId: party._id }, { $addToSet: { memberIds: userId } });
+      // Squad chat cannot join this client's session, so the write waits for
+      // the commit: an acceptance that rolls back must not leave a member in a
+      // chat whose membership was never written.
+      defer(() =>
+        SquadChat.updateOne({ squadId: party._id }, { $addToSet: { memberIds: userId } }),
+      );
     }
   }
 
@@ -240,11 +262,11 @@ async function acceptSquadInvite(invitation, userId) {
   };
 }
 
-async function acceptServerInvite(invitation, userId) {
+async function acceptServerInvite(invitation, userId, session = null) {
   const community = await Community.findById(invitation.targetId);
   if (!community) {
     invitation.status = 'expired';
-    await invitation.save();
+    await invitation.save(session ? { session } : {});
     throw notFound('That server no longer exists.');
   }
 
@@ -256,7 +278,7 @@ async function acceptServerInvite(invitation, userId) {
     const updated = await Community.findOneAndUpdate(
       { _id: community._id, 'members.userId': { $ne: userId } },
       { $push: { members: { userId, role: 'member', joinedAt: new Date() } } },
-      { new: true, select: 'slug name' },
+      { new: true, select: 'slug name', ...sessionOptions(Community, session) },
     );
     if (!updated) throw conflict('You are already a member of this server.');
     return {
@@ -290,27 +312,35 @@ const acceptInvitation = async (req, res, next) => {
       throw conflict('This invitation has expired.');
     }
 
-    const result =
-      invitation.targetType === 'squad'
-        ? await acceptSquadInvite(invitation, req.user._id)
-        : await acceptServerInvite(invitation, req.user._id);
+    // Membership, the invitation's new status and the inviter's notice commit
+    // together: an accepted invitation must never promise a membership that
+    // was not written, and a rolled-back join must not ping the inviter.
+    const result = await withTransaction(async (session, defer) => {
+      const accepted =
+        invitation.targetType === 'squad'
+          ? await acceptSquadInvite(invitation, req.user._id, session, defer)
+          : await acceptServerInvite(invitation, req.user._id, session);
 
-    invitation.status = 'accepted';
-    invitation.respondedAt = new Date();
-    await invitation.save();
+      invitation.status = 'accepted';
+      invitation.respondedAt = new Date();
+      await invitation.save(session ? { session } : {});
+
+      await notifyUser({
+        session,
+        userId: invitation.inviterUserId,
+        type: 'social',
+        title: `${req.user.username} accepted your invitation`,
+        message: accepted.targetName ? `${req.user.username} joined ${accepted.targetName}.` : '',
+        actionUrl: accepted.actionUrl,
+        metadata: { kind: 'invitation_accepted', invitationId: String(invitation._id) },
+      });
+
+      return accepted;
+    });
 
     if (invitation.targetType === 'community_server') {
       recordFirstEvent('first_join', req.user._id, { surface: 'invitation' });
     }
-
-    notifyUser({
-      userId: invitation.inviterUserId,
-      type: 'social',
-      title: `${req.user.username} accepted your invitation`,
-      message: result.targetName ? `${req.user.username} joined ${result.targetName}.` : '',
-      actionUrl: result.actionUrl,
-      metadata: { kind: 'invitation_accepted', invitationId: String(invitation._id) },
-    });
 
     res.status(200).json({ status: 'accepted', ...result });
   } catch (err) {
