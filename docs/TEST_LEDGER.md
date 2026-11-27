@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 25 November 2026 · **Branch:** `main` · **Head:** `fa27815` Phase 19 steps 1 and 2: boot configuration, origin policy, and the lint, format and type baseline
+**Last updated:** 27 November 2026 · **Branch:** `main` · **Head:** `0da466d` Phase 19 step 3: relationship edges. Steps 4 and 5, and the route-table gate that opens step 6, are on the working tree and not committed.
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,11 +14,11 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **367 / 367 pass** | 25 Nov |
-| Lint — server, scripts and client | `npm run lint` | **0 errors, 67 warnings** across 368 files; `--max-warnings 67` makes a new warning a failure | 25 Nov |
-| Format — Prettier | `npm run format:check` | **pass** — one config, single quotes at 100 columns | 25 Nov |
-| Types — server JavaScript | `npm run typecheck` | **0 errors** — `allowJs` and `checkJs`, `server/tests` excluded | 25 Nov |
-| Unit — client components | `npm test --prefix client` | **51 / 51 pass** | 24 Nov |
+| Unit / contract — server | `npm test` | **379 / 379 pass** | 27 Nov |
+| Lint — server, scripts and client | `npm run lint` | **0 errors, 66 warnings**; `--max-warnings 67` makes a new warning a failure | 27 Nov |
+| Format — Prettier | `npm run format:check` | **pass** — one config, single quotes at 100 columns | 26 Nov |
+| Types — server JavaScript | `npm run typecheck` | **0 errors** — `allowJs` and `checkJs`, `server/tests` excluded | 26 Nov |
+| Unit — client components and the CSRF replay | `npm test --prefix client` | **54 / 54 pass** | 27 Nov |
 | E2E — auth, communities, sockets | `npm run test:e2e` → `scripts/e2e.js` | **59 / 59 pass** | 25 Nov |
 | E2E — feed, presence, LFG, bot, admin | `scripts/e2e-phase4.js` | **66 / 66 pass** | 25 Nov |
 | E2E — lifecycle, search, Redis-off | `scripts/e2e-phase6.js` | **159 / 159 pass** | 25 Nov |
@@ -34,6 +34,12 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | E2E — catalog, admin console, media ledger | `scripts/e2e-phase15.js` | **41 / 41 pass** | 25 Nov |
 | E2E — stories, clips filter, upload limit, broadcast channels | `scripts/e2e-phase16.js` | **36 / 36 pass** | 25 Nov |
 | E2E — business review lifecycle and retention | `scripts/e2e-phase17.js` | **31 / 31 pass** | 25 Nov |
+| E2E — relationship edges, backfill and deployment window | `scripts/e2e-phase19.js` | **39 / 39 pass** | 26 Nov |
+| E2E — transaction rollback on every wrapped flow, after-commit deferral | `scripts/e2e-phase20.js` | **13 / 13 pass** | 27 Nov |
+| E2E — refresh rotation, replay, idle expiry, sign-out, CSRF | `scripts/e2e-phase21.js` | **14 / 14 pass** | 27 Nov |
+| Route table fixture — 227 methods and paths | `npm run routes:snapshot` | **pass** — no drift against `scripts/fixtures/routes.json` | 27 Nov |
+| Transaction latency — 100 runs per arm | `npm run bench:transactions` | **added 28.1 ms p50, 31.0 ms p95** against remote Atlas | 26 Nov |
+| Erasure against the transaction bounds | `npm run tx:limits` | **pass** — 2.56 MB rewritten, committed in 6.0 s of the 60 s lifetime; a commit refused for size repeated outside the transaction with no rows left | 27 Nov |
 | Client production build | `npm run build --prefix client` | **pass** — 179.13 kB CSS / 792.29 kB JS (211.60 kB gzip), with Vite's chunk-size warning above 500 kB | 24 Nov |
 | Secret-leak gate | `npm run scan:secrets` | **0 hits** | 24 Nov |
 | Boot configuration | `npm run test:env` | **15 / 15 pass** — missing and short keys named, placeholder refused, origin shapes, exit 1 path | 25 Nov |
@@ -58,12 +64,137 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**1,270 automated checks defined** (367 server + 51 client + 852 e2e across fifteen suites), plus 63 responsive checks and the secret, origin and design-system gates.
+**1,351 automated checks defined** (379 server + 54 client + 918 e2e across eighteen suites), plus 63 responsive checks and the secret, origin and design-system gates.
 Every figure was measured on 25 November. Phase 19 step 1 adds 19 boot and gate
 checks and two scripts; step 2 adds no checks, only a warning ceiling.
 `npm run ledger:counts` in step 11 keeps the totals from drifting.
 Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
 YouTube facade tests; Phase 15 re-ran clean at 41/41.
+
+### Pass 28 (27 Nov) — CSRF, browser refresh, route gate
+
+Step 5 finished and step 6 started in
+[Phase 19](PHASE19_PRODUCTION_READINESS.md). The browser pass is the one tier a
+suite cannot replace, and it paid for itself twice.
+
+- **CSRF:** one middleware on `/api` requires `x-csrf-token` to match the
+  readable `gh_csrf` cookie on every mutation that carries a session cookie.
+  Sign-in, registration, refresh, sign-out and the recovery routes are exempt so
+  a stale cookie cannot lock an account out of signing in again. Nine unit checks
+  cover safe methods, a missing cookie, a mismatched pair and the policy.
+- **Cookie policy:** `sameSite` follows the deployment (`lax` same-site, `none`
+  split) with `COOKIE_SAMESITE` as the override, written down in the step result.
+- **Browser pass:** the access token was shortened to 40 s with the
+  development-only `ACCESS_TOKEN_TTL_SECONDS`. Signing in by clicking the form
+  gave `POST /api/auth/login` 200 and a resolved session. After the token
+  expired, clicking a nav link produced a 401, one `POST /api/auth/refresh` 200
+  for two parallel calls, both retried at 200, and the page stayed signed in with
+  no reload. The temporary account was erased through the normal erasure path and
+  the dev servers were stopped afterwards.
+- **Two defects found and fixed by that pass:** the CSRF middleware refused
+  sign-in for a browser holding an expired session cookie, and the access cookie
+  expired with the token so the browser sent nothing and the 401 carried no
+  `TOKEN_EXPIRED` code, which would have made the silent refresh unreachable in
+  production. The access cookie now outlives the token, and the token's `exp` is
+  the limit.
+- **A session that predates the cookie:** refusing every mutation of a browser
+  that holds a session cookie and no `gh_csrf` stranded people who had signed in
+  the week before. The refusal now ships a token and the client replays the call
+  once with it, so the deploy costs one extra request instead of a dead account.
+  Three tiers cover it: the middleware unit test, the client test for the replay
+  and its two limits, and a phase21 check that strips the cookie and drives the
+  recovery over HTTP.
+- **Step 6 gate:** `scripts/route-snapshot.js` records 227 method and path
+  entries and `server/tests/routes.test.js` fails on any drift, so the service
+  extraction has a guard against a dropped endpoint.
+- **Measured:** `npm run test:e2e` 918/918 across eighteen suites, `npm test`
+  379/379, client 54/54, lint 0 errors and 66 warnings, format check, typecheck,
+  prose gate and `npm run routes:snapshot` clean.
+- **Operations note:** the throwaway suites had accumulated 17 databases on the
+  shared cluster, which reached Atlas's 500-collection ceiling and made a plain
+  feed request fail with a collection-creation error. They were dropped; the
+  suite still creates and drops one database per run.
+
+### Pass 27 (27 Nov) — after the commit, and session lifetime
+
+The follow-up to [Pass 26](#pass-26-26-nov--transaction-boundaries) and the
+session half of step 5 of [Phase 19](PHASE19_PRODUCTION_READINESS.md).
+
+- **The gap Pass 26 left:** a squad-chat write cannot join the main client's
+  session, so it ran immediately with `session: null`. If the commit then
+  aborted, the chat kept a member the squad never gained, and an erasure that
+  rolled back had already pulled the membership and deleted the messages of an
+  account that still existed. `withTransaction(fn)` now passes the callback a
+  `defer` registrar; invitation acceptance and account erasure register those
+  writes and the helper runs them only after a successful commit. A retried
+  attempt or a refused commit clears the list first, and a deferred write that
+  fails afterwards is logged rather than failing a request whose work committed.
+- **The bounds:** `npm run tx:limits` erases an account with 4,200 messages,
+  2,000 posts, 3,000 comments, 1,500 notifications and 300 squad messages. The
+  commit rewrote 2.56 MB and took 6.0 s and 6.96 s of the 60 s transaction
+  lifetime over two runs; scaled to the 16 MB oplog ceiling the same account
+  lands between 38 and 43 s, so the size bound is the one that arrives first. The probe also rejects the first read with
+  MongoDB's `TransactionTooLarge` code, which makes the erasure repeat outside
+  the transaction: it finished with no rows left, and a second erasure reported
+  `already-erased`.
+- **Session records:** `SessionToken` holds the hash of a 30-day refresh token,
+  the account's session version, last use, and a TTL expiry. The access cookie
+  is now 30 minutes and answers an expiry with `code: "TOKEN_EXPIRED"`; the
+  client's axios instance refreshes once per request with one in-flight refresh
+  shared between tabs.
+- **Rotation:** a refresh token used twice signs the whole account out. A refresh
+  after 14 days of inactivity is refused and revoked, a version mismatch is
+  revoked, and `logout-all` retires every record after bumping the version.
+  `POST /api/auth/logout` no longer needs a live access token.
+- **Measured:** `scripts/e2e-phase21.js` 11/11 over real cookies and a real
+  one-second expiry; `scripts/e2e-phase20.js` 13/13; `npm run test:e2e` 915/915
+  across eighteen suites; `npm test` 367/367; client 51/51; lint 0 errors and 66
+  warnings, format check, typecheck and the prose gate clean.
+- **Still open in step 5:** the double-submit CSRF header on cookie-authenticated
+  mutations, the same-site versus split deployment cookie decision, and a browser
+  check of the silent refresh.
+
+### Pass 26 (26 Nov) — transaction boundaries
+
+Step 4 of [Phase 19](PHASE19_PRODUCTION_READINESS.md). Five flows wrote more than
+one document with no commit between them, so a failure in the middle left state
+that no later request could repair.
+
+- **Helper:** `server/utils/transaction.js`. `withTransaction(fn)` probes the
+  deployment once (`hello` reports `setName` for a replica set or `isdbgrid` for
+  a sharded cluster) and runs the callback inside
+  `mongoose.connection.transaction`. Mongoose's async-local storage applies the
+  session to every operation in the callback, including helpers that never
+  receive one. A standalone deployment runs the same writes sequentially and
+  logs one warning; `TRANSACTIONS=off` forces that path.
+- **Squad connection:** `MONGO_URI_SQUADS` opens a second driver client, and a
+  session from the main client is refused there. `sessionOptions` pins those
+  writes to `session: null`, and the invitation flow reads squad chat with
+  `.session(null)`. Those writes stay outside the commit; the rest of the flow
+  still lands together.
+- **Flows:** account deletion, recovery completion, a DM conversation with its
+  first message, a business review decision with its audit row, and invitation
+  acceptance with membership and the inviter's notification. Account media is
+  deleted from Cloudinary after the commit, not before it.
+- **Measured:** `scripts/e2e-phase20.js` 9/9 checks. Each flow check injects a
+  failure after its first write and then reads the database back: the account
+  keeps its status and posts, the old password and session version stay, no
+  conversation row appears, the application stays pending with no audit row, and
+  the invitation stays pending with the caller outside the server. Two checks
+  cover the helper itself: a write that fails between two documents rolls the
+  first back, and a notification written inside a rolled-back transaction is
+  absent afterwards.
+- **Regression:** `npm run test:e2e` 900/900 across seventeen suites, `npm test`
+  367/367, lint 0 errors and 67 warnings, format check and typecheck clean,
+  migration lint 0 errors, and `node scripts/backup-drill.js` restored 45
+  collections, 187 sample documents and 190 indexes.
+- **Latency:** 100 two-operation units with and without a transaction on the
+  configured Atlas cluster: p50 60.3 to 88.4 ms, p95 69.8 to 100.8 ms. The added
+  28.1 ms at p50 and 31.0 ms at p95 are the session start and commit round trips.
+  The 15 ms budget in the plan is written for a same-host deployment and was not
+  measured: no local `mongod` and no running Docker daemon were available.
+- **Open:** the transaction path has not run against a standalone server; only
+  the forced fallback is covered. Nothing was committed for this step.
 
 ### Pass 25 (25 Nov) — relationship edges
 
@@ -116,7 +247,7 @@ which caps a heavy account at 16 MB.
 - **Open:** the development database has not had `migrate:auth` applied, so
   `npm run db:indexes` lists the four collections as absent and the 52 older
   differences remain. Index parity is proven in the throwaway database instead.
-  Nothing was committed for this step.
+  Committed as `0da466d`.
 
 ### Pass 24 (25 Nov) — lint, format and type baseline
 
@@ -1249,7 +1380,7 @@ npm run dev --prefix client   # Vite :3000
 # 2. automated tiers (see §1 for when to skip)
 npm test                      # server units, 367 checks, no database
 npm test --prefix client      # client components, 51 checks, jsdom
-npm run test:e2e              # sixteen suites, 888 checks, throwaway DB
+npm run test:e2e              # eighteen suites, 918 checks, throwaway DB
 npm run scan:secrets           # must print "0 hit(s)"
 npm run test:env               # boot configuration, 15 checks
 npm run test:origins           # origin allow-list, 3 checks

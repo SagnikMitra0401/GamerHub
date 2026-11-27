@@ -1,7 +1,8 @@
 # Phase 19 — production readiness
 
-> **Status:** steps 1 to 3 implemented and verified on 25 November 2026. Steps 4
-> to 11 are still plan.
+> **Status:** steps 1 to 5 implemented and verified on 27 November 2026. Step 6
+> has started: its route-table gate landed on 27 November 2026 and the service
+> extraction is still plan. Steps 7 to 11 are still plan.
 > **Scope owner:** engineering.
 > **Source of the work:** the critical review of 24 November 2026, which scored
 > the project 6/10 and named the faults behind each score.
@@ -328,10 +329,10 @@ during this step.
 
 **Effort:** 4 days.
 
-**Result (25 November 2026).** Implemented, uncommitted, with the numbers below
-measured on this working tree. Sub-steps were verified in order: schema and
-indexes, the edge service, the backfill migration, the write paths, the read
-paths, then the session projection.
+**Result (25 November 2026).** Implemented and committed as `0da466d`, with the
+numbers below measured on this working tree. Sub-steps were verified in order:
+schema and indexes, the edge service, the backfill migration, the write paths,
+the read paths, then the session projection.
 
 - **Schema:** `server/models/Follow.js`, `SavedPost.js`, `UserBlock.js` and
   `UserMute.js`, each with a unique pair index and the read index its list
@@ -436,6 +437,76 @@ node scripts/backup-drill.js    # after the flows change
 
 **Effort:** 3 days.
 
+**Result (26 November 2026).** Implemented on this working tree; every gate below
+was run on the same tree.
+
+- **Helper:** `server/utils/transaction.js` exports `withTransaction(fn)`. It
+  asks the deployment's topology once (`hello` reports `setName` for a replica
+  set or `isdbgrid` for a sharded cluster), caches the answer, and runs the
+  callback through `mongoose.connection.transaction`. Mongoose's async-local
+  storage gives every operation inside the callback the transaction's session,
+  so a helper that never receives a session still joins the commit. A standalone
+  server runs the same code path with no session and logs one warning;
+  `TRANSACTIONS=off` forces that path.
+- **Second connection:** squad chat may run on its own driver connection
+  (`MONGO_URI_SQUADS`), and MongoDB refuses a session from another client.
+  `sessionOptions(Model, session)` names `session: null` for a model on that
+  connection, so the squad-chat write stays outside the transaction instead of
+  failing it. The invitation flow also reads squad chat with `.session(null)`.
+- **Flows:** account deletion (succession, the erasure claim, the content purge,
+  the relation edges and the counters commit together; Cloudinary objects are
+  deleted after the commit), recovery completion (password, reset tokens and
+  recovery codes), a DM conversation with its first message (both the inbox
+  start and the acceptance of a request), a business review decision with its
+  audit row, and invitation acceptance with membership and the inviter's
+  notification.
+- **Tests:** `scripts/e2e-phase20.js` injects a failure after the first write of
+  each flow and reads the database back: 9/9. It also proves the cluster is a
+  replica set, that a notification written inside a transaction rolls back, and
+  that the forced fallback writes sequentially with no rollback.
+- **Measured:** `npm run test:e2e` 900/900 across seventeen suites, `npm test`
+  exit 0, lint 0 errors and the recorded 67 warnings, format check, typecheck and
+  migration lint clean, and `node scripts/backup-drill.js` restored 45
+  collections, 187 sample documents and 190 indexes.
+- **Latency:** `npm run bench:transactions` ran 100 two-operation units with and
+  without a transaction. p50 moved from 60.3 to 88.4 ms and p95 from 69.8 to
+  100.8 ms, an added 28.1 ms and 31.0 ms. Those are the two extra round trips
+  against a remote Atlas cluster. The 15 ms budget is written for a same-host
+  deployment and was not measured here: the machine has no local `mongod`, and
+  Docker Desktop was not running.
+- **After the commit (27 November 2026).** Squad chat may sit on its own driver
+  client, whose writes cannot join the session. They used to run immediately with
+  `session: null`, so a commit that aborted afterwards could leave them behind: a
+  member in a chat for a membership that rolled back, or a squad one member short
+  after an erasure that never committed. `withTransaction(fn)` now hands its
+  callback a `defer` registrar. The invitation acceptance and the account erasure
+  register their squad-chat writes there, and the helper runs them only after the
+  commit succeeds. A retried attempt or a refused commit empties the list first,
+  so nothing is registered twice, and a deferred write that fails afterwards is
+  logged rather than reported as a failed request: the committed work stands.
+- **Where the erasure meets the limits (27 November 2026).** `npm run tx:limits`
+  builds an account with 4,200 messages, 2,000 posts, 3,000 comments, 1,500
+  notifications and 300 squad messages, then erases it. The commit rewrote
+  2.56 MB of documents and finished in 6.0 s and 6.96 s of the 60 s transaction
+  lifetime over two runs. Scaling that payload to the 16 MB oplog ceiling puts
+  the same work between 38 and 43 s, so the size limit arrives first and both
+  have room for an ordinary account.
+  A commit the server refuses for size or lifetime is not a dead end: the
+  erasure passes `fallbackOnLimit`, and the helper repeats the flow outside a
+  transaction instead of failing. The probe proves it by rejecting the first
+  read with MongoDB's `TransactionTooLarge` code and finding no rows left after
+  the retry. The claim is written first, so the repeat is safe; a second erasure
+  of the same account reports `already-erased`. The fallback is not atomic, and
+  the helper says so in one warning.
+- **Rollback suite:** `scripts/e2e-phase20.js` is 13/13. Besides the five flow
+  failures it now fails an erasure and a squad acceptance between the first write
+  and the commit and finds the squad chat untouched, then repeats both to
+  success and finds it cleaned up.
+- **Open:** the transaction path has not run against a standalone server; only
+  the forced fallback is covered. The 15 ms latency budget was measured against
+  remote Atlas, not on a same-host deployment. Nothing was committed for this
+  step.
+
 ### Step 5 — Session lifetime and CSRF depth
 
 **Fault being removed.** One 7-day cookie, no rotation, no idle timeout, and in
@@ -474,6 +545,81 @@ log a loop counter.
 
 **Effort:** 3 days.
 
+**Result (27 November 2026).** Both halves are implemented on this working
+tree and verified.
+
+- **Session records:** `server/models/SessionToken.js` stores one row per
+  signed-in browser — the SHA-256 hash of the refresh token, the account's
+  session version, the last use, an expiry with a TTL index and a revocation
+  date. A database dump cannot be replayed as a session.
+- **Two tokens:** `server/utils/sessionTokens.js` mints a 30-minute access token
+  (the existing httpOnly `jwt` cookie) and a 30-day refresh token in an httpOnly
+  `gh_refresh` cookie that only `POST /api/auth/refresh` reads. Every use rotates
+  the row, and the replaced row is kept for a week as evidence.
+- **Rotation and replay:** a refresh token presented twice means two parties hold
+  it, so the whole account is signed out. A refresh after 14 days of inactivity
+  is refused and the row revoked. A row whose session version no longer matches
+  the account is revoked too, which is how a password change and "sign out
+  everywhere" retire refresh tokens as well as access tokens.
+- **Expiry is a code, not a sentence:** an expired access token answers 401 with
+  `code: "TOKEN_EXPIRED"`; every other refusal keeps the generic message. The
+  client's axios instance refreshes once per request, shares one in-flight
+  refresh between tabs, and never retries twice.
+- **Sign out:** `POST /api/auth/logout` no longer requires a live access token —
+  an expired session must still be able to end itself — and revokes this
+  browser's row. `logout-all` bumps the session version and retires every row.
+- **Sessions that predate the cookie (27 November 2026):** a browser signed in
+  before this release holds the session cookies and no `gh_csrf`, so its first
+  mutation is refused through no fault of its owner. The refusal now sets a
+  token and returns it in the body, and the client adopts it and replays the
+  request once. A cross-site form cannot read a cross-origin response, so the
+  token it never sees cannot help it. `server/tests/csrf.test.js` proves the
+  replacement works on the following request. `client/src/api/axiosInstance.test.js`
+  proves the replay and its two limits: one retry, and none when the refusal
+  carries no token. `scripts/e2e-phase21.js` drives the whole path over HTTP
+  with the CSRF cookie stripped.
+- **Tests:** `scripts/e2e-phase21.js` is 14/14 over real cookies: rotation, a
+  replay that signs the account out, an expired access token answered with
+  `TOKEN_EXPIRED` and recovered by one refresh, the 14-day idle window, sign out,
+  sign out everywhere, a mutation refused without the CSRF header, and a session
+  that arrived without one being handed a replacement it can use.
+  `npm run test:e2e` ran 918/918 across eighteen suites; `npm test` 379/379;
+  client 54/54; lint 0 errors and 66 warnings, format check, typecheck and the
+  prose gate clean.
+- **CSRF (27 November 2026):** `server/utils/csrf.js` puts a random value in a
+  `gh_csrf` cookie the page can read and requires it back in `x-csrf-token` on
+  every mutation that carries a session cookie. One middleware mounted on
+  `/api` covers endpoints that do not exist yet, so a new route cannot forget
+  the check. The comparison is length-checked and constant-time. Sign-in,
+  registration, refresh, sign-out and the recovery routes are exempt: a browser
+  holding an expired session cookie must still be able to sign in, and a forged
+  sign-in is answered by the credentials themselves.
+- **Cookie policy:** `server/utils/cookies.js` decides `sameSite` from the
+  deployment topology, with `COOKIE_SAMESITE` as the override. A same-site
+  deployment keeps `lax`; a split deployment needs `none`, and there the CSRF
+  header carries the defense. `none` requires `secure`, which production sets.
+- **Browser check (27 November 2026):** with the access token shortened to 40
+  seconds through the development-only `ACCESS_TOKEN_TTL_SECONDS`, sign-in by
+  clicking the form sent `POST /api/auth/login` 200, and the session resolved on
+  `/api/auth/me`. After the token expired, clicking a navigation link produced
+  `POST /api/discover/onboarding/start` 401, then one `POST /api/auth/refresh`
+  200, then both onboarding calls retried at 200, and the page stayed signed in
+  on `/welcome` with no reload and no trip to the login screen. `gh_csrf` was
+  present and the retried mutations were accepted.
+- **Two defects the browser found, both fixed:** the CSRF middleware refused
+  sign-in for a browser holding an expired session cookie, which only shows up
+  with a cookie jar that predates the change; and the access cookie expired with
+  the token, so the browser sent nothing and the 401 carried no `TOKEN_EXPIRED`
+  code, which meant the silent refresh could never fire. The access cookie now
+  lives as long as the refresh token, and the token's own `exp` is the limit.
+- **Tests:** `scripts/e2e-phase21.js` 13/13, including a mutation refused with
+  `CSRF_REQUIRED` and accepted with the header; `server/tests/csrf.test.js` 9
+  checks for the middleware, the issued cookie and the policy.
+- **Open:** the access token still travels in the JSON login response for the
+  socket handshake, so a script client can authenticate without a cookie. That
+  path is outside CSRF by design, and it is the surface a future token-format
+  change has to keep in mind.
+
 ### Step 6 — Backend structure and pagination
 
 **Fault being removed.** Eleven thousand lines of controllers, four files above
@@ -504,6 +650,24 @@ npm run test:e2e
 ```
 
 **Effort:** 4 days across several commits, one module per commit.
+
+**Result so far (27 November 2026).** The gate that the refactor needs before any
+handler moves is in place.
+
+- `scripts/route-snapshot.js` reads every router the application mounts and
+  records the method and path of each route in `scripts/fixtures/routes.json`:
+  227 entries on this tree. `server/tests/routes.test.js` fails when a route is
+  added or removed without updating the fixture, so an extraction commit cannot
+  silently drop an endpoint.
+- `npm run routes:snapshot` prints the difference against the fixture and exits
+  non-zero on drift; `--write` records a reviewed change.
+- **Next slices:** extract DM, auth and admin controllers into `server/services/`
+  one module per commit, with the route fixture as the guard; then replace the
+  three inline limit clamps with the one helper the plan names. That helper has
+  to be built on `server/utils/pagination.js`, which already exports
+  `parsePagination` and `parseObjectIdCursor` and is used by the feed,
+  notification and admin lists. A second, parallel clamp beside it would
+  recreate the fault this step removes, so the migration lands as one change.
 
 ### Step 7 — Client delivery and failure boundaries
 
