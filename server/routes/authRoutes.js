@@ -2,6 +2,7 @@ const express = require('express');
 const {
   register,
   login,
+  refreshSession,
   logout,
   logoutAll,
   getProviders,
@@ -43,6 +44,15 @@ const emailLimiter = createLimiter({
   message: 'Too many email requests. Try again in an hour.',
 });
 
+// Refresh runs once per access-token lifetime per open tab, so it needs more
+// room than a sign-in page and much less than a general endpoint.
+const refreshLimiter = createLimiter({
+  name: 'session-refresh',
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.REFRESH_RATE_LIMIT_MAX) || 120,
+  message: 'Too many session refreshes. Try again shortly.',
+});
+
 const passwordLimiter = createLimiter({
   name: 'account-password',
   windowMs: 15 * 60 * 1000,
@@ -73,7 +83,9 @@ router.patch('/password', protect, passwordLimiter, changePassword);
 router.post('/google', authLimiter, googleLogin);
 router.post('/link-google', protect, authLimiter, linkGoogle);
 router.delete('/link-google', protect, unlinkGoogle);
-router.post('/logout', protect, logout);
+router.post('/refresh', refreshLimiter, refreshSession);
+// Not behind `protect`: an expired access token must still end its session.
+router.post('/logout', logout);
 router.post('/logout-all', protect, logoutAll);
 router.get('/me', protect, getMe);
 router.patch('/profile', protect, updateProfile);

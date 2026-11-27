@@ -5,6 +5,36 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
+/** The CSRF cookie is readable by design, so the page can echo it in a header. */
+const readCookie = (name) => {
+  const entry = document.cookie.split('; ').find((pair) => pair.startsWith(`${name}=`));
+  return entry ? entry.slice(name.length + 1) : '';
+};
+
+const UNSAFE = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+/**
+ * A session that started before this release has no CSRF cookie, so the first
+ * mutation is refused and the refusal carries a token. Holding it in memory means
+ * the replay works even when the browser declines to store the cookie; the cookie
+ * wins whenever it exists, because that is what the server compared against.
+ */
+let recoveredCsrf = '';
+const currentCsrf = () => readCookie('gh_csrf') || recoveredCsrf;
+
+/**
+ * Every mutation carries the double-submit token. A cross-site form cannot set
+ * a header, so the server can tell a request from this application apart from
+ * one forged elsewhere.
+ */
+axiosInstance.interceptors.request.use((config) => {
+  if (UNSAFE.includes(String(config.method || 'get').toUpperCase())) {
+    const token = currentCsrf();
+    if (token) config.headers.set('x-csrf-token', token);
+  }
+  return config;
+});
+
 /**
  * NOTE: we deliberately do NOT redirect on 401 here. The bootstrap call
  * (`GET /auth/me`) always 401s for a signed-out visitor, and a global redirect
@@ -12,9 +42,74 @@ const axiosInstance = axios.create({
  * out. Components decide what to do: prompt for login on a protected action,
  * or simply render the anonymous view.
  */
+
+/**
+ * Access tokens live 30 minutes. When one expires the request is not a failure
+ * the person should see: it is retried once after exchanging the refresh token.
+ *
+ * Two rules keep that from becoming a loop. A request is retried at most once
+ * (`_retried`), and every tab shares one in-flight refresh, so ten parallel
+ * requests produce one rotation rather than ten that race each other.
+ */
+let refreshing = null;
+let refreshes = 0;
+
+const refreshSession = () => {
+  if (!refreshing) {
+    refreshing = axios
+      .post('/api/auth/refresh', null, {
+        withCredentials: true,
+        // The refresh call bypasses this instance's interceptors, so it names
+        // the token itself.
+        headers: { 'x-csrf-token': currentCsrf() },
+      })
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+};
+
 axiosInstance.interceptors.response.use(
   (res) => res,
-  (err) => Promise.reject(err),
+  async (err) => {
+    const { response, config } = err;
+    if (!response || !config) throw err;
+
+    // A session that predates the CSRF cookie is refused once, with a token.
+    // Adopting it and replaying the request is what keeps that deploy from
+    // signing somebody out of their own actions.
+    if (response.status === 403 && response.data?.code === 'CSRF_REQUIRED') {
+      const token = response.data?.csrfToken;
+      if (!token || config._csrfRetried) throw err;
+      recoveredCsrf = token;
+      return axiosInstance({ ...config, _csrfRetried: true });
+    }
+
+    if (response.status !== 401) throw err;
+    // Only an expiry is repairable. A revoked session or a bad credential is
+    // answered by the caller, not by a refresh.
+    if (response.data?.code !== 'TOKEN_EXPIRED') throw err;
+    if (config._retried || String(config.url || '').includes('/auth/refresh')) throw err;
+
+    try {
+      await refreshSession();
+      refreshes += 1;
+    } catch {
+      // The refresh itself was refused: the cookies are gone, so the caller's
+      // 401 handling is the right path.
+      throw err;
+    }
+
+    try {
+      return await axiosInstance({ ...config, _retried: true });
+    } catch (retryError) {
+      if (retryError.response?.data?.code === 'TOKEN_EXPIRED') {
+        console.warn('[session] a request was still expired after a refresh', refreshes);
+      }
+      throw retryError;
+    }
+  },
 );
 
 export default axiosInstance;

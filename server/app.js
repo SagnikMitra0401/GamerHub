@@ -26,6 +26,7 @@ const broadcastRoutes = require('./routes/broadcastRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const requestContext = require('./middleware/requestContext');
 const { corsOrigin } = require('./utils/origins');
+const { csrfProtect } = require('./utils/csrf');
 const { metricsMiddleware } = require('./utils/metrics');
 const { domainStatus } = require('./config/connections');
 const { readinessSnapshot } = require('./utils/readiness');
@@ -56,6 +57,10 @@ app.use(
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 app.use(mongoSanitize());
+
+// One check for every cookie-authenticated mutation. It runs before the routers
+// so a new endpoint cannot forget it.
+app.use('/api', csrfProtect);
 
 // Traffic/latency counters for the admin dashboard (no request bodies, no PII).
 app.use(metricsMiddleware);

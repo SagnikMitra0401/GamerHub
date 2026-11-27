@@ -48,13 +48,19 @@ const check = (name, fn) => {
  */
 const api = async (
   path,
-  { method = 'GET', body, cookie, token, origin, headers: extra, raw } = {},
+  { method = 'GET', body, cookie, token, origin, headers: extra, raw, csrf = true } = {},
 ) => {
   const headers = { ...(extra || {}) };
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (cookie) headers.cookie = cookie;
   if (token) headers.authorization = `Bearer ${token}`;
   if (origin) headers.origin = origin;
+  // A real browser sends this on every mutation. Doing it here keeps every
+  // suite exercising the middleware rather than each one opting out.
+  if (csrf && cookie) {
+    const match = /(?:^|;\s*)gh_csrf=([^;]+)/.exec(cookie);
+    if (match && !headers['x-csrf-token']) headers['x-csrf-token'] = match[1];
+  }
 
   const res = await fetch(`${base}${path}`, {
     method,

@@ -57,9 +57,14 @@ async function uploadTooLargePost(base, cookie) {
   const form = new FormData();
   form.append('title', 'Oversized image post');
   form.append('media', new Blob([Buffer.alloc(6 * 1024 * 1024)], { type: 'image/png' }), 'big.png');
+  // Multipart goes through fetch directly, so the CSRF pair has to be named
+  // here the way the shared helper does it.
+  const headers = { cookie };
+  const csrf = /(?:^|;\s*)gh_csrf=([^;]+)/.exec(cookie || '');
+  if (csrf) headers['x-csrf-token'] = csrf[1];
   const res = await fetch(`${base}/api/posts`, {
     method: 'POST',
-    headers: { cookie },
+    headers,
     body: form,
   });
   let data = null;

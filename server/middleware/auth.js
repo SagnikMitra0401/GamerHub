@@ -51,6 +51,11 @@ const protect = async (req, res, next) => {
     req.user = user;
     next();
   } catch (err) {
+    // The client refreshes only on this code. A revoked or malformed token gets
+    // the generic refusal, because no refresh token can repair it.
+    if (err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ code: 'TOKEN_EXPIRED', message: 'Session expired.' });
+    }
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 };

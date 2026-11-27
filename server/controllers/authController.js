@@ -1,6 +1,13 @@
 const crypto = require('crypto');
 const User = require('../models/User');
-const generateToken = require('../utils/generateToken');
+const {
+  startSession,
+  rotateSession,
+  endSession,
+  revokeAllSessions,
+  clearSessionCookies,
+  SessionError,
+} = require('../utils/sessionTokens');
 const { sanitizeLine, sanitizeText } = require('../utils/sanitize');
 const { normalizeUsername, usernameFilter } = require('../utils/username');
 const { disconnectUser } = require('../config/socket');
@@ -26,6 +33,7 @@ const {
   invalidateEmailChallenges,
 } = require('../utils/emailCodes');
 const { validatePassword, hashPassword, verifyPassword } = require('../utils/passwords');
+const { withTransaction, sessionOptions } = require('../utils/transaction');
 const { recordEvent } = require('../utils/productEvents');
 const { releaseExpiredSuspension } = require('../utils/moderation');
 
@@ -128,7 +136,7 @@ const register = async (req, res, next) => {
     }
 
     recordEvent('signup', user._id, { source: 'local' });
-    const token = generateToken(res, user._id, user.sessionVersion);
+    const token = await startSession(res, user._id, user.sessionVersion, req.get('user-agent'));
 
     res.status(201).json({
       user: {
@@ -175,7 +183,7 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = generateToken(res, user._id, user.sessionVersion);
+    const token = await startSession(res, user._id, user.sessionVersion, req.get('user-agent'));
 
     res.status(200).json({
       user: {
@@ -193,18 +201,39 @@ const login = async (req, res, next) => {
 };
 
 const clearAuthCookie = (res) => {
-  res.cookie('jwt', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    expires: new Date(0),
-    path: '/',
-  });
+  clearSessionCookies(res);
 };
 
-const logout = (req, res) => {
-  clearAuthCookie(res);
-  res.status(200).json({ message: 'Logged out' });
+/**
+ * POST /api/auth/refresh
+ *
+ * The only route that reads the refresh cookie. It rotates the record and
+ * answers with a new access token, so an expiry in the middle of a session
+ * costs one round trip instead of a sign-in.
+ */
+const refreshSession = async (req, res, next) => {
+  try {
+    const session = await rotateSession(req, res);
+    res.status(200).json(session);
+  } catch (err) {
+    if (err instanceof SessionError) {
+      // A refusal must not leave a cookie the browser will retry forever.
+      clearAuthCookie(res);
+      return res.status(err.status).json({ message: err.message, code: err.code });
+    }
+    next(err);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    // Deliberately not behind `protect`: an expired access token must still be
+    // able to end the session it belongs to.
+    await endSession(req, res);
+    res.status(200).json({ message: 'Logged out' });
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
@@ -219,6 +248,9 @@ const logoutAll = async (req, res, next) => {
       { $inc: { sessionVersion: 1 } },
       { new: true, select: 'sessionVersion' },
     );
+    // The access tokens die with the version bump; the refresh rows have to be
+    // retired explicitly, or one of them could mint a new pair afterwards.
+    await revokeAllSessions(req.user._id);
     clearAuthCookie(res);
     disconnectUser(req.user._id);
     res.status(200).json({ message: 'Signed out everywhere', sessionVersion: user.sessionVersion });
@@ -377,7 +409,7 @@ const googleLogin = async (req, res, next) => {
     }
 
     if (isNewGoogleAccount) recordEvent('signup', user._id, { source: 'google' });
-    const token = generateToken(res, user._id, user.sessionVersion);
+    const token = await startSession(res, user._id, user.sessionVersion, req.get('user-agent'));
     res.status(200).json({
       user: {
         id: user._id,
@@ -721,13 +753,17 @@ const verifyRecovery = async (req, res, next) => {
     }
 
     const passwordHash = await hashPassword(password);
-    await User.updateOne(
-      { _id: user._id },
-      { $set: { passwordHash, hasLocalPassword: true }, $inc: { sessionVersion: 1 } },
-      { runValidators: true },
-    );
-    await invalidateAccountTokens(user._id, PURPOSES.RESET_PASSWORD);
-    await invalidateEmailChallenges(user._id, CODE_PURPOSES.RECOVER_ACCOUNT);
+    // The new password and the retirement of every older reset path commit
+    // together: a rollback here must not leave a reset link that still works.
+    await withTransaction(async (session) => {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { passwordHash, hasLocalPassword: true }, $inc: { sessionVersion: 1 } },
+        { runValidators: true, ...sessionOptions(User, session) },
+      );
+      await invalidateAccountTokens(user._id, PURPOSES.RESET_PASSWORD, session);
+      await invalidateEmailChallenges(user._id, CODE_PURPOSES.RECOVER_ACCOUNT, session);
+    });
     disconnectUser(user._id);
 
     recordEvent('account_recovered', user._id);
@@ -1076,6 +1112,7 @@ const updateProfile = async (req, res, next) => {
 module.exports = {
   register,
   login,
+  refreshSession,
   logout,
   logoutAll,
   getProviders,

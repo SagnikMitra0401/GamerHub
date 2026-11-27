@@ -14,7 +14,7 @@ const SquadChatMessage = require('../models/SquadChatMessage');
 const Conversation = require('../models/Conversation');
 const BusinessProfile = require('../models/BusinessProfile');
 
-const generateToken = require('../utils/generateToken');
+const { startSession } = require('../utils/sessionTokens');
 const { normalizeUsername, usernameFilter } = require('../utils/username');
 const { planSuccessionForUser } = require('../utils/succession');
 const { eraseAccount } = require('../utils/accountErasure');
@@ -727,7 +727,12 @@ const cancelDeletion = async (req, res, next) => {
 
     // The deletion request invalidated the old cookie; issue a fresh one so the
     // owner is not bounced to the login page after cancelling.
-    const token = generateToken(res, req.user._id, updated.sessionVersion);
+    const token = await startSession(
+      res,
+      req.user._id,
+      updated.sessionVersion,
+      req.get('user-agent'),
+    );
     res.status(200).json({ status: updated.status, token });
   } catch (err) {
     next(err);

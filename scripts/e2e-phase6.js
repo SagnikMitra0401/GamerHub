@@ -56,8 +56,11 @@ const { api, check, registerUser, report, setBase } = require('./lib/e2e-harness
 
 const register = registerUser;
 
+// A synthetic session needs the CSRF pair as well: the middleware does not care
+// how the cookie was minted, only that a mutation carries the header that goes
+// with it. The harness echoes this value from the cookie on every write.
 const cookieFor = (userId) =>
-  `jwt=${jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' })}`;
+  `jwt=${jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '1h' })}; gh_csrf=e2e-fixture-token`;
 
 async function run() {
   await connectDB();
