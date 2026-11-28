@@ -1,8 +1,9 @@
 # Phase 19 — production readiness
 
 > **Status:** steps 1 to 5 implemented and verified on 27 November 2026. Step 6
-> has started: its route-table gate landed on 27 November 2026 and the service
-> extraction is still plan. Steps 7 to 11 are still plan.
+> has started: the route-table gate landed on 27 November 2026 and the pagination
+> helper on 28 November; the service extraction is still plan. Steps 7 to 11 are
+> still plan.
 > **Scope owner:** engineering.
 > **Source of the work:** the critical review of 24 November 2026, which scored
 > the project 6/10 and named the faults behind each score.
@@ -669,13 +670,26 @@ handler moves is in place.
   silently drop an endpoint.
 - `npm run routes:snapshot` prints the difference against the fixture and exits
   non-zero on drift; `--write` records a reviewed change.
-- **Next slices:** extract DM, auth and admin controllers into `server/services/`
-  one module per commit, with the route fixture as the guard; then replace the
-  three inline limit clamps with the one helper the plan names. That helper has
-  to be built on `server/utils/pagination.js`, which already exports
-  `parsePagination` and `parseObjectIdCursor` and is used by the feed,
-  notification and admin lists. A second, parallel clamp beside it would
-  recreate the fault this step removes, so the migration lands as one change.
+- **Pagination (28 November 2026):** `server/utils/pagination.js` exports
+  `parseLimit(value, { fallback, max })`, and `parsePagination` calls it instead
+  of repeating the arithmetic. Five hand-written clamps moved onto it: the DM
+  inbox and the shared inbox in `server/utils/dmService.js`, squad chat history,
+  broadcast channel history and the game catalog list. Each caller passes its own
+  fallback and ceiling, so every page size is the number it was.
+- **The one intended difference:** a fractional limit now floors, so `?limit=9.8`
+  asks the driver for 9 rows instead of a double. Blank, zero, negative and
+  non-numeric values fall back exactly as before.
+- **The pagination gate:** `server/tests/sanitize.test.js` scans
+  `server/controllers` for `Math.min(Math.max(Number(…limit…` and fails on a hit.
+  Chat slow mode and retention days are clamped the same way and are not page
+  sizes, so the pattern has to name a limit; the pre-change broadcast controller
+  still matches it. `parseLimit` is covered on its own for fallback, floor,
+  ceiling, negative, fractional and a custom pair of bounds.
+- **Next slice:** extract the DM, auth and admin controllers into
+  `server/services/`, one module per change, with the route fixture as the guard.
+  `server/utils/dmService.js` (1,490 lines) and
+  `server/controllers/authController.js` (1,136) come first. No hand-written file
+  above 500 lines has moved yet, which is the acceptance this step still owes.
 
 ### Step 7 — Client delivery and failure boundaries
 

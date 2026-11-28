@@ -4,6 +4,7 @@ const SquadChat = require('../models/SquadChat');
 const SquadChatMessage = require('../models/SquadChatMessage');
 const { CHAT_POLICY } = require('../config/chatPolicy');
 const { normalizeMessageText } = require('./sanitize');
+const { parseLimit } = require('./pagination');
 const {
   expiryFrom,
   isExpired,
@@ -168,7 +169,7 @@ async function refreshSquadChat(chatId, userId) {
  * @param {{before?: string, limit?: number}} [options]
  */
 async function listSquadMessages(chatId, { before, limit = 50 } = {}) {
-  const cap = Math.min(Math.max(Number(limit) || 50, 1), CHAT_POLICY.history.maxLimit);
+  const cap = parseLimit(limit, { fallback: 50, max: CHAT_POLICY.history.maxLimit });
   const query = { chatId, isDeleted: false };
 
   if (before) {

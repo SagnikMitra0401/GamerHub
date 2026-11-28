@@ -2,7 +2,7 @@
 
 [![Live Demo](https://img.shields.io/badge/Demo-Live-black?style=flat-square&logo=vercel)](https://gamer-hub-alpha.vercel.app)
 [![API](https://img.shields.io/badge/API-Render-46E3B7?style=flat-square&logo=render)](https://gamerhub-backend-3108.onrender.com/api/health)
-[![Tests](https://img.shields.io/badge/Tests-379%20server%20%2B%2054%20client-brightgreen?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-381%20server%20%2B%2054%20client-brightgreen?style=flat-square)]()
 [![License](https://img.shields.io/badge/License-MIT-silver?style=flat-square)](LICENSE)
 
 GamerHub is a full-stack gaming social platform built on the MERN stack. It combines a social feed, Discord-style community channels, a looking-for-group board, a game catalog, gamification, and an admin observability dashboard — all served from a single Express API with real-time Socket.io transport.
@@ -460,7 +460,7 @@ MERN_INTERNSHIP_Proj/
 │   │   └── generateToken.js        # JWT sign + set HttpOnly cookie
 │   ├── jobs/
 │   │   └── retention.js            # Periodic cleanup worker (stale data)
-│   └── tests/                      # 379 unit checks across 50 files (Node native test runner)
+│   └── tests/                      # 381 unit checks across 50 files (Node native test runner)
 │       ├── permissions.test.js
 │       ├── sanitize.test.js
 │       ├── ssrf.test.js
@@ -1433,13 +1433,13 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 379 checks, no database needed
+npm test                      # server: 381 checks, no database needed
 npm test --prefix client      # client components: 54 checks in jsdom
 npm run test:responsive       # headless Chrome layout smoke at 7 device sizes
 npm run scan:secrets          # credential-leak gate
 ```
 
-**379 server checks across 50 test files, all passing.**
+**381 server checks across 50 test files, all passing.**
 
 | Suite | Coverage area |
 |---|---|

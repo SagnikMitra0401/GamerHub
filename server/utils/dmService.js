@@ -21,6 +21,7 @@ const Party = require('../models/Party');
 const { badRequest, forbidden, notFound, conflict } = require('./httpError');
 const relations = require('./relations');
 const { sanitizeLine } = require('./sanitize');
+const { parseLimit } = require('./pagination');
 const { notifyUser } = require('./notify');
 const { recordFirstEvent } = require('./productEvents');
 const { invalidateVisibility } = require('./visibility');
@@ -686,7 +687,7 @@ async function listConversations({
   limit = 30,
 }) {
   const me = String(userId);
-  const take = Math.min(Math.max(Number(limit) || 30, 1), 50);
+  const take = parseLimit(limit, { fallback: 30, max: 50 });
   if (!['all', 'personal', 'business'].includes(scope))
     throw badRequest('Unknown conversation scope.');
   const query = {};
@@ -817,7 +818,7 @@ async function listTeamConversations({
   before = null,
   limit = 30,
 }) {
-  const take = Math.min(Math.max(Number(limit) || 30, 1), 50);
+  const take = parseLimit(limit, { fallback: 30, max: 50 });
   if (!['inbox', 'requests', 'filtered', 'archived'].includes(folder)) {
     throw badRequest('Unknown shared inbox folder.');
   }

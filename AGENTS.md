@@ -1,5 +1,9 @@
 # Project instructions
 
+## Commits
+
+The agent does not commit, stage, amend, rebase or push. The maintainer reviews the working tree and commits it. When a task is finished, the agent names the changed files and stops there.
+
 ## Writing standard
 
 Every piece of prose this repository produces follows the unslop skill in `docs/skills/unslop/SKILL.md`: UI copy, error and empty-state text, notification and email copy, legal drafts, plans, reports, PR descriptions, release notes and commit messages. Read the skill before writing, then apply it silently. Do not mention the skill, its rules or its rule numbers in the deliverable.

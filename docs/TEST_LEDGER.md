@@ -4,7 +4,7 @@ Living record of what has been verified, by what method, and when to re-run each
 tier. The point is to stop re-testing things that cannot have changed: read the
 "Re-run only if" column before spending a pass on a tier.
 
-**Last updated:** 27 November 2026 · **Branch:** `main` · **Head:** `0da466d` Phase 19 step 3: relationship edges. Steps 4 and 5, and the route-table gate that opens step 6, are on the working tree and not committed.
+**Last updated:** 28 November 2026 · **Branch:** `main` · **Head:** `faa580e`, one commit ahead of `origin/main`. Step 6's pagination slice is on the working tree and uncommitted; the maintainer commits.
 **Node:** v24.16.0 · **Redis:** intentionally off (`REDIS_ENABLED` unset)
 **Companion docs:** [phase 6 detail](TEST_REPORT_PHASE6.md) · [next phases](ROADMAP.md)
 
@@ -14,7 +14,7 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 
 | Tier | Command | Result | Last run |
 |---|---|---|---|
-| Unit / contract — server | `npm test` | **379 / 379 pass** | 27 Nov |
+| Unit / contract — server | `npm test` | **381 / 381 pass** | 28 Nov |
 | Lint — server, scripts and client | `npm run lint` | **0 errors, 66 warnings**; `--max-warnings 67` makes a new warning a failure | 27 Nov |
 | Format — Prettier | `npm run format:check` | **pass** — one config, single quotes at 100 columns | 26 Nov |
 | Types — server JavaScript | `npm run typecheck` | **0 errors** — `allowJs` and `checkJs`, `server/tests` excluded | 26 Nov |
@@ -37,7 +37,7 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | E2E — relationship edges, backfill and deployment window | `scripts/e2e-phase19.js` | **39 / 39 pass** | 26 Nov |
 | E2E — transaction rollback on every wrapped flow, after-commit deferral | `scripts/e2e-phase20.js` | **13 / 13 pass** | 27 Nov |
 | E2E — refresh rotation, replay, idle expiry, sign-out, CSRF | `scripts/e2e-phase21.js` | **14 / 14 pass** | 27 Nov |
-| Route table fixture — 227 methods and paths | `npm run routes:snapshot` | **pass** — no drift against `scripts/fixtures/routes.json` | 27 Nov |
+| Route table fixture — 227 methods and paths | `npm run routes:snapshot` | **pass** — no drift against `scripts/fixtures/routes.json` | 28 Nov |
 | Transaction latency — 100 runs per arm | `npm run bench:transactions` | **added 28.1 ms p50, 31.0 ms p95** against remote Atlas | 26 Nov |
 | Erasure against the transaction bounds | `npm run tx:limits` | **pass** — 2.56 MB rewritten, committed in 6.0 s of the 60 s lifetime; a commit refused for size repeated outside the transaction with no rows left | 27 Nov |
 | Client production build | `npm run build --prefix client` | **pass** — 179.13 kB CSS / 792.29 kB JS (211.60 kB gzip), with Vite's chunk-size warning above 500 kB | 24 Nov |
@@ -64,12 +64,34 @@ tier. The point is to stop re-testing things that cannot have changed: read the
 | CI — `quality` job | push to `main` | **pass** — 5 steps really executed, 17 s | 26 Oct, run 2 (`f69a2e7`) |
 | CI — `e2e` job | push to `main` | **pass** — 284 checks + `migrate:status`, 3 m 13 s | 26 Oct, run 2 (`f69a2e7`) |
 
-**1,351 automated checks defined** (379 server + 54 client + 918 e2e across eighteen suites), plus 63 responsive checks and the secret, origin and design-system gates.
+**1,353 automated checks defined** (381 server + 54 client + 918 e2e across eighteen suites), plus 63 responsive checks and the secret, origin and design-system gates.
 Every figure was measured on 25 November. Phase 19 step 1 adds 19 boot and gate
 checks and two scripts; step 2 adds no checks, only a warning ceiling.
 `npm run ledger:counts` in step 11 keeps the totals from drifting.
 Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
 YouTube facade tests; Phase 15 re-ran clean at 41/41.
+
+### Pass 30 (28 Nov) — one page-size clamp
+
+Step 6's pagination half. The service extraction is still ahead.
+
+- **One helper:** `server/utils/pagination.js` exports
+  `parseLimit(value, { fallback, max })`, and `parsePagination` calls it instead
+  of repeating the arithmetic, so the clamp exists once in the server.
+- **Five call sites moved:** the DM inbox and the shared inbox
+  (`server/utils/dmService.js`), squad chat history, broadcast channel history
+  and the game catalog list. Each passes its own fallback and ceiling, so no page
+  size changed.
+- **Fractional input:** `?limit=9.8` used to reach the driver as a double and now
+  floors to 9. Blank, zero, negative and non-numeric values fall back as before.
+- **The gate:** a controller scan fails on `Math.min(Math.max(Number(…limit…`.
+  The pattern has to name a limit, because chat slow mode and retention days are
+  clamped the same way and are not page sizes. Run against the pre-change
+  broadcast controller it matches; against the tree it names no file.
+- **Measured:** `npm test` 381/381, `npm run test:e2e` 918/918 across eighteen
+  suites with no test edits, the route fixture unchanged at 227 entries,
+  `npm run lint` 0 errors and 66 warnings, `npm run format:check`,
+  `npm run typecheck` and the prose gate clean (0 P0/P1).
 
 ### Pass 29 (28 Nov) — CSRF recovery, reviewed
 

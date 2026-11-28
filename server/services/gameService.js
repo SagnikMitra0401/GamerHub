@@ -16,6 +16,7 @@ const igdb = require('../utils/gameProviders/igdb');
 const { buildGameRecord, canonicalKey, mergeGameDocuments } = require('../utils/gameRegistry');
 const { cacheWrap } = require('../utils/redisCache');
 const { escapeRegex, sanitizeLine } = require('../utils/sanitize');
+const { parseLimit } = require('../utils/pagination');
 
 const DEFAULT_LIMIT = 24;
 const MAX_LIMIT = 48;
@@ -218,7 +219,7 @@ async function listGames({
 } = {}) {
   await ensureCatalogSeeded();
 
-  const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_LIMIT, 1), MAX_LIMIT);
+  const safeLimit = parseLimit(limit, { fallback: DEFAULT_LIMIT, max: MAX_LIMIT });
   const safeSort = ['trending', 'new', 'az'].includes(sort) ? sort : 'trending';
   const needle = sanitizeLine(q, 60);
 

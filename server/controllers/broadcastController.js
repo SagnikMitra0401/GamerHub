@@ -18,7 +18,7 @@ const {
 } = require('../utils/broadcastAccess');
 const { notifyUser } = require('../utils/notify');
 const { getIO } = require('../config/socket');
-const { parseObjectIdCursor } = require('../utils/pagination');
+const { parseLimit, parseObjectIdCursor } = require('../utils/pagination');
 const { BROADCAST_CATEGORIES } = require('../models/BroadcastChannel');
 
 const MAX_CHANNELS_PER_OWNER = 3;
@@ -331,7 +331,7 @@ const getMessages = async (req, res, next) => {
       throw forbidden('This channel is private.');
     }
 
-    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+    const limit = parseLimit(req.query.limit, { fallback: 20, max: 50 });
     const before = parseObjectIdCursor(req.query.before, mongoose);
     const filter = { channelId: channel._id };
     if (before) filter._id = { $lt: before };

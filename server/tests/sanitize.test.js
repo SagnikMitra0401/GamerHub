@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { CHAT_POLICY } = require('../config/chatPolicy');
 const {
@@ -12,7 +14,7 @@ const {
   isHttpUrl,
   decodeHtmlEntities,
 } = require('../utils/sanitize');
-const { parsePagination } = require('../utils/pagination');
+const { parseLimit, parsePagination } = require('../utils/pagination');
 
 test('message normalisation strips hostile characters', () => {
   assert.deepEqual(normalizeMessageText('  hello\u0000 world  ', CHAT_POLICY), {
@@ -116,4 +118,32 @@ test('pagination is NaN-proof', () => {
     limit: 50,
     skip: 9_999 * 50,
   });
+});
+
+test('one parser caps every page size', () => {
+  assert.equal(parseLimit('12'), 12);
+  assert.equal(parseLimit(undefined), 15);
+  assert.equal(parseLimit(''), 15);
+  assert.equal(parseLimit('0'), 15);
+  assert.equal(parseLimit('abc'), 15);
+  assert.equal(parseLimit('-3'), 1);
+  assert.equal(parseLimit('500'), 50);
+  assert.equal(parseLimit('9.8'), 9);
+  assert.equal(parseLimit('7', { fallback: 20, max: 5 }), 5);
+  assert.equal(parseLimit(24, { fallback: 24, max: 48 }), 24);
+});
+
+// Page sizes only. Chat slow mode and retention are clamped the same way and
+// are not pagination, so the pattern has to name a limit to match.
+test('controllers cap page sizes through parseLimit', () => {
+  const dir = path.join(__dirname, '..', 'controllers');
+  const offenders = fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith('.js'))
+    .filter((name) =>
+      /Math\.min\(\s*Math\.max\(\s*Number\([^)]*[Ll]imit/.test(
+        fs.readFileSync(path.join(dir, name), 'utf8'),
+      ),
+    );
+  assert.deepEqual(offenders, []);
 });
