@@ -568,16 +568,24 @@ tree and verified.
 - **Sign out:** `POST /api/auth/logout` no longer requires a live access token —
   an expired session must still be able to end itself — and revokes this
   browser's row. `logout-all` bumps the session version and retires every row.
-- **Sessions that predate the cookie (27 November 2026):** a browser signed in
-  before this release holds the session cookies and no `gh_csrf`, so its first
-  mutation is refused through no fault of its owner. The refusal now sets a
-  token and returns it in the body, and the client adopts it and replays the
-  request once. A cross-site form cannot read a cross-origin response, so the
-  token it never sees cannot help it. `server/tests/csrf.test.js` proves the
-  replacement works on the following request. `client/src/api/axiosInstance.test.js`
-  proves the replay and its two limits: one retry, and none when the refusal
-  carries no token. `scripts/e2e-phase21.js` drives the whole path over HTTP
-  with the CSRF cookie stripped.
+- **Sessions that predate the cookie (27 November 2026, revised 28 November):**
+  a browser signed in before this release holds the session cookies and no
+  `gh_csrf`, so its first mutation is refused through no fault of its owner. The
+  refusal sets a token and the client replays the request once from that cookie.
+  The cookie is the only copy: the server compares cookie to header and never
+  reads a body, so a token held in memory could not pass on its own.
+  `server/tests/csrf.test.js` proves the replacement works on the following
+  request. `client/src/api/axiosInstance.test.js` proves the replay and its two
+  limits: one retry, and none when the refusal stored nothing.
+  `scripts/e2e-phase21.js` drives the whole path over HTTP with the CSRF cookie
+  stripped.
+- **A tab still running the previous bundle (28 November 2026):** that bundle
+  sends no header and has no replay, so it cannot recover in place, and no server
+  fallback should pretend otherwise: letting a session without the cookie through
+  would pass its first request, set the cookie, and refuse every request after
+  it. The refusal message names the action that does work, "This tab is out of
+  date. Reload the page to continue." The reload arrives with the token already
+  stored and the new bundle, so the next mutation is accepted.
 - **Tests:** `scripts/e2e-phase21.js` is 14/14 over real cookies: rotation, a
   replay that signs the account out, an expired access token answered with
   `TOKEN_EXPIRED` and recovered by one refresh, the 14-day idle window, sign out,

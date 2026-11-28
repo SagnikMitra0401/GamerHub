@@ -112,8 +112,8 @@ async function sessionScenarios() {
   check('a session with no CSRF cookie is refused with a replacement it can use', () => {
     assert.equal(stranded.status, 403);
     assert.equal(stranded.data.code, 'CSRF_REQUIRED');
-    assert.ok(stranded.data.csrfToken, 'no token in the refusal');
-    assert.equal(replacement, `gh_csrf=${stranded.data.csrfToken}`);
+    assert.match(stranded.data.message, /Reload/, 'the refusal does not say what to do');
+    assert.ok(replacement, 'the refusal set no CSRF cookie');
     assert.equal(healed.status, 200, JSON.stringify(healed.data));
   });
 

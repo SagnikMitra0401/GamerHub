@@ -16,10 +16,9 @@
  *
  * A refusal is not a dead end. Somebody who signed in before this check shipped
  * holds a session cookie and no `gh_csrf` cookie, so their first mutation is
- * refused through no fault of their own. The refusal sets a token and returns
- * it, and the client replays the request once with it; a form on another site
- * cannot read a cross-origin response, so the token it never sees is useless to
- * it.
+ * refused through no fault of their own. The refusal sets a token, and the
+ * client replays the request once with it. A form on another site cannot read a
+ * cross-origin response, so the token it never sees is useless to it.
  *
  * The comparison is length-checked then constant-time, so a wrong token costs
  * the same as a missing one.
@@ -58,8 +57,9 @@ const SESSION_ENTRY_PATHS = new Set([
 const newToken = () => crypto.randomBytes(24).toString('base64url');
 
 /**
- * Put a token where the page can read it. Called when a session starts and when
- * a refresh token is exchanged, so a browser that lost the cookie gets one back.
+ * Put a token where the page can read it. Called when a session starts, when a
+ * refresh token is exchanged, and when a request is refused, so a browser that
+ * lost the cookie gets one back.
  */
 function issueCsrfToken(res, token = newToken()) {
   res.cookie(CSRF_COOKIE, token, csrfCookieOptions());
@@ -80,22 +80,18 @@ function csrfProtect(req, res, next) {
   const cookieSession = Boolean(req.cookies?.jwt || req.cookies?.gh_refresh);
   if (!cookieSession) return next();
 
-  const cookieToken = req.cookies?.[CSRF_COOKIE];
-  const headerToken = req.get(CSRF_HEADER);
-  if (!sameToken(cookieToken, headerToken)) {
-    // Hand the caller a token for the retry. Without this, a browser that was
-    // signed in before this check existed would be refused on every mutation
-    // until its cookies were cleared by hand.
-    const token = newToken();
-    issueCsrfToken(res, token);
-    return res.status(403).json({
-      code: 'CSRF_REQUIRED',
-      message: 'This request could not be verified. Retrying.',
-      csrfToken: token,
-    });
-  }
+  if (sameToken(req.cookies?.[CSRF_COOKIE], req.get(CSRF_HEADER))) return next();
 
-  return next();
+  // The refusal sets the token the next request is compared against, so the
+  // browser that was signed in before this check existed is one reload away
+  // from working. The message names that reload: a page still running the
+  // previous bundle has no retry of its own, and nothing in the body can help
+  // it, because the server compares a cookie and never reads a body.
+  issueCsrfToken(res);
+  return res.status(403).json({
+    code: 'CSRF_REQUIRED',
+    message: 'This tab is out of date. Reload the page to continue.',
+  });
 }
 
 module.exports = {

@@ -88,13 +88,14 @@ test('a refusal hands a session without a CSRF cookie a replacement', () => {
   assert.equal(first.res.statusCode, 403);
   const [cookie] = first.res.cookies;
   assert.equal(cookie.name, 'gh_csrf');
-  assert.ok(first.res.body.csrfToken, 'no token in the refusal');
-  assert.equal(cookie.value, first.res.body.csrfToken);
+  assert.ok(cookie.value, 'no token issued with the refusal');
+  assert.equal('csrfToken' in first.res.body, false, 'the cookie is the only copy');
+  assert.match(first.res.body.message, /Reload/, 'the refusal does not say what to do');
 
   const second = call({
     method: 'PATCH',
-    cookies: { jwt: 'a', gh_csrf: first.res.body.csrfToken },
-    header: first.res.body.csrfToken,
+    cookies: { jwt: 'a', gh_csrf: cookie.value },
+    header: cookie.value,
   });
   assert.equal(second.passed, true, 'the replacement token did not work');
 });

@@ -2,7 +2,7 @@
 
 [![Live Demo](https://img.shields.io/badge/Demo-Live-black?style=flat-square&logo=vercel)](https://gamer-hub-alpha.vercel.app)
 [![API](https://img.shields.io/badge/API-Render-46E3B7?style=flat-square&logo=render)](https://gamerhub-backend-3108.onrender.com/api/health)
-[![Tests](https://img.shields.io/badge/Tests-293%20server%20%2B%2051%20client-brightgreen?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-379%20server%20%2B%2054%20client-brightgreen?style=flat-square)]()
 [![License](https://img.shields.io/badge/License-MIT-silver?style=flat-square)](LICENSE)
 
 GamerHub is a full-stack gaming social platform built on the MERN stack. It combines a social feed, Discord-style community channels, a looking-for-group board, a game catalog, gamification, and an admin observability dashboard — all served from a single Express API with real-time Socket.io transport.
@@ -351,7 +351,7 @@ MERN_INTERNSHIP_Proj/
 ├── client/                         # Vite React application
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── axiosInstance.js    # Base URL, credential flag, error interceptor
+│   │   │   ├── axiosInstance.js    # Base URL, credentials, CSRF echo, refresh, replay
 │   │   │   └── socket.js           # socket.io-client singleton
 │   │   ├── components/
 │   │   │   ├── auth/               # LoginForm, RegisterForm
@@ -460,7 +460,7 @@ MERN_INTERNSHIP_Proj/
 │   │   └── generateToken.js        # JWT sign + set HttpOnly cookie
 │   ├── jobs/
 │   │   └── retention.js            # Periodic cleanup worker (stale data)
-│   └── tests/                      # 211 unit checks across 25 suites (Node native test runner)
+│   └── tests/                      # 379 unit checks across 50 files (Node native test runner)
 │       ├── permissions.test.js
 │       ├── sanitize.test.js
 │       ├── ssrf.test.js
@@ -1154,6 +1154,30 @@ history stays valid.
 - JWTs signed with `JWT_SECRET` and delivered as an `HttpOnly` cookie (`SameSite=None; Secure` in production, needed because the Vercel frontend calls Render cross-site; `SameSite=Lax` in development)
 - The same JWT is mirrored in the auth response body **only** so the Socket.io client can authenticate its WebSocket handshake, which cannot send cookies cross-site. It is never placed in a URL, log, or HTML. REST endpoints authenticate from the cookie alone — a `Bearer` header on `/api/*` is ignored
 
+### Sessions and CSRF
+
+- Two cookies carry a session: an `HttpOnly` access token (30 minutes) and an
+  `HttpOnly` refresh token (30 days). The refresh token is not a JWT. It is
+  rotated on every exchange and only its hash is stored in `SessionToken`, so a
+  replay of an already exchanged token signs the account out everywhere.
+- Every mutation that carries a session cookie must echo the readable `gh_csrf`
+  cookie in `x-csrf-token`. One middleware on `/api` enforces this before the
+  routers, so a new endpoint cannot forget it. A request authenticated by a
+  `Bearer` header alone is not checked: it carries no cookie for a browser to
+  replay.
+- Sign-in, registration, refresh, sign-out and the recovery routes are exempt,
+  because a browser holding an expired session cookie must still be able to sign
+  in again. A forged sign-in is answered by the credentials themselves.
+- A refusal sets a fresh `gh_csrf` cookie and answers `403` with
+  `code: "CSRF_REQUIRED"` and the message "This tab is out of date. Reload the
+  page to continue." The client replays the request once from that cookie. A tab
+  still running the previous bundle has no retry code, so the reload in that
+  message is its recovery: the new bundle loads with the token already stored
+  and the next mutation is accepted.
+- An expired access token answers `401` with `code: "TOKEN_EXPIRED"`; the client
+  refreshes once, shares one in-flight refresh between parallel calls, and never
+  retries a request twice.
+
 ### Authorization Layers
 
 ```
@@ -1409,13 +1433,13 @@ The server suite uses Node's built-in test runner (no external framework) and th
 client suite uses Vitest + Testing Library.
 
 ```bash
-npm test                      # server: 293 checks, no database needed
-npm test --prefix client      # client components: 51 checks in jsdom
+npm test                      # server: 379 checks, no database needed
+npm test --prefix client      # client components: 54 checks in jsdom
 npm run test:responsive       # headless Chrome layout smoke at 7 device sizes
 npm run scan:secrets          # credential-leak gate
 ```
 
-**293 server checks across 40 test files — all passing.**
+**379 server checks across 50 test files, all passing.**
 
 | Suite | Coverage area |
 |---|---|
@@ -1423,6 +1447,8 @@ npm run scan:secrets          # credential-leak gate
 | `sanitize.test.js` | Input sanitizers, HTML entity decode, tag normalisation, regex escape |
 | `ssrf.test.js` | Private IPv4/IPv6 range blocking, redirect chain inspection |
 | `origins.test.js` | CORS allow-list: production exact match, development loopback, comma list |
+| `csrf.test.js` | Double-submit check: safe methods, no session, missing and mismatched token, the replacement a refusal sets, the session-entry exemptions |
+| `routes.test.js` | Route table snapshot: 227 method and path entries, failing on any drift |
 | `communityInvites.test.js` | Invite option bounds, approval flag normalisation, code entropy, status transitions |
 | `appUrl.test.js` | Canonical share-link origin: `CLIENT_URL` precedence, loopback development, request fallback |
 | `lfg.test.js` | Party creation rules, join/leave constraints, TTL expiry, board filters |
@@ -1449,8 +1475,9 @@ Both Redis suites run against an in-memory fake installed in front of
 `@upstash/redis` (`server/tests/helpers/fakeRedis.js`), so they are offline,
 deterministic, and exercise the real feature switch and key prefix.
 
-**51 client checks across 14 files** — `SegmentedTabs` (aria state, keyboard,
-indicator), `PostActions` (label/pressed state, spark burst gated on pointer and
+**54 client checks across 15 files** — `axiosInstance` (CSRF replay: one retry,
+no loop, and none when the refusal stored nothing), `SegmentedTabs` (aria state,
+keyboard, indicator), `PostActions` (label/pressed state, spark burst gated on pointer and
 reduced-motion), `PostCard` (like and bookmark requests, failure path, signed-out
 redirect), `NotificationBell` (dropdown vs portalled sheet at the 640 px
 breakpoint, badge count, mark-read), `Notifications` (cursor paging, unread

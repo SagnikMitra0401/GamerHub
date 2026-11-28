@@ -14,13 +14,11 @@ const readCookie = (name) => {
 const UNSAFE = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 /**
- * A session that started before this release has no CSRF cookie, so the first
- * mutation is refused and the refusal carries a token. Holding it in memory means
- * the replay works even when the browser declines to store the cookie; the cookie
- * wins whenever it exists, because that is what the server compared against.
+ * The double-submit token is read from the cookie every time, never copied. The
+ * server compares that cookie against the header, so a value held only in memory
+ * could not pass on its own.
  */
-let recoveredCsrf = '';
-const currentCsrf = () => readCookie('gh_csrf') || recoveredCsrf;
+const csrfToken = () => readCookie('gh_csrf');
 
 /**
  * Every mutation carries the double-submit token. A cross-site form cannot set
@@ -29,7 +27,7 @@ const currentCsrf = () => readCookie('gh_csrf') || recoveredCsrf;
  */
 axiosInstance.interceptors.request.use((config) => {
   if (UNSAFE.includes(String(config.method || 'get').toUpperCase())) {
-    const token = currentCsrf();
+    const token = csrfToken();
     if (token) config.headers.set('x-csrf-token', token);
   }
   return config;
@@ -61,7 +59,7 @@ const refreshSession = () => {
         withCredentials: true,
         // The refresh call bypasses this instance's interceptors, so it names
         // the token itself.
-        headers: { 'x-csrf-token': currentCsrf() },
+        headers: { 'x-csrf-token': csrfToken() },
       })
       .finally(() => {
         refreshing = null;
@@ -76,13 +74,12 @@ axiosInstance.interceptors.response.use(
     const { response, config } = err;
     if (!response || !config) throw err;
 
-    // A session that predates the CSRF cookie is refused once, with a token.
-    // Adopting it and replaying the request is what keeps that deploy from
-    // signing somebody out of their own actions.
+    // A session that predates the CSRF cookie is refused once, and the refusal
+    // stores the token. Replaying from that cookie is what keeps a deploy from
+    // signing somebody out of their own actions. With no cookie stored there is
+    // nothing to replay with, so the caller sees the refusal.
     if (response.status === 403 && response.data?.code === 'CSRF_REQUIRED') {
-      const token = response.data?.csrfToken;
-      if (!token || config._csrfRetried) throw err;
-      recoveredCsrf = token;
+      if (config._csrfRetried || !csrfToken()) throw err;
       return axiosInstance({ ...config, _csrfRetried: true });
     }
 

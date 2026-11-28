@@ -1,9 +1,11 @@
 /**
  * The CSRF replay, without a server.
  *
- * A rejection is handed straight to the interceptor, so the test sees exactly
- * what the browser sees: the first mutation is refused, the refusal carries a
- * token, and the same call is replayed once with that token in the header.
+ * A rejection is handed straight to the interceptor, so the test sees what the
+ * browser sees: the first mutation is refused, the refusal stores a token, and
+ * the same call is replayed once with that token in the header. The adapter
+ * writes the cookie itself, because a real Set-Cookie is what the server will
+ * check the replay against.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import axiosInstance from './axiosInstance';
@@ -28,6 +30,10 @@ const tokenOf = (config) => {
   return token || undefined;
 };
 
+const storeCsrf = (token) => {
+  document.cookie = `gh_csrf=${token}; path=/`;
+};
+
 const clearCsrfCookie = () => {
   document.cookie = 'gh_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
 };
@@ -35,13 +41,14 @@ const clearCsrfCookie = () => {
 describe('CSRF recovery', () => {
   beforeEach(clearCsrfCookie);
 
-  it('replays a refused mutation with the token from the refusal', async () => {
+  it('replays a refused mutation with the token the refusal stored', async () => {
     const sent = [];
     const adapter = adapterFrom((config) => {
       const token = tokenOf(config);
       sent.push(token);
       if (!token) {
-        return { status: 403, data: { code: 'CSRF_REQUIRED', csrfToken: 'recovered-token' } };
+        storeCsrf('first-token');
+        return { status: 403, data: { code: 'CSRF_REQUIRED' } };
       }
       return { status: 200, data: { saved: true } };
     });
@@ -50,21 +57,22 @@ describe('CSRF recovery', () => {
 
     expect(res.status).toBe(200);
     expect(res.data).toEqual({ saved: true });
-    expect(sent).toEqual([undefined, 'recovered-token']);
+    expect(sent).toEqual([undefined, 'first-token']);
   });
 
-  it('replays once, so a persistent refusal cannot become a loop', async () => {
+  it('replays once, so a refusal that keeps replacing the token cannot loop', async () => {
     let calls = 0;
     const adapter = adapterFrom(() => {
       calls += 1;
-      return { status: 403, data: { code: 'CSRF_REQUIRED', csrfToken: 'still-refused' } };
+      storeCsrf(`token-${calls}`);
+      return { status: 403, data: { code: 'CSRF_REQUIRED' } };
     });
 
     await expect(axiosInstance.post('/posts', { title: 'x' }, { adapter })).rejects.toThrow();
     expect(calls).toBe(2);
   });
 
-  it('does not replay a refusal that carries no token', async () => {
+  it('does not replay when the browser stored no token', async () => {
     let calls = 0;
     const adapter = adapterFrom(() => {
       calls += 1;

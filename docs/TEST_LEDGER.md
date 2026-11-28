@@ -71,6 +71,28 @@ checks and two scripts; step 2 adds no checks, only a warning ceiling.
 Pass 22 adds Phase 16: 36 new e2e checks, three new server test files and the
 YouTube facade tests; Phase 15 re-ran clean at 41/41.
 
+### Pass 29 (28 Nov) — CSRF recovery, reviewed
+
+Step 5's recovery carried two copies of one token and a client branch no browser
+could reach. Both are gone; what remains is the cookie.
+
+- **One copy of the token:** the refusal sets `gh_csrf` and answers 403
+  `CSRF_REQUIRED`. The body no longer carries a token, because the server
+  compares cookie to header and a body value could never pass on its own. The
+  client reads the cookie on every request and on the replay; the in-memory
+  `recoveredCsrf` fallback went with it.
+- **The refusal names the reload:** a tab still running the previous bundle has
+  no retry code, so the one recovery it can perform is a page load. The message
+  says so, and the stored cookie makes that reload enough. No server fallback
+  was added: letting a session without the cookie through would pass its first
+  request, set the cookie, then refuse every request after it.
+- **Tiers updated:** the unit check asserts the cookie is the only copy and the
+  message names the reload; the client test simulates the stored cookie rather
+  than a value held in memory; phase21 asserts the replacement cookie and the
+  message over HTTP.
+- **Measured:** `npm test` 379/379, client 54/54, phase21 14/14, lint 0 errors
+  and 66 warnings, format check, typecheck and the prose gate clean (0 P0/P1).
+
 ### Pass 28 (27 Nov) — CSRF, browser refresh, route gate
 
 Step 5 finished and step 6 started in
